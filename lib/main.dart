@@ -17,7 +17,7 @@ class ServerItem {
   final String host;
   final int port;
   final String protocol;
-  int ping; // -1: تست نشده, -2: قطع, >0: میلی‌ثانیه
+  int ping; // -1: تست نشده, -2: تایم‌اوت, >0: میلی‌ثانیه
 
   ServerItem({
     required this.rawUrl,
@@ -33,9 +33,12 @@ class ServerItem {
     if (url.startsWith('vless://') || url.startsWith('trojan://') || url.startsWith('ss://')) {
       try {
         final uri = Uri.parse(url);
-        final remark = uri.hasFragment && uri.fragment.isNotEmpty
-            ? Uri.decodeComponent(uri.fragment)
-            : (uri.host.isNotEmpty ? uri.host : 'سرور پرسرعت');
+        String remark = 'سرور پرسرعت';
+        if (uri.hasFragment && uri.fragment.isNotEmpty) {
+          remark = Uri.decodeComponent(uri.fragment);
+        } else if (uri.host.isNotEmpty) {
+          remark = uri.host;
+        }
         return ServerItem(
           rawUrl: url,
           name: remark,
@@ -49,7 +52,8 @@ class ServerItem {
         String b64 = url.substring(8).trim();
         int pad = b64.length % 4;
         if (pad > 0) b64 += '=' * (4 - pad);
-        final decoded = utf8.decode(base64.decode(base64.normalize(b64)));
+        b64 = b64.replaceAll('-', '+').replaceAll('_', '/');
+        final decoded = utf8.decode(base64.decode(b64));
         final map = json.decode(decoded);
         return ServerItem(
           rawUrl: url,
@@ -145,11 +149,42 @@ class _MainVpnScreenState extends State<MainVpnScreen> {
     }
   }
 
+  Future<List<String>> _fetchConfigsFromSubUrl(String subUrl) async {
+    try {
+      final res = await http.get(Uri.parse(subUrl), headers: {
+        'User-Agent': 'v2rayNG/1.8.5',
+      }).timeout(const Duration(seconds: 12));
+
+      if (res.statusCode == 200) {
+        String body = res.body.trim();
+        String decoded = '';
+        String clean = body.replaceAll('\n', '').replaceAll('\r', '').replaceAll(' ', '').trim();
+        clean = clean.replaceAll('-', '+').replaceAll('_', '/');
+        while (clean.length % 4 != 0) {
+          clean += '=';
+        }
+        try {
+          decoded = utf8.decode(base64.decode(clean));
+        } catch (_) {
+          decoded = body;
+        }
+
+        final lines = LineSplitter.split(decoded)
+            .map((e) => e.trim())
+            .where((e) => e.startsWith('vless://') || e.startsWith('vmess://') || e.startsWith('trojan://') || e.startsWith('ss://'))
+            .toList();
+
+        return lines;
+      }
+    } catch (_) {}
+    return [];
+  }
+
   Future<void> _fetchUserData(String username, [String password = '']) async {
     setState(() => isLoading = true);
     try {
       final uri = Uri.parse('https://majid6064.ir/api.php?username=${Uri.encodeComponent(username)}&password=${Uri.encodeComponent(password)}');
-      final res = await http.get(uri);
+      final res = await http.get(uri).timeout(const Duration(seconds: 12));
       if (res.statusCode == 200) {
         final data = json.decode(res.body);
         if (data['ok'] == true) {
@@ -158,6 +193,12 @@ class _MainVpnScreenState extends State<MainVpnScreen> {
           await prefs.setString('saved_password', password);
 
           List<String> rawConfigs = List<String>.from(data['configs'] ?? []);
+
+          // دانلود مستقیم روی گوشی در صورت مسدود بودن ارتباط در هاست
+          if (rawConfigs.isEmpty && data['sub_url'] != null && data['sub_url'].toString().isNotEmpty) {
+            rawConfigs = await _fetchConfigsFromSubUrl(data['sub_url']);
+          }
+
           List<ServerItem> parsed = rawConfigs.map((c) => ServerItem.fromUrl(c)).toList();
 
           setState(() {
@@ -169,10 +210,14 @@ class _MainVpnScreenState extends State<MainVpnScreen> {
 
           if (parsed.isNotEmpty) {
             _pingAllServers();
+          } else {
+            _showToast('اطلاعات دریافت شد اما سروری در اشتراک یافت نشد');
           }
         } else {
           _showToast(data['msg'] ?? 'خطا در احراز هویت');
         }
+      } else {
+        _showToast('خطا در ارتباط با سرور (${res.statusCode})');
       }
     } catch (e) {
       _showToast('خطا در اتصال به سرور');
@@ -239,7 +284,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> {
     }
 
     if (serverList.isEmpty) {
-      _showToast('هیچ سرور فعالی برای این حساب یافت نشد');
+      _showToast('هیچ سرور فعالی یافت نشد');
       return;
     }
 
@@ -283,10 +328,12 @@ class _MainVpnScreenState extends State<MainVpnScreen> {
                       children: [
                         const Text('انتخاب سرور', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                         TextButton.icon(
-                          onPressed: isPingingAll ? null : () async {
-                            await _pingAllServers();
-                            setSheetState(() {});
-                          },
+                          onPressed: isPingingAll
+                              ? null
+                              : () async {
+                                  await _pingAllServers();
+                                  setSheetState(() {});
+                                },
                           icon: isPingingAll
                               ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.cyanAccent))
                               : const Icon(Icons.refresh, size: 18, color: Colors.cyanAccent),
@@ -306,8 +353,8 @@ class _MainVpnScreenState extends State<MainVpnScreen> {
                           Color pingColor = Colors.grey;
                           String pingText = 'تست نشده';
                           if (s.ping > 0) {
-                            if (s.ping < 200) pingColor = Colors.greenAccent;
-                            else if (s.ping < 400) pingColor = Colors.orangeAccent;
+                            if (s.ping < 250) pingColor = Colors.greenAccent;
+                            else if (s.ping < 500) pingColor = Colors.orangeAccent;
                             else pingColor = Colors.redAccent;
                             pingText = '${s.ping} ms';
                           } else if (s.ping == -2) {
@@ -478,7 +525,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> {
         ? (userData!['used_gb'] / userData!['total_gb']).clamp(0.0, 1.0)
         : 0.0;
     final isConnected = v2rayStatus.state == 'CONNECTED';
-    final currentServerName = serverList.isNotEmpty ? serverList[selectedServerIndex].name : 'سرور پیش‌فرض';
+    final currentServerName = serverList.isNotEmpty ? serverList[selectedServerIndex].name : 'سرور در دسترس';
 
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
@@ -534,7 +581,6 @@ class _MainVpnScreenState extends State<MainVpnScreen> {
             ],
           ),
           const SizedBox(height: 24),
-          // کارت انتخاب سرور
           InkWell(
             onTap: _openServerPicker,
             borderRadius: BorderRadius.circular(18),
@@ -553,7 +599,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('سرور انتخابی', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                        const Text('سرور انتخابی (لمس برای تغییر)', style: TextStyle(fontSize: 11, color: Colors.grey)),
                         Text(currentServerName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14), overflow: TextOverflow.ellipsis),
                       ],
                     ),

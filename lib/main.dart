@@ -245,91 +245,6 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     ));
   }
 
-  // موتور ساخت کانفیگ دقیق و ضد قطعی DNS
-  String _buildFullV2RayJson(String rawConfig, String remark) {
-    try {
-      final parser = FlutterV2ray.parseFromURL(rawConfig);
-      final rawFull = parser.getFullConfiguration();
-      final Map<String, dynamic> config = json.decode(rawFull);
-
-      // ۱. اصلاح Inboundها و فعال‌سازی Sniffing کامل
-      config['inbounds'] = [
-        {
-          "tag": "socks",
-          "port": 10808,
-          "listen": "127.0.0.1",
-          "protocol": "socks",
-          "sniffing": {
-            "enabled": true,
-            "destOverride": ["http", "tls", "quic", "fakedns"],
-            "metadataOnly": false
-          },
-          "settings": {
-            "auth": "noauth",
-            "udp": true,
-            "userLevel": 8
-          }
-        },
-        {
-          "tag": "http",
-          "port": 10809,
-          "listen": "127.0.0.1",
-          "protocol": "http",
-          "sniffing": {
-            "enabled": true,
-            "destOverride": ["http", "tls", "quic", "fakedns"],
-            "metadataOnly": false
-          },
-          "settings": {
-            "userLevel": 8
-          }
-        }
-      ];
-
-      // ۲. تنظیم DNS ضد تحریم و ضد فیلترینگ
-      config['dns'] = {
-        "servers": [
-          "1.1.1.1",
-          "8.8.8.8",
-          "https://1.1.1.1/dns-query",
-          "https://dns.google/dns-query",
-          "localhost"
-        ]
-      };
-
-      // ۳. روتینگ مستقیم تمام ترافیک و پورت ۵۳ به سرور پروکسی
-      config['routing'] = {
-        "domainStrategy": "IPIfNonMatch",
-        "rules": [
-          {
-            "type": "field",
-            "port": "53",
-            "outboundTag": "proxy"
-          },
-          {
-            "type": "field",
-            "inboundTag": ["socks", "http"],
-            "outboundTag": "proxy"
-          },
-          {
-            "type": "field",
-            "network": "tcp,udp",
-            "outboundTag": "proxy"
-          }
-        ]
-      };
-
-      return json.encode(config);
-    } catch (_) {
-      try {
-        final parser = FlutterV2ray.parseFromURL(rawConfig);
-        return parser.getFullConfiguration();
-      } catch (e) {
-        return rawConfig;
-      }
-    }
-  }
-
   Future<void> _toggleConnect() async {
     if (v2rayStatus.state == 'CONNECTED') {
       await flutterV2ray.stopV2Ray();
@@ -342,22 +257,34 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
       return;
     }
 
-    if (await flutterV2ray.requestPermission()) {
-      setState(() => isConnecting = true);
-      try {
-        final target = serverList[selectedServerIndex];
-        final finalConfig = _buildFullV2RayJson(target.config, target.name);
+    // درخواست رسمی و تایید VPN سیستم‌عامل
+    final hasPermission = await flutterV2ray.requestPermission();
+    if (!hasPermission) {
+      _showToast('لطفاً دسترسی اتصال به VPN را در پنجره باز شده تایید کنید');
+      return;
+    }
 
-        await flutterV2ray.startV2Ray(
-          remark: target.name,
-          config: finalConfig,
-          proxyOnly: false,
-        );
-      } catch (e) {
-        _showToast('خطا در برقراری اتصال');
-      } finally {
-        setState(() => isConnecting = false);
+    setState(() => isConnecting = true);
+    try {
+      final target = serverList[selectedServerIndex];
+      String finalJsonConfig = '';
+
+      if (target.config.trim().startsWith('{')) {
+        finalJsonConfig = target.config.trim();
+      } else {
+        final v2rayURL = FlutterV2ray.parseFromURL(target.config);
+        finalJsonConfig = v2rayURL.getFullConfiguration();
       }
+
+      await flutterV2ray.startV2Ray(
+        remark: target.name,
+        config: finalJsonConfig,
+        proxyOnly: false,
+      );
+    } catch (e) {
+      _showToast('خطا در اجرای اتصال: $e');
+    } finally {
+      setState(() => isConnecting = false);
     }
   }
 

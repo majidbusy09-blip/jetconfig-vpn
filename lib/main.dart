@@ -11,65 +11,30 @@ void main() {
   runApp(const JetConfigApp());
 }
 
-class ServerItem {
-  final String rawUrl;
+class ServerModel {
   final String name;
   final String host;
   final int port;
   final String protocol;
+  final String config;
   int ping; // -1: تست نشده, -2: تایم‌اوت, >0: میلی‌ثانیه
 
-  ServerItem({
-    required this.rawUrl,
+  ServerModel({
     required this.name,
     required this.host,
     required this.port,
     required this.protocol,
+    required this.config,
     this.ping = -1,
   });
 
-  static ServerItem fromUrl(String url) {
-    url = url.trim();
-    if (url.startsWith('vless://') || url.startsWith('trojan://') || url.startsWith('ss://')) {
-      try {
-        final uri = Uri.parse(url);
-        String remark = 'سرور پرسرعت';
-        if (uri.hasFragment && uri.fragment.isNotEmpty) {
-          remark = Uri.decodeComponent(uri.fragment);
-        } else if (uri.host.isNotEmpty) {
-          remark = uri.host;
-        }
-        return ServerItem(
-          rawUrl: url,
-          name: remark,
-          host: uri.host,
-          port: uri.port > 0 ? uri.port : 443,
-          protocol: uri.scheme.toUpperCase(),
-        );
-      } catch (_) {}
-    } else if (url.startsWith('vmess://')) {
-      try {
-        String b64 = url.substring(8).trim();
-        int pad = b64.length % 4;
-        if (pad > 0) b64 += '=' * (4 - pad);
-        b64 = b64.replaceAll('-', '+').replaceAll('_', '/');
-        final decoded = utf8.decode(base64.decode(b64));
-        final map = json.decode(decoded);
-        return ServerItem(
-          rawUrl: url,
-          name: map['ps'] ?? 'سرور VMess',
-          host: map['add'] ?? '',
-          port: int.tryParse('${map['port']}') ?? 443,
-          protocol: 'VMESS',
-        );
-      } catch (_) {}
-    }
-    return ServerItem(
-      rawUrl: url,
-      name: 'سرور JetConfig',
-      host: '',
-      port: 443,
-      protocol: 'V2RAY',
+  factory ServerModel.fromJson(Map<String, dynamic> json) {
+    return ServerModel(
+      name: json['name'] ?? 'سرور پرسرعت',
+      host: json['host'] ?? '',
+      port: int.tryParse('${json['port']}') ?? 443,
+      protocol: json['protocol'] ?? 'VPN',
+      config: json['config'] ?? '',
     );
   }
 }
@@ -125,7 +90,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> {
 
   Map<String, dynamic>? userData;
   String? savedUser;
-  List<ServerItem> serverList = [];
+  List<ServerModel> serverList = [];
   int selectedServerIndex = 0;
 
   @override
@@ -149,37 +114,6 @@ class _MainVpnScreenState extends State<MainVpnScreen> {
     }
   }
 
-  Future<List<String>> _fetchConfigsFromSubUrl(String subUrl) async {
-    try {
-      final res = await http.get(Uri.parse(subUrl), headers: {
-        'User-Agent': 'v2rayNG/1.8.5',
-      }).timeout(const Duration(seconds: 12));
-
-      if (res.statusCode == 200) {
-        String body = res.body.trim();
-        String decoded = '';
-        String clean = body.replaceAll('\n', '').replaceAll('\r', '').replaceAll(' ', '').trim();
-        clean = clean.replaceAll('-', '+').replaceAll('_', '/');
-        while (clean.length % 4 != 0) {
-          clean += '=';
-        }
-        try {
-          decoded = utf8.decode(base64.decode(clean));
-        } catch (_) {
-          decoded = body;
-        }
-
-        final lines = LineSplitter.split(decoded)
-            .map((e) => e.trim())
-            .where((e) => e.startsWith('vless://') || e.startsWith('vmess://') || e.startsWith('trojan://') || e.startsWith('ss://'))
-            .toList();
-
-        return lines;
-      }
-    } catch (_) {}
-    return [];
-  }
-
   Future<void> _fetchUserData(String username, [String password = '']) async {
     setState(() => isLoading = true);
     try {
@@ -192,14 +126,8 @@ class _MainVpnScreenState extends State<MainVpnScreen> {
           await prefs.setString('saved_username', username);
           await prefs.setString('saved_password', password);
 
-          List<String> rawConfigs = List<String>.from(data['configs'] ?? []);
-
-          // دانلود مستقیم روی گوشی در صورت مسدود بودن ارتباط در هاست
-          if (rawConfigs.isEmpty && data['sub_url'] != null && data['sub_url'].toString().isNotEmpty) {
-            rawConfigs = await _fetchConfigsFromSubUrl(data['sub_url']);
-          }
-
-          List<ServerItem> parsed = rawConfigs.map((c) => ServerItem.fromUrl(c)).toList();
+          final List<dynamic> rawServers = data['servers'] ?? [];
+          final parsed = rawServers.map((s) => ServerModel.fromJson(s)).toList();
 
           setState(() {
             userData = data;
@@ -211,16 +139,14 @@ class _MainVpnScreenState extends State<MainVpnScreen> {
           if (parsed.isNotEmpty) {
             _pingAllServers();
           } else {
-            _showToast('اطلاعات دریافت شد اما سروری در اشتراک یافت نشد');
+            _showToast('سروری برای این حساب یافت نشد');
           }
         } else {
-          _showToast(data['msg'] ?? 'خطا در احراز هویت');
+          _showToast(data['msg'] ?? 'خطا در ورود به حساب');
         }
-      } else {
-        _showToast('خطا در ارتباط با سرور (${res.statusCode})');
       }
     } catch (e) {
-      _showToast('خطا در اتصال به سرور');
+      _showToast('خطا در ارتباط با سرور');
     } finally {
       setState(() => isLoading = false);
     }
@@ -292,10 +218,19 @@ class _MainVpnScreenState extends State<MainVpnScreen> {
       setState(() => isConnecting = true);
       try {
         final target = serverList[selectedServerIndex];
-        final v2rayURL = FlutterV2ray.parseFromURL(target.rawUrl);
+        String finalConfig = target.config;
+
+        if (finalConfig.trim().startsWith('vless://') ||
+            finalConfig.trim().startsWith('vmess://') ||
+            finalConfig.trim().startsWith('trojan://') ||
+            finalConfig.trim().startsWith('ss://')) {
+          final v2rayURL = FlutterV2ray.parseFromURL(finalConfig);
+          finalConfig = v2rayURL.getFullConfiguration();
+        }
+
         await flutterV2ray.startV2Ray(
           remark: target.name,
-          config: v2rayURL.getFullConfiguration(),
+          config: finalConfig,
           proxyOnly: false,
         );
       } catch (e) {
@@ -525,7 +460,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> {
         ? (userData!['used_gb'] / userData!['total_gb']).clamp(0.0, 1.0)
         : 0.0;
     final isConnected = v2rayStatus.state == 'CONNECTED';
-    final currentServerName = serverList.isNotEmpty ? serverList[selectedServerIndex].name : 'سرور در دسترس';
+    final currentServerName = serverList.isNotEmpty ? serverList[selectedServerIndex].name : 'سرور پیش‌فرض';
 
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),

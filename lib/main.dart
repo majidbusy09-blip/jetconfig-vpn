@@ -245,6 +245,91 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     ));
   }
 
+  // موتور ساخت کانفیگ دقیق و ضد قطعی DNS
+  String _buildFullV2RayJson(String rawConfig, String remark) {
+    try {
+      final parser = FlutterV2ray.parseFromURL(rawConfig);
+      final rawFull = parser.getFullConfiguration();
+      final Map<String, dynamic> config = json.decode(rawFull);
+
+      // ۱. اصلاح Inboundها و فعال‌سازی Sniffing کامل
+      config['inbounds'] = [
+        {
+          "tag": "socks",
+          "port": 10808,
+          "listen": "127.0.0.1",
+          "protocol": "socks",
+          "sniffing": {
+            "enabled": true,
+            "destOverride": ["http", "tls", "quic", "fakedns"],
+            "metadataOnly": false
+          },
+          "settings": {
+            "auth": "noauth",
+            "udp": true,
+            "userLevel": 8
+          }
+        },
+        {
+          "tag": "http",
+          "port": 10809,
+          "listen": "127.0.0.1",
+          "protocol": "http",
+          "sniffing": {
+            "enabled": true,
+            "destOverride": ["http", "tls", "quic", "fakedns"],
+            "metadataOnly": false
+          },
+          "settings": {
+            "userLevel": 8
+          }
+        }
+      ];
+
+      // ۲. تنظیم DNS ضد تحریم و ضد فیلترینگ
+      config['dns'] = {
+        "servers": [
+          "1.1.1.1",
+          "8.8.8.8",
+          "https://1.1.1.1/dns-query",
+          "https://dns.google/dns-query",
+          "localhost"
+        ]
+      };
+
+      // ۳. روتینگ مستقیم تمام ترافیک و پورت ۵۳ به سرور پروکسی
+      config['routing'] = {
+        "domainStrategy": "IPIfNonMatch",
+        "rules": [
+          {
+            "type": "field",
+            "port": "53",
+            "outboundTag": "proxy"
+          },
+          {
+            "type": "field",
+            "inboundTag": ["socks", "http"],
+            "outboundTag": "proxy"
+          },
+          {
+            "type": "field",
+            "network": "tcp,udp",
+            "outboundTag": "proxy"
+          }
+        ]
+      };
+
+      return json.encode(config);
+    } catch (_) {
+      try {
+        final parser = FlutterV2ray.parseFromURL(rawConfig);
+        return parser.getFullConfiguration();
+      } catch (e) {
+        return rawConfig;
+      }
+    }
+  }
+
   Future<void> _toggleConnect() async {
     if (v2rayStatus.state == 'CONNECTED') {
       await flutterV2ray.stopV2Ray();
@@ -261,15 +346,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
       setState(() => isConnecting = true);
       try {
         final target = serverList[selectedServerIndex];
-        String finalConfig = target.config;
-
-        if (finalConfig.trim().startsWith('vless://') ||
-            finalConfig.trim().startsWith('vmess://') ||
-            finalConfig.trim().startsWith('trojan://') ||
-            finalConfig.trim().startsWith('ss://')) {
-          final v2rayURL = FlutterV2ray.parseFromURL(finalConfig);
-          finalConfig = v2rayURL.getFullConfiguration();
-        }
+        final finalConfig = _buildFullV2RayJson(target.config, target.name);
 
         await flutterV2ray.startV2Ray(
           remark: target.name,
@@ -622,7 +699,6 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
       child: Column(
         children: [
           const SizedBox(height: 10),
-          // لوگوی اختصاصی نئونی با افکت سایه و قاب سه‌بعدی
           Container(
             width: 130,
             height: 130,

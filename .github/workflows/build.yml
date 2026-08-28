@@ -26,7 +26,7 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: Configure Android Project, Dependencies & App Icons
+      - name: Configure Android Native Split Tunneling, App Icons & Permissions
         run: |
           flutter create . --platforms=android --project-name=jetconfig_vpn --org com.jetconfig.vpn
 
@@ -37,7 +37,7 @@ jobs:
           import urllib.request, os, shutil, re
           from PIL import Image
 
-          # تولید آیکون تمام‌کادر از لوگوی موشکی کانال
+          # ۱. تولید آیکون تمام‌کادر از لوگوی موشکی کانال
           try:
               urllib.request.urlretrieve('https://majid6064.ir/logo.png', 'logo.png')
               im = Image.open('logo.png').convert('RGBA')
@@ -72,7 +72,48 @@ jobs:
           except Exception as e:
               print('Icon error:', e)
 
-          # تنظیم مانیفست و باز کردن لینک‌ها
+          # ۲. تنظیم MainActivity.kt برای پشتیبانی از متد چنل دریافت پکیج‌ها
+          main_activity_kt = '''package com.jetconfig.vpn
+
+import io.flutter.embedding.android.FlutterActivity
+import io.flutter.embedding.engine.FlutterEngine
+import io.flutter.plugin.common.MethodChannel
+
+class MainActivity: FlutterActivity() {
+    private val CHANNEL = \"com.jetconfig.vpn/apps\"
+
+    override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
+        super.configureFlutterEngine(flutterEngine)
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL).setMethodCallHandler { call, result ->
+            if (call.method == \"getInstalledApps\") {
+                try {
+                    val packages = packageManager.getInstalledPackages(0)
+                    val packageNames = packages.map { it.packageName }
+                    result.success(packageNames)
+                } catch (e: Exception) {
+                    result.error(\"ERROR\", e.message, null)
+                }
+            } else {
+                result.notImplemented()
+            }
+        }
+    }
+}
+'''
+          for root, _, files in os.walk('android/app/src/main'):
+              for file in files:
+                  if file in ['MainActivity.kt', 'MainActivity.java']:
+                      f_path = os.path.join(root, file)
+                      if file == 'MainActivity.kt':
+                          with open(f_path, 'w', encoding='utf-8') as f:
+                              f.write(main_activity_kt)
+                      elif file == 'MainActivity.java':
+                          os.remove(f_path)
+                          kt_path = os.path.join(root, 'MainActivity.kt')
+                          with open(kt_path, 'w', encoding='utf-8') as f:
+                              f.write(main_activity_kt)
+
+          # ۳. تنظیم مجوزها و دسترسی QUERY_ALL_PACKAGES در مانیفست
           manifest_path = 'android/app/src/main/AndroidManifest.xml'
           if os.path.exists(manifest_path):
               with open(manifest_path, 'r', encoding='utf-8') as f:
@@ -86,6 +127,7 @@ jobs:
                   <uses-permission android:name=\"android.permission.POST_NOTIFICATIONS\" />
                   <uses-permission android:name=\"android.permission.ACCESS_NETWORK_STATE\" />
                   <uses-permission android:name=\"android.permission.CHANGE_NETWORK_STATE\" />
+                  <uses-permission android:name=\"android.permission.QUERY_ALL_PACKAGES\" />
               '''
               m = m.replace('<application', perms + '\n    <application')
 
@@ -105,9 +147,9 @@ jobs:
 
               with open(manifest_path, 'w', encoding='utf-8') as f:
                   f.write(m)
-              print('Manifest configured.')
+              print('Manifest updated.')
 
-          # تنظیم حداقل نسخه SDK
+          # ۴. تنظیم minSdkVersion روی 21
           gradle_path = 'android/app/build.gradle'
           if os.path.exists(gradle_path):
               with open(gradle_path, 'r', encoding='utf-8') as f:

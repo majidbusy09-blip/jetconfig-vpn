@@ -2,7 +2,7 @@ name: Build JetConfig VPN APK
 
 on:
   push:
-    branches: [ "main", "master" ]
+    branches: [ main ]
   workflow_dispatch:
 
 jobs:
@@ -10,81 +10,70 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout Code
+      - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Setup Java
+      - name: Set up Java
         uses: actions/setup-java@v4
         with:
           distribution: 'zulu'
           java-version: '17'
 
-      - name: Setup Flutter
+      - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
+          flutter-version: '3.19.6'
           channel: 'stable'
+          cache: true
 
-      - name: Setup Android Project and Native Files
+      - name: Set App Icon and Label
         run: |
-          # بکاپ‌گیری از کدهای اصلی و پکیج‌ها
-          cp pubspec.yaml pubspec.yaml.bak
-          cp -r lib lib_bak
-          
-          # ساخت ساختار نیتیو اندروید
-          flutter create --project-name jetconfig_vpn --org com.jetconfig.vpn --platforms=android .
-          
-          # بازگرداندن کدها و تنظیمات اصلی
-          mv pubspec.yaml.bak pubspec.yaml
-          rm -rf lib
-          mv lib_bak lib
-
-          # تنظیم خودکار minSdkVersion روی ۲۱ (پشتیبانی از هر دو فرمت .kts و معمولی)
           python3 -c "
-          import os
-          files = ['android/app/build.gradle.kts', 'android/app/build.gradle']
-          for p in files:
-              if os.path.exists(p):
-                  with open(p, 'r') as f: c = f.read()
-                  c = c.replace('flutter.minSdkVersion', '21')
-                  c = c.replace('minSdkVersion flutter.minSdkVersion', 'minSdkVersion 21')
-                  c = c.replace('minSdk = flutter.minSdkVersion', 'minSdk = 21')
-                  with open(p, 'w') as f: f.write(c)
-          "
+          import urllib.request
+          from PIL import Image
+          import os, shutil
 
-          # افزودن دسترسی‌ها و سرویس VPN به فایل AndroidManifest
-          python3 -c "
-          import os
-          p = 'android/app/src/main/AndroidManifest.xml'
-          if os.path.exists(p):
-              with open(p, 'r') as f: c = f.read()
-              perms = '''
-              <uses-permission android:name=\"android.permission.INTERNET\" />
-              <uses-permission android:name=\"android.permission.FOREGROUND_SERVICE\" />
-              '''
-              service = '''
-                  <service
-                      android:name=\"com.flutterv2ray.flutter_v2ray.core.V2rayService\"
-                      android:exported=\"false\"
-                      android:permission=\"android.permission.BIND_VPN_SERVICE\">
-                      <intent-filter>
-                          <action android:name=\"android.net.VpnService\" />
-                      </intent-filter>
-                  </service>
-              '''
-              if 'android.permission.INTERNET' not in c:
-                  c = c.replace('<application', perms + '\n    <application')
-              if 'com.flutterv2ray.flutter_v2ray.core.V2rayService' not in c:
-                  c = c.replace('</application>', service + '\n    </application>')
-              with open(p, 'w') as f: f.write(c)
+          # 1. Download Logo
+          urllib.request.urlretrieve('https://majid6064.ir/logo.png', 'logo.png')
+          im = Image.open('logo.png').convert('RGBA')
+
+          # 2. Remove anydpi-v26 override
+          anydpi_path = 'android/app/src/main/res/mipmap-anydpi-v26'
+          if os.path.exists(anydpi_path):
+              shutil.rmtree(anydpi_path)
+
+          # 3. Generate PNG icons
+          sizes = {
+              'mipmap-mdpi': 48,
+              'mipmap-hdpi': 72,
+              'mipmap-xhdpi': 96,
+              'mipmap-xxhdpi': 144,
+              'mipmap-xxxhdpi': 192
+          }
+          for folder, size in sizes.items():
+              path = f'android/app/src/main/res/{folder}'
+              os.makedirs(path, exist_ok=True)
+              im.resize((size, size), Image.Resampling.LANCZOS).save(f'{path}/ic_launcher.png', 'PNG')
+
+          # 4. Set App Title in AndroidManifest
+          manifest_path = 'android/app/src/main/AndroidManifest.xml'
+          if os.path.exists(manifest_path):
+              with open(manifest_path, 'r', encoding='utf-8') as f:
+                  content = f.read()
+              content = content.replace('android:label=\"jetconfig_vpn\"', 'android:label=\"JetConfig VPN\"')
+              with open(manifest_path, 'w', encoding='utf-8') as f:
+                  f.write(content)
+
+          print('Launcher icons and label configured successfully!')
           "
 
       - name: Install Dependencies
         run: flutter pub get
 
-      - name: Build Release APK
+      - name: Build Android APK
         run: flutter build apk --release
 
-      - name: Upload APK File
+      - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
           name: JetConfig-VPN-Release

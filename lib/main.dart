@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_v2ray/flutter_v2ray.dart';
@@ -11,68 +10,80 @@ import 'package:percent_indicator/circular_percent_indicator.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 void main() {
+  WidgetsFlutterBinding.ensureInitialized();
   runApp(const JetConfigApp());
 }
 
 const String appLogoUrl = 'https://majid6064.ir/logo.png';
 const String telegramBotUrl = 'https://t.me/JetConfig1bot';
 const String telegramChannelUrl = 'https://t.me/jetconfig11';
-const MethodChannel _appChannel = MethodChannel('com.jetconfig.vpn/apps');
 
-// لیست جامع برنامه‌های فیلترشده و تحریم‌شده
-const List<String> filteredAppPackages = [
-  'org.telegram.messenger',
-  'org.telegram.messenger.web',
-  'org.telegram.messenger.beta',
-  'org.thunderdog.challegram',
-  'org.telegram.plus',
-  'org.vidogram.messenger',
-  'org.telegram.BifToGram',
-  'ir.ilm.teleplus',
-  'com.iMe.android',
-  'nekox.messenger',
-  'org.forkclient.messenger',
-  'com.instagram.android',
-  'com.instagram.lite',
-  'com.instagram.barcelona',
-  'com.facebook.katana',
-  'com.facebook.orca',
-  'com.facebook.lite',
-  'com.whatsapp',
-  'com.whatsapp.w4b',
-  'com.twitter.android',
-  'com.twitter.android.lite',
-  'com.zhiliaoapp.musically',
-  'com.ss.android.ugc.trill',
-  'com.google.android.youtube',
-  'com.google.android.apps.youtube.music',
-  'com.google.android.apps.youtube.kids',
-  'com.spotify.music',
-  'com.spotify.lite',
-  'com.soundcloud.android',
-  'tv.twitch.android.app',
-  'com.netflix.mediaclient',
-  'com.openai.chatgpt',
-  'com.microsoft.copilot',
-  'com.google.android.apps.bard',
-  'com.anthropic.claude',
-  'com.poe.android',
-  'ai.perplexity.app.android',
-  'ai.character.app',
-  'com.discord',
-  'com.reddit.frontpage',
-  'com.pinterest',
-  'com.snapchat.android',
-  'org.thoughtcrime.securesms',
-  'clubhouse.hellowoal',
-  'com.medium.reader',
-  'com.quora.android',
-  'com.android.vending',
-  'com.roblox.client',
-  'com.supercell.clashofclans',
-  'com.supercell.clashroyale',
-  'com.supercell.brawlstars',
-  'com.valvesoftware.android.steam.community',
+// لیست جامع اپ‌های ایرانی، بانکی و مرورگرها جهت اتصال مستقیم با آی‌پی ایران
+const List<String> iranianAndBrowserPackages = [
+  // --- مرورگرها ---
+  'com.android.chrome',
+  'org.mozilla.firefox',
+  'com.sec.android.app.sbrowser',
+  'com.opera.browser',
+  'com.opera.mini.native',
+  'com.brave.browser',
+  'com.microsoft.emmx',
+  'com.UCMobile.intl',
+
+  // --- بانک‌ها و همراه بانک‌ها ---
+  'ir.bankmaskan.mobilebank',
+  'ir.bankmaskan.rayanmehr',
+  'ir.bankmaskan.hamrah',
+  'com.maskan.mobilebank',
+  'ir.bankmaskan.android',
+  'com.samanpr.blu',
+  'ir.melli.bam',
+  'ir.bmi.bam',
+  'ir.bankmellat.mobile',
+  'com.saderat.mb',
+  'ir.bsi.mobilebank',
+  'ir.tejaratbank.mobilebank',
+  'ir.bpi.mobilebank',
+  'ir.sb24.mobilbank',
+  'ir.citybank.mobilebank',
+  'ir.agribank.mobile',
+  'ir.mresalat.app',
+  'com.bmi.omad',
+  'ir.parsianbank.mobilebank',
+  'ir.ayandeh.hamrah',
+  'ir.bankrefah.mobilebank',
+
+  // --- خدمات مالی و پرداخت ---
+  'com.asandakht.app',
+  'com.asanpardakht.app',
+  'ir.sep.qpay',
+  'ir.pec.cpay',
+  'com.bpm.sekeh',
+  'ir.mizan.hamrahcard',
+
+  // --- خدمات آنلاین و اپراتورها ---
+  'cab.snapp.passenger',
+  'com.snapp.passenger',
+  'cab.snapp.driver',
+  'ir.tapsi.cab',
+  'ir.tapsi.passenger',
+  'com.digikala.mobile',
+  'ir.divar',
+  'ir.sheypoor.mobile',
+  'org.neshan.maps',
+  'ir.balad.navigation',
+  'com.torob',
+  'ir.basalam.app',
+  'ir.alibaba.travel',
+  'ir.mtnirancell.myirancell',
+  'ir.mci.ecareapp',
+  'ir.rightel.ecare',
+
+  // --- پیام‌رسان‌های داخلی ---
+  'ir.eitaa.messenger',
+  'ir.rubika.app',
+  'ir.resaneh.rubika',
+  'ir.ble.messenger',
 ];
 
 class ServerModel {
@@ -131,13 +142,17 @@ class MainVpnScreen extends StatefulWidget {
 class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateMixin {
   late final FlutterV2ray flutterV2ray = FlutterV2ray(
     onStatusChanged: (status) {
-      setState(() {
-        v2rayStatus = status;
-      });
+      if (mounted) {
+        setState(() {
+          v2rayStatus = status;
+        });
+      }
       if (status.state == 'CONNECTED') {
         _checkActivePing();
       } else {
-        setState(() => activePing = -1);
+        if (mounted) {
+          setState(() => activePing = -1);
+        }
       }
     },
   );
@@ -215,15 +230,19 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     final user = prefs.getString('saved_username');
     final savedTunnelMode = prefs.getBool('only_filtered_apps') ?? false;
 
-    setState(() {
-      onlyFilteredApps = savedTunnelMode;
-    });
+    if (mounted) {
+      setState(() {
+        onlyFilteredApps = savedTunnelMode;
+      });
+    }
 
     if (user != null && user.isNotEmpty) {
-      setState(() {
-        savedUser = user;
-        _userController.text = user;
-      });
+      if (mounted) {
+        setState(() {
+          savedUser = user;
+          _userController.text = user;
+        });
+      }
       _fetchUserData(user);
     }
   }
@@ -231,9 +250,11 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
   Future<void> _saveTunnelMode(bool val) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('only_filtered_apps', val);
-    setState(() {
-      onlyFilteredApps = val;
-    });
+    if (mounted) {
+      setState(() {
+        onlyFilteredApps = val;
+      });
+    }
 
     if (v2rayStatus.state == 'CONNECTED') {
       _showToast('در حال تغییر حالت شبکه...');
@@ -243,27 +264,16 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     }
   }
 
-  Future<List<String>?> _getAppsToBypass() async {
-    try {
-      final List<dynamic>? installed = await _appChannel.invokeMethod('getInstalledApps');
-      if (installed != null) {
-        final allApps = installed.cast<String>();
-        return allApps.where((pkg) => !filteredAppPackages.contains(pkg) && pkg != 'com.jetconfig.vpn').toList();
-      }
-    } catch (_) {}
-    return null;
-  }
-
   Future<void> _openTelegram(String url) async {
     try {
       final uri = Uri.parse(url);
       if (await canLaunchUrl(uri)) {
         await launchUrl(uri, mode: LaunchMode.externalApplication);
       } else {
-        _showToast('امکان باز کردن لینک در تلگرام وجود ندارد');
+        _showToast('امکان باز کردن لینک وجود ندارد');
       }
     } catch (_) {
-      _showToast('خطا در باز کردن تلگرام');
+      _showToast('خطا در باز کردن لینک');
     }
   }
 
@@ -281,12 +291,14 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
           final List<dynamic> rawServers = data['servers'] ?? [];
           final parsed = rawServers.map((s) => ServerModel.fromJson(s)).toList();
 
-          setState(() {
-            userData = data;
-            savedUser = username;
-            serverList = parsed;
-            selectedServerIndex = 0;
-          });
+          if (mounted) {
+            setState(() {
+              userData = data;
+              savedUser = username;
+              serverList = parsed;
+              selectedServerIndex = 0;
+            });
+          }
 
           if (isManualRefresh) {
             _showToast('کانفیگ‌ها با موفقیت بروزرسانی شدند');
@@ -302,7 +314,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     } catch (e) {
       _showToast('خطا در برقراری ارتباط با سرور');
     } finally {
-      setState(() => isLoading = false);
+      if (mounted) setState(() => isLoading = false);
     }
   }
 
@@ -379,7 +391,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
   Future<void> _toggleConnect() async {
     if (v2rayStatus.state == 'CONNECTED') {
       await flutterV2ray.stopV2Ray();
-      setState(() => activePing = -1);
+      if (mounted) setState(() => activePing = -1);
       return;
     }
 
@@ -394,7 +406,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
       final bool permissionGranted = await flutterV2ray.requestPermission();
       if (!permissionGranted) {
         _showToast('مجوز اتصال VPN تایید نشد');
-        setState(() => isConnecting = false);
+        if (mounted) setState(() => isConnecting = false);
         return;
       }
 
@@ -409,19 +421,14 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
         configString = parsedUrl.getFullConfiguration();
       }
 
-      List<String>? blockedAppsList;
-      if (onlyFilteredApps) {
-        blockedAppsList = await _getAppsToBypass();
-      }
-
       await flutterV2ray.startV2Ray(
         remark: target.name,
         config: configString,
-        blockedApps: blockedAppsList,
+        blockedApps: onlyFilteredApps ? iranianAndBrowserPackages : null,
         proxyOnly: false,
       );
     } catch (e) {
-      _showToast('خطا در برقراری اتصال: $e');
+      _showToast('خطا در برقراری اتصال');
     } finally {
       if (mounted) {
         setState(() => isConnecting = false);
@@ -640,7 +647,6 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     );
   }
 
-  // ویجت مانیتور مصرف حجم نشست جاری
   Widget _buildSessionTrafficCards() {
     final isConnected = v2rayStatus.state == 'CONNECTED';
     final downloadBytes = isConnected ? v2rayStatus.download : 0;
@@ -955,11 +961,13 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
                   if (v2rayStatus.state == 'CONNECTED') {
                     await flutterV2ray.stopV2Ray();
                   }
-                  setState(() {
-                    savedUser = null;
-                    userData = null;
-                    serverList.clear();
-                  });
+                  if (mounted) {
+                    setState(() {
+                      savedUser = null;
+                      userData = null;
+                      serverList.clear();
+                    });
+                  }
                 },
               )
           ],
@@ -1115,7 +1123,6 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
             ],
           ),
           const SizedBox(height: 12),
-          // نمایش حجم دانلود و آپلود هر نشست
           _buildSessionTrafficCards(),
           const SizedBox(height: 12),
           _buildTunnelModeSwitch(),

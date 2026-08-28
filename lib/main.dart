@@ -56,7 +56,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> {
   int serverPing = -1;
   Map<String, dynamic>? userData;
   String? savedUser;
-  List<String> parsedConfigs = [];
+  List<String> serverConfigs = [];
 
   @override
   void initState() {
@@ -89,8 +89,8 @@ class _MainVpnScreenState extends State<MainVpnScreen> {
           setState(() {
             userData = data;
             savedUser = username;
+            serverConfigs = List<String>.from(data['configs'] ?? []);
           });
-          _loadConfigsFromSub(data['sub_url']);
         } else {
           _showToast(data['msg'] ?? 'خطا در احراز هویت');
         }
@@ -100,33 +100,6 @@ class _MainVpnScreenState extends State<MainVpnScreen> {
     } finally {
       setState(() => isLoading = false);
     }
-  }
-
-  Future<void> _loadConfigsFromSub(String? subUrl) async {
-    if (subUrl == null || subUrl.isEmpty) return;
-    try {
-      final res = await http.get(Uri.parse(subUrl), headers: {
-        'User-Agent': 'v2rayNG/1.8.5',
-      });
-      if (res.statusCode == 200) {
-        String body = res.body.replaceAll('\n', '').replaceAll('\r', '').trim();
-        String decoded = '';
-        try {
-          decoded = utf8.decode(base64.decode(base64.normalize(body)));
-        } catch (_) {
-          decoded = utf8.decode(base64Url.decode(base64Url.normalize(body)));
-        }
-        
-        final list = LineSplitter.split(decoded)
-            .map((e) => e.trim())
-            .where((e) => e.startsWith('vless://') || e.startsWith('vmess://') || e.startsWith('trojan://') || e.startsWith('ss://'))
-            .toList();
-
-        setState(() {
-          parsedConfigs = list;
-        });
-      }
-    } catch (_) {}
   }
 
   Future<void> _checkPing() async {
@@ -149,28 +122,22 @@ class _MainVpnScreenState extends State<MainVpnScreen> {
       return;
     }
 
-    if (parsedConfigs.isEmpty) {
-      if (userData?['sub_url'] != null) {
-        await _loadConfigsFromSub(userData!['sub_url']);
-      }
-      if (parsedConfigs.isEmpty) {
-        _showToast('هیچ سرور فعالی یافت نشد');
-        return;
-      }
+    if (serverConfigs.isEmpty) {
+      _showToast('هیچ سرور فعالی برای این حساب یافت نشد');
+      return;
     }
 
     if (await flutterV2ray.requestPermission()) {
       setState(() => isConnecting = true);
       try {
-        // اتصال به اولین کانفیگ معتبر
-        final v2rayURL = FlutterV2ray.parseFromURL(parsedConfigs.first);
+        final v2rayURL = FlutterV2ray.parseFromURL(serverConfigs.first);
         await flutterV2ray.startV2Ray(
-          remark: 'JetConfig High Speed',
+          remark: 'JetConfig Fast',
           config: v2rayURL.getFullConfiguration(),
           proxyOnly: false,
         );
       } catch (e) {
-        _showToast('خطا در برقراری اتصال');
+        _showToast('خطا در برقراری اتصال هسته');
       } finally {
         setState(() => isConnecting = false);
       }
@@ -200,7 +167,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> {
                   setState(() {
                     savedUser = null;
                     userData = null;
-                    parsedConfigs.clear();
+                    serverConfigs.clear();
                   });
                 },
               )
@@ -231,7 +198,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> {
             controller: _userController,
             textAlign: TextAlign.center,
             decoration: InputDecoration(
-              hintText: 'مثال: user_93330195_778',
+              hintText: 'مثال: test3',
               filled: true,
               fillColor: const Color(0xFF1E293B),
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),

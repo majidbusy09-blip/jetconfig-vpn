@@ -43,7 +43,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> {
     },
   );
 
-  var v2rayStatus = ValueNotifier<V2RayStatus>(V2RayStatus());
+  V2RayStatus v2rayStatus = V2RayStatus();
   final TextEditingController _userController = TextEditingController();
 
   bool isLoading = false;
@@ -100,7 +100,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> {
   Future<void> _toggleConnect() async {
     if (userData == null || userData!['sub_url'] == null) return;
 
-    if (v2rayStatus.value.state == 'CONNECTED') {
+    if (v2rayStatus.state == 'CONNECTED') {
       await flutterV2ray.stopV2Ray();
       return;
     }
@@ -114,10 +114,10 @@ class _MainVpnScreenState extends State<MainVpnScreen> {
           List<String> configs = rawConfig.split('\n').where((s) => s.trim().isNotEmpty).toList();
           
           if (configs.isNotEmpty) {
-            final parser = flutterV2ray.parseV2rayUrl(configs.first);
+            final v2rayURL = FlutterV2ray.parseFromURL(configs.first);
             await flutterV2ray.startV2Ray(
               remark: 'JetConfig VPN',
-              config: parser.toShareUrl(),
+              config: v2rayURL.getFullConfiguration(),
               proxyOnly: false,
             );
           }
@@ -145,7 +145,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> {
                 onPressed: () async {
                   final prefs = await SharedPreferences.getInstance();
                   await prefs.remove('saved_username');
-                  if (v2rayStatus.value.state == 'CONNECTED') {
+                  if (v2rayStatus.state == 'CONNECTED') {
                     await flutterV2ray.stopV2Ray();
                   }
                   setState(() {
@@ -211,7 +211,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> {
     final double percent = userData!['total_gb'] > 0
         ? (userData!['used_gb'] / userData!['total_gb']).clamp(0.0, 1.0)
         : 0.0;
-    final isConnected = v2rayStatus.value.state == 'CONNECTED';
+    final isConnected = v2rayStatus.state == 'CONNECTED';
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),

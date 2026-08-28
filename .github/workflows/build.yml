@@ -26,22 +26,21 @@ jobs:
 
       - name: Setup Android Project Structure
         run: |
-          # پشتیبان‌گیری از فایل‌های اصلی
+          # پشتیبان‌گیری از کدهای شما
           cp pubspec.yaml pubspec.yaml.bak
           
-          # ایجاد فایل‌های نیتیو اندروید
-          flutter create --org com.jetconfig.vpn --platforms=android .
+          # ساخت ساختار نیتیو با نام معتبر
+          flutter create --project-name jetconfig_vpn --org com.jetconfig.vpn --platforms=android .
           
-          # بازگرداندن پکیج‌ها و کدهای اصلی
+          # بازگردانی تنظیمات پکیج‌ها
           mv pubspec.yaml.bak pubspec.yaml
           
-          # تنظیم حداقل و حداکثر نسخه اندروید
-          sed -i 's/minSdkVersion .*/minSdkVersion 21/g' android/app/build.gradle || true
+          # تنظیم مشخصات اندروید
           sed -i 's/flutter.minSdkVersion/21/g' android/app/build.gradle || true
-          sed -i 's/compileSdkVersion .*/compileSdkVersion 34/g' android/app/build.gradle || true
-          sed -i 's/flutter.compileSdkVersion/34/g' android/app/build.gradle || true
+          sed -i 's/minSdk .*/minSdk = 21/g' android/app/build.gradle || true
+          sed -i 's/minSdkVersion .*/minSdkVersion 21/g' android/app/build.gradle || true
           
-          # تزریق دسترسی‌ها و سرویس وی‌پی‌ان به منیفست اندروید
+          # اضافه کردن دسترسی‌ها و سرویس وی‌پی‌ان
           MANIFEST="android/app/src/main/AndroidManifest.xml"
           sed -i '/<application/i \    <uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />' $MANIFEST
           sed -i '/<\/application>/i \        <service android:name="com.flutterv2ray.flutter_v2ray.core.V2rayService" android:exported="false" android:permission="android.permission.BIND_VPN_SERVICE">\n            <intent-filter>\n                <action android:name="android.net.VpnService" />\n            </intent-filter>\n        </service>' $MANIFEST

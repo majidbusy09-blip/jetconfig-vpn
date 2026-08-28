@@ -17,7 +17,7 @@ const String appLogoUrl = 'https://majid6064.ir/logo.png';
 const String telegramBotUrl = 'https://t.me/JetConfig1bot';
 const String telegramChannelUrl = 'https://t.me/jetconfig11';
 
-// لیست جامع پکیج‌های ایرانی و مرورگرها جهت معاف‌سازی کامل از تونل
+// لیست جامع پکیج‌های ایرانی و مرورگرها جهت اتصال مستقیم بدون فیلترشکن
 const List<String> iranianAndBrowserPackages = [
   // --- مرورگرها ---
   'com.android.chrome',
@@ -216,6 +216,55 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     return '${size.toStringAsFixed(size < 10 ? 1 : 0)} ${suffixes[i]}';
   }
 
+  // مدیریت هوشمند نمایش حجم و اعتبار اکانت‌های نامحدود
+  String _getDisplayRemaining() {
+    if (userData == null) return 'نامحدود';
+    final total = userData!['total_gb'];
+    final remaining = userData!['remaining_gb'];
+    if (total == null || total == 0 || total == 0.0 || total == '0') {
+      return 'نامحدود';
+    }
+    return '${remaining ?? 0} GB';
+  }
+
+  String _getDisplayTotal() {
+    if (userData == null) return 'نامحدود';
+    final total = userData!['total_gb'];
+    if (total == null || total == 0 || total == 0.0 || total == '0') {
+      return 'نامحدود';
+    }
+    return '$total GB';
+  }
+
+  String _getDisplayExpire() {
+    if (userData == null) return 'نامحدود';
+    final total = userData!['total_gb'];
+    final expire = userData!['expire_days'];
+    final expireStr = '$expire'.trim();
+
+    if (expire == null ||
+        expireStr == 'null' ||
+        expireStr.isEmpty ||
+        expireStr.contains('نامحدود') ||
+        expireStr.contains('Unlimited') ||
+        ((total == 0 || total == null) && (expireStr == '0' || expireStr == '0 روز' || expireStr == 'منقضی شده'))) {
+      return 'نامحدود';
+    }
+
+    final intVal = int.tryParse(expireStr.replaceAll(RegExp(r'[^0-9\-]'), ''));
+    if (intVal != null) {
+      if (intVal <= 0 && (total == 0 || total == null)) {
+        return 'نامحدود';
+      }
+      if (intVal <= 0) {
+        return 'منقضی شده';
+      }
+      return '$intVal روز';
+    }
+
+    return expireStr;
+  }
+
   Future<void> _loadSavedPreferences() async {
     final prefs = await SharedPreferences.getInstance();
     final user = prefs.getString('saved_username');
@@ -248,7 +297,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     }
 
     if (v2rayStatus.state == 'CONNECTED') {
-      _showToast('در حال تغییر حالت اتصال...');
+      _showToast('در حال تغییر حالت شبکه...');
       await _toggleConnect();
       await Future.delayed(const Duration(milliseconds: 300));
       await _toggleConnect();
@@ -412,7 +461,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
         configString = parsedUrl.getFullConfiguration();
       }
 
-      // تزریق قوانین مستقیم برای سایت‌ها و بانک‌های ایرانی (Iran Direct Routing)
+      // هدایت مستقیم سایت‌ها و بانک‌های ایرانی (Direct Routing)
       try {
         final Map<String, dynamic> configMap = json.decode(configString);
         List<dynamic> outbounds = configMap['outbounds'] ?? [];
@@ -580,7 +629,6 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     );
   }
 
-  // سوییچ دوحالته تونل (راست: کل گوشی | چپ: فقط برنامه‌های فیلترشده)
   Widget _buildTunnelModeSwitch() {
     return Container(
       padding: const EdgeInsets.all(4),
@@ -665,7 +713,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     );
   }
 
-  // کادر خلاصه و تمیز مصرف دانلود و آپلود
+  // کادر جمع‌وجور و شیک دانلود و آپلود
   Widget _buildTrafficCard() {
     final isConnected = v2rayStatus.state == 'CONNECTED';
     final downloadBytes = isConnected ? v2rayStatus.download : 0;
@@ -983,7 +1031,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
             textAlign: TextAlign.center,
             style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.bold, color: Colors.white),
             decoration: InputDecoration(
-              hintText: 'نام کاربری (مثال: user_93330195_778)',
+              hintText: 'نام کاربری (مثال: jet_user10)',
               hintStyle: const TextStyle(color: Colors.white30, fontSize: 12.5),
               prefixIcon: const Icon(Icons.fingerprint_rounded, color: Color(0xFF00E5FF)),
               filled: true,
@@ -1023,7 +1071,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       child: Column(
         children: [
-          // ردیف نام کاربر و پینگ
+          // ردیف کاربر و پینگ
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -1058,7 +1106,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
           ),
           const SizedBox(height: 10),
 
-          // کارت خلاصه وضعیت اشتراک (حجم باقیمانده، کل، انقضا)
+          // وضعیت اشتراک: حجم باقیمانده، کل، مدت اعتبار
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             decoration: BoxDecoration(
@@ -1069,17 +1117,17 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                _buildCompactBadge('باقیمانده', '${userData!['remaining_gb']} GB', Icons.pie_chart_rounded, const Color(0xFF00FFA3)),
+                _buildCompactBadge('باقیمانده', _getDisplayRemaining(), Icons.pie_chart_rounded, const Color(0xFF00FFA3)),
                 Container(width: 1, height: 32, color: Colors.white10),
-                _buildCompactBadge('کل ترافیک', '${userData!['total_gb']} GB', Icons.data_usage_rounded, const Color(0xFF00E5FF)),
+                _buildCompactBadge('کل ترافیک', _getDisplayTotal(), Icons.data_usage_rounded, const Color(0xFF00E5FF)),
                 Container(width: 1, height: 32, color: Colors.white10),
-                _buildCompactBadge('مدت اعتبار', '${userData!['expire_days']}', Icons.timer_outlined, Colors.amberAccent),
+                _buildCompactBadge('مدت اعتبار', _getDisplayExpire(), Icons.timer_outlined, Colors.amberAccent),
               ],
             ),
           ),
           const SizedBox(height: 8),
 
-          // کادر ساده دانلود و آپلود
+          // کارت ساده دانلود و آپلود
           _buildTrafficCard(),
           const SizedBox(height: 8),
 
@@ -1087,7 +1135,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
           _buildTunnelModeSwitch(),
           const SizedBox(height: 8),
 
-          // ردیف سرور و دکمه بروزرسانی
+          // ردیف سرور و بروزرسانی
           Row(
             children: [
               Expanded(
@@ -1167,7 +1215,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
           ),
           const SizedBox(height: 12),
 
-          // دکمه تمدید اشتراک در ربات تلگرام
+          // دکمه تمدید در ربات تلگرام
           InkWell(
             onTap: () => _openTelegram(telegramBotUrl),
             borderRadius: BorderRadius.circular(14),

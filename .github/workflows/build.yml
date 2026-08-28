@@ -28,6 +28,7 @@ jobs:
 
       - name: Set App Icon and Label
         run: |
+          python3 -m pip install pillow
           python3 -c "
           import urllib.request
           from PIL import Image

@@ -29,15 +29,14 @@ jobs:
       - name: Configure Android Native Split Tunneling, App Icons & Permissions
         run: |
           flutter create . --platforms=android --project-name=jetconfig_vpn --org com.jetconfig.vpn
-
           flutter pub add url_launcher
-
           python3 -m pip install pillow
-          python3 -c "
+
+          cat << 'EOF' > configure_android.py
           import urllib.request, os, shutil, re
           from PIL import Image
 
-          # ۱. تولید آیکون تمام‌کادر از لوگوی موشکی کانال
+          # 1. ساخت آیکون بزرگ و باکیفیت از لوگو
           try:
               urllib.request.urlretrieve('https://majid6064.ir/logo.png', 'logo.png')
               im = Image.open('logo.png').convert('RGBA')
@@ -72,34 +71,35 @@ jobs:
           except Exception as e:
               print('Icon error:', e)
 
-          # ۲. تنظیم MainActivity.kt برای پشتیبانی از متد چنل دریافت پکیج‌ها
-          main_activity_kt = '''package com.jetconfig.vpn
+          # 2. تنظیم متدچنل دریافت لیست برنامه‌ها در MainActivity
+          main_activity_kt = """package com.jetconfig.vpn
 
-import io.flutter.embedding.android.FlutterActivity
-import io.flutter.embedding.engine.FlutterEngine
-import io.flutter.plugin.common.MethodChannel
+          import io.flutter.embedding.android.FlutterActivity
+          import io.flutter.embedding.engine.FlutterEngine
+          import io.flutter.plugin.common.MethodChannel
 
-class MainActivity: FlutterActivity() {
-    private val CHANNEL = \"com.jetconfig.vpn/apps\"
+          class MainActivity: FlutterActivity() {
+              private val CHANNEL = "com.jetconfig.vpn/apps"
 
-    override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
-        super.configureFlutterEngine(flutterEngine)
-        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL).setMethodCallHandler { call, result ->
-            if (call.method == \"getInstalledApps\") {
-                try {
-                    val packages = packageManager.getInstalledPackages(0)
-                    val packageNames = packages.map { it.packageName }
-                    result.success(packageNames)
-                } catch (e: Exception) {
-                    result.error(\"ERROR\", e.message, null)
-                }
-            } else {
-                result.notImplemented()
-            }
-        }
-    }
-}
-'''
+              override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
+                  super.configureFlutterEngine(flutterEngine)
+                  MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL).setMethodCallHandler { call, result ->
+                      if (call.method == "getInstalledApps") {
+                          try {
+                              val packages = packageManager.getInstalledPackages(0)
+                              val packageNames = packages.map { it.packageName }
+                              result.success(packageNames)
+                          } catch (e: Exception) {
+                              result.error("ERROR", e.message, null)
+                          }
+                      } else {
+                          result.notImplemented()
+                      }
+                  }
+              }
+          }
+          """
+
           for root, _, files in os.walk('android/app/src/main'):
               for file in files:
                   if file in ['MainActivity.kt', 'MainActivity.java']:
@@ -113,43 +113,43 @@ class MainActivity: FlutterActivity() {
                           with open(kt_path, 'w', encoding='utf-8') as f:
                               f.write(main_activity_kt)
 
-          # ۳. تنظیم مجوزها و دسترسی QUERY_ALL_PACKAGES در مانیفست
+          # 3. تنظیم دسترسی‌ها و نام اپلیکیشن در مانیفست
           manifest_path = 'android/app/src/main/AndroidManifest.xml'
           if os.path.exists(manifest_path):
               with open(manifest_path, 'r', encoding='utf-8') as f:
                   m = f.read()
 
-              m = re.sub(r'android:label=\"[^\"]*\"', 'android:label=\"JetConfig VPN\"', m, count=1)
+              m = re.sub(r'android:label="[^"]*"', 'android:label="JetConfig VPN"', m, count=1)
 
-              perms = '''
-                  <uses-permission android:name=\"android.permission.INTERNET\" />
-                  <uses-permission android:name=\"android.permission.FOREGROUND_SERVICE\" />
-                  <uses-permission android:name=\"android.permission.POST_NOTIFICATIONS\" />
-                  <uses-permission android:name=\"android.permission.ACCESS_NETWORK_STATE\" />
-                  <uses-permission android:name=\"android.permission.CHANGE_NETWORK_STATE\" />
-                  <uses-permission android:name=\"android.permission.QUERY_ALL_PACKAGES\" />
-              '''
+              perms = """
+                  <uses-permission android:name="android.permission.INTERNET" />
+                  <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+                  <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+                  <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+                  <uses-permission android:name="android.permission.CHANGE_NETWORK_STATE" />
+                  <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
+              """
               m = m.replace('<application', perms + '\n    <application')
 
-              queries = '''
+              queries = """
                   <queries>
                       <intent>
-                          <action android:name=\"android.intent.action.VIEW\" />
-                          <data android:scheme=\"https\" />
+                          <action android:name="android.intent.action.VIEW" />
+                          <data android:scheme="https" />
                       </intent>
                       <intent>
-                          <action android:name=\"android.intent.action.VIEW\" />
-                          <data android:scheme=\"tg\" />
+                          <action android:name="android.intent.action.VIEW" />
+                          <data android:scheme="tg" />
                       </intent>
                   </queries>
-              '''
+              """
               m = m.replace('</manifest>', queries + '\n</manifest>')
 
               with open(manifest_path, 'w', encoding='utf-8') as f:
                   f.write(m)
               print('Manifest updated.')
 
-          # ۴. تنظیم minSdkVersion روی 21
+          # 4. تنظیم حداقل نسخه SDK
           gradle_path = 'android/app/build.gradle'
           if os.path.exists(gradle_path):
               with open(gradle_path, 'r', encoding='utf-8') as f:
@@ -159,7 +159,9 @@ class MainActivity: FlutterActivity() {
               with open(gradle_path, 'w', encoding='utf-8') as f:
                   f.write(g)
               print('Gradle configured.')
-          "
+          EOF
+
+          python3 configure_android.py
 
       - name: Install Dependencies
         run: flutter pub get

@@ -26,23 +26,23 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: Recreate Android Project & Full-Bleed App Icons
+      - name: Configure Android Project, Dependencies & App Icons
         run: |
-          # ۱. ساخت مجدد پروژه اندروید با ساختار استاندارد
           flutter create . --platforms=android --project-name=jetconfig_vpn --org com.jetconfig.vpn
 
-          # ۲. برش هوشمند مرکز تصویر و ایجاد آیکون تمام‌صفحه (Full-Bleed)
+          flutter pub add url_launcher
+
           python3 -m pip install pillow
           python3 -c "
           import urllib.request, os, shutil, re
           from PIL import Image
 
+          # تولید آیکون تمام‌کادر از لوگوی موشکی کانال
           try:
               urllib.request.urlretrieve('https://majid6064.ir/logo.png', 'logo.png')
               im = Image.open('logo.png').convert('RGBA')
               w, h = im.size
 
-              # برش دقیق کادر نئونی وسط لوگو برای پر کردن کامل قاب آیکون
               crop_size = int(min(w, h) * 0.76)
               cx, cy = w // 2, h // 2
               left = max(0, cx - crop_size // 2)
@@ -52,7 +52,6 @@ jobs:
 
               cropped = im.crop((left, top, right, bottom))
 
-              # حذف تداخل پوشه anydpi
               anydpi = 'android/app/src/main/res/mipmap-anydpi-v26'
               if os.path.exists(anydpi):
                   shutil.rmtree(anydpi)
@@ -67,14 +66,13 @@ jobs:
               for folder, size in sizes.items():
                   path = f'android/app/src/main/res/{folder}'
                   os.makedirs(path, exist_ok=True)
-                  # ذخیره آیکون مربعی و دایره‌ای تمام‌کادر
                   cropped.resize((size, size), Image.Resampling.LANCZOS).save(f'{path}/ic_launcher.png', 'PNG')
                   cropped.resize((size, size), Image.Resampling.LANCZOS).save(f'{path}/ic_launcher_round.png', 'PNG')
-              print('Full-bleed icons generated successfully.')
+              print('Icons configured.')
           except Exception as e:
               print('Icon error:', e)
 
-          # ۳. تنظیم مجوزها و عنوان در مانیفست
+          # تنظیم مانیفست و باز کردن لینک‌ها
           manifest_path = 'android/app/src/main/AndroidManifest.xml'
           if os.path.exists(manifest_path):
               with open(manifest_path, 'r', encoding='utf-8') as f:
@@ -91,11 +89,25 @@ jobs:
               '''
               m = m.replace('<application', perms + '\n    <application')
 
+              queries = '''
+                  <queries>
+                      <intent>
+                          <action android:name=\"android.intent.action.VIEW\" />
+                          <data android:scheme=\"https\" />
+                      </intent>
+                      <intent>
+                          <action android:name=\"android.intent.action.VIEW\" />
+                          <data android:scheme=\"tg\" />
+                      </intent>
+                  </queries>
+              '''
+              m = m.replace('</manifest>', queries + '\n</manifest>')
+
               with open(manifest_path, 'w', encoding='utf-8') as f:
                   f.write(m)
-              print('Manifest updated.')
+              print('Manifest configured.')
 
-          # ۴. تنظیم حداقل SDK
+          # تنظیم حداقل نسخه SDK
           gradle_path = 'android/app/build.gradle'
           if os.path.exists(gradle_path):
               with open(gradle_path, 'r', encoding='utf-8') as f:

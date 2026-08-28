@@ -26,21 +26,26 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: Complete V2 Embedding Migration & Icon Setup
+      - name: Recreate Android Project to Clean V2 Embedding & Icons
         run: |
+          # ۱. بازسازی کامل و استاندارد پوشه اندروید به V2 Embedding
+          flutter create . --platforms=android --org com.jetconfig.vpn
+
+          # ۲. نصب کتابخانه تصویر و تنظیم لوگوی کانال به عنوان آیکون برنامه
           python3 -m pip install pillow
           python3 -c "
           import urllib.request, os, shutil, re
           from PIL import Image
 
-          # ۱. دانلود و تولید آیکون‌های برنامه از لوگوی کانال
+          # دانلود لوگوی کانال
           try:
               urllib.request.urlretrieve('https://majid6064.ir/logo.png', 'logo.png')
               im = Image.open('logo.png').convert('RGBA')
 
-              anydpi_path = 'android/app/src/main/res/mipmap-anydpi-v26'
-              if os.path.exists(anydpi_path):
-                  shutil.rmtree(anydpi_path)
+              # حذف تداخل لایه anydpi
+              anydpi = 'android/app/src/main/res/mipmap-anydpi-v26'
+              if os.path.exists(anydpi):
+                  shutil.rmtree(anydpi)
 
               sizes = {
                   'mipmap-mdpi': 48,
@@ -53,53 +58,41 @@ jobs:
                   path = f'android/app/src/main/res/{folder}'
                   os.makedirs(path, exist_ok=True)
                   im.resize((size, size), Image.Resampling.LANCZOS).save(f'{path}/ic_launcher.png', 'PNG')
-              print('Icons configured successfully.')
+              print('Launcher icons generated.')
           except Exception as e:
-              print('Icon setup error:', e)
+              print('Icon warning:', e)
 
-          # ۲. پاکسازی و اصلاح MainActivity به V2 Embedding
-          for root, _, files in os.walk('android/app/src/main'):
-              for file in files:
-                  if file == 'MainActivity.kt':
-                      f_path = os.path.join(root, file)
-                      with open(f_path, 'r', encoding='utf-8') as f:
-                          content = f.read()
-                      pkg_match = re.search(r'package\s+[\w\.]+', content)
-                      pkg = pkg_match.group(0) if pkg_match else 'package com.example.jetconfig_vpn'
-                      new_code = f'{pkg}\n\nimport io.flutter.embedding.android.FlutterActivity\n\nclass MainActivity: FlutterActivity() {{\n}}\n'
-                      with open(f_path, 'w', encoding='utf-8') as f:
-                          f.write(new_code)
-                      print('MainActivity.kt cleanly migrated to V2.')
-
-                  elif file == 'MainActivity.java':
-                      f_path = os.path.join(root, file)
-                      with open(f_path, 'r', encoding='utf-8') as f:
-                          content = f.read()
-                      pkg_match = re.search(r'package\s+[\w\.]+;', content)
-                      pkg = pkg_match.group(0) if pkg_match else 'package com.example.jetconfig_vpn;'
-                      new_code = f'{pkg}\n\nimport io.flutter.embedding.android.FlutterActivity;\n\npublic class MainActivity extends FlutterActivity {{\n}}\n'
-                      with open(f_path, 'w', encoding='utf-8') as f:
-                          f.write(new_code)
-                      print('MainActivity.java cleanly migrated to V2.')
-
-          # ۳. بازنویسی اصولی AndroidManifest.xml
+          # ۳. تنظیم مجوزها و نام رسمی در AndroidManifest.xml
           manifest_path = 'android/app/src/main/AndroidManifest.xml'
           if os.path.exists(manifest_path):
               with open(manifest_path, 'r', encoding='utf-8') as f:
                   m = f.read()
 
-              # حذف رفرنس‌های نسخه V1
-              m = m.replace('android:name=\"io.flutter.app.FlutterApplication\"', 'android:name=\"\${applicationName}\"')
               m = re.sub(r'android:label=\"[^\"]*\"', 'android:label=\"JetConfig VPN\"', m, count=1)
-              m = re.sub(r'<meta-data[^>]*android:name=\"flutterEmbedding\"[^>]*/>', '', m)
 
-              # افزودن تگ استاندارد V2
-              v2_tag = '<meta-data android:name=\"flutterEmbedding\" android:value=\"2\" />'
-              m = m.replace('</application>', f'    {v2_tag}\n    </application>')
+              permissions = '''
+                  <uses-permission android:name=\"android.permission.INTERNET\" />
+                  <uses-permission android:name=\"android.permission.FOREGROUND_SERVICE\" />
+                  <uses-permission android:name=\"android.permission.POST_NOTIFICATIONS\" />
+                  <uses-permission android:name=\"android.permission.ACCESS_NETWORK_STATE\" />
+                  <uses-permission android:name=\"android.permission.CHANGE_NETWORK_STATE\" />
+              '''
+              m = m.replace('<application', permissions + '\n    <application')
 
               with open(manifest_path, 'w', encoding='utf-8') as f:
                   f.write(m)
-              print('AndroidManifest.xml fully updated.')
+              print('Manifest configured.')
+
+          # ۴. تنظیم minSdkVersion روی 21 در build.gradle
+          gradle_path = 'android/app/build.gradle'
+          if os.path.exists(gradle_path):
+              with open(gradle_path, 'r', encoding='utf-8') as f:
+                  g = f.read()
+              g = re.sub(r'minSdkVersion\s+flutter\.minSdkVersion', 'minSdkVersion 21', g)
+              g = re.sub(r'minSdkVersion\s+\d+', 'minSdkVersion 21', g)
+              with open(gradle_path, 'w', encoding='utf-8') as f:
+                  f.write(g)
+              print('MinSdkVersion set to 21.')
           "
 
       - name: Install Dependencies

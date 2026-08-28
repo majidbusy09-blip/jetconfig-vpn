@@ -26,7 +26,7 @@ jobs:
 
       - name: Setup Android Project and Native Files
         run: |
-          # بکاپ‌گیری از کدهای اصلی برنامه و پکیج‌ها
+          # بکاپ‌گیری از کدهای اصلی و پکیج‌ها
           cp pubspec.yaml pubspec.yaml.bak
           cp -r lib lib_bak
           
@@ -38,23 +38,30 @@ jobs:
           rm -rf lib
           mv lib_bak lib
 
-          # تنظیم دقیق نسخه اندروید (minSdkVersion 21) با پایتون
+          # تنظیم خودکار minSdkVersion روی ۲۱ (پشتیبانی از هر دو فرمت .kts و معمولی)
           python3 -c "
-          p = 'android/app/build.gradle'
-          with open(p, 'r') as f: c = f.read()
-          c = c.replace('flutter.minSdkVersion', '21')
-          with open(p, 'w') as f: f.write(c)
+          import os
+          files = ['android/app/build.gradle.kts', 'android/app/build.gradle']
+          for p in files:
+              if os.path.exists(p):
+                  with open(p, 'r') as f: c = f.read()
+                  c = c.replace('flutter.minSdkVersion', '21')
+                  c = c.replace('minSdkVersion flutter.minSdkVersion', 'minSdkVersion 21')
+                  c = c.replace('minSdk = flutter.minSdkVersion', 'minSdk = 21')
+                  with open(p, 'w') as f: f.write(c)
           "
 
-          # تزریق امن دسترسی‌ها و سرویس VPN به منیفست اندروید
+          # افزودن دسترسی‌ها و سرویس VPN به فایل AndroidManifest
           python3 -c "
+          import os
           p = 'android/app/src/main/AndroidManifest.xml'
-          with open(p, 'r') as f: c = f.read()
-          perms = '''
+          if os.path.exists(p):
+              with open(p, 'r') as f: c = f.read()
+              perms = '''
               <uses-permission android:name=\"android.permission.INTERNET\" />
               <uses-permission android:name=\"android.permission.FOREGROUND_SERVICE\" />
-          '''
-          service = '''
+              '''
+              service = '''
                   <service
                       android:name=\"com.flutterv2ray.flutter_v2ray.core.V2rayService\"
                       android:exported=\"false\"
@@ -63,12 +70,12 @@ jobs:
                           <action android:name=\"android.net.VpnService\" />
                       </intent-filter>
                   </service>
-          '''
-          if 'android.permission.INTERNET' not in c:
-              c = c.replace('<application', perms + '\n    <application')
-          if 'com.flutterv2ray.flutter_v2ray.core.V2rayService' not in c:
-              c = c.replace('</application>', service + '\n    </application>')
-          with open(p, 'w') as f: f.write(c)
+              '''
+              if 'android.permission.INTERNET' not in c:
+                  c = c.replace('<application', perms + '\n    <application')
+              if 'com.flutterv2ray.flutter_v2ray.core.V2rayService' not in c:
+                  c = c.replace('</application>', service + '\n    </application>')
+              with open(p, 'w') as f: f.write(c)
           "
 
       - name: Install Dependencies

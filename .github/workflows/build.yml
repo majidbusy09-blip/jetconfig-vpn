@@ -28,10 +28,10 @@ jobs:
 
       - name: Recreate Android Project to Clean V2 Embedding & Icons
         run: |
-          # ۱. بازسازی کامل و استاندارد پوشه اندروید به V2 Embedding
-          flutter create . --platforms=android --org com.jetconfig.vpn
+          # ۱. بازسازی اصولی ساختار اندروید با نام پکیج استاندارد
+          flutter create . --platforms=android --project-name=jetconfig_vpn --org com.jetconfig.vpn
 
-          # ۲. نصب کتابخانه تصویر و تنظیم لوگوی کانال به عنوان آیکون برنامه
+          # ۲. نصب کتابخانه تصویر و ساخت آیکون از لوگوی کانال
           python3 -m pip install pillow
           python3 -c "
           import urllib.request, os, shutil, re
@@ -42,7 +42,7 @@ jobs:
               urllib.request.urlretrieve('https://majid6064.ir/logo.png', 'logo.png')
               im = Image.open('logo.png').convert('RGBA')
 
-              # حذف تداخل لایه anydpi
+              # حذف لایه تداخلی anydpi
               anydpi = 'android/app/src/main/res/mipmap-anydpi-v26'
               if os.path.exists(anydpi):
                   shutil.rmtree(anydpi)
@@ -62,7 +62,7 @@ jobs:
           except Exception as e:
               print('Icon warning:', e)
 
-          # ۳. تنظیم مجوزها و نام رسمی در AndroidManifest.xml
+          # ۳. تنظیم مجوزهای اتصال در AndroidManifest.xml
           manifest_path = 'android/app/src/main/AndroidManifest.xml'
           if os.path.exists(manifest_path):
               with open(manifest_path, 'r', encoding='utf-8') as f:

@@ -6,7 +6,6 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_v2ray/flutter_v2ray.dart';
-import 'package:percent_indicator/circular_percent_indicator.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 void main() {
@@ -18,7 +17,7 @@ const String appLogoUrl = 'https://majid6064.ir/logo.png';
 const String telegramBotUrl = 'https://t.me/JetConfig1bot';
 const String telegramChannelUrl = 'https://t.me/jetconfig11';
 
-// لیست جامع اپ‌های ایرانی، بانکی و مرورگرها جهت اتصال مستقیم با آی‌پی ایران
+// لیست جامع پکیج‌های ایرانی و مرورگرها جهت معاف‌سازی کامل از تونل
 const List<String> iranianAndBrowserPackages = [
   // --- مرورگرها ---
   'com.android.chrome',
@@ -28,9 +27,8 @@ const List<String> iranianAndBrowserPackages = [
   'com.opera.mini.native',
   'com.brave.browser',
   'com.microsoft.emmx',
-  'com.UCMobile.intl',
 
-  // --- بانک‌ها و همراه بانک‌ها ---
+  // --- بانک مسکن و سایر بانک‌ها ---
   'ir.bankmaskan.mobilebank',
   'ir.bankmaskan.rayanmehr',
   'ir.bankmaskan.hamrah',
@@ -53,20 +51,17 @@ const List<String> iranianAndBrowserPackages = [
   'ir.ayandeh.hamrah',
   'ir.bankrefah.mobilebank',
 
-  // --- خدمات مالی و پرداخت ---
+  // --- پرداخت و خدمات ---
   'com.asandakht.app',
   'com.asanpardakht.app',
   'ir.sep.qpay',
   'ir.pec.cpay',
   'com.bpm.sekeh',
   'ir.mizan.hamrahcard',
-
-  // --- خدمات آنلاین و اپراتورها ---
   'cab.snapp.passenger',
   'com.snapp.passenger',
   'cab.snapp.driver',
   'ir.tapsi.cab',
-  'ir.tapsi.passenger',
   'com.digikala.mobile',
   'ir.divar',
   'ir.sheypoor.mobile',
@@ -78,8 +73,6 @@ const List<String> iranianAndBrowserPackages = [
   'ir.mtnirancell.myirancell',
   'ir.mci.ecareapp',
   'ir.rightel.ecare',
-
-  // --- پیام‌رسان‌های داخلی ---
   'ir.eitaa.messenger',
   'ir.rubika.app',
   'ir.resaneh.rubika',
@@ -150,9 +143,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
       if (status.state == 'CONNECTED') {
         _checkActivePing();
       } else {
-        if (mounted) {
-          setState(() => activePing = -1);
-        }
+        if (mounted) setState(() => activePing = -1);
       }
     },
   );
@@ -167,7 +158,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
   bool isLoading = false;
   bool isConnecting = false;
   bool isPingingAll = false;
-  bool onlyFilteredApps = false;
+  bool onlyFilteredApps = true; // پیش‌فرض: حالت هوشمند (فقط برنامه‌های فیلترشده)
   int activePing = -1;
 
   Map<String, dynamic>? userData;
@@ -228,7 +219,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
   Future<void> _loadSavedPreferences() async {
     final prefs = await SharedPreferences.getInstance();
     final user = prefs.getString('saved_username');
-    final savedTunnelMode = prefs.getBool('only_filtered_apps') ?? false;
+    final savedTunnelMode = prefs.getBool('only_filtered_apps') ?? true;
 
     if (mounted) {
       setState(() {
@@ -257,7 +248,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     }
 
     if (v2rayStatus.state == 'CONNECTED') {
-      _showToast('در حال تغییر حالت شبکه...');
+      _showToast('در حال تغییر حالت اتصال...');
       await _toggleConnect();
       await Future.delayed(const Duration(milliseconds: 300));
       await _toggleConnect();
@@ -270,7 +261,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
       if (await canLaunchUrl(uri)) {
         await launchUrl(uri, mode: LaunchMode.externalApplication);
       } else {
-        _showToast('امکان باز کردن لینک وجود ندارد');
+        _showToast('امکان باز کردن تلگرام وجود ندارد');
       }
     } catch (_) {
       _showToast('خطا در باز کردن لینک');
@@ -301,7 +292,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
           }
 
           if (isManualRefresh) {
-            _showToast('کانفیگ‌ها با موفقیت بروزرسانی شدند');
+            _showToast('کانفیگ‌ها بروزرسانی شدند');
           }
 
           if (parsed.isNotEmpty) {
@@ -312,7 +303,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
         }
       }
     } catch (e) {
-      _showToast('خطا در برقراری ارتباط با سرور');
+      _showToast('خطا در اتصال به سرور');
     } finally {
       if (mounted) setState(() => isLoading = false);
     }
@@ -421,6 +412,32 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
         configString = parsedUrl.getFullConfiguration();
       }
 
+      // تزریق قوانین مستقیم برای سایت‌ها و بانک‌های ایرانی (Iran Direct Routing)
+      try {
+        final Map<String, dynamic> configMap = json.decode(configString);
+        List<dynamic> outbounds = configMap['outbounds'] ?? [];
+        bool hasDirect = outbounds.any((o) => o['tag'] == 'direct');
+        if (!hasDirect) {
+          outbounds.add({'tag': 'direct', 'protocol': 'freedom', 'settings': {}});
+          configMap['outbounds'] = outbounds;
+        }
+
+        if (onlyFilteredApps) {
+          Map<String, dynamic> routing = configMap['routing'] ?? {};
+          routing['domainStrategy'] = 'IPIfNonMatch';
+          List<dynamic> rules = routing['rules'] ?? [];
+          rules.insert(0, {
+            'type': 'field',
+            'outboundTag': 'direct',
+            'ip': ['geoip:ir', 'geoip:private'],
+            'domain': ['geosite:ir', 'geosite:category-ir', 'regexp:.*\\.ir\$']
+          });
+          routing['rules'] = rules;
+          configMap['routing'] = routing;
+        }
+        configString = json.encode(configMap);
+      } catch (_) {}
+
       await flutterV2ray.startV2Ray(
         remark: target.name,
         config: configString,
@@ -456,7 +473,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text('سرورهای هوشمند', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
+                        const Text('سرورهای هوشمند', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Colors.white)),
                         Row(
                           children: [
                             TextButton.icon(
@@ -464,8 +481,8 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
                                 _sortServersByPing();
                                 setSheetState(() {});
                               },
-                              icon: const Icon(Icons.flash_on_rounded, size: 18, color: Colors.amberAccent),
-                              label: const Text('مرتب‌سازی پینگ', style: TextStyle(color: Colors.amberAccent, fontSize: 12, fontWeight: FontWeight.bold)),
+                              icon: const Icon(Icons.flash_on_rounded, size: 16, color: Colors.amberAccent),
+                              label: const Text('مرتب‌سازی پینگ', style: TextStyle(color: Colors.amberAccent, fontSize: 11.5, fontWeight: FontWeight.bold)),
                             ),
                             TextButton.icon(
                               onPressed: isPingingAll
@@ -475,9 +492,9 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
                                       setSheetState(() {});
                                     },
                               icon: isPingingAll
-                                  ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.cyanAccent))
-                                  : const Icon(Icons.refresh, size: 18, color: Colors.cyanAccent),
-                              label: const Text('تست مجدد', style: TextStyle(color: Colors.cyanAccent, fontSize: 12)),
+                                  ? const SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.cyanAccent))
+                                  : const Icon(Icons.refresh, size: 16, color: Colors.cyanAccent),
+                              label: const Text('تست مجدد', style: TextStyle(color: Colors.cyanAccent, fontSize: 11.5)),
                             ),
                           ],
                         ),
@@ -493,7 +510,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
                           final isSel = i == selectedServerIndex;
 
                           Color pingColor = Colors.grey;
-                          String pingText = 'تست نشده';
+                          String pingText = '---';
                           if (s.ping > 0) {
                             if (s.ping < 250) pingColor = const Color(0xFF00FFA3);
                             else if (s.ping < 500) pingColor = Colors.orangeAccent;
@@ -516,7 +533,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
                             },
                             borderRadius: BorderRadius.circular(16),
                             child: Container(
-                              padding: const EdgeInsets.all(14),
+                              padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
                                 color: isSel ? const Color(0xFF00E5FF).withOpacity(0.12) : const Color(0xFF0A0E1A),
                                 borderRadius: BorderRadius.circular(16),
@@ -527,24 +544,24 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
                               ),
                               child: Row(
                                 children: [
-                                  Icon(Icons.dns_rounded, color: isSel ? const Color(0xFF00E5FF) : Colors.grey),
-                                  const SizedBox(width: 12),
+                                  Icon(Icons.dns_rounded, size: 20, color: isSel ? const Color(0xFF00E5FF) : Colors.grey),
+                                  const SizedBox(width: 10),
                                   Expanded(
                                     child: Column(
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
-                                        Text(s.name, style: TextStyle(fontWeight: FontWeight.bold, color: isSel ? const Color(0xFF00E5FF) : Colors.white)),
-                                        Text('${s.protocol} | پورت ${s.port}', style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                                        Text(s.name, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: isSel ? const Color(0xFF00E5FF) : Colors.white)),
+                                        Text('${s.protocol} | پورت ${s.port}', style: const TextStyle(fontSize: 10.5, color: Colors.grey)),
                                       ],
                                     ),
                                   ),
                                   Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                     decoration: BoxDecoration(
                                       color: pingColor.withOpacity(0.15),
-                                      borderRadius: BorderRadius.circular(12),
+                                      borderRadius: BorderRadius.circular(10),
                                     ),
-                                    child: Text(pingText, style: TextStyle(color: pingColor, fontSize: 12, fontWeight: FontWeight.bold)),
+                                    child: Text(pingText, style: TextStyle(color: pingColor, fontSize: 11, fontWeight: FontWeight.bold)),
                                   ),
                                 ],
                               ),
@@ -563,12 +580,13 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     );
   }
 
+  // سوییچ دوحالته تونل (راست: کل گوشی | چپ: فقط برنامه‌های فیلترشده)
   Widget _buildTunnelModeSwitch() {
     return Container(
-      padding: const EdgeInsets.all(6),
+      padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
         color: const Color(0xFF131B2E),
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: Colors.white.withOpacity(0.06)),
       ),
       child: Row(
@@ -577,11 +595,11 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
             child: GestureDetector(
               onTap: () => _saveTunnelMode(false),
               child: AnimatedContainer(
-                duration: const Duration(milliseconds: 250),
-                padding: const EdgeInsets.symmetric(vertical: 10),
+                duration: const Duration(milliseconds: 200),
+                padding: const EdgeInsets.symmetric(vertical: 9),
                 decoration: BoxDecoration(
                   color: !onlyFilteredApps ? const Color(0xFF00E5FF).withOpacity(0.2) : Colors.transparent,
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: BorderRadius.circular(12),
                   border: Border.all(
                     color: !onlyFilteredApps ? const Color(0xFF00E5FF) : Colors.transparent,
                     width: 1.2,
@@ -591,12 +609,12 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.public, size: 16, color: !onlyFilteredApps ? const Color(0xFF00E5FF) : Colors.grey),
-                      const SizedBox(width: 6),
+                      Icon(Icons.public, size: 15, color: !onlyFilteredApps ? const Color(0xFF00E5FF) : Colors.grey),
+                      const SizedBox(width: 5),
                       Text(
                         'تونل کل گوشی',
                         style: TextStyle(
-                          fontSize: 12,
+                          fontSize: 11.5,
                           fontWeight: FontWeight.bold,
                           color: !onlyFilteredApps ? Colors.white : Colors.grey,
                         ),
@@ -607,16 +625,16 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
               ),
             ),
           ),
-          const SizedBox(width: 6),
+          const SizedBox(width: 4),
           Expanded(
             child: GestureDetector(
               onTap: () => _saveTunnelMode(true),
               child: AnimatedContainer(
-                duration: const Duration(milliseconds: 250),
-                padding: const EdgeInsets.symmetric(vertical: 10),
+                duration: const Duration(milliseconds: 200),
+                padding: const EdgeInsets.symmetric(vertical: 9),
                 decoration: BoxDecoration(
                   color: onlyFilteredApps ? const Color(0xFF00FFA3).withOpacity(0.2) : Colors.transparent,
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: BorderRadius.circular(12),
                   border: Border.all(
                     color: onlyFilteredApps ? const Color(0xFF00FFA3) : Colors.transparent,
                     width: 1.2,
@@ -626,12 +644,12 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.flash_on, size: 16, color: onlyFilteredApps ? const Color(0xFF00FFA3) : Colors.grey),
-                      const SizedBox(width: 6),
+                      Icon(Icons.flash_on, size: 15, color: onlyFilteredApps ? const Color(0xFF00FFA3) : Colors.grey),
+                      const SizedBox(width: 5),
                       Text(
                         'فقط برنامه‌های فیلترشده',
                         style: TextStyle(
-                          fontSize: 11.5,
+                          fontSize: 11,
                           fontWeight: FontWeight.bold,
                           color: onlyFilteredApps ? Colors.white : Colors.grey,
                         ),
@@ -647,115 +665,58 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     );
   }
 
-  Widget _buildSessionTrafficCards() {
+  // کادر خلاصه و تمیز مصرف دانلود و آپلود
+  Widget _buildTrafficCard() {
     final isConnected = v2rayStatus.state == 'CONNECTED';
     final downloadBytes = isConnected ? v2rayStatus.download : 0;
     final uploadBytes = isConnected ? v2rayStatus.upload : 0;
-    final durationText = isConnected ? v2rayStatus.duration : '00:00:00';
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
         color: const Color(0xFF131B2E),
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: Colors.white.withOpacity(0.05)),
       ),
-      child: Column(
+      child: Row(
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Row(
-                children: [
-                  Icon(Icons.analytics_outlined, size: 16, color: Color(0xFF00E5FF)),
-                  SizedBox(width: 6),
-                  Text('مصرف نشست جاری', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Colors.white70)),
-                ],
-              ),
-              Row(
-                children: [
-                  const Icon(Icons.timer_outlined, size: 14, color: Colors.grey),
-                  const SizedBox(width: 4),
-                  Text(durationText, style: const TextStyle(fontSize: 11.5, color: Colors.grey, fontFamily: 'monospace')),
-                ],
-              ),
-            ],
+          Expanded(
+            child: Row(
+              children: [
+                const Icon(Icons.arrow_downward_rounded, size: 18, color: Color(0xFF00FFA3)),
+                const SizedBox(width: 8),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('دانلود', style: TextStyle(fontSize: 10, color: Colors.grey)),
+                    Text(
+                      _formatBytes(downloadBytes),
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.white),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              Expanded(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF0A0E1A),
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: const Color(0xFF00FFA3).withOpacity(0.15)),
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(6),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF00FFA3).withOpacity(0.15),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(Icons.arrow_downward_rounded, size: 16, color: Color(0xFF00FFA3)),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text('دانلود نشست', style: TextStyle(fontSize: 10, color: Colors.grey)),
-                            Text(
-                              _formatBytes(downloadBytes),
-                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.white),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
+          Container(width: 1, height: 26, color: Colors.white10),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Row(
+              children: [
+                const Icon(Icons.arrow_upward_rounded, size: 18, color: Color(0xFF00E5FF)),
+                const SizedBox(width: 8),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('آپلود', style: TextStyle(fontSize: 10, color: Colors.grey)),
+                    Text(
+                      _formatBytes(uploadBytes),
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.white),
+                    ),
+                  ],
                 ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF0A0E1A),
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: const Color(0xFF00E5FF).withOpacity(0.15)),
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(6),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF00E5FF).withOpacity(0.15),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(Icons.arrow_upward_rounded, size: 16, color: Color(0xFF00E5FF)),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text('آپلود نشست', style: TextStyle(fontSize: 10, color: Colors.grey)),
-                            Text(
-                              _formatBytes(uploadBytes),
-                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.white),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
         ],
       ),
@@ -776,8 +737,8 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
           return Transform.scale(
             scale: scale,
             child: SizedBox(
-              width: 175,
-              height: 175,
+              width: 165,
+              height: 165,
               child: Stack(
                 alignment: Alignment.center,
                 children: [
@@ -785,8 +746,8 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
                     Transform.rotate(
                       angle: _rotateController.value * 2 * math.pi,
                       child: Container(
-                        width: 170,
-                        height: 170,
+                        width: 160,
+                        height: 160,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           border: Border.all(
@@ -804,22 +765,22 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
                       ),
                     ),
                   Container(
-                    width: 145,
-                    height: 145,
+                    width: 135,
+                    height: 135,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       boxShadow: [
                         BoxShadow(
                           color: primaryColor.withOpacity(isConnected ? 0.5 : 0.25),
-                          blurRadius: isConnected ? 40 : 25,
-                          spreadRadius: isConnected ? 8 : 2,
+                          blurRadius: isConnected ? 35 : 20,
+                          spreadRadius: isConnected ? 6 : 1,
                         ),
                       ],
                     ),
                   ),
                   Container(
-                    width: 135,
-                    height: 135,
+                    width: 125,
+                    height: 125,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       gradient: LinearGradient(
@@ -834,15 +795,15 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
                       boxShadow: [
                         BoxShadow(
                           color: Colors.black.withOpacity(0.6),
-                          offset: const Offset(0, 10),
-                          blurRadius: 15,
+                          offset: const Offset(0, 8),
+                          blurRadius: 12,
                         )
                       ],
                     ),
                   ),
                   Container(
-                    width: 114,
-                    height: 114,
+                    width: 105,
+                    height: 105,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       gradient: LinearGradient(
@@ -855,23 +816,23 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
                       boxShadow: [
                         BoxShadow(
                           color: Colors.white.withOpacity(0.35),
-                          offset: const Offset(-3, -3),
-                          blurRadius: 6,
+                          offset: const Offset(-2, -2),
+                          blurRadius: 5,
                         ),
                         BoxShadow(
                           color: Colors.black.withOpacity(0.5),
-                          offset: const Offset(4, 5),
-                          blurRadius: 10,
+                          offset: const Offset(3, 4),
+                          blurRadius: 8,
                         ),
                       ],
                     ),
                     child: Center(
                       child: isConnecting
                           ? const SizedBox(
-                              width: 38,
-                              height: 38,
+                              width: 34,
+                              height: 34,
                               child: CircularProgressIndicator(
-                                strokeWidth: 3.5,
+                                strokeWidth: 3.2,
                                 color: Colors.white,
                               ),
                             )
@@ -880,7 +841,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
                               children: [
                                 Icon(
                                   Icons.power_settings_new_rounded,
-                                  size: 44,
+                                  size: 40,
                                   color: isConnected ? Colors.black87 : Colors.white,
                                   shadows: [
                                     Shadow(
@@ -894,8 +855,8 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
                                 Text(
                                   isConnected ? 'PROTECTED' : 'READY',
                                   style: TextStyle(
-                                    fontSize: 8.5,
-                                    letterSpacing: 1.5,
+                                    fontSize: 8,
+                                    letterSpacing: 1.2,
                                     fontWeight: FontWeight.w900,
                                     color: isConnected ? Colors.black87 : Colors.white70,
                                   ),
@@ -926,34 +887,34 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
                 borderRadius: BorderRadius.circular(8),
                 child: Image.network(
                   appLogoUrl,
-                  width: 30,
-                  height: 30,
+                  width: 28,
+                  height: 28,
                   fit: BoxFit.cover,
                   errorBuilder: (_, __, ___) => const Icon(Icons.rocket_launch_rounded, color: Color(0xFF00E5FF)),
                 ),
               ),
               const SizedBox(width: 8),
-              const Text('JetConfig VPN', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17)),
+              const Text('JetConfig VPN', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16.5)),
             ],
           ),
           centerTitle: true,
           backgroundColor: Colors.transparent,
           elevation: 0,
           leading: IconButton(
-            icon: const Icon(Icons.send_rounded, color: Color(0xFF00E5FF), size: 20),
+            icon: const Icon(Icons.send_rounded, color: Color(0xFF00E5FF), size: 19),
             tooltip: 'کانال تلگرام',
             onPressed: () => _openTelegram(telegramChannelUrl),
           ),
           actions: [
             if (savedUser != null)
               IconButton(
-                icon: const Icon(Icons.sync_rounded, color: Color(0xFF00E5FF), size: 22),
+                icon: const Icon(Icons.sync_rounded, color: Color(0xFF00E5FF), size: 21),
                 tooltip: 'بروزرسانی کانفیگ‌ها',
                 onPressed: () => _fetchUserData(savedUser!, isManualRefresh: true),
               ),
             if (savedUser != null)
               IconButton(
-                icon: const Icon(Icons.logout_rounded, color: Colors.redAccent, size: 20),
+                icon: const Icon(Icons.logout_rounded, color: Colors.redAccent, size: 19),
                 tooltip: 'خروج از حساب',
                 onPressed: () async {
                   final prefs = await SharedPreferences.getInstance();
@@ -988,66 +949,66 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
         children: [
           const SizedBox(height: 10),
           Container(
-            width: 120,
-            height: 120,
+            width: 110,
+            height: 110,
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(32),
+              borderRadius: BorderRadius.circular(28),
               boxShadow: [
                 BoxShadow(
                   color: const Color(0xFF00E5FF).withOpacity(0.35),
-                  blurRadius: 30,
-                  spreadRadius: 4,
+                  blurRadius: 28,
+                  spreadRadius: 3,
                 ),
               ],
             ),
             child: ClipRRect(
-              borderRadius: BorderRadius.circular(32),
+              borderRadius: BorderRadius.circular(28),
               child: Image.network(
                 appLogoUrl,
                 fit: BoxFit.cover,
                 errorBuilder: (_, __, ___) => Container(
                   color: const Color(0xFF131B2E),
-                  child: const Icon(Icons.rocket_launch_rounded, size: 65, color: Color(0xFF00E5FF)),
+                  child: const Icon(Icons.rocket_launch_rounded, size: 60, color: Color(0xFF00E5FF)),
                 ),
               ),
             ),
           ),
-          const SizedBox(height: 22),
-          const Text('JetConfig VPN', style: TextStyle(fontSize: 23, fontWeight: FontWeight.w900, color: Colors.white)),
+          const SizedBox(height: 20),
+          const Text('JetConfig VPN', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: Colors.white)),
           const SizedBox(height: 6),
-          const Text('ورود هوشمند به اشتراک پرسرعت', style: TextStyle(color: Colors.grey, fontSize: 13)),
-          const SizedBox(height: 30),
+          const Text('ورود هوشمند به اشتراک پرسرعت', style: TextStyle(color: Colors.grey, fontSize: 12.5)),
+          const SizedBox(height: 28),
           TextField(
             controller: _userController,
             textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.white),
+            style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.bold, color: Colors.white),
             decoration: InputDecoration(
               hintText: 'نام کاربری (مثال: user_93330195_778)',
-              hintStyle: const TextStyle(color: Colors.white30, fontSize: 13),
+              hintStyle: const TextStyle(color: Colors.white30, fontSize: 12.5),
               prefixIcon: const Icon(Icons.fingerprint_rounded, color: Color(0xFF00E5FF)),
               filled: true,
               fillColor: const Color(0xFF131B2E),
-              contentPadding: const EdgeInsets.symmetric(vertical: 16),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: BorderSide(color: Colors.white.withOpacity(0.08))),
-              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: BorderSide(color: Colors.white.withOpacity(0.08))),
-              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: const BorderSide(color: Color(0xFF00E5FF), width: 1.8)),
+              contentPadding: const EdgeInsets.symmetric(vertical: 15),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(18), borderSide: BorderSide(color: Colors.white.withOpacity(0.08))),
+              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(18), borderSide: BorderSide(color: Colors.white.withOpacity(0.08))),
+              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(18), borderSide: const BorderSide(color: Color(0xFF00E5FF), width: 1.8)),
             ),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 18),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF00E5FF),
               foregroundColor: Colors.black,
-              minimumSize: const Size(double.infinity, 52),
+              minimumSize: const Size(double.infinity, 50),
               elevation: 8,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             ),
             onPressed: () {
               if (_userController.text.trim().isNotEmpty) {
                 _fetchUserData(_userController.text.trim());
               }
             },
-            child: const Text('ورود و بارگذاری سرورها', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+            child: const Text('ورود و بارگذاری سرورها', style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -1055,38 +1016,36 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
   }
 
   Widget _buildDashboardView() {
-    final double percent = (userData!['total_gb'] != null && userData!['total_gb'] > 0)
-        ? (userData!['used_gb'] / userData!['total_gb']).clamp(0.0, 1.0)
-        : 0.0;
     final isConnected = v2rayStatus.state == 'CONNECTED';
     final currentServerName = serverList.isNotEmpty ? serverList[selectedServerIndex].name : 'سرور در دسترس';
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       child: Column(
         children: [
+          // ردیف نام کاربر و پینگ
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
                 decoration: BoxDecoration(
                   color: const Color(0xFF131B2E),
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: BorderRadius.circular(12),
                   border: Border.all(color: Colors.white.withOpacity(0.05)),
                 ),
-                child: Text('کاربر: ${userData!['username']}', style: const TextStyle(color: Color(0xFF00E5FF), fontWeight: FontWeight.bold, fontSize: 12)),
+                child: Text('کاربر: ${userData!['username']}', style: const TextStyle(color: Color(0xFF00E5FF), fontWeight: FontWeight.bold, fontSize: 11.5)),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
                 decoration: BoxDecoration(
                   color: const Color(0xFF131B2E),
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: BorderRadius.circular(12),
                   border: Border.all(color: Colors.white.withOpacity(0.05)),
                 ),
                 child: Row(
                   children: [
-                    Icon(Icons.bolt_rounded, size: 16, color: activePing > 0 ? const Color(0xFF00FFA3) : Colors.grey),
+                    Icon(Icons.bolt_rounded, size: 15, color: activePing > 0 ? const Color(0xFF00FFA3) : Colors.grey),
                     const SizedBox(width: 4),
                     Text(
                       activePing > 0 ? '$activePing ms' : (isConnected ? 'پینگ...' : 'آفلاین'),
@@ -1097,90 +1056,92 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
               ),
             ],
           ),
-          const SizedBox(height: 12),
-          CircularPercentIndicator(
-            radius: 72.0,
-            lineWidth: 10.0,
-            animation: true,
-            percent: percent,
-            center: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
+          const SizedBox(height: 10),
+
+          // کارت خلاصه وضعیت اشتراک (حجم باقیمانده، کل، انقضا)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: BoxDecoration(
+              color: const Color(0xFF131B2E),
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: Colors.white.withOpacity(0.06)),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                Text('${userData!['remaining_gb']} GB', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20, color: Colors.white)),
-                const Text('حجم باقیمانده', style: TextStyle(color: Colors.grey, fontSize: 10)),
+                _buildCompactBadge('باقیمانده', '${userData!['remaining_gb']} GB', Icons.pie_chart_rounded, const Color(0xFF00FFA3)),
+                Container(width: 1, height: 32, color: Colors.white10),
+                _buildCompactBadge('کل ترافیک', '${userData!['total_gb']} GB', Icons.data_usage_rounded, const Color(0xFF00E5FF)),
+                Container(width: 1, height: 32, color: Colors.white10),
+                _buildCompactBadge('مدت اعتبار', '${userData!['expire_days']}', Icons.timer_outlined, Colors.amberAccent),
               ],
             ),
-            circularStrokeCap: CircularStrokeCap.round,
-            progressColor: percent > 0.85 ? Colors.redAccent : const Color(0xFF00E5FF),
-            backgroundColor: const Color(0xFF131B2E),
           ),
-          const SizedBox(height: 12),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              _buildInfoBadge('کل ترافیک', '${userData!['total_gb']} GB', Icons.data_usage_rounded),
-              _buildInfoBadge('مدت اعتبار', '${userData!['expire_days']}', Icons.timer_outlined),
-            ],
-          ),
-          const SizedBox(height: 12),
-          _buildSessionTrafficCards(),
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
+
+          // کادر ساده دانلود و آپلود
+          _buildTrafficCard(),
+          const SizedBox(height: 8),
+
+          // سوییچ دوحالته تونل
           _buildTunnelModeSwitch(),
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
+
+          // ردیف سرور و دکمه بروزرسانی
           Row(
             children: [
               Expanded(
                 child: InkWell(
                   onTap: _openServerPicker,
-                  borderRadius: BorderRadius.circular(18),
+                  borderRadius: BorderRadius.circular(16),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
                     decoration: BoxDecoration(
                       color: const Color(0xFF131B2E),
-                      borderRadius: BorderRadius.circular(18),
+                      borderRadius: BorderRadius.circular(16),
                       border: Border.all(color: const Color(0xFF00E5FF).withOpacity(0.2)),
                     ),
                     child: Row(
                       children: [
-                        const Icon(Icons.public_rounded, color: Color(0xFF00E5FF), size: 20),
-                        const SizedBox(width: 10),
+                        const Icon(Icons.public_rounded, color: Color(0xFF00E5FF), size: 18),
+                        const SizedBox(width: 8),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text('موقعیت سرور (لمس جهت تغییر)', style: TextStyle(fontSize: 10, color: Colors.grey)),
-                              Text(currentServerName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: Colors.white), overflow: TextOverflow.ellipsis),
+                              const Text('موقعیت سرور (لمس جهت تغییر)', style: TextStyle(fontSize: 9.5, color: Colors.grey)),
+                              Text(currentServerName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.white), overflow: TextOverflow.ellipsis),
                             ],
                           ),
                         ),
-                        const Icon(Icons.arrow_forward_ios_rounded, size: 12, color: Colors.grey),
+                        const Icon(Icons.arrow_forward_ios_rounded, size: 11, color: Colors.grey),
                       ],
                     ),
                   ),
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 6),
               InkWell(
                 onTap: () {
                   if (savedUser != null) {
                     _fetchUserData(savedUser!, isManualRefresh: true);
                   }
                 },
-                borderRadius: BorderRadius.circular(18),
+                borderRadius: BorderRadius.circular(16),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
                   decoration: BoxDecoration(
                     color: const Color(0xFF131B2E),
-                    borderRadius: BorderRadius.circular(18),
+                    borderRadius: BorderRadius.circular(16),
                     border: Border.all(color: const Color(0xFF00FFA3).withOpacity(0.3)),
                   ),
                   child: const Row(
                     children: [
-                      Icon(Icons.sync_rounded, color: Color(0xFF00FFA3), size: 18),
+                      Icon(Icons.sync_rounded, color: Color(0xFF00FFA3), size: 16),
                       SizedBox(width: 4),
                       Text(
                         'بروزرسانی',
-                        style: TextStyle(color: Color(0xFF00FFA3), fontSize: 11, fontWeight: FontWeight.bold),
+                        style: TextStyle(color: Color(0xFF00FFA3), fontSize: 10.5, fontWeight: FontWeight.bold),
                       ),
                     ],
                   ),
@@ -1188,9 +1149,12 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
               ),
             ],
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 14),
+
+          // دکمه اتصال نئونی
           _build3DAnimatedButton(),
-          const SizedBox(height: 10),
+          const SizedBox(height: 8),
+
           Text(
             isConnected
                 ? (onlyFilteredApps ? 'اتصال هوشمند (فقط برنامه‌های فیلترشده)' : 'اتصال کامل (تونل کل گوشی)')
@@ -1198,15 +1162,17 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
             style: TextStyle(
               color: isConnected ? const Color(0xFF00FFA3) : Colors.grey,
               fontWeight: FontWeight.bold,
-              fontSize: 12,
+              fontSize: 11.5,
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
+
+          // دکمه تمدید اشتراک در ربات تلگرام
           InkWell(
             onTap: () => _openTelegram(telegramBotUrl),
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(14),
             child: Container(
-              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+              padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 14),
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   colors: [
@@ -1214,48 +1180,39 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
                     const Color(0xFF00FFA3).withOpacity(0.15),
                   ],
                 ),
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(14),
                 border: Border.all(color: const Color(0xFF00E5FF).withOpacity(0.3)),
               ),
               child: const Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.diamond_rounded, color: Color(0xFF00FFA3), size: 18),
-                  SizedBox(width: 8),
+                  Icon(Icons.diamond_rounded, color: Color(0xFF00FFA3), size: 17),
+                  SizedBox(width: 6),
                   Text(
                     'تمدید اشتراک در ربات تلگرام',
-                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
                   ),
-                  SizedBox(width: 6),
-                  Icon(Icons.arrow_forward_rounded, color: Color(0xFF00E5FF), size: 16),
+                  SizedBox(width: 4),
+                  Icon(Icons.arrow_forward_rounded, color: Color(0xFF00E5FF), size: 14),
                 ],
               ),
             ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 6),
         ],
       ),
     );
   }
 
-  Widget _buildInfoBadge(String label, String value, IconData icon) {
-    return Container(
-      width: 140,
-      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
-      decoration: BoxDecoration(
-        color: const Color(0xFF131B2E),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withOpacity(0.05)),
-      ),
-      child: Column(
-        children: [
-          Icon(icon, color: const Color(0xFF00E5FF), size: 20),
-          const SizedBox(height: 3),
-          Text(label, style: const TextStyle(color: Colors.grey, fontSize: 10)),
-          const SizedBox(height: 2),
-          Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.white)),
-        ],
-      ),
+  Widget _buildCompactBadge(String label, String value, IconData icon, Color color) {
+    return Column(
+      children: [
+        Icon(icon, color: color, size: 18),
+        const SizedBox(height: 2),
+        Text(label, style: const TextStyle(color: Colors.grey, fontSize: 9.5)),
+        const SizedBox(height: 1),
+        Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5, color: Colors.white)),
+      ],
     );
   }
 }

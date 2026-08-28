@@ -26,17 +26,18 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: Configure Android Native Split Tunneling, App Icons & Permissions
+      - name: Clean Recreate Android Native Project & App Icons
         run: |
+          rm -rf android
           flutter create . --platforms=android --project-name=jetconfig_vpn --org com.jetconfig.vpn
           flutter pub add url_launcher
           python3 -m pip install pillow
 
-          cat << 'EOF' > configure_android.py
+          python3 -c "
           import urllib.request, os, shutil, re
           from PIL import Image
 
-          # 1. ساخت آیکون بزرگ و باکیفیت از لوگو
+          # 1. ساخت آیکون بزرگ و باکیفیت از لوگوی موشکی کانال
           try:
               urllib.request.urlretrieve('https://majid6064.ir/logo.png', 'logo.png')
               im = Image.open('logo.png').convert('RGBA')
@@ -71,85 +72,42 @@ jobs:
           except Exception as e:
               print('Icon error:', e)
 
-          # 2. تنظیم متدچنل دریافت لیست برنامه‌ها در MainActivity
-          main_activity_kt = """package com.jetconfig.vpn
-
-          import io.flutter.embedding.android.FlutterActivity
-          import io.flutter.embedding.engine.FlutterEngine
-          import io.flutter.plugin.common.MethodChannel
-
-          class MainActivity: FlutterActivity() {
-              private val CHANNEL = "com.jetconfig.vpn/apps"
-
-              override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
-                  super.configureFlutterEngine(flutterEngine)
-                  MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL).setMethodCallHandler { call, result ->
-                      if (call.method == "getInstalledApps") {
-                          try {
-                              val packages = packageManager.getInstalledPackages(0)
-                              val packageNames = packages.map { it.packageName }
-                              result.success(packageNames)
-                          } catch (e: Exception) {
-                              result.error("ERROR", e.message, null)
-                          }
-                      } else {
-                          result.notImplemented()
-                      }
-                  }
-              }
-          }
-          """
-
-          for root, _, files in os.walk('android/app/src/main'):
-              for file in files:
-                  if file in ['MainActivity.kt', 'MainActivity.java']:
-                      f_path = os.path.join(root, file)
-                      if file == 'MainActivity.kt':
-                          with open(f_path, 'w', encoding='utf-8') as f:
-                              f.write(main_activity_kt)
-                      elif file == 'MainActivity.java':
-                          os.remove(f_path)
-                          kt_path = os.path.join(root, 'MainActivity.kt')
-                          with open(kt_path, 'w', encoding='utf-8') as f:
-                              f.write(main_activity_kt)
-
-          # 3. تنظیم دسترسی‌ها و نام اپلیکیشن در مانیفست
+          # 2. تنظیم مانیفست
           manifest_path = 'android/app/src/main/AndroidManifest.xml'
           if os.path.exists(manifest_path):
               with open(manifest_path, 'r', encoding='utf-8') as f:
                   m = f.read()
 
-              m = re.sub(r'android:label="[^"]*"', 'android:label="JetConfig VPN"', m, count=1)
+              m = re.sub(r'android:label=\"[^\"]*\"', 'android:label=\"JetConfig VPN\"', m, count=1)
 
-              perms = """
-                  <uses-permission android:name="android.permission.INTERNET" />
-                  <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-                  <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-                  <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-                  <uses-permission android:name="android.permission.CHANGE_NETWORK_STATE" />
-                  <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
-              """
+              perms = '''
+                  <uses-permission android:name=\"android.permission.INTERNET\" />
+                  <uses-permission android:name=\"android.permission.FOREGROUND_SERVICE\" />
+                  <uses-permission android:name=\"android.permission.POST_NOTIFICATIONS\" />
+                  <uses-permission android:name=\"android.permission.ACCESS_NETWORK_STATE\" />
+                  <uses-permission android:name=\"android.permission.CHANGE_NETWORK_STATE\" />
+              '''
               m = m.replace('<application', perms + '\n    <application')
 
-              queries = """
+              queries = '''
                   <queries>
                       <intent>
-                          <action android:name="android.intent.action.VIEW" />
-                          <data android:scheme="https" />
+                          <action android:name=\"android.intent.action.VIEW\" />
+                          <data android:scheme=\"https\" />
                       </intent>
                       <intent>
-                          <action android:name="android.intent.action.VIEW" />
-                          <data android:scheme="tg" />
+                          <action android:name=\"android.intent.action.VIEW\" />
+                          <data android:scheme=\"tg\" />
                       </intent>
                   </queries>
-              """
+              '''
               m = m.replace('</manifest>', queries + '\n</manifest>')
 
               with open(manifest_path, 'w', encoding='utf-8') as f:
                   f.write(m)
               print('Manifest updated.')
 
-          # 4. تنظیم حداقل نسخه SDK
+          # 3. تنظیم minSdkVersion 21
           gradle_path = 'android/app/build.gradle'
           if os.path.exists(gradle_path):
               with open(gradle_path, 'r', encoding='utf-8') as f:
@@ -159,9 +117,7 @@ jobs:
               with open(gradle_path, 'w', encoding='utf-8') as f:
                   f.write(g)
               print('Gradle configured.')
-          EOF
-
-          python3 configure_android.py
+          "
 
       - name: Install Dependencies
         run: flutter pub get
@@ -174,3 +130,4 @@ jobs:
         with:
           name: JetConfig-VPN-Release
           path: build/app/outputs/flutter-apk/app-release.apk
+

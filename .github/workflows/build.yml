@@ -26,14 +26,14 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: Auto Migrate to V2 Embedding and Configure Icons
+      - name: Complete V2 Embedding Migration & Icon Setup
         run: |
           python3 -m pip install pillow
           python3 -c "
           import urllib.request, os, shutil, re
           from PIL import Image
 
-          # ۱. تولید آیکون‌های اختصاصی از لوگوی کانال
+          # ۱. دانلود و تولید آیکون‌های برنامه از لوگوی کانال
           try:
               urllib.request.urlretrieve('https://majid6064.ir/logo.png', 'logo.png')
               im = Image.open('logo.png').convert('RGBA')
@@ -53,39 +53,53 @@ jobs:
                   path = f'android/app/src/main/res/{folder}'
                   os.makedirs(path, exist_ok=True)
                   im.resize((size, size), Image.Resampling.LANCZOS).save(f'{path}/ic_launcher.png', 'PNG')
-              print('Icons created successfully.')
+              print('Icons configured successfully.')
           except Exception as e:
-              print('Icon generation skipped:', e)
+              print('Icon setup error:', e)
 
-          # ۲. ارتقای AndroidManifest.xml به V2 Embedding
+          # ۲. پاکسازی و اصلاح MainActivity به V2 Embedding
+          for root, _, files in os.walk('android/app/src/main'):
+              for file in files:
+                  if file == 'MainActivity.kt':
+                      f_path = os.path.join(root, file)
+                      with open(f_path, 'r', encoding='utf-8') as f:
+                          content = f.read()
+                      pkg_match = re.search(r'package\s+[\w\.]+', content)
+                      pkg = pkg_match.group(0) if pkg_match else 'package com.example.jetconfig_vpn'
+                      new_code = f'{pkg}\n\nimport io.flutter.embedding.android.FlutterActivity\n\nclass MainActivity: FlutterActivity() {{\n}}\n'
+                      with open(f_path, 'w', encoding='utf-8') as f:
+                          f.write(new_code)
+                      print('MainActivity.kt cleanly migrated to V2.')
+
+                  elif file == 'MainActivity.java':
+                      f_path = os.path.join(root, file)
+                      with open(f_path, 'r', encoding='utf-8') as f:
+                          content = f.read()
+                      pkg_match = re.search(r'package\s+[\w\.]+;', content)
+                      pkg = pkg_match.group(0) if pkg_match else 'package com.example.jetconfig_vpn;'
+                      new_code = f'{pkg}\n\nimport io.flutter.embedding.android.FlutterActivity;\n\npublic class MainActivity extends FlutterActivity {{\n}}\n'
+                      with open(f_path, 'w', encoding='utf-8') as f:
+                          f.write(new_code)
+                      print('MainActivity.java cleanly migrated to V2.')
+
+          # ۳. بازنویسی اصولی AndroidManifest.xml
           manifest_path = 'android/app/src/main/AndroidManifest.xml'
           if os.path.exists(manifest_path):
               with open(manifest_path, 'r', encoding='utf-8') as f:
-                  m_content = f.read()
+                  m = f.read()
 
-              # تغییر نام برنامه
-              m_content = re.sub(r'android:label=\"[^\"]*\"', 'android:label=\"JetConfig VPN\"', m_content, count=1)
+              # حذف رفرنس‌های نسخه V1
+              m = m.replace('android:name=\"io.flutter.app.FlutterApplication\"', 'android:name=\"\${applicationName}\"')
+              m = re.sub(r'android:label=\"[^\"]*\"', 'android:label=\"JetConfig VPN\"', m, count=1)
+              m = re.sub(r'<meta-data[^>]*android:name=\"flutterEmbedding\"[^>]*/>', '', m)
 
-              # اضافه کردن تگ الزامی V2 Embedding
+              # افزودن تگ استاندارد V2
               v2_tag = '<meta-data android:name=\"flutterEmbedding\" android:value=\"2\" />'
-              if 'android:name=\"flutterEmbedding\"' not in m_content:
-                  m_content = m_content.replace('</application>', f'    {v2_tag}\n    </application>')
+              m = m.replace('</application>', f'    {v2_tag}\n    </application>')
 
               with open(manifest_path, 'w', encoding='utf-8') as f:
-                  f.write(m_content)
-              print('AndroidManifest.xml upgraded to V2.')
-
-          # ۳. ارتقای کدهای MainActivity به V2
-          for root, _, files in os.walk('android/app/src/main'):
-              for file in files:
-                  if file in ['MainActivity.java', 'MainActivity.kt']:
-                      f_path = os.path.join(root, file)
-                      with open(f_path, 'r', encoding='utf-8') as f:
-                          c = f.read()
-                      c = c.replace('io.flutter.app.FlutterActivity', 'io.flutter.embedding.android.FlutterActivity')
-                      with open(f_path, 'w', encoding='utf-8') as f:
-                          f.write(c)
-                      print(f'{file} upgraded to V2.')
+                  f.write(m)
+              print('AndroidManifest.xml fully updated.')
           "
 
       - name: Install Dependencies

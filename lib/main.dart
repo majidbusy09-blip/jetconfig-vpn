@@ -245,6 +245,193 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     ));
   }
 
+  // موتور تبدیل استاندارد به قالب Xray Core مطابق با v2rayNG
+  String _buildXrayConfig(String rawUrl, String remark) {
+    if (rawUrl.trim().startsWith('{')) {
+      return rawUrl.trim();
+    }
+
+    try {
+      final uri = Uri.parse(rawUrl.trim());
+      final query = uri.queryParameters;
+      final protocol = uri.scheme.toLowerCase();
+      final serverAddress = uri.host;
+      final serverPort = uri.port > 0 ? uri.port : 443;
+      final uuid = uri.userInfo;
+
+      final network = query['type'] ?? 'tcp';
+      final security = query['security'] ?? 'none';
+      final path = query['path'] ?? '/';
+      final wsHost = query['host'] ?? '';
+      final sni = query['sni'] ?? query['host'] ?? '';
+      final headerType = query['headerType'] ?? 'none';
+      final pbk = query['pbk'] ?? '';
+      final sid = query['sid'] ?? '';
+      final fp = query['fp'] ?? 'chrome';
+      final flow = query['flow'] ?? '';
+
+      final Map<String, dynamic> streamSettings = {
+        "network": network,
+        "security": security,
+      };
+
+      if (network == 'ws') {
+        streamSettings["wsSettings"] = {
+          "path": path,
+          "headers": wsHost.isNotEmpty ? {"Host": wsHost} : {}
+        };
+      } else if (network == 'tcp' && headerType == 'http') {
+        streamSettings["tcpSettings"] = {
+          "header": {
+            "type": "http",
+            "request": {
+              "version": "1.1",
+              "method": "GET",
+              "path": [path],
+              "headers": {
+                "Host": wsHost.isNotEmpty ? [wsHost] : [serverAddress],
+                "User-Agent": [
+                  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+                ],
+                "Accept-Encoding": ["gzip, deflate"],
+                "Connection": ["keep-alive"],
+                "Pragma": "no-cache"
+              }
+            }
+          }
+        };
+      }
+
+      if (security == 'tls') {
+        streamSettings["tlsSettings"] = {
+          "serverName": sni.isNotEmpty ? sni : serverAddress,
+          "allowInsecure": true,
+          "fingerprint": fp.isNotEmpty ? fp : "chrome"
+        };
+      } else if (security == 'reality') {
+        streamSettings["realitySettings"] = {
+          "serverName": sni.isNotEmpty ? sni : serverAddress,
+          "publicKey": pbk,
+          "shortId": sid,
+          "fingerprint": fp.isNotEmpty ? fp : "chrome"
+        };
+      }
+
+      Map<String, dynamic> outboundProxy;
+
+      if (protocol == 'vless') {
+        outboundProxy = {
+          "tag": "proxy",
+          "protocol": "vless",
+          "settings": {
+            "vnext": [
+              {
+                "address": serverAddress,
+                "port": serverPort,
+                "users": [
+                  {
+                    "id": uuid,
+                    "encryption": "none",
+                    if (flow.isNotEmpty) "flow": flow,
+                    "level": 8
+                  }
+                ]
+              }
+            ]
+          },
+          "streamSettings": streamSettings
+        };
+      } else if (protocol == 'trojan') {
+        outboundProxy = {
+          "tag": "proxy",
+          "protocol": "trojan",
+          "settings": {
+            "servers": [
+              {
+                "address": serverAddress,
+                "port": serverPort,
+                "password": uuid,
+                "level": 8
+              }
+            ]
+          },
+          "streamSettings": streamSettings
+        };
+      } else {
+        final parser = FlutterV2ray.parseFromURL(rawUrl);
+        return parser.getFullConfiguration();
+      }
+
+      final Map<String, dynamic> fullConfig = {
+        "log": {"loglevel": "warning"},
+        "inbounds": [
+          {
+            "tag": "socks",
+            "port": 10808,
+            "listen": "127.0.0.1",
+            "protocol": "socks",
+            "sniffing": {
+              "enabled": true,
+              "destOverride": ["http", "tls", "quic"]
+            },
+            "settings": {
+              "auth": "noauth",
+              "udp": true,
+              "userLevel": 8
+            }
+          },
+          {
+            "tag": "http",
+            "port": 10809,
+            "listen": "127.0.0.1",
+            "protocol": "http",
+            "settings": {
+              "userLevel": 8
+            }
+          }
+        ],
+        "outbounds": [
+          outboundProxy,
+          {
+            "tag": "direct",
+            "protocol": "freedom",
+            "settings": {"domainStrategy": "UseIP"}
+          },
+          {
+            "tag": "block",
+            "protocol": "blackhole",
+            "settings": {
+              "response": {"type": "none"}
+            }
+          }
+        ],
+        "dns": {
+          "servers": [
+            "1.1.1.1",
+            "8.8.8.8",
+            "https://1.1.1.1/dns-query",
+            "localhost"
+          ]
+        },
+        "routing": {
+          "domainStrategy": "IPIfNonMatch",
+          "rules": [
+            {
+              "type": "field",
+              "outboundTag": "proxy",
+              "network": "tcp,udp"
+            }
+          ]
+        }
+      };
+
+      return json.encode(fullConfig);
+    } catch (_) {
+      final parser = FlutterV2ray.parseFromURL(rawUrl);
+      return parser.getFullConfiguration();
+    }
+  }
+
   Future<void> _toggleConnect() async {
     if (v2rayStatus.state == 'CONNECTED') {
       await flutterV2ray.stopV2Ray();
@@ -257,34 +444,22 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
       return;
     }
 
-    // درخواست رسمی و تایید VPN سیستم‌عامل
-    final hasPermission = await flutterV2ray.requestPermission();
-    if (!hasPermission) {
-      _showToast('لطفاً دسترسی اتصال به VPN را در پنجره باز شده تایید کنید');
-      return;
-    }
+    if (await flutterV2ray.requestPermission()) {
+      setState(() => isConnecting = true);
+      try {
+        final target = serverList[selectedServerIndex];
+        final finalConfig = _buildXrayConfig(target.config, target.name);
 
-    setState(() => isConnecting = true);
-    try {
-      final target = serverList[selectedServerIndex];
-      String finalJsonConfig = '';
-
-      if (target.config.trim().startsWith('{')) {
-        finalJsonConfig = target.config.trim();
-      } else {
-        final v2rayURL = FlutterV2ray.parseFromURL(target.config);
-        finalJsonConfig = v2rayURL.getFullConfiguration();
+        await flutterV2ray.startV2Ray(
+          remark: target.name,
+          config: finalConfig,
+          proxyOnly: false,
+        );
+      } catch (e) {
+        _showToast('خطا در اجرای اتصال');
+      } finally {
+        setState(() => isConnecting = false);
       }
-
-      await flutterV2ray.startV2Ray(
-        remark: target.name,
-        config: finalJsonConfig,
-        proxyOnly: false,
-      );
-    } catch (e) {
-      _showToast('خطا در اجرای اتصال: $e');
-    } finally {
-      setState(() => isConnecting = false);
     }
   }
 

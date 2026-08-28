@@ -40,6 +40,11 @@ class _MainVpnScreenState extends State<MainVpnScreen> {
       setState(() {
         v2rayStatus = status;
       });
+      if (status.state == 'CONNECTED') {
+        _checkPing();
+      } else {
+        setState(() => serverPing = -1);
+      }
     },
   );
 
@@ -47,8 +52,11 @@ class _MainVpnScreenState extends State<MainVpnScreen> {
   final TextEditingController _userController = TextEditingController();
 
   bool isLoading = false;
+  bool isConnecting = false;
+  int serverPing = -1;
   Map<String, dynamic>? userData;
   String? savedUser;
+  List<String> parsedConfigs = [];
 
   @override
   void initState() {
@@ -82,15 +90,52 @@ class _MainVpnScreenState extends State<MainVpnScreen> {
             userData = data;
             savedUser = username;
           });
+          _loadConfigsFromSub(data['sub_url']);
         } else {
           _showToast(data['msg'] ?? 'خطا در احراز هویت');
         }
       }
     } catch (e) {
-      _showToast('خطا در اتصال به سرور');
+      _showToast('خطا در اتصال به سرور پنل');
     } finally {
       setState(() => isLoading = false);
     }
+  }
+
+  Future<void> _loadConfigsFromSub(String? subUrl) async {
+    if (subUrl == null || subUrl.isEmpty) return;
+    try {
+      final res = await http.get(Uri.parse(subUrl), headers: {
+        'User-Agent': 'v2rayNG/1.8.5',
+      });
+      if (res.statusCode == 200) {
+        String body = res.body.replaceAll('\n', '').replaceAll('\r', '').trim();
+        String decoded = '';
+        try {
+          decoded = utf8.decode(base64.decode(base64.normalize(body)));
+        } catch (_) {
+          decoded = utf8.decode(base64Url.decode(base64Url.normalize(body)));
+        }
+        
+        final list = LineSplitter.split(decoded)
+            .map((e) => e.trim())
+            .where((e) => e.startsWith('vless://') || e.startsWith('vmess://') || e.startsWith('trojan://') || e.startsWith('ss://'))
+            .toList();
+
+        setState(() {
+          parsedConfigs = list;
+        });
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _checkPing() async {
+    try {
+      final delay = await flutterV2ray.getConnectedServerDelay();
+      setState(() {
+        serverPing = delay;
+      });
+    } catch (_) {}
   }
 
   void _showToast(String msg) {
@@ -98,32 +143,36 @@ class _MainVpnScreenState extends State<MainVpnScreen> {
   }
 
   Future<void> _toggleConnect() async {
-    if (userData == null || userData!['sub_url'] == null) return;
-
     if (v2rayStatus.state == 'CONNECTED') {
       await flutterV2ray.stopV2Ray();
+      setState(() => serverPing = -1);
       return;
     }
 
+    if (parsedConfigs.isEmpty) {
+      if (userData?['sub_url'] != null) {
+        await _loadConfigsFromSub(userData!['sub_url']);
+      }
+      if (parsedConfigs.isEmpty) {
+        _showToast('هیچ سرور فعالی یافت نشد');
+        return;
+      }
+    }
+
     if (await flutterV2ray.requestPermission()) {
-      final String subUrl = userData!['sub_url'];
+      setState(() => isConnecting = true);
       try {
-        final res = await http.get(Uri.parse(subUrl));
-        if (res.statusCode == 200) {
-          String rawConfig = utf8.decode(base64.decode(base64.normalize(res.body.trim())));
-          List<String> configs = rawConfig.split('\n').where((s) => s.trim().isNotEmpty).toList();
-          
-          if (configs.isNotEmpty) {
-            final v2rayURL = FlutterV2ray.parseFromURL(configs.first);
-            await flutterV2ray.startV2Ray(
-              remark: 'JetConfig VPN',
-              config: v2rayURL.getFullConfiguration(),
-              proxyOnly: false,
-            );
-          }
-        }
+        // اتصال به اولین کانفیگ معتبر
+        final v2rayURL = FlutterV2ray.parseFromURL(parsedConfigs.first);
+        await flutterV2ray.startV2Ray(
+          remark: 'JetConfig High Speed',
+          config: v2rayURL.getFullConfiguration(),
+          proxyOnly: false,
+        );
       } catch (e) {
-        _showToast('خطا در دریافت سرورها');
+        _showToast('خطا در برقراری اتصال');
+      } finally {
+        setState(() => isConnecting = false);
       }
     }
   }
@@ -151,6 +200,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> {
                   setState(() {
                     savedUser = null;
                     userData = null;
+                    parsedConfigs.clear();
                   });
                 },
               )
@@ -200,7 +250,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> {
                 _fetchUserData(_userController.text.trim());
               }
             },
-            child: const Text('ورود و فعال‌سازی', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            child: const Text('ورود و دریافت سرورها', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -208,7 +258,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> {
   }
 
   Widget _buildDashboardView() {
-    final double percent = userData!['total_gb'] > 0
+    final double percent = (userData!['total_gb'] != null && userData!['total_gb'] > 0)
         ? (userData!['used_gb'] / userData!['total_gb']).clamp(0.0, 1.0)
         : 0.0;
     final isConnected = v2rayStatus.state == 'CONNECTED';
@@ -217,18 +267,44 @@ class _MainVpnScreenState extends State<MainVpnScreen> {
       padding: const EdgeInsets.all(24),
       child: Column(
         children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            decoration: BoxDecoration(
-              color: const Color(0xFF1E293B),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Text('کاربر: ${userData!['username']}', style: const TextStyle(color: Colors.cyanAccent, fontWeight: FontWeight.bold)),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1E293B),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Text('کاربر: ${userData!['username']}', style: const TextStyle(color: Colors.cyanAccent, fontWeight: FontWeight.bold)),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1E293B),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.bolt, size: 18, color: serverPing > 0 ? Colors.greenAccent : Colors.grey),
+                    const SizedBox(width: 4),
+                    Text(
+                      serverPing > 0 ? '$serverPing ms' : (isConnected ? 'در حال پینگ...' : 'آفلاین'),
+                      style: TextStyle(
+                        color: serverPing > 0 ? Colors.greenAccent : Colors.grey,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 30),
+          const SizedBox(height: 25),
           CircularPercentIndicator(
-            radius: 95.0,
-            lineWidth: 14.0,
+            radius: 90.0,
+            lineWidth: 13.0,
             animation: true,
             percent: percent,
             center: Column(
@@ -242,7 +318,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> {
             progressColor: percent > 0.85 ? Colors.redAccent : Colors.cyanAccent,
             backgroundColor: const Color(0xFF1E293B),
           ),
-          const SizedBox(height: 30),
+          const SizedBox(height: 25),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
@@ -250,12 +326,12 @@ class _MainVpnScreenState extends State<MainVpnScreen> {
               _buildInfoBadge('اعتبار', '${userData!['expire_days']}', Icons.timer_outlined),
             ],
           ),
-          const SizedBox(height: 45),
+          const SizedBox(height: 40),
           GestureDetector(
-            onTap: _toggleConnect,
+            onTap: isConnecting ? null : _toggleConnect,
             child: Container(
-              width: 130,
-              height: 130,
+              width: 125,
+              height: 125,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 gradient: LinearGradient(
@@ -272,17 +348,19 @@ class _MainVpnScreenState extends State<MainVpnScreen> {
                 ],
               ),
               child: Center(
-                child: Icon(
-                  Icons.power_settings_new_rounded,
-                  size: 60,
-                  color: isConnected ? Colors.black : Colors.black87,
-                ),
+                child: isConnecting
+                    ? const CircularProgressIndicator(color: Colors.black)
+                    : Icon(
+                        Icons.power_settings_new_rounded,
+                        size: 58,
+                        color: isConnected ? Colors.black : Colors.black87,
+                      ),
               ),
             ),
           ),
           const SizedBox(height: 16),
           Text(
-            isConnected ? 'متصل شد (امن)' : 'جهت اتصال لمس کنید',
+            isConnected ? 'متصل شد (ترافیک ایمن)' : 'جهت اتصال لمس کنید',
             style: TextStyle(color: isConnected ? Colors.greenAccent : Colors.grey, fontWeight: FontWeight.bold),
           ),
         ],
@@ -310,4 +388,3 @@ class _MainVpnScreenState extends State<MainVpnScreen> {
     );
   }
 }
-

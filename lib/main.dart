@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -11,13 +12,15 @@ void main() {
   runApp(const JetConfigApp());
 }
 
+const String appLogoUrl = 'https://majid6064.ir/logo.png';
+
 class ServerModel {
   final String name;
   final String host;
   final int port;
   final String protocol;
   final String config;
-  int ping; // -1: تست نشده, -2: تایم‌اوت, >0: میلی‌ثانیه
+  int ping;
 
   ServerModel({
     required this.name,
@@ -30,7 +33,7 @@ class ServerModel {
 
   factory ServerModel.fromJson(Map<String, dynamic> json) {
     return ServerModel(
-      name: json['name'] ?? 'سرور پرسرعت',
+      name: json['name'] ?? 'سرور هوشمند',
       host: json['host'] ?? '',
       port: int.tryParse('${json['port']}') ?? 443,
       protocol: json['protocol'] ?? 'VPN',
@@ -49,7 +52,7 @@ class JetConfigApp extends StatelessWidget {
       title: 'JetConfig VPN',
       theme: ThemeData(
         brightness: Brightness.dark,
-        scaffoldBackgroundColor: const Color(0xFF0F172A),
+        scaffoldBackgroundColor: const Color(0xFF0A0E1A),
         fontFamily: 'Tahoma',
       ),
       home: const MainVpnScreen(),
@@ -64,7 +67,7 @@ class MainVpnScreen extends StatefulWidget {
   State<MainVpnScreen> createState() => _MainVpnScreenState();
 }
 
-class _MainVpnScreenState extends State<MainVpnScreen> {
+class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateMixin {
   late final FlutterV2ray flutterV2ray = FlutterV2ray(
     onStatusChanged: (status) {
       setState(() {
@@ -80,9 +83,11 @@ class _MainVpnScreenState extends State<MainVpnScreen> {
 
   V2RayStatus v2rayStatus = V2RayStatus();
   final TextEditingController _userController = TextEditingController();
-  final TextEditingController _passController = TextEditingController();
 
-  bool isPasswordVisible = false;
+  late AnimationController _pulseController;
+  late Animation<double> _pulseAnimation;
+  late AnimationController _rotateController;
+
   bool isLoading = false;
   bool isConnecting = false;
   bool isPingingAll = false;
@@ -97,34 +102,54 @@ class _MainVpnScreenState extends State<MainVpnScreen> {
   void initState() {
     super.initState();
     flutterV2ray.initializeV2Ray();
+
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1800),
+    )..repeat(reverse: true);
+
+    _pulseAnimation = Tween<double>(begin: 0.96, end: 1.07).animate(
+      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
+    );
+
+    _rotateController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 8),
+    )..repeat();
+
     _loadSavedCredentials();
+  }
+
+  @override
+  void dispose() {
+    _pulseController.dispose();
+    _rotateController.dispose();
+    _userController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadSavedCredentials() async {
     final prefs = await SharedPreferences.getInstance();
     final user = prefs.getString('saved_username');
-    final pass = prefs.getString('saved_password') ?? '';
     if (user != null && user.isNotEmpty) {
       setState(() {
         savedUser = user;
         _userController.text = user;
-        _passController.text = pass;
       });
-      _fetchUserData(user, pass);
+      _fetchUserData(user);
     }
   }
 
-  Future<void> _fetchUserData(String username, [String password = '']) async {
+  Future<void> _fetchUserData(String username) async {
     setState(() => isLoading = true);
     try {
-      final uri = Uri.parse('https://majid6064.ir/api.php?username=${Uri.encodeComponent(username)}&password=${Uri.encodeComponent(password)}');
+      final uri = Uri.parse('https://majid6064.ir/api.php?username=${Uri.encodeComponent(username)}');
       final res = await http.get(uri).timeout(const Duration(seconds: 12));
       if (res.statusCode == 200) {
         final data = json.decode(res.body);
         if (data['ok'] == true) {
           final prefs = await SharedPreferences.getInstance();
           await prefs.setString('saved_username', username);
-          await prefs.setString('saved_password', password);
 
           final List<dynamic> rawServers = data['servers'] ?? [];
           final parsed = rawServers.map((s) => ServerModel.fromJson(s)).toList();
@@ -138,15 +163,13 @@ class _MainVpnScreenState extends State<MainVpnScreen> {
 
           if (parsed.isNotEmpty) {
             _pingAllServers();
-          } else {
-            _showToast('سروری برای این حساب یافت نشد');
           }
         } else {
-          _showToast(data['msg'] ?? 'خطا در ورود به حساب');
+          _showToast(data['msg'] ?? 'نام کاربری یافت نشد');
         }
       }
     } catch (e) {
-      _showToast('خطا در ارتباط با سرور');
+      _showToast('خطا در برقراری ارتباط با سرور');
     } finally {
       setState(() => isLoading = false);
     }
@@ -165,6 +188,25 @@ class _MainVpnScreenState extends State<MainVpnScreen> {
     }
   }
 
+  void _sortServersByPing() {
+    setState(() {
+      final currentSelected = serverList.isNotEmpty ? serverList[selectedServerIndex] : null;
+      serverList.sort((a, b) {
+        if (a.ping > 0 && b.ping > 0) return a.ping.compareTo(b.ping);
+        if (a.ping > 0) return -1;
+        if (b.ping > 0) return 1;
+        if (a.ping == -1 && b.ping == -2) return -1;
+        if (a.ping == -2 && b.ping == -1) return 1;
+        return 0;
+      });
+
+      if (currentSelected != null) {
+        int newIdx = serverList.indexOf(currentSelected);
+        selectedServerIndex = (newIdx != -1) ? newIdx : 0;
+      }
+    });
+  }
+
   Future<void> _pingAllServers() async {
     if (serverList.isEmpty || isPingingAll) return;
     setState(() => isPingingAll = true);
@@ -179,6 +221,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> {
     }));
 
     if (mounted) {
+      _sortServersByPing();
       setState(() => isPingingAll = false);
     }
   }
@@ -198,7 +241,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text(msg, textDirection: TextDirection.rtl),
       behavior: SnackBarBehavior.floating,
-      backgroundColor: const Color(0xFF334155),
+      backgroundColor: const Color(0xFF1E293B),
     ));
   }
 
@@ -234,7 +277,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> {
           proxyOnly: false,
         );
       } catch (e) {
-        _showToast('خطا در اجرای هسته اتصال');
+        _showToast('خطا در برقراری اتصال');
       } finally {
         setState(() => isConnecting = false);
       }
@@ -244,9 +287,9 @@ class _MainVpnScreenState extends State<MainVpnScreen> {
   void _openServerPicker() {
     showModalBottomSheet(
       context: context,
-      backgroundColor: const Color(0xFF1E293B),
+      backgroundColor: const Color(0xFF131B2E),
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
       builder: (ctx) {
         return StatefulBuilder(
@@ -254,29 +297,41 @@ class _MainVpnScreenState extends State<MainVpnScreen> {
             return Directionality(
               textDirection: TextDirection.rtl,
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text('انتخاب سرور', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                        TextButton.icon(
-                          onPressed: isPingingAll
-                              ? null
-                              : () async {
-                                  await _pingAllServers();
-                                  setSheetState(() {});
-                                },
-                          icon: isPingingAll
-                              ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.cyanAccent))
-                              : const Icon(Icons.refresh, size: 18, color: Colors.cyanAccent),
-                          label: const Text('تست مجدد پینگ', style: TextStyle(color: Colors.cyanAccent)),
+                        const Text('سرورهای هوشمند', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
+                        Row(
+                          children: [
+                            TextButton.icon(
+                              onPressed: () {
+                                _sortServersByPing();
+                                setSheetState(() {});
+                              },
+                              icon: const Icon(Icons.flash_on_rounded, size: 18, color: Colors.amberAccent),
+                              label: const Text('مرتب‌سازی پینگ', style: TextStyle(color: Colors.amberAccent, fontSize: 12, fontWeight: FontWeight.bold)),
+                            ),
+                            TextButton.icon(
+                              onPressed: isPingingAll
+                                  ? null
+                                  : () async {
+                                      await _pingAllServers();
+                                      setSheetState(() {});
+                                    },
+                              icon: isPingingAll
+                                  ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.cyanAccent))
+                                  : const Icon(Icons.refresh, size: 18, color: Colors.cyanAccent),
+                              label: const Text('تست مجدد', style: TextStyle(color: Colors.cyanAccent, fontSize: 12)),
+                            ),
+                          ],
                         ),
                       ],
                     ),
-                    const Divider(color: Colors.white12),
+                    const Divider(color: Colors.white10),
                     Expanded(
                       child: ListView.separated(
                         itemCount: serverList.length,
@@ -288,7 +343,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> {
                           Color pingColor = Colors.grey;
                           String pingText = 'تست نشده';
                           if (s.ping > 0) {
-                            if (s.ping < 250) pingColor = Colors.greenAccent;
+                            if (s.ping < 250) pingColor = const Color(0xFF00FFA3);
                             else if (s.ping < 500) pingColor = Colors.orangeAccent;
                             else pingColor = Colors.redAccent;
                             pingText = '${s.ping} ms';
@@ -311,22 +366,22 @@ class _MainVpnScreenState extends State<MainVpnScreen> {
                             child: Container(
                               padding: const EdgeInsets.all(14),
                               decoration: BoxDecoration(
-                                color: isSel ? Colors.cyanAccent.withOpacity(0.12) : const Color(0xFF0F172A),
+                                color: isSel ? const Color(0xFF00E5FF).withOpacity(0.12) : const Color(0xFF0A0E1A),
                                 borderRadius: BorderRadius.circular(16),
                                 border: Border.all(
-                                  color: isSel ? Colors.cyanAccent : Colors.transparent,
+                                  color: isSel ? const Color(0xFF00E5FF) : Colors.white.withOpacity(0.05),
                                   width: 1.5,
                                 ),
                               ),
                               child: Row(
                                 children: [
-                                  Icon(Icons.dns_rounded, color: isSel ? Colors.cyanAccent : Colors.grey),
+                                  Icon(Icons.dns_rounded, color: isSel ? const Color(0xFF00E5FF) : Colors.grey),
                                   const SizedBox(width: 12),
                                   Expanded(
                                     child: Column(
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
-                                        Text(s.name, style: TextStyle(fontWeight: FontWeight.bold, color: isSel ? Colors.cyanAccent : Colors.white)),
+                                        Text(s.name, style: TextStyle(fontWeight: FontWeight.bold, color: isSel ? const Color(0xFF00E5FF) : Colors.white)),
                                         Text('${s.protocol} | پورت ${s.port}', style: const TextStyle(fontSize: 11, color: Colors.grey)),
                                       ],
                                     ),
@@ -356,24 +411,190 @@ class _MainVpnScreenState extends State<MainVpnScreen> {
     );
   }
 
+  Widget _build3DAnimatedButton() {
+    final isConnected = v2rayStatus.state == 'CONNECTED';
+
+    return GestureDetector(
+      onTap: isConnecting ? null : _toggleConnect,
+      child: AnimatedBuilder(
+        animation: Listenable.merge([_pulseAnimation, _rotateController]),
+        builder: (context, child) {
+          final scale = isConnected ? _pulseAnimation.value : 1.0;
+          final primaryColor = isConnected ? const Color(0xFF00FFA3) : const Color(0xFF00D2FF);
+
+          return Transform.scale(
+            scale: scale,
+            child: SizedBox(
+              width: 190,
+              height: 190,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  if (isConnected || isConnecting)
+                    Transform.rotate(
+                      angle: _rotateController.value * 2 * math.pi,
+                      child: Container(
+                        width: 185,
+                        height: 185,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: primaryColor.withOpacity(0.35),
+                            width: 2,
+                          ),
+                          gradient: SweepGradient(
+                            colors: [
+                              Colors.transparent,
+                              primaryColor.withOpacity(0.4),
+                              Colors.transparent,
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  Container(
+                    width: 155,
+                    height: 155,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: primaryColor.withOpacity(isConnected ? 0.5 : 0.25),
+                          blurRadius: isConnected ? 40 : 25,
+                          spreadRadius: isConnected ? 8 : 2,
+                        ),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    width: 145,
+                    height: 145,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          Colors.white.withOpacity(0.2),
+                          const Color(0xFF1E293B),
+                          Colors.black.withOpacity(0.8),
+                        ],
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.6),
+                          offset: const Offset(0, 10),
+                          blurRadius: 15,
+                        )
+                      ],
+                    ),
+                  ),
+                  Container(
+                    width: 122,
+                    height: 122,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: isConnected
+                            ? [const Color(0xFF00FFA3), const Color(0xFF008B74)]
+                            : [const Color(0xFF00D2FF), const Color(0xFF0052D4)],
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.white.withOpacity(0.35),
+                          offset: const Offset(-3, -3),
+                          blurRadius: 6,
+                        ),
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.5),
+                          offset: const Offset(4, 5),
+                          blurRadius: 10,
+                        ),
+                      ],
+                    ),
+                    child: Center(
+                      child: isConnecting
+                          ? const SizedBox(
+                              width: 42,
+                              height: 42,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 3.5,
+                                color: Colors.white,
+                              ),
+                            )
+                          : Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.power_settings_new_rounded,
+                                  size: 48,
+                                  color: isConnected ? Colors.black87 : Colors.white,
+                                  shadows: [
+                                    Shadow(
+                                      color: Colors.black.withOpacity(0.3),
+                                      offset: const Offset(0, 2),
+                                      blurRadius: 4,
+                                    )
+                                  ],
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  isConnected ? 'PROTECTED' : 'READY',
+                                  style: TextStyle(
+                                    fontSize: 9,
+                                    letterSpacing: 1.5,
+                                    fontWeight: FontWeight.w900,
+                                    color: isConnected ? Colors.black87 : Colors.white70,
+                                  ),
+                                ),
+                              ],
+                            ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('JetConfig VPN 🚀', style: TextStyle(fontWeight: FontWeight.bold)),
+          title: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: Image.network(
+                  appLogoUrl,
+                  width: 32,
+                  height: 32,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => const Icon(Icons.rocket_launch_rounded, color: Color(0xFF00E5FF)),
+                ),
+              ),
+              const SizedBox(width: 10),
+              const Text('JetConfig VPN', style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 0.5)),
+            ],
+          ),
           centerTitle: true,
           backgroundColor: Colors.transparent,
           elevation: 0,
           actions: [
             if (savedUser != null)
               IconButton(
-                icon: const Icon(Icons.logout, color: Colors.redAccent),
+                icon: const Icon(Icons.logout_rounded, color: Colors.redAccent),
                 onPressed: () async {
                   final prefs = await SharedPreferences.getInstance();
                   await prefs.remove('saved_username');
-                  await prefs.remove('saved_password');
                   if (v2rayStatus.state == 'CONNECTED') {
                     await flutterV2ray.stopV2Ray();
                   }
@@ -387,7 +608,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> {
           ],
         ),
         body: isLoading
-            ? const Center(child: CircularProgressIndicator(color: Colors.cyanAccent))
+            ? const Center(child: CircularProgressIndicator(color: Color(0xFF00E5FF)))
             : (savedUser == null || userData == null)
                 ? _buildLoginView()
                 : _buildDashboardView(),
@@ -397,58 +618,82 @@ class _MainVpnScreenState extends State<MainVpnScreen> {
 
   Widget _buildLoginView() {
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(24.0),
+      padding: const EdgeInsets.symmetric(horizontal: 28.0, vertical: 30.0),
       child: Column(
         children: [
-          const SizedBox(height: 30),
-          const Icon(Icons.shield_rounded, size: 85, color: Colors.cyanAccent),
-          const SizedBox(height: 20),
-          const Text('ورود به حساب کاربری', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 10),
+          // لوگوی اختصاصی نئونی با افکت سایه و قاب سه‌بعدی
+          Container(
+            width: 130,
+            height: 130,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(32),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF00E5FF).withOpacity(0.35),
+                  blurRadius: 30,
+                  spreadRadius: 4,
+                ),
+              ],
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(32),
+              child: Image.network(
+                appLogoUrl,
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => Container(
+                  color: const Color(0xFF131B2E),
+                  child: const Icon(Icons.rocket_launch_rounded, size: 70, color: Color(0xFF00E5FF)),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 25),
+          const Text('JetConfig VPN', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: Colors.white, letterSpacing: 1)),
           const SizedBox(height: 6),
-          const Text('اطلاعات اشتراک خود را وارد کنید', style: TextStyle(color: Colors.grey)),
+          const Text('ورود هوشمند به اشتراک پرسرعت', style: TextStyle(color: Colors.grey, fontSize: 13)),
           const SizedBox(height: 35),
           TextField(
             controller: _userController,
             textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
             decoration: InputDecoration(
               hintText: 'نام کاربری (مثال: user_93330195_778)',
-              prefixIcon: const Icon(Icons.person, color: Colors.cyanAccent),
+              hintStyle: const TextStyle(color: Colors.white30, fontSize: 14),
+              prefixIcon: const Icon(Icons.fingerprint_rounded, color: Color(0xFF00E5FF)),
               filled: true,
-              fillColor: const Color(0xFF1E293B),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
-            ),
-          ),
-          const SizedBox(height: 16),
-          TextField(
-            controller: _passController,
-            obscureText: !isPasswordVisible,
-            textAlign: TextAlign.center,
-            decoration: InputDecoration(
-              hintText: 'رمز عبور (اختیاری)',
-              prefixIcon: const Icon(Icons.lock, color: Colors.cyanAccent),
-              suffixIcon: IconButton(
-                icon: Icon(isPasswordVisible ? Icons.visibility : Icons.visibility_off, color: Colors.grey),
-                onPressed: () => setState(() => isPasswordVisible = !isPasswordVisible),
+              fillColor: const Color(0xFF131B2E),
+              contentPadding: const EdgeInsets.symmetric(vertical: 18),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(20),
+                borderSide: BorderSide(color: Colors.white.withOpacity(0.08)),
               ),
-              filled: true,
-              fillColor: const Color(0xFF1E293B),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(20),
+                borderSide: BorderSide(color: Colors.white.withOpacity(0.08)),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(20),
+                borderSide: const BorderSide(color: Color(0xFF00E5FF), width: 1.8),
+              ),
             ),
           ),
-          const SizedBox(height: 25),
+          const SizedBox(height: 22),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.cyanAccent,
+              backgroundColor: const Color(0xFF00E5FF),
               foregroundColor: Colors.black,
-              minimumSize: const Size(double.infinity, 52),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              minimumSize: const Size(double.infinity, 54),
+              elevation: 8,
+              shadowColor: const Color(0xFF00E5FF).withOpacity(0.4),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
             ),
             onPressed: () {
               if (_userController.text.trim().isNotEmpty) {
-                _fetchUserData(_userController.text.trim(), _passController.text.trim());
+                _fetchUserData(_userController.text.trim());
               }
             },
-            child: const Text('ورود و دریافت سرورها', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            child: const Text('ورود و بارگذاری سرورها', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -460,10 +705,10 @@ class _MainVpnScreenState extends State<MainVpnScreen> {
         ? (userData!['used_gb'] / userData!['total_gb']).clamp(0.0, 1.0)
         : 0.0;
     final isConnected = v2rayStatus.state == 'CONNECTED';
-    final currentServerName = serverList.isNotEmpty ? serverList[selectedServerIndex].name : 'سرور پیش‌فرض';
+    final currentServerName = serverList.isNotEmpty ? serverList[selectedServerIndex].name : 'سرور در دسترس';
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
       child: Column(
         children: [
           Row(
@@ -471,115 +716,101 @@ class _MainVpnScreenState extends State<MainVpnScreen> {
             children: [
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(16)),
-                child: Text('کاربر: ${userData!['username']}', style: const TextStyle(color: Colors.cyanAccent, fontWeight: FontWeight.bold)),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF131B2E),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: Colors.white.withOpacity(0.05)),
+                ),
+                child: Text('کاربر: ${userData!['username']}', style: const TextStyle(color: Color(0xFF00E5FF), fontWeight: FontWeight.bold)),
               ),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(16)),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF131B2E),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: Colors.white.withOpacity(0.05)),
+                ),
                 child: Row(
                   children: [
-                    Icon(Icons.bolt, size: 18, color: activePing > 0 ? Colors.greenAccent : Colors.grey),
+                    Icon(Icons.bolt_rounded, size: 18, color: activePing > 0 ? const Color(0xFF00FFA3) : Colors.grey),
                     const SizedBox(width: 4),
                     Text(
                       activePing > 0 ? '$activePing ms' : (isConnected ? 'در حال پینگ...' : 'آفلاین'),
-                      style: TextStyle(color: activePing > 0 ? Colors.greenAccent : Colors.grey, fontWeight: FontWeight.bold, fontSize: 12),
+                      style: TextStyle(
+                        color: activePing > 0 ? const Color(0xFF00FFA3) : Colors.grey,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                      ),
                     ),
                   ],
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 18),
           CircularPercentIndicator(
-            radius: 85.0,
-            lineWidth: 12.0,
+            radius: 80.0,
+            lineWidth: 11.0,
             animation: true,
             percent: percent,
             center: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Text('${userData!['remaining_gb']} GB', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 22)),
+                Text('${userData!['remaining_gb']} GB', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 22, color: Colors.white)),
                 const Text('حجم باقیمانده', style: TextStyle(color: Colors.grey, fontSize: 11)),
               ],
             ),
             circularStrokeCap: CircularStrokeCap.round,
-            progressColor: percent > 0.85 ? Colors.redAccent : Colors.cyanAccent,
-            backgroundColor: const Color(0xFF1E293B),
+            progressColor: percent > 0.85 ? Colors.redAccent : const Color(0xFF00E5FF),
+            backgroundColor: const Color(0xFF131B2E),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 18),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
-              _buildInfoBadge('کل حجم', '${userData!['total_gb']} GB', Icons.data_usage),
-              _buildInfoBadge('اعتبار', '${userData!['expire_days']}', Icons.timer_outlined),
+              _buildInfoBadge('کل ترافیک', '${userData!['total_gb']} GB', Icons.data_usage_rounded),
+              _buildInfoBadge('مدت اعتبار', '${userData!['expire_days']}', Icons.timer_outlined),
             ],
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 20),
           InkWell(
             onTap: _openServerPicker,
-            borderRadius: BorderRadius.circular(18),
+            borderRadius: BorderRadius.circular(20),
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               decoration: BoxDecoration(
-                color: const Color(0xFF1E293B),
-                borderRadius: BorderRadius.circular(18),
-                border: Border.all(color: Colors.white12),
+                color: const Color(0xFF131B2E),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: const Color(0xFF00E5FF).withOpacity(0.2)),
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.public, color: Colors.cyanAccent),
+                  const Icon(Icons.public_rounded, color: Color(0xFF00E5FF)),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('سرور انتخابی (لمس برای تغییر)', style: TextStyle(fontSize: 11, color: Colors.grey)),
-                        Text(currentServerName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14), overflow: TextOverflow.ellipsis),
+                        const Text('موقعیت سرور (لمس جهت تغییر)', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                        Text(currentServerName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.white), overflow: TextOverflow.ellipsis),
                       ],
                     ),
                   ),
-                  const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.grey),
+                  const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: Colors.grey),
                 ],
               ),
             ),
           ),
-          const SizedBox(height: 30),
-          GestureDetector(
-            onTap: isConnecting ? null : _toggleConnect,
-            child: Container(
-              width: 120,
-              height: 120,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: LinearGradient(
-                  colors: isConnected
-                      ? [Colors.greenAccent, Colors.teal]
-                      : [Colors.cyanAccent, Colors.blueAccent],
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: (isConnected ? Colors.teal : Colors.cyanAccent).withOpacity(0.35),
-                    blurRadius: 25,
-                    spreadRadius: 5,
-                  )
-                ],
-              ),
-              child: Center(
-                child: isConnecting
-                    ? const CircularProgressIndicator(color: Colors.black)
-                    : Icon(
-                        Icons.power_settings_new_rounded,
-                        size: 55,
-                        color: isConnected ? Colors.black : Colors.black87,
-                      ),
-              ),
-            ),
-          ),
+          const SizedBox(height: 28),
+          _build3DAnimatedButton(),
           const SizedBox(height: 14),
           Text(
-            isConnected ? 'متصل شد (امن)' : 'جهت اتصال لمس کنید',
-            style: TextStyle(color: isConnected ? Colors.greenAccent : Colors.grey, fontWeight: FontWeight.bold),
+            isConnected ? 'سیستم رمزنگاری فعال است' : 'جهت اتصال به شبکه لمس کنید',
+            style: TextStyle(
+              color: isConnected ? const Color(0xFF00FFA3) : Colors.grey,
+              fontWeight: FontWeight.bold,
+              fontSize: 13,
+            ),
           ),
         ],
       ),
@@ -588,19 +819,20 @@ class _MainVpnScreenState extends State<MainVpnScreen> {
 
   Widget _buildInfoBadge(String label, String value, IconData icon) {
     return Container(
-      width: 140,
+      width: 145,
       padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 10),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E293B),
-        borderRadius: BorderRadius.circular(16),
+        color: const Color(0xFF131B2E),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Colors.white.withOpacity(0.05)),
       ),
       child: Column(
         children: [
-          Icon(icon, color: Colors.cyanAccent, size: 22),
+          Icon(icon, color: const Color(0xFF00E5FF), size: 22),
           const SizedBox(height: 4),
           Text(label, style: const TextStyle(color: Colors.grey, fontSize: 11)),
           const SizedBox(height: 2),
-          Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+          Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.white)),
         ],
       ),
     );

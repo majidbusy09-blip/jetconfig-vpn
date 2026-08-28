@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_v2ray/flutter_v2ray.dart';
@@ -16,53 +17,62 @@ void main() {
 const String appLogoUrl = 'https://majid6064.ir/logo.png';
 const String telegramBotUrl = 'https://t.me/JetConfig1bot';
 const String telegramChannelUrl = 'https://t.me/jetconfig11';
+const MethodChannel _appChannel = MethodChannel('com.jetconfig.vpn/apps');
 
-// لیست اپلیکیشن‌های ایرانی و بانکی برای دور زدن مستقیم تونل در حالت تفکیک ترافیک
-const List<String> iranianBypassPackages = [
-  // --- بانک مسکن ---
-  'ir.bankmaskan.mobilebank',
-  'ir.bankmaskan.rayanmehr',
-  'ir.bankmaskan.hamrah',
-  'com.maskan.mobilebank',
-
-  // --- سایر بانک‌ها و پرداخت‌ها ---
-  'com.samanpr.blu',             // بلوبانک
-  'ir.melli.bam',                 // بام بانک ملی
-  'ir.bmi.bam',
-  'ir.bankmellat.mobile',         // بانک ملت
-  'com.saderat.mb',               // صادرات
-  'ir.bsi.mobilebank',
-  'ir.tejaratbank.mobilebank',    // تجارت
-  'ir.bpi.mobilebank',            // پاسارگاد
-  'ir.sb24.mobilbank',            // سامان
-  'ir.citybank.mobilebank',       // بانک شهر
-  'ir.agribank.mobile',           // کشاورزی
-  'ir.mresalat.app',              // رسالت
-  'com.bmi.omad',                 // سپه
-
-  // --- فین‌تک و درگاه‌های پرداخت ---
-  'com.asandakht.app',            // آپ
-  'com.asanpardakht.app',
-  'ir.sep.qpay',                  // ۷۲۴
-  'ir.pec.cpay',                  // تاپ
-  'com.bpm.sekeh',                // سکه
-  'ir.mizan.hamrahcard',          // همراه کارت
-
-  // --- خدمات شهری و فروشگاهی ایرانی ---
-  'cab.snapp.passenger',          // اسنپ
-  'com.snapp.passenger',
-  'ir.tapsi.cab',                 // تپسی
-  'com.digikala.mobile',          // دیجی‌کالا
-  'ir.divar',                     // دیوار
-  'ir.sheypoor.mobile',           // شیپور
-  'org.neshan.maps',              // نشان
-  'ir.balad.navigation',          // بلد
-
-  // --- پیام‌رسان‌های داخلی ---
-  'ir.eitaa.messenger',           // ایتا
-  'ir.rubika.app',                // روبیکا
-  'ir.resaneh.rubika',
-  'ir.ble.messenger',             // بله
+// لیست جامع برنامه‌های فیلترشده و تحریم‌شده
+const List<String> filteredAppPackages = [
+  'org.telegram.messenger',
+  'org.telegram.messenger.web',
+  'org.telegram.messenger.beta',
+  'org.thunderdog.challegram',
+  'org.telegram.plus',
+  'org.vidogram.messenger',
+  'org.telegram.BifToGram',
+  'ir.ilm.teleplus',
+  'com.iMe.android',
+  'nekox.messenger',
+  'org.forkclient.messenger',
+  'com.instagram.android',
+  'com.instagram.lite',
+  'com.instagram.barcelona',
+  'com.facebook.katana',
+  'com.facebook.orca',
+  'com.facebook.lite',
+  'com.whatsapp',
+  'com.whatsapp.w4b',
+  'com.twitter.android',
+  'com.twitter.android.lite',
+  'com.zhiliaoapp.musically',
+  'com.ss.android.ugc.trill',
+  'com.google.android.youtube',
+  'com.google.android.apps.youtube.music',
+  'com.google.android.apps.youtube.kids',
+  'com.spotify.music',
+  'com.spotify.lite',
+  'com.soundcloud.android',
+  'tv.twitch.android.app',
+  'com.netflix.mediaclient',
+  'com.openai.chatgpt',
+  'com.microsoft.copilot',
+  'com.google.android.apps.bard',
+  'com.anthropic.claude',
+  'com.poe.android',
+  'ai.perplexity.app.android',
+  'ai.character.app',
+  'com.discord',
+  'com.reddit.frontpage',
+  'com.pinterest',
+  'com.snapchat.android',
+  'org.thoughtcrime.securesms',
+  'clubhouse.hellowoal',
+  'com.medium.reader',
+  'com.quora.android',
+  'com.android.vending',
+  'com.roblox.client',
+  'com.supercell.clashofclans',
+  'com.supercell.clashroyale',
+  'com.supercell.brawlstars',
+  'com.valvesoftware.android.steam.community',
 ];
 
 class ServerModel {
@@ -142,7 +152,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
   bool isLoading = false;
   bool isConnecting = false;
   bool isPingingAll = false;
-  bool onlyFilteredApps = false; // false = تونل کل گوشی | true = فقط برنامه‌های فیلترشده
+  bool onlyFilteredApps = false;
   int activePing = -1;
 
   Map<String, dynamic>? userData;
@@ -184,6 +194,22 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     super.dispose();
   }
 
+  String _formatBytes(dynamic bytesInput) {
+    int bytes = 0;
+    if (bytesInput is int) {
+      bytes = bytesInput;
+    } else if (bytesInput is String) {
+      bytes = int.tryParse(bytesInput) ?? 0;
+    }
+    if (bytes <= 0) return '0 KB';
+    const suffixes = ['B', 'KB', 'MB', 'GB', 'TB'];
+    int i = (math.log(bytes) / math.log(1024)).floor();
+    if (i >= suffixes.length) i = suffixes.length - 1;
+    if (i == 0) return '$bytes B';
+    double size = bytes / math.pow(1024, i);
+    return '${size.toStringAsFixed(size < 10 ? 1 : 0)} ${suffixes[i]}';
+  }
+
   Future<void> _loadSavedPreferences() async {
     final prefs = await SharedPreferences.getInstance();
     final user = prefs.getString('saved_username');
@@ -210,10 +236,22 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     });
 
     if (v2rayStatus.state == 'CONNECTED') {
-      _showToast('جهت اعمال تغییر حالت، اتصال مجدد برقرار می‌شود');
+      _showToast('در حال تغییر حالت شبکه...');
       await _toggleConnect();
+      await Future.delayed(const Duration(milliseconds: 300));
       await _toggleConnect();
     }
+  }
+
+  Future<List<String>?> _getAppsToBypass() async {
+    try {
+      final List<dynamic>? installed = await _appChannel.invokeMethod('getInstalledApps');
+      if (installed != null) {
+        final allApps = installed.cast<String>();
+        return allApps.where((pkg) => !filteredAppPackages.contains(pkg) && pkg != 'com.jetconfig.vpn').toList();
+      }
+    } catch (_) {}
+    return null;
   }
 
   Future<void> _openTelegram(String url) async {
@@ -371,11 +409,15 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
         configString = parsedUrl.getFullConfiguration();
       }
 
-      // در حالت "فقط برنامه‌های فیلترشده"، لیست برنامه‌های بانکی و ایرانی به عنوان استثنا به هسته ارسال می‌شوند
+      List<String>? blockedAppsList;
+      if (onlyFilteredApps) {
+        blockedAppsList = await _getAppsToBypass();
+      }
+
       await flutterV2ray.startV2Ray(
         remark: target.name,
         config: configString,
-        blockedApps: onlyFilteredApps ? iranianBypassPackages : null,
+        blockedApps: blockedAppsList,
         proxyOnly: false,
       );
     } catch (e) {
@@ -524,7 +566,6 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
       ),
       child: Row(
         children: [
-          // دکمه سمت راست: تونل کل گوشی
           Expanded(
             child: GestureDetector(
               onTap: () => _saveTunnelMode(false),
@@ -560,7 +601,6 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
             ),
           ),
           const SizedBox(width: 6),
-          // دکمه سمت چپ: فقط برنامه‌های فیلترشده
           Expanded(
             child: GestureDetector(
               onTap: () => _saveTunnelMode(true),
@@ -594,6 +634,122 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
                 ),
               ),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ویجت مانیتور مصرف حجم نشست جاری
+  Widget _buildSessionTrafficCards() {
+    final isConnected = v2rayStatus.state == 'CONNECTED';
+    final downloadBytes = isConnected ? v2rayStatus.download : 0;
+    final uploadBytes = isConnected ? v2rayStatus.upload : 0;
+    final durationText = isConnected ? v2rayStatus.duration : '00:00:00';
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF131B2E),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Colors.white.withOpacity(0.05)),
+      ),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Row(
+                children: [
+                  Icon(Icons.analytics_outlined, size: 16, color: Color(0xFF00E5FF)),
+                  SizedBox(width: 6),
+                  Text('مصرف نشست جاری', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Colors.white70)),
+                ],
+              ),
+              Row(
+                children: [
+                  const Icon(Icons.timer_outlined, size: 14, color: Colors.grey),
+                  const SizedBox(width: 4),
+                  Text(durationText, style: const TextStyle(fontSize: 11.5, color: Colors.grey, fontFamily: 'monospace')),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF0A0E1A),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: const Color(0xFF00FFA3).withOpacity(0.15)),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF00FFA3).withOpacity(0.15),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.arrow_downward_rounded, size: 16, color: Color(0xFF00FFA3)),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('دانلود نشست', style: TextStyle(fontSize: 10, color: Colors.grey)),
+                            Text(
+                              _formatBytes(downloadBytes),
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.white),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF0A0E1A),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: const Color(0xFF00E5FF).withOpacity(0.15)),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF00E5FF).withOpacity(0.15),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.arrow_upward_rounded, size: 16, color: Color(0xFF00E5FF)),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('آپلود نشست', style: TextStyle(fontSize: 10, color: Colors.grey)),
+                            Text(
+                              _formatBytes(uploadBytes),
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.white),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -959,10 +1115,11 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
             ],
           ),
           const SizedBox(height: 12),
-          // سوییچ دوحالته تونل (راست: تونل کل گوشی | چپ: فقط برنامه‌های فیلترشده)
+          // نمایش حجم دانلود و آپلود هر نشست
+          _buildSessionTrafficCards(),
+          const SizedBox(height: 12),
           _buildTunnelModeSwitch(),
           const SizedBox(height: 12),
-          // ردیف انتخاب سرور و دکمه بروزرسانی کانفیگ‌ها
           Row(
             children: [
               Expanded(
@@ -996,7 +1153,6 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
                 ),
               ),
               const SizedBox(width: 8),
-              // دکمه اختصاصی بروزرسانی
               InkWell(
                 onTap: () {
                   if (savedUser != null) {
@@ -1039,7 +1195,6 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
             ),
           ),
           const SizedBox(height: 16),
-          // دکمه تمدید اشتراک با اتصال به ربات تلگرام
           InkWell(
             onTap: () => _openTelegram(telegramBotUrl),
             borderRadius: BorderRadius.circular(16),

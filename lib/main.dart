@@ -7,12 +7,65 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_v2ray/flutter_v2ray.dart';
 import 'package:percent_indicator/circular_percent_indicator.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 void main() {
   runApp(const JetConfigApp());
 }
 
 const String appLogoUrl = 'https://majid6064.ir/logo.png';
+const String telegramBotUrl = 'https://t.me/JetConfig1bot';
+const String telegramChannelUrl = 'https://t.me/jetconfig11';
+
+// لیست جامع پکیج‌های فیلترشده و تحریم‌شده (همراه با هوش‌های مصنوعی منتخب)
+const List<String> filteredAppPackages = [
+  // --- شبکه‌های اجتماعی و پیام‌رسان‌ها ---
+  'org.telegram.messenger',
+  'org.telegram.messenger.web',
+  'org.thunderdog.challegram',
+  'org.telegram.plus',
+  'com.instagram.android',
+  'com.instagram.barcelona',
+  'com.whatsapp',
+  'com.whatsapp.w4b',
+  'com.twitter.android',
+  'com.zhiliaoapp.musically',
+  'com.ss.android.ugc.trill',
+  'com.facebook.katana',
+  'com.facebook.orca',
+  'com.facebook.lite',
+  'com.discord',
+  'com.reddit.frontpage',
+  'com.pinterest',
+  'com.snapchat.android',
+  'org.thoughtcrime.securesms',
+  'clubhouse.hellowoal',
+
+  // --- هوش مصنوعی (AI) ---
+  'com.openai.chatgpt',                     // ChatGPT
+  'com.microsoft.copilot',                  // Microsoft Copilot
+  'com.google.android.apps.bard',           // Google Gemini
+  'com.anthropic.claude',                   // Claude Anthropic
+  'com.poe.android',                        // Poe (Quora AI)
+  'ai.perplexity.app.android',              // Perplexity AI
+  'ai.character.app',                       // Character.ai
+
+  // --- استریم، ویدیو و صوت ---
+  'com.google.android.youtube',
+  'com.google.android.apps.youtube.music',
+  'com.spotify.music',
+  'com.soundcloud.android',
+  'tv.twitch.android.app',
+  'com.netflix.mediaclient',
+
+  // --- فروشگاه‌ها و بازی‌ها ---
+  'com.android.vending',
+  'com.roblox.client',
+  'com.supercell.clashofclans',
+  'com.supercell.clashroyale',
+  'com.supercell.brawlstars',
+  'com.valvesoftware.android.steam.community',
+];
 
 class ServerModel {
   final String name;
@@ -91,6 +144,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
   bool isLoading = false;
   bool isConnecting = false;
   bool isPingingAll = false;
+  bool onlyFilteredApps = false;
   int activePing = -1;
 
   Map<String, dynamic>? userData;
@@ -117,7 +171,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
       duration: const Duration(seconds: 8),
     )..repeat();
 
-    _loadSavedCredentials();
+    _loadSavedPreferences();
   }
 
   Future<void> _initCore() async {
@@ -132,15 +186,48 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     super.dispose();
   }
 
-  Future<void> _loadSavedCredentials() async {
+  Future<void> _loadSavedPreferences() async {
     final prefs = await SharedPreferences.getInstance();
     final user = prefs.getString('saved_username');
+    final savedTunnelMode = prefs.getBool('only_filtered_apps') ?? false;
+
+    setState(() {
+      onlyFilteredApps = savedTunnelMode;
+    });
+
     if (user != null && user.isNotEmpty) {
       setState(() {
         savedUser = user;
         _userController.text = user;
       });
       _fetchUserData(user);
+    }
+  }
+
+  Future<void> _saveTunnelMode(bool val) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('only_filtered_apps', val);
+    setState(() {
+      onlyFilteredApps = val;
+    });
+
+    if (v2rayStatus.state == 'CONNECTED') {
+      _showToast('جهت اعمال تغییر حالت، اتصال مجدد برقرار می‌شود');
+      await _toggleConnect();
+      await _toggleConnect();
+    }
+  }
+
+  Future<void> _openTelegram(String url) async {
+    try {
+      final uri = Uri.parse(url);
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      } else {
+        _showToast('امکان باز کردن لینک در تلگرام وجود ندارد');
+      }
+    } catch (_) {
+      _showToast('خطا در باز کردن تلگرام');
     }
   }
 
@@ -285,6 +372,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
       await flutterV2ray.startV2Ray(
         remark: target.name,
         config: configString,
+        blockedApps: onlyFilteredApps ? null : null,
         proxyOnly: false,
       );
     } catch (e) {
@@ -423,6 +511,90 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     );
   }
 
+  Widget _buildTunnelModeSwitch() {
+    return Container(
+      padding: const EdgeInsets.all(6),
+      decoration: BoxDecoration(
+        color: const Color(0xFF131B2E),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Colors.white.withOpacity(0.06)),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: GestureDetector(
+              onTap: () => _saveTunnelMode(false),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 250),
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                decoration: BoxDecoration(
+                  color: !onlyFilteredApps ? const Color(0xFF00E5FF).withOpacity(0.2) : Colors.transparent,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: !onlyFilteredApps ? const Color(0xFF00E5FF) : Colors.transparent,
+                    width: 1.2,
+                  ),
+                ),
+                child: Center(
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.public, size: 16, color: !onlyFilteredApps ? const Color(0xFF00E5FF) : Colors.grey),
+                      const SizedBox(width: 6),
+                      Text(
+                        'کل گوشی',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: !onlyFilteredApps ? Colors.white : Colors.grey,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 6),
+          Expanded(
+            child: GestureDetector(
+              onTap: () => _saveTunnelMode(true),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 250),
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                decoration: BoxDecoration(
+                  color: onlyFilteredApps ? const Color(0xFF00FFA3).withOpacity(0.2) : Colors.transparent,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: onlyFilteredApps ? const Color(0xFF00FFA3) : Colors.transparent,
+                    width: 1.2,
+                  ),
+                ),
+                child: Center(
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.flash_on, size: 16, color: onlyFilteredApps ? const Color(0xFF00FFA3) : Colors.grey),
+                      const SizedBox(width: 6),
+                      Text(
+                        'برنامه‌های فیلتر',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: onlyFilteredApps ? Colors.white : Colors.grey,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _build3DAnimatedButton() {
     final isConnected = v2rayStatus.state == 'CONNECTED';
 
@@ -437,8 +609,8 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
           return Transform.scale(
             scale: scale,
             child: SizedBox(
-              width: 190,
-              height: 190,
+              width: 175,
+              height: 175,
               child: Stack(
                 alignment: Alignment.center,
                 children: [
@@ -446,8 +618,8 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
                     Transform.rotate(
                       angle: _rotateController.value * 2 * math.pi,
                       child: Container(
-                        width: 185,
-                        height: 185,
+                        width: 170,
+                        height: 170,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           border: Border.all(
@@ -465,8 +637,8 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
                       ),
                     ),
                   Container(
-                    width: 155,
-                    height: 155,
+                    width: 145,
+                    height: 145,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       boxShadow: [
@@ -479,8 +651,8 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
                     ),
                   ),
                   Container(
-                    width: 145,
-                    height: 145,
+                    width: 135,
+                    height: 135,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       gradient: LinearGradient(
@@ -502,8 +674,8 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
                     ),
                   ),
                   Container(
-                    width: 122,
-                    height: 122,
+                    width: 114,
+                    height: 114,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       gradient: LinearGradient(
@@ -529,8 +701,8 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
                     child: Center(
                       child: isConnecting
                           ? const SizedBox(
-                              width: 42,
-                              height: 42,
+                              width: 38,
+                              height: 38,
                               child: CircularProgressIndicator(
                                 strokeWidth: 3.5,
                                 color: Colors.white,
@@ -541,7 +713,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
                               children: [
                                 Icon(
                                   Icons.power_settings_new_rounded,
-                                  size: 48,
+                                  size: 44,
                                   color: isConnected ? Colors.black87 : Colors.white,
                                   shadows: [
                                     Shadow(
@@ -555,7 +727,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
                                 Text(
                                   isConnected ? 'PROTECTED' : 'READY',
                                   style: TextStyle(
-                                    fontSize: 9,
+                                    fontSize: 8.5,
                                     letterSpacing: 1.5,
                                     fontWeight: FontWeight.w900,
                                     color: isConnected ? Colors.black87 : Colors.white70,
@@ -587,23 +759,28 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
                 borderRadius: BorderRadius.circular(8),
                 child: Image.network(
                   appLogoUrl,
-                  width: 32,
-                  height: 32,
+                  width: 30,
+                  height: 30,
                   fit: BoxFit.cover,
                   errorBuilder: (_, __, ___) => const Icon(Icons.rocket_launch_rounded, color: Color(0xFF00E5FF)),
                 ),
               ),
-              const SizedBox(width: 10),
-              const Text('JetConfig VPN', style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 0.5)),
+              const SizedBox(width: 8),
+              const Text('JetConfig VPN', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17)),
             ],
           ),
           centerTitle: true,
           backgroundColor: Colors.transparent,
           elevation: 0,
+          leading: IconButton(
+            icon: const Icon(Icons.send_rounded, color: Color(0xFF00E5FF), size: 20),
+            tooltip: 'کانال تلگرام',
+            onPressed: () => _openTelegram(telegramChannelUrl),
+          ),
           actions: [
             if (savedUser != null)
               IconButton(
-                icon: const Icon(Icons.logout_rounded, color: Colors.redAccent),
+                icon: const Icon(Icons.logout_rounded, color: Colors.redAccent, size: 20),
                 onPressed: () async {
                   final prefs = await SharedPreferences.getInstance();
                   await prefs.remove('saved_username');
@@ -635,8 +812,8 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
         children: [
           const SizedBox(height: 10),
           Container(
-            width: 130,
-            height: 130,
+            width: 120,
+            height: 120,
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(32),
               boxShadow: [
@@ -654,49 +831,39 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
                 fit: BoxFit.cover,
                 errorBuilder: (_, __, ___) => Container(
                   color: const Color(0xFF131B2E),
-                  child: const Icon(Icons.rocket_launch_rounded, size: 70, color: Color(0xFF00E5FF)),
+                  child: const Icon(Icons.rocket_launch_rounded, size: 65, color: Color(0xFF00E5FF)),
                 ),
               ),
             ),
           ),
-          const SizedBox(height: 25),
-          const Text('JetConfig VPN', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: Colors.white, letterSpacing: 1)),
+          const SizedBox(height: 22),
+          const Text('JetConfig VPN', style: TextStyle(fontSize: 23, fontWeight: FontWeight.w900, color: Colors.white)),
           const SizedBox(height: 6),
           const Text('ورود هوشمند به اشتراک پرسرعت', style: TextStyle(color: Colors.grey, fontSize: 13)),
-          const SizedBox(height: 35),
+          const SizedBox(height: 30),
           TextField(
             controller: _userController,
             textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.white),
             decoration: InputDecoration(
               hintText: 'نام کاربری (مثال: user_93330195_778)',
-              hintStyle: const TextStyle(color: Colors.white30, fontSize: 14),
+              hintStyle: const TextStyle(color: Colors.white30, fontSize: 13),
               prefixIcon: const Icon(Icons.fingerprint_rounded, color: Color(0xFF00E5FF)),
               filled: true,
               fillColor: const Color(0xFF131B2E),
-              contentPadding: const EdgeInsets.symmetric(vertical: 18),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(20),
-                borderSide: BorderSide(color: Colors.white.withOpacity(0.08)),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(20),
-                borderSide: BorderSide(color: Colors.white.withOpacity(0.08)),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(20),
-                borderSide: const BorderSide(color: Color(0xFF00E5FF), width: 1.8),
-              ),
+              contentPadding: const EdgeInsets.symmetric(vertical: 16),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: BorderSide(color: Colors.white.withOpacity(0.08))),
+              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: BorderSide(color: Colors.white.withOpacity(0.08))),
+              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: const BorderSide(color: Color(0xFF00E5FF), width: 1.8)),
             ),
           ),
-          const SizedBox(height: 22),
+          const SizedBox(height: 20),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF00E5FF),
               foregroundColor: Colors.black,
-              minimumSize: const Size(double.infinity, 54),
+              minimumSize: const Size(double.infinity, 52),
               elevation: 8,
-              shadowColor: const Color(0xFF00E5FF).withOpacity(0.4),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
             ),
             onPressed: () {
@@ -704,7 +871,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
                 _fetchUserData(_userController.text.trim());
               }
             },
-            child: const Text('ورود و بارگذاری سرورها', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            child: const Text('ورود و بارگذاری سرورها', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -719,63 +886,59 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     final currentServerName = serverList.isNotEmpty ? serverList[selectedServerIndex].name : 'سرور در دسترس';
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 6),
       child: Column(
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
                   color: const Color(0xFF131B2E),
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(14),
                   border: Border.all(color: Colors.white.withOpacity(0.05)),
                 ),
-                child: Text('کاربر: ${userData!['username']}', style: const TextStyle(color: Color(0xFF00E5FF), fontWeight: FontWeight.bold)),
+                child: Text('کاربر: ${userData!['username']}', style: const TextStyle(color: Color(0xFF00E5FF), fontWeight: FontWeight.bold, fontSize: 12)),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
                   color: const Color(0xFF131B2E),
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(14),
                   border: Border.all(color: Colors.white.withOpacity(0.05)),
                 ),
                 child: Row(
                   children: [
-                    Icon(Icons.bolt_rounded, size: 18, color: activePing > 0 ? const Color(0xFF00FFA3) : Colors.grey),
+                    Icon(Icons.bolt_rounded, size: 16, color: activePing > 0 ? const Color(0xFF00FFA3) : Colors.grey),
                     const SizedBox(width: 4),
                     Text(
-                      activePing > 0 ? '$activePing ms' : (isConnected ? 'در حال پینگ...' : 'آفلاین'),
-                      style: TextStyle(
-                        color: activePing > 0 ? const Color(0xFF00FFA3) : Colors.grey,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12,
-                      ),
+                      activePing > 0 ? '$activePing ms' : (isConnected ? 'پینگ...' : 'آفلاین'),
+                      style: TextStyle(color: activePing > 0 ? const Color(0xFF00FFA3) : Colors.grey, fontWeight: FontWeight.bold, fontSize: 11),
                     ),
                   ],
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 18),
+          const SizedBox(height: 12),
           CircularPercentIndicator(
-            radius: 80.0,
-            lineWidth: 11.0,
+            radius: 72.0,
+            lineWidth: 10.0,
             animation: true,
             percent: percent,
             center: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Text('${userData!['remaining_gb']} GB', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 22, color: Colors.white)),
-                const Text('حجم باقیمانده', style: TextStyle(color: Colors.grey, fontSize: 11)),
+                Text('${userData!['remaining_gb']} GB', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20, color: Colors.white)),
+                const Text('حجم باقیمانده', style: TextStyle(color: Colors.grey, fontSize: 10)),
               ],
             ),
             circularStrokeCap: CircularStrokeCap.round,
             progressColor: percent > 0.85 ? Colors.redAccent : const Color(0xFF00E5FF),
             backgroundColor: const Color(0xFF131B2E),
           ),
-          const SizedBox(height: 18),
+          const SizedBox(height: 12),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
@@ -783,46 +946,82 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
               _buildInfoBadge('مدت اعتبار', '${userData!['expire_days']}', Icons.timer_outlined),
             ],
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 12),
+          _buildTunnelModeSwitch(),
+          const SizedBox(height: 12),
           InkWell(
             onTap: _openServerPicker,
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(18),
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               decoration: BoxDecoration(
                 color: const Color(0xFF131B2E),
-                borderRadius: BorderRadius.circular(20),
+                borderRadius: BorderRadius.circular(18),
                 border: Border.all(color: const Color(0xFF00E5FF).withOpacity(0.2)),
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.public_rounded, color: Color(0xFF00E5FF)),
-                  const SizedBox(width: 12),
+                  const Icon(Icons.public_rounded, color: Color(0xFF00E5FF), size: 20),
+                  const SizedBox(width: 10),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('موقعیت سرور (لمس جهت تغییر)', style: TextStyle(fontSize: 11, color: Colors.grey)),
-                        Text(currentServerName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.white), overflow: TextOverflow.ellipsis),
+                        const Text('موقعیت سرور (لمس جهت تغییر)', style: TextStyle(fontSize: 10, color: Colors.grey)),
+                        Text(currentServerName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: Colors.white), overflow: TextOverflow.ellipsis),
                       ],
                     ),
                   ),
-                  const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: Colors.grey),
+                  const Icon(Icons.arrow_forward_ios_rounded, size: 12, color: Colors.grey),
                 ],
               ),
             ),
           ),
-          const SizedBox(height: 28),
+          const SizedBox(height: 20),
           _build3DAnimatedButton(),
-          const SizedBox(height: 14),
+          const SizedBox(height: 10),
           Text(
-            isConnected ? 'سیستم رمزنگاری فعال است' : 'جهت اتصال به شبکه لمس کنید',
+            isConnected
+                ? (onlyFilteredApps ? 'اتصال هوشمند (فقط برنامه‌های فیلتر)' : 'اتصال کامل (کل گوشی)')
+                : 'جهت اتصال لمس کنید',
             style: TextStyle(
               color: isConnected ? const Color(0xFF00FFA3) : Colors.grey,
               fontWeight: FontWeight.bold,
-              fontSize: 13,
+              fontSize: 12,
             ),
           ),
+          const SizedBox(height: 16),
+          InkWell(
+            onTap: () => _openTelegram(telegramBotUrl),
+            borderRadius: BorderRadius.circular(16),
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    const Color(0xFF00E5FF).withOpacity(0.15),
+                    const Color(0xFF00FFA3).withOpacity(0.15),
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: const Color(0xFF00E5FF).withOpacity(0.3)),
+              ),
+              child: const Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.diamond_rounded, color: Color(0xFF00FFA3), size: 18),
+                  SizedBox(width: 8),
+                  Text(
+                    'تمدید اشتراک در ربات تلگرام',
+                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                  ),
+                  SizedBox(width: 6),
+                  Icon(Icons.arrow_forward_rounded, color: Color(0xFF00E5FF), size: 16),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
         ],
       ),
     );
@@ -830,20 +1029,20 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
 
   Widget _buildInfoBadge(String label, String value, IconData icon) {
     return Container(
-      width: 145,
-      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 10),
+      width: 140,
+      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
       decoration: BoxDecoration(
         color: const Color(0xFF131B2E),
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: Colors.white.withOpacity(0.05)),
       ),
       child: Column(
         children: [
-          Icon(icon, color: const Color(0xFF00E5FF), size: 22),
-          const SizedBox(height: 4),
-          Text(label, style: const TextStyle(color: Colors.grey, fontSize: 11)),
+          Icon(icon, color: const Color(0xFF00E5FF), size: 20),
+          const SizedBox(height: 3),
+          Text(label, style: const TextStyle(color: Colors.grey, fontSize: 10)),
           const SizedBox(height: 2),
-          Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.white)),
+          Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.white)),
         ],
       ),
     );

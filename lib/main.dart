@@ -17,9 +17,8 @@ const String appLogoUrl = 'https://majid6064.ir/logo.png';
 const String telegramBotUrl = 'https://t.me/JetConfig1bot';
 const String telegramChannelUrl = 'https://t.me/jetconfig11';
 
-// لیست جامع پکیج‌های ایرانی و مرورگرها جهت اتصال مستقیم بدون فیلترشکن
+// لیست اپلیکیشن‌های ایرانی و بانکی برای معاف‌سازی در حالت تفکیک ترافیک
 const List<String> iranianAndBrowserPackages = [
-  // --- مرورگرها ---
   'com.android.chrome',
   'org.mozilla.firefox',
   'com.sec.android.app.sbrowser',
@@ -27,8 +26,6 @@ const List<String> iranianAndBrowserPackages = [
   'com.opera.mini.native',
   'com.brave.browser',
   'com.microsoft.emmx',
-
-  // --- بانک مسکن و سایر بانک‌ها ---
   'ir.bankmaskan.mobilebank',
   'ir.bankmaskan.rayanmehr',
   'ir.bankmaskan.hamrah',
@@ -50,8 +47,6 @@ const List<String> iranianAndBrowserPackages = [
   'ir.parsianbank.mobilebank',
   'ir.ayandeh.hamrah',
   'ir.bankrefah.mobilebank',
-
-  // --- پرداخت و خدمات ---
   'com.asandakht.app',
   'com.asanpardakht.app',
   'ir.sep.qpay',
@@ -150,6 +145,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
 
   V2RayStatus v2rayStatus = V2RayStatus();
   final TextEditingController _userController = TextEditingController();
+  final TextEditingController _passController = TextEditingController();
 
   late AnimationController _pulseController;
   late Animation<double> _pulseAnimation;
@@ -158,11 +154,13 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
   bool isLoading = false;
   bool isConnecting = false;
   bool isPingingAll = false;
-  bool onlyFilteredApps = true; // پیش‌فرض: حالت هوشمند (فقط برنامه‌های فیلترشده)
+  bool onlyFilteredApps = true;
+  bool _obscurePassword = true;
   int activePing = -1;
 
   Map<String, dynamic>? userData;
   String? savedUser;
+  String? savedPass;
   List<ServerModel> serverList = [];
   int selectedServerIndex = 0;
 
@@ -197,6 +195,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     _pulseController.dispose();
     _rotateController.dispose();
     _userController.dispose();
+    _passController.dispose();
     super.dispose();
   }
 
@@ -216,7 +215,6 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     return '${size.toStringAsFixed(size < 10 ? 1 : 0)} ${suffixes[i]}';
   }
 
-  // مدیریت هوشمند نمایش حجم و اعتبار اکانت‌های نامحدود
   String _getDisplayRemaining() {
     if (userData == null) return 'نامحدود';
     final total = userData!['total_gb'];
@@ -246,6 +244,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
         expireStr == 'null' ||
         expireStr.isEmpty ||
         expireStr.contains('نامحدود') ||
+        expireStr.contains('VIP') ||
         expireStr.contains('Unlimited') ||
         ((total == 0 || total == null) && (expireStr == '0' || expireStr == '0 روز' || expireStr == 'منقضی شده'))) {
       return 'نامحدود';
@@ -268,6 +267,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
   Future<void> _loadSavedPreferences() async {
     final prefs = await SharedPreferences.getInstance();
     final user = prefs.getString('saved_username');
+    final pass = prefs.getString('saved_password') ?? '';
     final savedTunnelMode = prefs.getBool('only_filtered_apps') ?? true;
 
     if (mounted) {
@@ -276,14 +276,16 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
       });
     }
 
-    if (user != null && user.isNotEmpty) {
+    if (user != null && user.isNotEmpty && pass.isNotEmpty) {
       if (mounted) {
         setState(() {
           savedUser = user;
+          savedPass = pass;
           _userController.text = user;
+          _passController.text = pass;
         });
       }
-      _fetchUserData(user);
+      _fetchUserData(user, pass);
     }
   }
 
@@ -317,16 +319,19 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     }
   }
 
-  Future<void> _fetchUserData(String username, {bool isManualRefresh = false}) async {
+  Future<void> _fetchUserData(String username, String password, {bool isManualRefresh = false}) async {
     setState(() => isLoading = true);
     try {
-      final uri = Uri.parse('https://majid6064.ir/api.php?username=${Uri.encodeComponent(username)}');
+      final uri = Uri.parse(
+        'https://majid6064.ir/api.php?username=${Uri.encodeComponent(username)}&password=${Uri.encodeComponent(password)}',
+      );
       final res = await http.get(uri).timeout(const Duration(seconds: 12));
       if (res.statusCode == 200) {
         final data = json.decode(res.body);
         if (data['ok'] == true) {
           final prefs = await SharedPreferences.getInstance();
           await prefs.setString('saved_username', username);
+          await prefs.setString('saved_password', password);
 
           final List<dynamic> rawServers = data['servers'] ?? [];
           final parsed = rawServers.map((s) => ServerModel.fromJson(s)).toList();
@@ -335,6 +340,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
             setState(() {
               userData = data;
               savedUser = username;
+              savedPass = password;
               serverList = parsed;
               selectedServerIndex = 0;
             });
@@ -348,7 +354,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
             _pingAllServers();
           }
         } else {
-          _showToast(data['msg'] ?? 'نام کاربری یافت نشد');
+          _showToast(data['msg'] ?? 'نام کاربری یا رمز عبور اشتباه است');
         }
       }
     } catch (e) {
@@ -460,32 +466,6 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
         final parsedUrl = FlutterV2ray.parseFromURL(configString);
         configString = parsedUrl.getFullConfiguration();
       }
-
-      // هدایت مستقیم سایت‌ها و بانک‌های ایرانی (Direct Routing)
-      try {
-        final Map<String, dynamic> configMap = json.decode(configString);
-        List<dynamic> outbounds = configMap['outbounds'] ?? [];
-        bool hasDirect = outbounds.any((o) => o['tag'] == 'direct');
-        if (!hasDirect) {
-          outbounds.add({'tag': 'direct', 'protocol': 'freedom', 'settings': {}});
-          configMap['outbounds'] = outbounds;
-        }
-
-        if (onlyFilteredApps) {
-          Map<String, dynamic> routing = configMap['routing'] ?? {};
-          routing['domainStrategy'] = 'IPIfNonMatch';
-          List<dynamic> rules = routing['rules'] ?? [];
-          rules.insert(0, {
-            'type': 'field',
-            'outboundTag': 'direct',
-            'ip': ['geoip:ir', 'geoip:private'],
-            'domain': ['geosite:ir', 'geosite:category-ir', 'regexp:.*\\.ir\$']
-          });
-          routing['rules'] = rules;
-          configMap['routing'] = routing;
-        }
-        configString = json.encode(configMap);
-      } catch (_) {}
 
       await flutterV2ray.startV2Ray(
         remark: target.name,
@@ -713,7 +693,6 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     );
   }
 
-  // کادر جمع‌وجور و شیک دانلود و آپلود
   Widget _buildTrafficCard() {
     final isConnected = v2rayStatus.state == 'CONNECTED';
     final downloadBytes = isConnected ? v2rayStatus.download : 0;
@@ -958,7 +937,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
               IconButton(
                 icon: const Icon(Icons.sync_rounded, color: Color(0xFF00E5FF), size: 21),
                 tooltip: 'بروزرسانی کانفیگ‌ها',
-                onPressed: () => _fetchUserData(savedUser!, isManualRefresh: true),
+                onPressed: () => _fetchUserData(savedUser!, savedPass ?? '', isManualRefresh: true),
               ),
             if (savedUser != null)
               IconButton(
@@ -967,12 +946,14 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
                 onPressed: () async {
                   final prefs = await SharedPreferences.getInstance();
                   await prefs.remove('saved_username');
+                  await prefs.remove('saved_password');
                   if (v2rayStatus.state == 'CONNECTED') {
                     await flutterV2ray.stopV2Ray();
                   }
                   if (mounted) {
                     setState(() {
                       savedUser = null;
+                      savedPass = null;
                       userData = null;
                       serverList.clear();
                     });
@@ -992,13 +973,12 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
 
   Widget _buildLoginView() {
     return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 28.0, vertical: 30.0),
+      padding: const EdgeInsets.symmetric(horizontal: 28.0, vertical: 24.0),
       child: Column(
         children: [
-          const SizedBox(height: 10),
           Container(
-            width: 110,
-            height: 110,
+            width: 105,
+            height: 105,
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(28),
               boxShadow: [
@@ -1016,16 +996,16 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
                 fit: BoxFit.cover,
                 errorBuilder: (_, __, ___) => Container(
                   color: const Color(0xFF131B2E),
-                  child: const Icon(Icons.rocket_launch_rounded, size: 60, color: Color(0xFF00E5FF)),
+                  child: const Icon(Icons.rocket_launch_rounded, size: 55, color: Color(0xFF00E5FF)),
                 ),
               ),
             ),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 18),
           const Text('JetConfig VPN', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: Colors.white)),
-          const SizedBox(height: 6),
-          const Text('ورود هوشمند به اشتراک پرسرعت', style: TextStyle(color: Colors.grey, fontSize: 12.5)),
-          const SizedBox(height: 28),
+          const SizedBox(height: 4),
+          const Text('ورود هوشمند به اشتراک پرسرعت', style: TextStyle(color: Colors.grey, fontSize: 12)),
+          const SizedBox(height: 24),
           TextField(
             controller: _userController,
             textAlign: TextAlign.center,
@@ -1036,10 +1016,40 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
               prefixIcon: const Icon(Icons.fingerprint_rounded, color: Color(0xFF00E5FF)),
               filled: true,
               fillColor: const Color(0xFF131B2E),
-              contentPadding: const EdgeInsets.symmetric(vertical: 15),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(18), borderSide: BorderSide(color: Colors.white.withOpacity(0.08))),
-              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(18), borderSide: BorderSide(color: Colors.white.withOpacity(0.08))),
-              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(18), borderSide: const BorderSide(color: Color(0xFF00E5FF), width: 1.8)),
+              contentPadding: const EdgeInsets.symmetric(vertical: 14),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: Colors.white.withOpacity(0.08))),
+              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: Colors.white.withOpacity(0.08))),
+              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: Color(0xFF00E5FF), width: 1.8)),
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _passController,
+            obscureText: _obscurePassword,
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.bold, color: Colors.white),
+            decoration: InputDecoration(
+              hintText: 'رمز عبور اشتراک',
+              hintStyle: const TextStyle(color: Colors.white30, fontSize: 12.5),
+              prefixIcon: const Icon(Icons.lock_outline_rounded, color: Color(0xFF00E5FF)),
+              suffixIcon: IconButton(
+                icon: Icon(
+                  _obscurePassword ? Icons.visibility_off_rounded : Icons.visibility_rounded,
+                  color: Colors.grey,
+                  size: 20,
+                ),
+                onPressed: () {
+                  setState(() {
+                    _obscurePassword = !_obscurePassword;
+                  });
+                },
+              ),
+              filled: true,
+              fillColor: const Color(0xFF131B2E),
+              contentPadding: const EdgeInsets.symmetric(vertical: 14),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: Colors.white.withOpacity(0.08))),
+              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: Colors.white.withOpacity(0.08))),
+              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: Color(0xFF00E5FF), width: 1.8)),
             ),
           ),
           const SizedBox(height: 18),
@@ -1047,16 +1057,20 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF00E5FF),
               foregroundColor: Colors.black,
-              minimumSize: const Size(double.infinity, 50),
+              minimumSize: const Size(double.infinity, 48),
               elevation: 8,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             ),
             onPressed: () {
-              if (_userController.text.trim().isNotEmpty) {
-                _fetchUserData(_userController.text.trim());
+              final user = _userController.text.trim();
+              final pass = _passController.text.trim();
+              if (user.isNotEmpty && pass.isNotEmpty) {
+                _fetchUserData(user, pass);
+              } else {
+                _showToast('لطفاً نام کاربری و رمز عبور را وارد کنید');
               }
             },
-            child: const Text('ورود و بارگذاری سرورها', style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.bold)),
+            child: const Text('ورود و دریافت کانفیگ‌ها', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -1071,7 +1085,6 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       child: Column(
         children: [
-          // ردیف کاربر و پینگ
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -1105,8 +1118,6 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
             ],
           ),
           const SizedBox(height: 10),
-
-          // وضعیت اشتراک: حجم باقیمانده، کل، مدت اعتبار
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             decoration: BoxDecoration(
@@ -1126,16 +1137,10 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
             ),
           ),
           const SizedBox(height: 8),
-
-          // کارت ساده دانلود و آپلود
           _buildTrafficCard(),
           const SizedBox(height: 8),
-
-          // سوییچ دوحالته تونل
           _buildTunnelModeSwitch(),
           const SizedBox(height: 8),
-
-          // ردیف سرور و بروزرسانی
           Row(
             children: [
               Expanded(
@@ -1171,8 +1176,8 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
               const SizedBox(width: 6),
               InkWell(
                 onTap: () {
-                  if (savedUser != null) {
-                    _fetchUserData(savedUser!, isManualRefresh: true);
+                  if (savedUser != null && savedPass != null) {
+                    _fetchUserData(savedUser!, savedPass!, isManualRefresh: true);
                   }
                 },
                 borderRadius: BorderRadius.circular(16),
@@ -1198,11 +1203,8 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
             ],
           ),
           const SizedBox(height: 14),
-
-          // دکمه اتصال نئونی
           _build3DAnimatedButton(),
           const SizedBox(height: 8),
-
           Text(
             isConnected
                 ? (onlyFilteredApps ? 'اتصال هوشمند (فقط برنامه‌های فیلترشده)' : 'اتصال کامل (تونل کل گوشی)')
@@ -1214,8 +1216,6 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
             ),
           ),
           const SizedBox(height: 12),
-
-          // دکمه تمدید در ربات تلگرام
           InkWell(
             onTap: () => _openTelegram(telegramBotUrl),
             borderRadius: BorderRadius.circular(14),

@@ -26,23 +26,33 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: Recreate Android Project to Clean V2 Embedding & Icons
+      - name: Recreate Android Project & Full-Bleed App Icons
         run: |
-          # ۱. بازسازی اصولی ساختار اندروید با نام پکیج استاندارد
+          # ۱. ساخت مجدد پروژه اندروید با ساختار استاندارد
           flutter create . --platforms=android --project-name=jetconfig_vpn --org com.jetconfig.vpn
 
-          # ۲. نصب کتابخانه تصویر و ساخت آیکون از لوگوی کانال
+          # ۲. برش هوشمند مرکز تصویر و ایجاد آیکون تمام‌صفحه (Full-Bleed)
           python3 -m pip install pillow
           python3 -c "
           import urllib.request, os, shutil, re
           from PIL import Image
 
-          # دانلود لوگوی کانال
           try:
               urllib.request.urlretrieve('https://majid6064.ir/logo.png', 'logo.png')
               im = Image.open('logo.png').convert('RGBA')
+              w, h = im.size
 
-              # حذف لایه تداخلی anydpi
+              # برش دقیق کادر نئونی وسط لوگو برای پر کردن کامل قاب آیکون
+              crop_size = int(min(w, h) * 0.76)
+              cx, cy = w // 2, h // 2
+              left = max(0, cx - crop_size // 2)
+              top = max(0, cy - crop_size // 2)
+              right = min(w, cx + crop_size // 2)
+              bottom = min(h, cy + crop_size // 2)
+
+              cropped = im.crop((left, top, right, bottom))
+
+              # حذف تداخل پوشه anydpi
               anydpi = 'android/app/src/main/res/mipmap-anydpi-v26'
               if os.path.exists(anydpi):
                   shutil.rmtree(anydpi)
@@ -57,12 +67,14 @@ jobs:
               for folder, size in sizes.items():
                   path = f'android/app/src/main/res/{folder}'
                   os.makedirs(path, exist_ok=True)
-                  im.resize((size, size), Image.Resampling.LANCZOS).save(f'{path}/ic_launcher.png', 'PNG')
-              print('Launcher icons generated.')
+                  # ذخیره آیکون مربعی و دایره‌ای تمام‌کادر
+                  cropped.resize((size, size), Image.Resampling.LANCZOS).save(f'{path}/ic_launcher.png', 'PNG')
+                  cropped.resize((size, size), Image.Resampling.LANCZOS).save(f'{path}/ic_launcher_round.png', 'PNG')
+              print('Full-bleed icons generated successfully.')
           except Exception as e:
-              print('Icon warning:', e)
+              print('Icon error:', e)
 
-          # ۳. تنظیم مجوزهای اتصال در AndroidManifest.xml
+          # ۳. تنظیم مجوزها و عنوان در مانیفست
           manifest_path = 'android/app/src/main/AndroidManifest.xml'
           if os.path.exists(manifest_path):
               with open(manifest_path, 'r', encoding='utf-8') as f:
@@ -70,20 +82,20 @@ jobs:
 
               m = re.sub(r'android:label=\"[^\"]*\"', 'android:label=\"JetConfig VPN\"', m, count=1)
 
-              permissions = '''
+              perms = '''
                   <uses-permission android:name=\"android.permission.INTERNET\" />
                   <uses-permission android:name=\"android.permission.FOREGROUND_SERVICE\" />
                   <uses-permission android:name=\"android.permission.POST_NOTIFICATIONS\" />
                   <uses-permission android:name=\"android.permission.ACCESS_NETWORK_STATE\" />
                   <uses-permission android:name=\"android.permission.CHANGE_NETWORK_STATE\" />
               '''
-              m = m.replace('<application', permissions + '\n    <application')
+              m = m.replace('<application', perms + '\n    <application')
 
               with open(manifest_path, 'w', encoding='utf-8') as f:
                   f.write(m)
-              print('Manifest configured.')
+              print('Manifest updated.')
 
-          # ۴. تنظیم minSdkVersion روی 21 در build.gradle
+          # ۴. تنظیم حداقل SDK
           gradle_path = 'android/app/build.gradle'
           if os.path.exists(gradle_path):
               with open(gradle_path, 'r', encoding='utf-8') as f:
@@ -92,7 +104,7 @@ jobs:
               g = re.sub(r'minSdkVersion\s+\d+', 'minSdkVersion 21', g)
               with open(gradle_path, 'w', encoding='utf-8') as f:
                   f.write(g)
-              print('MinSdkVersion set to 21.')
+              print('Gradle configured.')
           "
 
       - name: Install Dependencies

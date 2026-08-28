@@ -24,26 +24,52 @@ jobs:
         with:
           channel: 'stable'
 
-      - name: Setup Android Project Structure
+      - name: Setup Android Project and Native Files
         run: |
-          # پشتیبان‌گیری از کدهای شما
+          # بکاپ‌گیری از کدهای اصلی برنامه و پکیج‌ها
           cp pubspec.yaml pubspec.yaml.bak
+          cp -r lib lib_bak
           
-          # ساخت ساختار نیتیو با نام معتبر
+          # ساخت ساختار نیتیو اندروید
           flutter create --project-name jetconfig_vpn --org com.jetconfig.vpn --platforms=android .
           
-          # بازگردانی تنظیمات پکیج‌ها
+          # بازگرداندن کدها و تنظیمات اصلی
           mv pubspec.yaml.bak pubspec.yaml
-          
-          # تنظیم مشخصات اندروید
-          sed -i 's/flutter.minSdkVersion/21/g' android/app/build.gradle || true
-          sed -i 's/minSdk .*/minSdk = 21/g' android/app/build.gradle || true
-          sed -i 's/minSdkVersion .*/minSdkVersion 21/g' android/app/build.gradle || true
-          
-          # اضافه کردن دسترسی‌ها و سرویس وی‌پی‌ان
-          MANIFEST="android/app/src/main/AndroidManifest.xml"
-          sed -i '/<application/i \    <uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />' $MANIFEST
-          sed -i '/<\/application>/i \        <service android:name="com.flutterv2ray.flutter_v2ray.core.V2rayService" android:exported="false" android:permission="android.permission.BIND_VPN_SERVICE">\n            <intent-filter>\n                <action android:name="android.net.VpnService" />\n            </intent-filter>\n        </service>' $MANIFEST
+          rm -rf lib
+          mv lib_bak lib
+
+          # تنظیم دقیق نسخه اندروید (minSdkVersion 21) با پایتون
+          python3 -c "
+          p = 'android/app/build.gradle'
+          with open(p, 'r') as f: c = f.read()
+          c = c.replace('flutter.minSdkVersion', '21')
+          with open(p, 'w') as f: f.write(c)
+          "
+
+          # تزریق امن دسترسی‌ها و سرویس VPN به منیفست اندروید
+          python3 -c "
+          p = 'android/app/src/main/AndroidManifest.xml'
+          with open(p, 'r') as f: c = f.read()
+          perms = '''
+              <uses-permission android:name=\"android.permission.INTERNET\" />
+              <uses-permission android:name=\"android.permission.FOREGROUND_SERVICE\" />
+          '''
+          service = '''
+                  <service
+                      android:name=\"com.flutterv2ray.flutter_v2ray.core.V2rayService\"
+                      android:exported=\"false\"
+                      android:permission=\"android.permission.BIND_VPN_SERVICE\">
+                      <intent-filter>
+                          <action android:name=\"android.net.VpnService\" />
+                      </intent-filter>
+                  </service>
+          '''
+          if 'android.permission.INTERNET' not in c:
+              c = c.replace('<application', perms + '\n    <application')
+          if 'com.flutterv2ray.flutter_v2ray.core.V2rayService' not in c:
+              c = c.replace('</application>', service + '\n    </application>')
+          with open(p, 'w') as f: f.write(c)
+          "
 
       - name: Install Dependencies
         run: flutter pub get

@@ -111,7 +111,7 @@ jobs:
                   f.write(m)
               print('Manifest updated.')
 
-          # 3. تنظیم استاندارد build.gradle با Target SDK 34
+          # 3. تنظیم بدون نقص build.gradle با Target SDK 34
           gradle_path = 'android/app/build.gradle'
           gradle_content = '''plugins {
               id \"com.android.application\"
@@ -122,23 +122,22 @@ jobs:
           android {
               namespace = \"com.jetconfig.vpn\"
               compileSdk = 34
-              ndkVersion = flutter.ndkVersion
 
               compileOptions {
-                  sourceCompatibility = JavaVersion.VERSION_1_8
-                  targetCompatibility = JavaVersion.VERSION_1_8
+                  sourceCompatibility JavaVersion.VERSION_1_8
+                  targetCompatibility JavaVersion.VERSION_1_8
               }
 
               kotlinOptions {
-                  jvmTarget = \"1.8\"
+                  jvmTarget = '1.8'
               }
 
               defaultConfig {
                   applicationId = \"com.jetconfig.vpn\"
                   minSdk = 21
                   targetSdk = 34
-                  versionCode = flutter.versionCode
-                  versionName = flutter.versionName
+                  versionCode = 1
+                  versionName = \"1.2.0\"
               }
 
               signingConfigs {
@@ -165,7 +164,7 @@ jobs:
           '''
           with open(gradle_path, 'w', encoding='utf-8') as f:
               f.write(gradle_content)
-          print('Gradle cleanly configured with API 34.')
+          print('Gradle correctly configured.')
           "
 
       - name: Install Dependencies

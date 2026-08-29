@@ -13,13 +13,13 @@ void main() {
   runApp(const JetConfigApp());
 }
 
-// شماره نسخه به‌روزرسانی‌شده
-const String appVersion = 'v1.3.0';
+// مشخصات نسخه
+const String appVersion = 'v1.4.0';
 const String appLogoUrl = 'https://majid6064.ir/logo.png';
 const String telegramBotUrl = 'https://t.me/JetConfig1bot';
 const String telegramChannelUrl = 'https://t.me/jetconfig11';
 
-// لیست جامع پکیج‌های ایرانی، بانکی و مرورگرها
+// لیست پکیج‌های معاف از تونل
 const List<String> iranianAndBrowserPackages = [
   'com.android.chrome',
   'org.mozilla.firefox',
@@ -185,8 +185,14 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
       }
       if (status.state == 'CONNECTED') {
         _checkActivePing();
+        _fetchCurrentIp();
       } else {
-        if (mounted) setState(() => activePing = -1);
+        if (mounted) {
+          setState(() {
+            activePing = -1;
+          });
+        }
+        _fetchCurrentIp();
       }
     },
   );
@@ -205,6 +211,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
   bool onlyFilteredApps = true;
   bool _obscurePassword = true;
   int activePing = -1;
+  String currentIpAddress = '...';
 
   Map<String, dynamic>? userData;
   String? savedUser;
@@ -232,10 +239,26 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     )..repeat();
 
     _loadSavedPreferences();
+    _fetchCurrentIp();
   }
 
   Future<void> _initCore() async {
     await flutterV2ray.initializeV2Ray();
+  }
+
+  Future<void> _fetchCurrentIp() async {
+    try {
+      final res = await http.get(Uri.parse('https://api.ipify.org')).timeout(const Duration(seconds: 4));
+      if (res.statusCode == 200 && mounted) {
+        setState(() {
+          currentIpAddress = res.body.trim();
+        });
+      }
+    } catch (_) {
+      if (mounted && currentIpAddress == '...') {
+        setState(() => currentIpAddress = '---');
+      }
+    }
   }
 
   @override
@@ -517,6 +540,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     if (v2rayStatus.state == 'CONNECTED') {
       await flutterV2ray.stopV2Ray();
       if (mounted) setState(() => activePing = -1);
+      _fetchCurrentIp();
       return;
     }
 
@@ -685,6 +709,48 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
           },
         );
       },
+    );
+  }
+
+  Widget _buildNeonIpPill() {
+    final isConnected = v2rayStatus.state == 'CONNECTED';
+    final glowColor = isConnected ? const Color(0xFF00FFA3) : const Color(0xFF00E5FF);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+      decoration: BoxDecoration(
+        color: const Color(0xFF131B2E),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: glowColor.withOpacity(0.4), width: 1.2),
+        boxShadow: [
+          BoxShadow(
+            color: glowColor.withOpacity(isConnected ? 0.25 : 0.12),
+            blurRadius: 10,
+            spreadRadius: 1,
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            isConnected ? Icons.shield_rounded : Icons.location_on_rounded,
+            size: 14,
+            color: glowColor,
+          ),
+          const SizedBox(width: 6),
+          Text(
+            currentIpAddress,
+            style: TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w900,
+              fontSize: 11.5,
+              letterSpacing: 0.9,
+              fontFamily: 'monospace',
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -1294,7 +1360,9 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
               ),
             ],
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 10),
+          _buildNeonIpPill(),
+          const SizedBox(height: 10),
           _build3DAnimatedButton(),
           const SizedBox(height: 8),
           Text(

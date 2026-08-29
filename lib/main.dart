@@ -13,13 +13,13 @@ void main() {
   runApp(const JetConfigApp());
 }
 
-// تنظیمات و مشخصات نسخه
-const String appVersion = 'v1.2.0';
+// شماره نسخه به‌روزرسانی‌شده
+const String appVersion = 'v1.3.0';
 const String appLogoUrl = 'https://majid6064.ir/logo.png';
 const String telegramBotUrl = 'https://t.me/JetConfig1bot';
 const String telegramChannelUrl = 'https://t.me/jetconfig11';
 
-// لیست پکیج‌های ایرانی و مرورگرها جهت معاف‌سازی در حالت تفکیک ترافیک
+// لیست جامع پکیج‌های ایرانی، بانکی و مرورگرها
 const List<String> iranianAndBrowserPackages = [
   'com.android.chrome',
   'org.mozilla.firefox',
@@ -1152,7 +1152,6 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
             child: const Text('ورود و دریافت کانفیگ‌ها', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
           ),
           const SizedBox(height: 24),
-          // نمایش نسخه برنامه
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(
@@ -1340,7 +1339,6 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
             ),
           ),
           const SizedBox(height: 12),
-          // نمایش نسخه برنامه در انتهای داشبورد
           Text(
             'JetConfig VPN • $appVersion',
             style: const TextStyle(fontSize: 10.5, color: Colors.white24),

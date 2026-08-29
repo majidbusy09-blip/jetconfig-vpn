@@ -26,14 +26,14 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: Configure Android Project, Modern SDKs & Persistent Keystore
+      - name: Configure Android Project, Android 14 FGS & Keystore
         run: |
           rm -rf android
           flutter create . --platforms=android --project-name=jetconfig_vpn --org com.jetconfig.vpn
           flutter pub add url_launcher
           python3 -m pip install pillow
 
-          # ساخت کلید امضای ثابت معتبر
+          # ساخت کلید امضای معتبر
           keytool -genkey -v -keystore jetconfig-key.jks -storepass jetconfig1234 -alias jetconfig -keypass jetconfig1234 -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=JetConfig, OU=Jet, O=JetConfig, L=Tehran, S=Tehran, C=IR"
           mv jetconfig-key.jks android/app/
 
@@ -76,7 +76,7 @@ jobs:
           except Exception as e:
               print('Icon error:', e)
 
-          # 2. تنظیم مانیفست اندروید
+          # 2. تنظیم مانیفست منطبق با الزامات اندروید 14
           manifest_path = 'android/app/src/main/AndroidManifest.xml'
           if os.path.exists(manifest_path):
               with open(manifest_path, 'r', encoding='utf-8') as f:
@@ -87,6 +87,7 @@ jobs:
               perms = '''
                   <uses-permission android:name=\"android.permission.INTERNET\" />
                   <uses-permission android:name=\"android.permission.FOREGROUND_SERVICE\" />
+                  <uses-permission android:name=\"android.permission.FOREGROUND_SERVICE_SPECIAL_USE\" />
                   <uses-permission android:name=\"android.permission.POST_NOTIFICATIONS\" />
                   <uses-permission android:name=\"android.permission.ACCESS_NETWORK_STATE\" />
                   <uses-permission android:name=\"android.permission.CHANGE_NETWORK_STATE\" />
@@ -109,9 +110,9 @@ jobs:
 
               with open(manifest_path, 'w', encoding='utf-8') as f:
                   f.write(m)
-              print('Manifest updated.')
+              print('Manifest fully updated for Android 14.')
 
-          # 3. بازنویسی اصولی و بدون باگ build.gradle
+          # 3. تنظیم پایدار build.gradle
           gradle_path = 'android/app/build.gradle'
           gradle_content = '''plugins {
               id \"com.android.application\"
@@ -127,15 +128,8 @@ jobs:
               }
           }
 
-          def flutterVersionCode = localProperties.getProperty('flutter.versionCode')
-          if (flutterVersionCode == null) {
-              flutterVersionCode = '1'
-          }
-
-          def flutterVersionName = localProperties.getProperty('flutter.versionName')
-          if (flutterVersionName == null) {
-              flutterVersionName = '1.2.0'
-          }
+          def flutterVersionCode = localProperties.getProperty('flutter.versionCode') ?: '1'
+          def flutterVersionName = localProperties.getProperty('flutter.versionName') ?: '1.2.0'
 
           android {
               namespace \"com.jetconfig.vpn\"
@@ -157,6 +151,7 @@ jobs:
                   targetSdkVersion 34
                   versionCode flutterVersionCode.toInteger()
                   versionName flutterVersionName
+                  multiDexEnabled true
               }
 
               signingConfigs {
@@ -183,7 +178,7 @@ jobs:
           '''
           with open(gradle_path, 'w', encoding='utf-8') as f:
               f.write(gradle_content)
-          print('Gradle cleanly configured with proper Android 14 parameters.')
+          print('Gradle configured successfully.')
           "
 
       - name: Install Dependencies

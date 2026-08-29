@@ -17,7 +17,7 @@ const String appLogoUrl = 'https://majid6064.ir/logo.png';
 const String telegramBotUrl = 'https://t.me/JetConfig1bot';
 const String telegramChannelUrl = 'https://t.me/jetconfig11';
 
-// لیست اپلیکیشن‌های ایرانی و بانکی برای معاف‌سازی در حالت تفکیک ترافیک
+// لیست پکیج‌های ایرانی و مرورگرها جهت معاف‌سازی در حالت تفکیک ترافیک
 const List<String> iranianAndBrowserPackages = [
   'com.android.chrome',
   'org.mozilla.firefox',
@@ -264,6 +264,46 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     return expireStr;
   }
 
+  // نمایش اعلان با وضوح بالا، رنگ متن سفید و تفکیک خطا/موفقیت
+  void _showToast(String msg, {bool isError = true}) {
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Row(
+        textDirection: TextDirection.rtl,
+        children: [
+          Icon(
+            isError ? Icons.error_outline_rounded : Icons.check_circle_outline_rounded,
+            color: isError ? const Color(0xFFFF5252) : const Color(0xFF00FFA3),
+            size: 20,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              msg,
+              textDirection: TextDirection.rtl,
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 13,
+              ),
+            ),
+          ),
+        ],
+      ),
+      behavior: SnackBarBehavior.floating,
+      backgroundColor: const Color(0xFF1E293B),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(
+          color: isError ? const Color(0xFFFF5252).withOpacity(0.6) : const Color(0xFF00E5FF).withOpacity(0.6),
+          width: 1.3,
+        ),
+      ),
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      duration: const Duration(seconds: 3),
+    ));
+  }
+
   Future<void> _loadSavedPreferences() async {
     final prefs = await SharedPreferences.getInstance();
     final user = prefs.getString('saved_username');
@@ -299,7 +339,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     }
 
     if (v2rayStatus.state == 'CONNECTED') {
-      _showToast('در حال تغییر حالت شبکه...');
+      _showToast('در حال تغییر حالت شبکه...', isError: false);
       await _toggleConnect();
       await Future.delayed(const Duration(milliseconds: 300));
       await _toggleConnect();
@@ -347,7 +387,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
           }
 
           if (isManualRefresh) {
-            _showToast('کانفیگ‌ها بروزرسانی شدند');
+            _showToast('کانفیگ‌ها بروزرسانی شدند', isError: false);
           }
 
           if (parsed.isNotEmpty) {
@@ -424,14 +464,6 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
         });
       }
     } catch (_) {}
-  }
-
-  void _showToast(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(msg, textDirection: TextDirection.rtl),
-      behavior: SnackBarBehavior.floating,
-      backgroundColor: const Color(0xFF1E293B),
-    ));
   }
 
   Future<void> _toggleConnect() async {

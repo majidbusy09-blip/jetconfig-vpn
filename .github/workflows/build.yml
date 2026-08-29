@@ -111,38 +111,61 @@ jobs:
                   f.write(m)
               print('Manifest updated.')
 
-          # 3. ارتقای سطح SDK به اندروید 14 (سطح 34) و اتصال کلید امضا
+          # 3. تنظیم استاندارد build.gradle با Target SDK 34
           gradle_path = 'android/app/build.gradle'
-          if os.path.exists(gradle_path):
-              with open(gradle_path, 'r', encoding='utf-8') as f:
-                  g = f.read()
+          gradle_content = '''plugins {
+              id \"com.android.application\"
+              id \"kotlin-android\"
+              id \"dev.flutter.flutter-gradle-plugin\"
+          }
 
-              # تنظیم compileSdk به 34
-              g = re.sub(r'compileSdkVersion\s+\S+', 'compileSdkVersion 34', g)
-              g = re.sub(r'compileSdk\s*=\s*\S+', 'compileSdk = 34', g)
+          android {
+              namespace = \"com.jetconfig.vpn\"
+              compileSdk = 34
+              ndkVersion = flutter.ndkVersion
 
-              # تنظیم targetSdk به 34 و minSdk به 21
-              g = re.sub(r'targetSdkVersion\s+\S+', 'targetSdkVersion 34', g)
-              g = re.sub(r'targetSdk\s*=\s*\S+', 'targetSdk = 34', g)
-              g = re.sub(r'minSdkVersion\s+\S+', 'minSdkVersion 21', g)
-              g = re.sub(r'minSdk\s*=\s*\S+', 'minSdk = 21', g)
+              compileOptions {
+                  sourceCompatibility = JavaVersion.VERSION_1_8
+                  targetCompatibility = JavaVersion.VERSION_1_8
+              }
 
-              signing_config = '''
-                  signingConfigs {
-                      release {
-                          keyAlias 'jetconfig'
-                          keyPassword 'jetconfig1234'
-                          storeFile file('jetconfig-key.jks')
-                          storePassword 'jetconfig1234'
-                      }
+              kotlinOptions {
+                  jvmTarget = \"1.8\"
+              }
+
+              defaultConfig {
+                  applicationId = \"com.jetconfig.vpn\"
+                  minSdk = 21
+                  targetSdk = 34
+                  versionCode = flutter.versionCode
+                  versionName = flutter.versionName
+              }
+
+              signingConfigs {
+                  release {
+                      keyAlias 'jetconfig'
+                      keyPassword 'jetconfig1234'
+                      storeFile file('jetconfig-key.jks')
+                      storePassword 'jetconfig1234'
                   }
-              '''
-              g = re.sub(r'android\s*\{', 'android {\n' + signing_config, g, count=1)
-              g = g.replace('signingConfig signingConfigs.debug', 'signingConfig signingConfigs.release')
+              }
 
-              with open(gradle_path, 'w', encoding='utf-8') as f:
-                  f.write(g)
-              print('Gradle, Modern Target SDK 34 and Signing configured.')
+              buildTypes {
+                  release {
+                      signingConfig = signingConfigs.release
+                      minifyEnabled false
+                      shrinkResources false
+                  }
+              }
+          }
+
+          flutter {
+              source = \"../..\"
+          }
+          '''
+          with open(gradle_path, 'w', encoding='utf-8') as f:
+              f.write(gradle_content)
+          print('Gradle cleanly configured with API 34.')
           "
 
       - name: Install Dependencies

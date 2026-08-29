@@ -26,14 +26,14 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: Configure Android Project, Android 14 FGS & Keystore
+      - name: Configure Android Project & Persistent Keystore
         run: |
           rm -rf android
           flutter create . --platforms=android --project-name=jetconfig_vpn --org com.jetconfig.vpn
           flutter pub add url_launcher
           python3 -m pip install pillow
 
-          # ساخت کلید امضای معتبر
+          # ساخت کلید امضای ثابت
           keytool -genkey -v -keystore jetconfig-key.jks -storepass jetconfig1234 -alias jetconfig -keypass jetconfig1234 -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=JetConfig, OU=Jet, O=JetConfig, L=Tehran, S=Tehran, C=IR"
           mv jetconfig-key.jks android/app/
 
@@ -76,7 +76,7 @@ jobs:
           except Exception as e:
               print('Icon error:', e)
 
-          # 2. تنظیم مانیفست منطبق با الزامات اندروید 14
+          # 2. تنظیم مانیفست اندروید
           manifest_path = 'android/app/src/main/AndroidManifest.xml'
           if os.path.exists(manifest_path):
               with open(manifest_path, 'r', encoding='utf-8') as f:
@@ -87,7 +87,6 @@ jobs:
               perms = '''
                   <uses-permission android:name=\"android.permission.INTERNET\" />
                   <uses-permission android:name=\"android.permission.FOREGROUND_SERVICE\" />
-                  <uses-permission android:name=\"android.permission.FOREGROUND_SERVICE_SPECIAL_USE\" />
                   <uses-permission android:name=\"android.permission.POST_NOTIFICATIONS\" />
                   <uses-permission android:name=\"android.permission.ACCESS_NETWORK_STATE\" />
                   <uses-permission android:name=\"android.permission.CHANGE_NETWORK_STATE\" />
@@ -110,91 +109,43 @@ jobs:
 
               with open(manifest_path, 'w', encoding='utf-8') as f:
                   f.write(m)
-              print('Manifest fully updated for Android 14.')
+              print('Manifest updated.')
 
-          # 3. تنظیم پایدار build.gradle
+          # 3. اتصال کلید امضا و تنظیم minSdkVersion
           gradle_path = 'android/app/build.gradle'
-          gradle_content = '''plugins {
-              id \"com.android.application\"
-              id \"kotlin-android\"
-              id \"dev.flutter.flutter-gradle-plugin\"
-          }
+          if os.path.exists(gradle_path):
+              with open(gradle_path, 'r', encoding='utf-8') as f:
+                  g = f.read()
 
-          def localProperties = new Properties()
-          def localPropertiesFile = rootProject.file('local.properties')
-          if (localPropertiesFile.exists()) {
-              localPropertiesFile.withReader('UTF-8') { reader ->
-                  localProperties.load(reader)
-              }
-          }
-
-          def flutterVersionCode = localProperties.getProperty('flutter.versionCode') ?: '1'
-          def flutterVersionName = localProperties.getProperty('flutter.versionName') ?: '1.2.0'
-
-          android {
-              namespace \"com.jetconfig.vpn\"
-              compileSdk 34
-              ndkVersion flutter.ndkVersion
-
-              compileOptions {
-                  sourceCompatibility JavaVersion.VERSION_1_8
-                  targetCompatibility JavaVersion.VERSION_1_8
-              }
-
-              kotlinOptions {
-                  jvmTarget = '1.8'
-              }
-
-              defaultConfig {
-                  applicationId \"com.jetconfig.vpn\"
-                  minSdkVersion 21
-                  targetSdkVersion 34
-                  versionCode flutterVersionCode.toInteger()
-                  versionName flutterVersionName
-                  multiDexEnabled true
-              }
-
-              signingConfigs {
-                  release {
-                      keyAlias 'jetconfig'
-                      keyPassword 'jetconfig1234'
-                      storeFile file('jetconfig-key.jks')
-                      storePassword 'jetconfig1234'
+              signing_config = '''
+                  signingConfigs {
+                      release {
+                          keyAlias 'jetconfig'
+                          keyPassword 'jetconfig1234'
+                          storeFile file('jetconfig-key.jks')
+                          storePassword 'jetconfig1234'
+                      }
                   }
-              }
+              '''
+              g = re.sub(r'android\s*\{', 'android {\n' + signing_config, g, count=1)
+              g = g.replace('signingConfig signingConfigs.debug', 'signingConfig signingConfigs.release')
 
-              buildTypes {
-                  release {
-                      signingConfig signingConfigs.release
-                      minifyEnabled false
-                      shrinkResources false
-                  }
-              }
-          }
+              g = re.sub(r'minSdkVersion\s+flutter\.minSdkVersion', 'minSdkVersion 21', g)
+              g = re.sub(r'minSdkVersion\s+\d+', 'minSdkVersion 21', g)
 
-          flutter {
-              source '../..'
-          }
-          '''
-          with open(gradle_path, 'w', encoding='utf-8') as f:
-              f.write(gradle_content)
-          print('Gradle configured successfully.')
+              with open(gradle_path, 'w', encoding='utf-8') as f:
+                  f.write(g)
+              print('Gradle and Signing configured.')
           "
 
       - name: Install Dependencies
         run: flutter pub get
 
-      - name: Build Optimized Split APKs
-        run: flutter build apk --release --split-per-abi
+      - name: Build Complete Universal Release APK
+        run: flutter build apk --release
 
-      - name: Upload Arm64 APK (Main Modern Phones)
+      - name: Upload Universal APK
         uses: actions/upload-artifact@v4
         with:
-          name: JetConfig-VPN-arm64-v8a (Lightweight)
-          path: build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
-
-      - name: Upload All Split APKs
-        uses: actions/upload-artifact@v4
-        with:
-          name: JetConfig-VPN-All-Architectures
-          path: build/app/outputs/flutter-apk/*.apk
+          name: JetConfig-VPN-Release
+          path: build/app/outputs/flutter-apk/app-release.apk

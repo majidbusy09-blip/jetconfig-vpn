@@ -13,6 +13,8 @@ void main() {
   runApp(const JetConfigApp());
 }
 
+// تنظیمات و مشخصات نسخه
+const String appVersion = 'v1.2.0';
 const String appLogoUrl = 'https://majid6064.ir/logo.png';
 const String telegramBotUrl = 'https://t.me/JetConfig1bot';
 const String telegramChannelUrl = 'https://t.me/jetconfig11';
@@ -26,33 +28,77 @@ const List<String> iranianAndBrowserPackages = [
   'com.opera.mini.native',
   'com.brave.browser',
   'com.microsoft.emmx',
+  'app.nobitex',
+  'ir.nobitex',
+  'ir.nobitex.market',
+  'ir.wallex.app',
+  'ir.tabdeal.app',
+  'com.ramzinex.app',
+  'ir.bitpin',
+  'com.abantether',
+  'com.asanpardakht',
+  'com.asanpardakht.app',
+  'ir.asanpardakht',
+  'com.ap.app',
+  'ir.mizan.hamrahcard',
+  'com.mizan.hamrahcard',
+  'com.bpm.sekeh',
+  'com.sadadpsp.eva',
+  'ir.sep.qpay',
+  'ir.pec.cpay',
+  'com.pec.top',
+  'ir.parsianbank.top',
+  'com.tara.app',
+  'com.digikala.digipay',
+  'ir.digipay.app',
+  'com.snapppay.app',
+  'ir.bmi.bam.nativeweb',
+  'ir.melli.bam',
+  'ir.bmi.bam',
+  'ir.bmi.baam',
+  'com.bmi.omad',
+  'ir.bmi.token',
+  'com.sadadpsp.bmi',
   'ir.bankmaskan.mobilebank',
   'ir.bankmaskan.rayanmehr',
   'ir.bankmaskan.hamrah',
   'com.maskan.mobilebank',
   'ir.bankmaskan.android',
-  'com.samanpr.blu',
-  'ir.melli.bam',
-  'ir.bmi.bam',
+  'com.tosan.maskan',
   'ir.bankmellat.mobile',
+  'com.mellat.mobile',
+  'ir.bankmellat.android',
+  'com.tosan.mellat',
+  'ir.tejaratbank.tata.mobile.android.tejarat',
+  'ir.tejaratbank.mobilebank',
+  'com.tejarat.mbank',
   'com.saderat.mb',
   'ir.bsi.mobilebank',
-  'ir.tejaratbank.mobilebank',
-  'ir.bpi.mobilebank',
-  'ir.sb24.mobilbank',
-  'ir.citybank.mobilebank',
-  'ir.agribank.mobile',
+  'ir.bsi.sapp',
+  'com.tosan.saderat',
   'ir.mresalat.app',
-  'com.bmi.omad',
+  'ir.resalat.mbank',
+  'ir.rqbank',
+  'ir.qmb.hamrah',
+  'ir.rqb.app',
+  'com.samanpr.blu',
+  'ir.blubank',
+  'ir.sb24.mobilbank',
+  'com.saman.mobile',
+  'ir.banksepah.mobilebank',
+  'ir.omidbank.app',
+  'com.tosan.sepah',
+  'ir.bpi.mobilebank',
+  'com.pasargad.mobile',
   'ir.parsianbank.mobilebank',
-  'ir.ayandeh.hamrah',
+  'ir.agribank.mobile',
   'ir.bankrefah.mobilebank',
-  'com.asandakht.app',
-  'com.asanpardakht.app',
-  'ir.sep.qpay',
-  'ir.pec.cpay',
-  'com.bpm.sekeh',
-  'ir.mizan.hamrahcard',
+  'ir.citybank.mobilebank',
+  'ir.day24.mobilebank',
+  'ir.sina.mobile',
+  'ir.ayandeh.hamrah',
+  'ir.postbank.mobile',
+  'ir.ttbank.mobilebank',
   'cab.snapp.passenger',
   'com.snapp.passenger',
   'cab.snapp.driver',
@@ -72,6 +118,8 @@ const List<String> iranianAndBrowserPackages = [
   'ir.rubika.app',
   'ir.resaneh.rubika',
   'ir.ble.messenger',
+  'ir.gov.my',
+  'ir.police.my',
 ];
 
 class ServerModel {
@@ -264,7 +312,6 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     return expireStr;
   }
 
-  // نمایش اعلان با وضوح بالا، رنگ متن سفید و تفکیک خطا/موفقیت
   void _showToast(String msg, {bool isError = true}) {
     ScaffoldMessenger.of(context).hideCurrentSnackBar();
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -1005,12 +1052,12 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
 
   Widget _buildLoginView() {
     return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 28.0, vertical: 24.0),
+      padding: const EdgeInsets.symmetric(horizontal: 28.0, vertical: 20.0),
       child: Column(
         children: [
           Container(
-            width: 105,
-            height: 105,
+            width: 100,
+            height: 100,
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(28),
               boxShadow: [
@@ -1028,16 +1075,16 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
                 fit: BoxFit.cover,
                 errorBuilder: (_, __, ___) => Container(
                   color: const Color(0xFF131B2E),
-                  child: const Icon(Icons.rocket_launch_rounded, size: 55, color: Color(0xFF00E5FF)),
+                  child: const Icon(Icons.rocket_launch_rounded, size: 50, color: Color(0xFF00E5FF)),
                 ),
               ),
             ),
           ),
-          const SizedBox(height: 18),
+          const SizedBox(height: 16),
           const Text('JetConfig VPN', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: Colors.white)),
           const SizedBox(height: 4),
           const Text('ورود هوشمند به اشتراک پرسرعت', style: TextStyle(color: Colors.grey, fontSize: 12)),
-          const SizedBox(height: 24),
+          const SizedBox(height: 22),
           TextField(
             controller: _userController,
             textAlign: TextAlign.center,
@@ -1103,6 +1150,20 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
               }
             },
             child: const Text('ورود و دریافت کانفیگ‌ها', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+          ),
+          const SizedBox(height: 24),
+          // نمایش نسخه برنامه
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.03),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: Colors.white.withOpacity(0.05)),
+            ),
+            child: const Text(
+              'Version $appVersion',
+              style: TextStyle(fontSize: 11, color: Colors.white38, letterSpacing: 0.8),
+            ),
           ),
         ],
       ),
@@ -1278,7 +1339,13 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
               ),
             ),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 12),
+          // نمایش نسخه برنامه در انتهای داشبورد
+          Text(
+            'JetConfig VPN • $appVersion',
+            style: const TextStyle(fontSize: 10.5, color: Colors.white24),
+          ),
+          const SizedBox(height: 4),
         ],
       ),
     );

@@ -26,18 +26,22 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: Clean Recreate Android Native Project & App Icons
+      - name: Configure Android Project & Persistent Keystore
         run: |
           rm -rf android
           flutter create . --platforms=android --project-name=jetconfig_vpn --org com.jetconfig.vpn
           flutter pub add url_launcher
           python3 -m pip install pillow
 
+          # ساخت کلید امضای ثابت برای تمام آپدیت‌های آینده
+          keytool -genkey -v -keystore jetconfig-key.jks -storepass jetconfig1234 -alias jetconfig -keypass jetconfig1234 -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=JetConfig, OU=Jet, O=JetConfig, L=Tehran, S=Tehran, C=IR"
+          mv jetconfig-key.jks android/app/
+
           python3 -c "
           import urllib.request, os, shutil, re
           from PIL import Image
 
-          # 1. ساخت آیکون بزرگ و باکیفیت از لوگو
+          # 1. تنظیم آیکون برنامه
           try:
               urllib.request.urlretrieve('https://majid6064.ir/logo.png', 'logo.png')
               im = Image.open('logo.png').convert('RGBA')
@@ -72,7 +76,7 @@ jobs:
           except Exception as e:
               print('Icon error:', e)
 
-          # 2. تنظیم مانیفست
+          # 2. تنظیم مانیفست اندروید
           manifest_path = 'android/app/src/main/AndroidManifest.xml'
           if os.path.exists(manifest_path):
               with open(manifest_path, 'r', encoding='utf-8') as f:
@@ -107,16 +111,31 @@ jobs:
                   f.write(m)
               print('Manifest updated.')
 
-          # 3. تنظیم minSdkVersion 21
+          # 3. اتصال کلید امضا و تنظیم minSdkVersion
           gradle_path = 'android/app/build.gradle'
           if os.path.exists(gradle_path):
               with open(gradle_path, 'r', encoding='utf-8') as f:
                   g = f.read()
+
+              signing_config = '''
+                  signingConfigs {
+                      release {
+                          keyAlias 'jetconfig'
+                          keyPassword 'jetconfig1234'
+                          storeFile file('jetconfig-key.jks')
+                          storePassword 'jetconfig1234'
+                      }
+                  }
+              '''
+              g = re.sub(r'android\s*\{', 'android {\n' + signing_config, g, count=1)
+              g = g.replace('signingConfig signingConfigs.debug', 'signingConfig signingConfigs.release')
+
               g = re.sub(r'minSdkVersion\s+flutter\.minSdkVersion', 'minSdkVersion 21', g)
               g = re.sub(r'minSdkVersion\s+\d+', 'minSdkVersion 21', g)
+
               with open(gradle_path, 'w', encoding='utf-8') as f:
                   f.write(g)
-              print('Gradle configured.')
+              print('Gradle and Signing configured.')
           "
 
       - name: Install Dependencies
@@ -136,4 +155,3 @@ jobs:
         with:
           name: JetConfig-VPN-All-Architectures
           path: build/app/outputs/flutter-apk/*.apk
-

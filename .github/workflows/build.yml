@@ -37,7 +37,7 @@ jobs:
           import urllib.request, os, shutil, re
           from PIL import Image
 
-          # 1. ساخت آیکون بزرگ و باکیفیت از لوگوی موشکی کانال
+          # 1. ساخت آیکون بزرگ و باکیفیت از لوگو
           try:
               urllib.request.urlretrieve('https://majid6064.ir/logo.png', 'logo.png')
               im = Image.open('logo.png').convert('RGBA')
@@ -122,12 +122,18 @@ jobs:
       - name: Install Dependencies
         run: flutter pub get
 
-      - name: Build Android APK
-        run: flutter build apk --release
+      - name: Build Optimized Split APKs
+        run: flutter build apk --release --split-per-abi
 
-      - name: Upload Artifact
+      - name: Upload Arm64 APK (Main Modern Phones)
         uses: actions/upload-artifact@v4
         with:
-          name: JetConfig-VPN-Release
-          path: build/app/outputs/flutter-apk/app-release.apk
+          name: JetConfig-VPN-arm64-v8a (Lightweight)
+          path: build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
+
+      - name: Upload All Split APKs
+        uses: actions/upload-artifact@v4
+        with:
+          name: JetConfig-VPN-All-Architectures
+          path: build/app/outputs/flutter-apk/*.apk
 

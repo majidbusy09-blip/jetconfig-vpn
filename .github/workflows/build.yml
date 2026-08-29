@@ -26,14 +26,14 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: Configure Android Project, Modern SDKs & Persistent Keystore
+      - name: Configure Android Project, Target SDK 34 & Release Keystore
         run: |
           rm -rf android
           flutter create . --platforms=android --project-name=jetconfig_vpn --org com.jetconfig.vpn
           flutter pub add url_launcher
           python3 -m pip install pillow
 
-          # ساخت کلید امضای ثابت معتبر
+          # ساخت کلید امضای ثابت معتبر برای تمام آپدیت‌ها
           keytool -genkey -v -keystore jetconfig-key.jks -storepass jetconfig1234 -alias jetconfig -keypass jetconfig1234 -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=JetConfig, OU=Jet, O=JetConfig, L=Tehran, S=Tehran, C=IR"
           mv jetconfig-key.jks android/app/
 
@@ -111,60 +111,34 @@ jobs:
                   f.write(m)
               print('Manifest updated.')
 
-          # 3. تنظیم بدون نقص build.gradle با Target SDK 34
+          # 3. ارتقای استاندارد گریدل به SDK 34 و فعال‌سازی امضای Release
           gradle_path = 'android/app/build.gradle'
-          gradle_content = '''plugins {
-              id \"com.android.application\"
-              id \"kotlin-android\"
-              id \"dev.flutter.flutter-gradle-plugin\"
-          }
+          if os.path.exists(gradle_path):
+              with open(gradle_path, 'r', encoding='utf-8') as f:
+                  g = f.read()
 
-          android {
-              namespace = \"com.jetconfig.vpn\"
-              compileSdk = 34
-
-              compileOptions {
-                  sourceCompatibility JavaVersion.VERSION_1_8
-                  targetCompatibility JavaVersion.VERSION_1_8
-              }
-
-              kotlinOptions {
-                  jvmTarget = '1.8'
-              }
-
-              defaultConfig {
-                  applicationId = \"com.jetconfig.vpn\"
-                  minSdk = 21
-                  targetSdk = 34
-                  versionCode = 1
-                  versionName = \"1.2.0\"
-              }
-
-              signingConfigs {
-                  release {
-                      keyAlias 'jetconfig'
-                      keyPassword 'jetconfig1234'
-                      storeFile file('jetconfig-key.jks')
-                      storePassword 'jetconfig1234'
+              # اضافه کردن بلوک امضا
+              signing_config = '''
+                  signingConfigs {
+                      release {
+                          keyAlias 'jetconfig'
+                          keyPassword 'jetconfig1234'
+                          storeFile file('jetconfig-key.jks')
+                          storePassword 'jetconfig1234'
+                      }
                   }
-              }
+              '''
+              g = re.sub(r'android\s*\{', 'android {\n' + signing_config, g, count=1)
+              g = g.replace('signingConfig signingConfigs.debug', 'signingConfig signingConfigs.release')
 
-              buildTypes {
-                  release {
-                      signingConfig = signingConfigs.release
-                      minifyEnabled false
-                      shrinkResources false
-                  }
-              }
-          }
+              # ارتقا به اندروید 14 (سطح 34) و تنظیم حداقل به 21
+              g = re.sub(r'compileSdkVersion\s+\S+', 'compileSdkVersion 34', g)
+              g = re.sub(r'targetSdkVersion\s+\S+', 'targetSdkVersion 34', g)
+              g = re.sub(r'minSdkVersion\s+\S+', 'minSdkVersion 21', g)
 
-          flutter {
-              source = \"../..\"
-          }
-          '''
-          with open(gradle_path, 'w', encoding='utf-8') as f:
-              f.write(gradle_content)
-          print('Gradle correctly configured.')
+              with open(gradle_path, 'w', encoding='utf-8') as f:
+                  f.write(g)
+              print('Gradle configured with clean release standards.')
           "
 
       - name: Install Dependencies

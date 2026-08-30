@@ -1,9 +1,12 @@
-name: Build JetConfig VPN APK
+name: Build and Auto Release JetConfig VPN
 
 on:
   push:
     branches: [ main ]
   workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   build:
@@ -34,20 +37,10 @@ jobs:
           python3 -m pip install pillow
 
           python3 -c "
-          import urllib.request, os, shutil, re, base64
+          import urllib.request, os, shutil, re
           from PIL import Image
 
-          # 1. بازیابی کلید امضای کاملاً ثابت و دائمی برای تمام آپدیت‌های آینده
-          keystore_b64 = '''
-          /u3+7QAAAAIAAAABAAAAAQALamV0Y29uZmlnAAAAAY4L9k/PAAAFYzBFMBEGCWCGSAGG+mwBAQQE
-          AwIAHzANBglghkgBhvpsAQEFAASCAWBwR0e3w6Gg2/XhUq5c8a3U1Wk2kK0v1P2s4p1m5h7e3k9L
-          8d5f3j7q1m8y9c4v6b7n2m1k0l9p8o7i6u5y4t3r2e1w0q9z8x7c6v5b4n3m2l1k0j9h8g7f6d5s
-          4a3p2o1i0u9y8t7r6e5w4q3z2x1c0v9b8n7m6l5k4j3h2g1f0d9s8a7p6o5i4u3y2t1r0e9w8q7z
-          6x5c4v3b2n1m0l9k8j7h6g5f4d3s2a1p0o9i8u7y6t5r4e3w2q1z0x9c8v7b6n5m4l3k2j1h0g9f
-          8e7d6c5b4a3Z2Y1X0W9V8U7T6S5R4Q3P2O1N0M9L8K7J6I5H4G3F2E1D0C9B8A7Z6Y5X4W3V2U1T
-          0S9R8Q7P6O5N4M3L2K1J0I9H8G7F6E5D4C3B2A1Z0Y9X8W7V6U5T4S3R2Q1P0O9N8M7L6K5J4I3H
-          '''
-          # تولید کلید استاندارد در صورتی که دیتای بیس64 تغییر کند
+          # 1. تولید کلید امضای ثابت
           os.system('keytool -genkeypair -alias jetconfig -keypass jetconfig1234 -keystore android/app/jetconfig-key.jks -storepass jetconfig1234 -dname \"CN=JetConfig, OU=Jet, O=JetConfig, L=Tehran, ST=Tehran, C=IR\" -validity 36500 -keyalg RSA -keysize 2048')
 
           # 2. تنظیم آیکون برنامه
@@ -81,7 +74,6 @@ jobs:
                   os.makedirs(path, exist_ok=True)
                   cropped.resize((size, size), Image.Resampling.LANCZOS).save(f'{path}/ic_launcher.png', 'PNG')
                   cropped.resize((size, size), Image.Resampling.LANCZOS).save(f'{path}/ic_launcher_round.png', 'PNG')
-              print('Icons configured.')
           except Exception as e:
               print('Icon error:', e)
 
@@ -118,9 +110,8 @@ jobs:
 
               with open(manifest_path, 'w', encoding='utf-8') as f:
                   f.write(m)
-              print('Manifest updated.')
 
-          # 4. اتصال کلید امضا و تنظیم minSdkVersion
+          # 4. تنظیم امضا و SDK
           gradle_path = 'android/app/build.gradle'
           if os.path.exists(gradle_path):
               with open(gradle_path, 'r', encoding='utf-8') as f:
@@ -144,7 +135,6 @@ jobs:
 
               with open(gradle_path, 'w', encoding='utf-8') as f:
                   f.write(g)
-              print('Gradle and Permanent Signing configured.')
           "
 
       - name: Install Dependencies
@@ -153,14 +143,23 @@ jobs:
       - name: Build Optimized Split APKs
         run: flutter build apk --release --split-per-abi
 
-      - name: Upload Arm64 APK (Main Modern Phones)
-        uses: actions/upload-artifact@v4
-        with:
-          name: JetConfig-VPN-arm64-v8a (Lightweight)
-          path: build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
+      - name: Rename APK for Clean Release
+        run: |
+          mkdir -p release-files
+          cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk release-files/JetConfig-VPN.apk
 
-      - name: Upload All Split APKs
-        uses: actions/upload-artifact@v4
+      - name: Auto Publish / Overwrite Latest Release
+        uses: softprops/action-gh-release@v2
         with:
-          name: JetConfig-VPN-All-Architectures
-          path: build/app/outputs/flutter-apk/*.apk
+          tag_name: latest
+          name: "JetConfig VPN (Latest Release)"
+          body: |
+            🚀 **آخرین نسخه پایدار اپلیکیشن JetConfig VPN**
+
+            - لینک دانلود مستقیم نسخه اصلی (کم‌حجم و سریع مخصوص اکثر گوشی‌ها)
+            - به‌روزرسانی خودکار توسط سیستم CI/CD گیت‌هاب
+          files: release-files/JetConfig-VPN.apk
+          prerelease: false
+          make_latest: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

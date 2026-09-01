@@ -36,6 +36,18 @@ jobs:
           fi
           mkdir -p android/app
 
+      - name: Set app name to JET VPN
+        run: |
+          MANIFEST="android/app/src/main/AndroidManifest.xml"
+          if [ -f "$MANIFEST" ]; then
+            sed -i 's/android:label="[^"]*"/android:label="JET VPN"/' "$MANIFEST"
+            echo "label set to JET VPN"
+            grep -o 'android:label="[^"]*"' "$MANIFEST" | head -1
+          else
+            echo "manifest not found"
+            exit 1
+          fi
+
       - name: Install Dependencies
         run: |
           flutter pub get
@@ -56,27 +68,12 @@ jobs:
           storeFile=jetconfig-release.jks
           PROP
 
-      - name: Patch build.gradle for signing + minSdk 21
+      - name: Patch build.gradle for signing
         run: |
           python3 << 'PY'
           from pathlib import Path
           import re
-      - name: Set app name to JET VPN
-        run: |
-          python3 << 'PY'
-          from pathlib import Path
-          import re
-          p = Path('android/app/src/main/AndroidManifest.xml')
-          if p.exists():
-              t = p.read_text(encoding='utf-8')
-              t2, n = re.subn(r'android:label="[^"]*"', 'android:label="JET VPN"', t, count=1)
-              if n == 0:
-                  t2 = t.replace('<application', '<application android:label="JET VPN"', 1)
-              p.write_text(t2, encoding='utf-8')
-              print('label set to JET VPN')
-          else:
-              print('manifest not found yet')
-          PY
+
           path = Path('android/app/build.gradle')
           g = path.read_text(encoding='utf-8')
 
@@ -108,27 +105,9 @@ jobs:
               g = re.sub(r'(android\s*\{)', r'\1' + signing_block, g, count=1)
 
           g = g.replace('signingConfigs.debug', 'signingConfigs.release')
-
-          # اجبار minSdk به 21 (همه شکل‌های رایج)
-          g = re.sub(r'minSdkVersion\s+flutter\.minSdkVersion', 'minSdkVersion 21', g)
-          g = re.sub(r'minSdkVersion\s+\d+', 'minSdkVersion 21', g)
-          g = re.sub(r'minSdk\s*=\s*flutter\.minSdkVersion', 'minSdk = 21', g)
-          g = re.sub(r'minSdk\s*=\s*\d+', 'minSdk = 21', g)
-
-          if 'minSdkVersion 21' not in g and 'minSdk = 21' not in g:
-              g = re.sub(
-                  r'(defaultConfig\s*\{)',
-                  r'\1\n        minSdkVersion 21\n',
-                  g,
-                  count=1,
-              )
-
           path.write_text(g, encoding='utf-8')
-          text = path.read_text(encoding='utf-8')
-          assert 'signingConfigs {' in text
-          assert 'minSdkVersion 21' in text or 'minSdk = 21' in text
-          print('signing + minSdk OK')
-          print([line for line in text.splitlines() if 'minSdk' in line or 'signingConfig' in line])
+          assert 'signingConfigs {' in path.read_text(encoding='utf-8')
+          print('signing OK')
           PY
 
       - name: Build release APK
@@ -143,9 +122,9 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: latest
-          name: "JetConfig VPN (Latest Release)"
+          name: "JET VPN (Latest Release)"
           body: |
-            🚀 آخرین نسخه پایدار JetConfig VPN (امضای ثابت)
+            آخرین نسخه JET VPN با امضای ثابت
           files: release-files/JetConfig-VPN.apk
           make_latest: true
         env:

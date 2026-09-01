@@ -29,6 +29,14 @@ jobs:
           channel: 'stable'
           cache: true
 
+      - name: Ensure Android platform exists
+        run: |
+          if [ ! -d android ]; then
+            flutter create . --platforms=android --project-name=jetconfig_vpn --org com.jetconfig.vpn
+          fi
+          flutter pub get
+          mkdir -p android/app
+
       - name: Decode release keystore
         run: |
           echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > android/app/jetconfig-release.jks
@@ -43,22 +51,46 @@ jobs:
           storeFile=jetconfig-release.jks
           PROP
 
-      - name: Ensure release signing in build.gradle
+      - name: Configure app label, permissions, signing
         run: |
           python3 << 'PY'
+          import os, re, shutil
           from pathlib import Path
-          import re
 
-          for name in ['android/app/build.gradle', 'android/app/build.gradle.kts']:
-              p = Path(name)
-              if not p.exists():
-                  continue
-              g = p.read_text(encoding='utf-8')
+          # Manifest
+          manifest = Path('android/app/src/main/AndroidManifest.xml')
+          if manifest.exists():
+              m = manifest.read_text(encoding='utf-8')
+              m = re.sub(r'android:label="[^"]*"', 'android:label="JetConfig VPN"', m, count=1)
+              perms = '''
+              <uses-permission android:name="android.permission.INTERNET" />
+              <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+              <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+              <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+              <uses-permission android:name="android.permission.CHANGE_NETWORK_STATE" />
+          '''
+              if 'android.permission.INTERNET' not in m:
+                  m = m.replace('<application', perms + '\n    <application')
+              queries = '''
+              <queries>
+                  <intent>
+                      <action android:name="android.intent.action.VIEW" />
+                      <data android:scheme="https" />
+                  </intent>
+                  <intent>
+                      <action android:name="android.intent.action.VIEW" />
+                      <data android:scheme="tg" />
+                  </intent>
+              </queries>
+          '''
+              if '<queries>' not in m:
+                  m = m.replace('</manifest>', queries + '\n</manifest>')
+              manifest.write_text(m, encoding='utf-8')
 
-              if name.endswith('.kts'):
-                  print(f'skip kts auto-patch for {name}')
-                  continue
-
+          # build.gradle signing
+          gradle = Path('android/app/build.gradle')
+          if gradle.exists():
+              g = gradle.read_text(encoding='utf-8')
               if 'key.properties' not in g:
                   header = '''
           def keystoreProperties = new Properties()
@@ -69,7 +101,6 @@ jobs:
 
           '''
                   g = header + g
-
               if 'signingConfigs' not in g:
                   g = re.sub(
                       r'(android\s*\{)',
@@ -86,29 +117,19 @@ jobs:
                       g,
                       count=1,
                   )
-
+              g = g.replace('signingConfig signingConfigs.debug', 'signingConfig signingConfigs.release')
               if 'signingConfig signingConfigs.release' not in g:
-                  g = g.replace(
-                      'signingConfig signingConfigs.debug',
-                      'signingConfig signingConfigs.release',
+                  g = re.sub(
+                      r'(buildTypes\s*\{[\s\S]*?release\s*\{)',
+                      r'\1\n            signingConfig signingConfigs.release\n',
+                      g,
+                      count=1,
                   )
-                  if 'signingConfig signingConfigs.release' not in g:
-                      g = re.sub(
-                          r'(buildTypes\s*\{[\s\S]*?release\s*\{)',
-                          r'\1\n            signingConfig signingConfigs.release\n',
-                          g,
-                          count=1,
-                      )
-
               g = re.sub(r'minSdkVersion\s+flutter\.minSdkVersion', 'minSdkVersion 21', g)
               g = re.sub(r'minSdkVersion\s+\d+', 'minSdkVersion 21', g)
-
-              p.write_text(g, encoding='utf-8')
-              print(f'patched {name}')
+              gradle.write_text(g, encoding='utf-8')
+              print('gradle patched')
           PY
-
-      - name: Install Dependencies
-        run: flutter pub get
 
       - name: Build Optimized Split APKs
         run: flutter build apk --release --split-per-abi
@@ -119,7 +140,8 @@ jobs:
           if [ -f build/app/outputs/flutter-apk/app-arm64-v8a-release.apk ]; then
             cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk release-files/JetConfig-VPN.apk
           else
-            echo "APK not found"; ls -la build/app/outputs/flutter-apk/ || true
+            echo "APK not found"
+            ls -la build/app/outputs/flutter-apk/ || true
             exit 1
           fi
 
@@ -131,7 +153,7 @@ jobs:
           body: |
             🚀 **آخرین نسخه پایدار اپلیکیشن JetConfig VPN**
 
-            - امضا با کلید ثابت (قابل آپدیت روی نسخه قبلی)
+            - امضا با کلید ثابت (قابل آپدیت)
             - بیلد خودکار GitHub Actions
           files: release-files/JetConfig-VPN.apk
           prerelease: false

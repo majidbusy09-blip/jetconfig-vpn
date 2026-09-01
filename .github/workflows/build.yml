@@ -60,7 +60,6 @@ jobs:
           path = Path('android/app/build.gradle')
           g = path.read_text(encoding='utf-8')
 
-          # 1) loader بعد از plugins
           loader = '''
           def keystoreProperties = new Properties()
           def keystorePropertiesFile = rootProject.file('key.properties')
@@ -68,14 +67,13 @@ jobs:
               keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
           }
           '''
-          if 'keystoreProperties' not in g:
+          if 'keystoreProperties = new Properties()' not in g:
               m = re.search(r'plugins\s*\{[\s\S]*?\n\}', g)
               if m:
                   g = g[:m.end()] + '\n' + loader + '\n' + g[m.end():]
               else:
                   g = loader + '\n' + g
 
-          # 2) signingConfigs داخل اولین android {
           signing_block = '''
               signingConfigs {
                   release {
@@ -86,25 +84,21 @@ jobs:
                   }
               }
           '''
-          if 'signingConfigs' not in g:
-              # فقط اولین android { سطح بالا
-              g = re.sub(r'(\nandroid\s*\{)', r'\1' + signing_block, g, count=1)
 
-          # 3) همه ارجاع‌های debug → release
+          # فقط اگر بلوک تعریف وجود ندارد (نه فقط کلمه signingConfigs)
+          if 'signingConfigs {' not in g and 'signingConfigs{' not in g:
+              g = re.sub(r'(android\s*\{)', r'\1' + signing_block, g, count=1)
+
           g = g.replace('signingConfigs.debug', 'signingConfigs.release')
-          g = g.replace('signingConfigs.getByName("debug")', 'signingConfigs.getByName("release")')
-          g = g.replace("signingConfigs.getByName('debug')", "signingConfigs.getByName('release')")
-
-          # اگر release بدون signingConfig ماند
-          if re.search(r'release\s*\{[^}]*signingConfig', g, re.S) is None:
-              g = re.sub(r'(release\s*\{)', r'\1\n            signingConfig signingConfigs.release', g, count=1)
-
-          g = re.sub(r'minSdkVersion\s+flutter\.minSdkVersion', 'minSdkVersion 21', g)
-          g = re.sub(r'minSdk\s*=\s*flutter\.minSdkVersion', 'minSdk = 21', g)
 
           path.write_text(g, encoding='utf-8')
-          print('----- build.gradle head -----')
-          print('\n'.join(path.read_text(encoding='utf-8').splitlines()[:80]))
+          print('----- verify -----')
+          text = path.read_text(encoding='utf-8')
+          assert 'signingConfigs {' in text, 'signingConfigs block missing!'
+          assert 'signingConfigs.release' in text, 'release signing ref missing!'
+          # چاپ بخش android
+          start = text.find('android {')
+          print(text[start:start+900])
           PY
 
       - name: Build release APK

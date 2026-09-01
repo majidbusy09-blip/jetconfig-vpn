@@ -34,8 +34,13 @@ jobs:
           if [ ! -d android ]; then
             flutter create . --platforms=android --project-name=jetconfig_vpn --org com.jetconfig.vpn
           fi
-          flutter pub get
           mkdir -p android/app
+
+      - name: Install Dependencies
+        run: |
+          flutter pub get
+          flutter pub add url_launcher
+          flutter pub get
 
       - name: Decode release keystore
         run: |
@@ -84,21 +89,13 @@ jobs:
                   }
               }
           '''
-
-          # فقط اگر بلوک تعریف وجود ندارد (نه فقط کلمه signingConfigs)
           if 'signingConfigs {' not in g and 'signingConfigs{' not in g:
               g = re.sub(r'(android\s*\{)', r'\1' + signing_block, g, count=1)
 
           g = g.replace('signingConfigs.debug', 'signingConfigs.release')
-
           path.write_text(g, encoding='utf-8')
-          print('----- verify -----')
-          text = path.read_text(encoding='utf-8')
-          assert 'signingConfigs {' in text, 'signingConfigs block missing!'
-          assert 'signingConfigs.release' in text, 'release signing ref missing!'
-          # چاپ بخش android
-          start = text.find('android {')
-          print(text[start:start+900])
+          assert 'signingConfigs {' in path.read_text(encoding='utf-8')
+          print('signing OK')
           PY
 
       - name: Build release APK

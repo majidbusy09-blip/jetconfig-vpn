@@ -14,7 +14,7 @@ void main() {
 }
 
 // مشخصات نسخه
-const String appVersion = 'v1.4.0';
+const String appVersion = 'v1.5.0';
 const String appLogoUrl = 'https://majid6064.ir/logo.png';
 const String telegramBotUrl = 'https://t.me/JetConfig1bot';
 const String telegramChannelUrl = 'https://t.me/jetconfig11';
@@ -157,7 +157,7 @@ class JetConfigApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'JetConfig VPN',
+      title: 'JET VPN',
       theme: ThemeData(
         brightness: Brightness.dark,
         scaffoldBackgroundColor: const Color(0xFF0A0E1A),
@@ -175,23 +175,24 @@ class MainVpnScreen extends StatefulWidget {
   State<MainVpnScreen> createState() => _MainVpnScreenState();
 }
 
-class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateMixin {
+class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateMixin, WidgetsBindingObserver {
   late final FlutterV2ray flutterV2ray = FlutterV2ray(
     onStatusChanged: (status) {
-      if (mounted) {
-        setState(() {
-          v2rayStatus = status;
-        });
-      }
+      if (!mounted) return;
+      setState(() {
+        v2rayStatus = status;
+      });
       if (status.state == 'CONNECTED') {
+        if (!_pulseController.isAnimating) _pulseController.repeat(reverse: true);
+        if (!_rotateController.isAnimating) _rotateController.repeat();
         _checkActivePing();
         _fetchCurrentIp();
       } else {
-        if (mounted) {
-          setState(() {
-            activePing = -1;
-          });
-        }
+        if (_pulseController.isAnimating) _pulseController.stop();
+        if (_rotateController.isAnimating) _rotateController.stop();
+        setState(() {
+          activePing = -1;
+        });
         _fetchCurrentIp();
       }
     },
@@ -218,16 +219,21 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
   String? savedPass;
   List<ServerModel> serverList = [];
   int selectedServerIndex = 0;
+  bool isRefreshingServers = false;
+  bool _coreReady = false;
+  http.Client? _httpClient;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _httpClient = http.Client();
     _initCore();
 
     _pulseController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1800),
-    )..repeat(reverse: true);
+    );
 
     _pulseAnimation = Tween<double>(begin: 0.96, end: 1.07).animate(
       CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
@@ -236,10 +242,25 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     _rotateController = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 8),
-    )..repeat();
+    );
 
     _loadSavedPreferences();
     _fetchCurrentIp();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive) {
+      // جلوگیری از هنگ و مصرف باتری وقتی صفحه دیده نمی‌شود
+      if (_pulseController.isAnimating) _pulseController.stop();
+      if (_rotateController.isAnimating) _rotateController.stop();
+    } else if (state == AppLifecycleState.resumed) {
+      if (v2rayStatus.state == 'CONNECTED') {
+        if (!_pulseController.isAnimating) _pulseController.repeat(reverse: true);
+        if (!_rotateController.isAnimating) _rotateController.repeat();
+      }
+      _fetchCurrentIp();
+    }
   }
 
   Future<void> _initCore() async {
@@ -263,6 +284,8 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _httpClient?.close();
     _pulseController.dispose();
     _rotateController.dispose();
     _userController.dispose();
@@ -380,6 +403,10 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     final pass = prefs.getString('saved_password') ?? '';
     final savedTunnelMode = prefs.getBool('only_filtered_apps') ?? true;
 
+    // کش محلی برای بالا آمدن سریع UI
+    final cachedUserJson = prefs.getString('cached_user_data');
+    final cachedServersJson = prefs.getString('cached_servers');
+
     if (mounted) {
       setState(() {
         onlyFilteredApps = savedTunnelMode;
@@ -395,8 +422,46 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
           _passController.text = pass;
         });
       }
-      _fetchUserData(user, pass);
+
+      // اول از کش نشان بده
+      if (cachedUserJson != null && cachedUserJson.isNotEmpty) {
+        try {
+          final data = json.decode(cachedUserJson);
+          List<ServerModel> parsed = [];
+          if (cachedServersJson != null && cachedServersJson.isNotEmpty) {
+            final raw = json.decode(cachedServersJson) as List<dynamic>;
+            parsed = raw.map((s) => ServerModel.fromJson(Map<String, dynamic>.from(s))).toList();
+          }
+          if (mounted) {
+            setState(() {
+              userData = Map<String, dynamic>.from(data);
+              serverList = parsed;
+              selectedServerIndex = 0;
+            });
+          }
+        } catch (_) {}
+      }
+
+      // بعد در پس‌زمینه از سرور تازه کن (بدون تمام‌صفحه لودینگ)
+      _fetchUserData(user, pass, silent: true);
     }
+  }
+
+  Future<void> _cacheSession(Map<String, dynamic> data, List<ServerModel> servers) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('cached_user_data', json.encode(data));
+      final list = servers
+          .map((s) => {
+                'name': s.name,
+                'host': s.host,
+                'port': s.port,
+                'protocol': s.protocol,
+                'config': s.config,
+              })
+          .toList();
+      await prefs.setString('cached_servers', json.encode(list));
+    } catch (_) {}
   }
 
   Future<void> _saveTunnelMode(bool val) async {
@@ -429,13 +494,19 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     }
   }
 
-  Future<void> _fetchUserData(String username, String password, {bool isManualRefresh = false}) async {
-    setState(() => isLoading = true);
+  Future<void> _fetchUserData(String username, String password, {bool isManualRefresh = false, bool silent = false}) async {
+    // silent = از کش آمده‌ایم؛ UI را قفل نکن
+    if (!silent) {
+      if (mounted) setState(() => isLoading = true);
+    } else {
+      if (mounted) setState(() => isRefreshingServers = true);
+    }
     try {
       final uri = Uri.parse(
         'https://majid6064.ir/api.php?username=${Uri.encodeComponent(username)}&password=${Uri.encodeComponent(password)}',
       );
-      final res = await http.get(uri).timeout(const Duration(seconds: 12));
+      final client = _httpClient ?? http.Client();
+      final res = await client.get(uri).timeout(const Duration(seconds: 15));
       if (res.statusCode == 200) {
         final data = json.decode(res.body);
         if (data['ok'] == true) {
@@ -444,33 +515,47 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
           await prefs.setString('saved_password', password);
 
           final List<dynamic> rawServers = data['servers'] ?? [];
-          final parsed = rawServers.map((s) => ServerModel.fromJson(s)).toList();
+          final parsed = rawServers.map((s) => ServerModel.fromJson(Map<String, dynamic>.from(s))).toList();
 
           if (mounted) {
             setState(() {
-              userData = data;
+              userData = Map<String, dynamic>.from(data);
               savedUser = username;
               savedPass = password;
               serverList = parsed;
-              selectedServerIndex = 0;
+              if (selectedServerIndex >= parsed.length) selectedServerIndex = 0;
             });
           }
+
+          await _cacheSession(Map<String, dynamic>.from(data), parsed);
 
           if (isManualRefresh) {
             _showToast('کانفیگ‌ها بروزرسانی شدند', isError: false);
           }
 
+          // پینگ را بعد از فریم اول و با تأخیر کوتاه شروع کن تا UI گیر نکند
           if (parsed.isNotEmpty) {
-            _pingAllServers();
+            Future.delayed(const Duration(milliseconds: 400), () {
+              if (mounted) _pingAllServers();
+            });
           }
         } else {
-          _showToast(data['msg'] ?? 'نام کاربری یا رمز عبور اشتباه است');
+          if (!silent) {
+            _showToast(data['msg'] ?? 'نام کاربری یا رمز عبور اشتباه است');
+          }
         }
       }
     } catch (e) {
-      _showToast('خطا در اتصال به سرور');
+      if (!silent || userData == null) {
+        _showToast('خطا در اتصال به سرور');
+      }
     } finally {
-      if (mounted) setState(() => isLoading = false);
+      if (mounted) {
+        setState(() {
+          isLoading = false;
+          isRefreshingServers = false;
+        });
+      }
     }
   }
 
@@ -508,16 +593,21 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
 
   Future<void> _pingAllServers() async {
     if (serverList.isEmpty || isPingingAll) return;
-    setState(() => isPingingAll = true);
+    if (mounted) setState(() => isPingingAll = true);
 
-    await Future.wait(serverList.map((s) async {
-      final p = await _testTcpPing(s.host, s.port);
-      if (mounted) {
-        setState(() {
-          s.ping = p;
-        });
-      }
-    }));
+    // پینگ دسته‌ای تا UI هنگ نکند
+    const int batchSize = 4;
+    for (int i = 0; i < serverList.length; i += batchSize) {
+      if (!mounted) return;
+      final end = (i + batchSize < serverList.length) ? i + batchSize : serverList.length;
+      final batch = serverList.sublist(i, end);
+      await Future.wait(batch.map((s) async {
+        final p = await _testTcpPing(s.host, s.port);
+        s.ping = p;
+      }));
+      if (mounted) setState(() {});
+      await Future.delayed(const Duration(milliseconds: 30));
+    }
 
     if (mounted) {
       _sortServersByPing();
@@ -1066,7 +1156,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
                 ),
               ),
               const SizedBox(width: 8),
-              const Text('JetConfig VPN', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16.5)),
+              const Text('JET VPN', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16.5)),
             ],
           ),
           centerTitle: true,
@@ -1092,6 +1182,8 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
                   final prefs = await SharedPreferences.getInstance();
                   await prefs.remove('saved_username');
                   await prefs.remove('saved_password');
+                  await prefs.remove('cached_user_data');
+                  await prefs.remove('cached_servers');
                   if (v2rayStatus.state == 'CONNECTED') {
                     await flutterV2ray.stopV2Ray();
                   }
@@ -1107,11 +1199,26 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
               )
           ],
         ),
-        body: isLoading
-            ? const Center(child: CircularProgressIndicator(color: Color(0xFF00E5FF)))
-            : (savedUser == null || userData == null)
-                ? _buildLoginView()
-                : _buildDashboardView(),
+        body: (savedUser == null || userData == null)
+            ? (isLoading
+                ? const Center(child: CircularProgressIndicator(color: Color(0xFF00E5FF)))
+                : _buildLoginView())
+            : Stack(
+                children: [
+                  _buildDashboardView(),
+                  if (isRefreshingServers)
+                    const Positioned(
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      child: LinearProgressIndicator(
+                        minHeight: 2,
+                        color: Color(0xFF00E5FF),
+                        backgroundColor: Colors.transparent,
+                      ),
+                    ),
+                ],
+              ),
       ),
     );
   }
@@ -1147,7 +1254,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
             ),
           ),
           const SizedBox(height: 16),
-          const Text('JetConfig VPN', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: Colors.white)),
+          const Text('JET VPN', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: Colors.white)),
           const SizedBox(height: 4),
           const Text('ورود هوشمند به اشتراک پرسرعت', style: TextStyle(color: Colors.grey, fontSize: 12)),
           const SizedBox(height: 22),
@@ -1408,7 +1515,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
           ),
           const SizedBox(height: 12),
           Text(
-            'JetConfig VPN • $appVersion',
+            'JET VPN • $appVersion',
             style: const TextStyle(fontSize: 10.5, color: Colors.white24),
           ),
           const SizedBox(height: 4),

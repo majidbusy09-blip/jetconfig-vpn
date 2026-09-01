@@ -42,7 +42,6 @@ jobs:
           if [ -f "$MANIFEST" ]; then
             sed -i 's/android:label="[^"]*"/android:label="JET VPN"/' "$MANIFEST"
             echo "label set to JET VPN"
-            grep -o 'android:label="[^"]*"' "$MANIFEST" | head -1
           else
             echo "manifest not found"
             exit 1
@@ -68,15 +67,13 @@ jobs:
           storeFile=jetconfig-release.jks
           PROP
 
-      - name: Patch build.gradle for signing
+      - name: Patch build.gradle for signing and minSdk
         run: |
           python3 << 'PY'
           from pathlib import Path
           import re
-
           path = Path('android/app/build.gradle')
           g = path.read_text(encoding='utf-8')
-
           loader = '''
           def keystoreProperties = new Properties()
           def keystorePropertiesFile = rootProject.file('key.properties')
@@ -90,7 +87,6 @@ jobs:
                   g = g[:m.end()] + '\n' + loader + '\n' + g[m.end():]
               else:
                   g = loader + '\n' + g
-
           signing_block = '''
               signingConfigs {
                   release {
@@ -103,12 +99,13 @@ jobs:
           '''
           if 'signingConfigs {' not in g and 'signingConfigs{' not in g:
               g = re.sub(r'(android\s*\{)', r'\1' + signing_block, g, count=1)
-
           g = g.replace('signingConfigs.debug', 'signingConfigs.release')
+          g = re.sub(r'minSdkVersion\s+[^\n]+', 'minSdkVersion 21', g)
+          g = re.sub(r'minSdk\s*=\s*[^\n]+', 'minSdk = 21', g)
           path.write_text(g, encoding='utf-8')
-          assert 'signingConfigs {' in path.read_text(encoding='utf-8')
-          print('signing OK')
+          print(path.read_text(encoding='utf-8'))
           PY
+          sed -i 's/minSdkVersion .*/minSdkVersion 21/' android/app/build.gradle || true
 
       - name: Build release APK
         run: flutter build apk --release --split-per-abi

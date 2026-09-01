@@ -29,113 +29,83 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: Configure Android Project & Fixed Permanent Keystore
+      - name: Decode release keystore
         run: |
-          rm -rf android
-          flutter create . --platforms=android --project-name=jetconfig_vpn --org com.jetconfig.vpn
-          flutter pub add url_launcher
-          python3 -m pip install pillow
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > android/app/jetconfig-release.jks
+          ls -la android/app/jetconfig-release.jks
 
-          python3 -c "
-          import urllib.request, os, shutil, re
-          from PIL import Image
+      - name: Create key.properties
+        run: |
+          cat > android/key.properties << PROP
+          storePassword=${{ secrets.KEYSTORE_PASSWORD }}
+          keyPassword=${{ secrets.KEY_PASSWORD }}
+          keyAlias=${{ secrets.KEY_ALIAS }}
+          storeFile=jetconfig-release.jks
+          PROP
 
-          # 1. تولید کلید امضای ثابت
-          os.system('keytool -genkeypair -alias jetconfig -keypass jetconfig1234 -keystore android/app/jetconfig-key.jks -storepass jetconfig1234 -dname \"CN=JetConfig, OU=Jet, O=JetConfig, L=Tehran, ST=Tehran, C=IR\" -validity 36500 -keyalg RSA -keysize 2048')
+      - name: Ensure release signing in build.gradle
+        run: |
+          python3 << 'PY'
+          from pathlib import Path
+          import re
 
-          # 2. تنظیم آیکون برنامه
-          try:
-              urllib.request.urlretrieve('https://majid6064.ir/logo.png', 'logo.png')
-              im = Image.open('logo.png').convert('RGBA')
-              w, h = im.size
+          for name in ['android/app/build.gradle', 'android/app/build.gradle.kts']:
+              p = Path(name)
+              if not p.exists():
+                  continue
+              g = p.read_text(encoding='utf-8')
 
-              crop_size = int(min(w, h) * 0.76)
-              cx, cy = w // 2, h // 2
-              left = max(0, cx - crop_size // 2)
-              top = max(0, cy - crop_size // 2)
-              right = min(w, cx + crop_size // 2)
-              bottom = min(h, cy + crop_size // 2)
+              if name.endswith('.kts'):
+                  print(f'skip kts auto-patch for {name}')
+                  continue
 
-              cropped = im.crop((left, top, right, bottom))
+              if 'key.properties' not in g:
+                  header = '''
+          def keystoreProperties = new Properties()
+          def keystorePropertiesFile = rootProject.file('key.properties')
+          if (keystorePropertiesFile.exists()) {
+              keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+          }
 
-              anydpi = 'android/app/src/main/res/mipmap-anydpi-v26'
-              if os.path.exists(anydpi):
-                  shutil.rmtree(anydpi)
+          '''
+                  g = header + g
 
-              sizes = {
-                  'mipmap-mdpi': 48,
-                  'mipmap-hdpi': 72,
-                  'mipmap-xhdpi': 96,
-                  'mipmap-xxhdpi': 144,
-                  'mipmap-xxxhdpi': 192
-              }
-              for folder, size in sizes.items():
-                  path = f'android/app/src/main/res/{folder}'
-                  os.makedirs(path, exist_ok=True)
-                  cropped.resize((size, size), Image.Resampling.LANCZOS).save(f'{path}/ic_launcher.png', 'PNG')
-                  cropped.resize((size, size), Image.Resampling.LANCZOS).save(f'{path}/ic_launcher_round.png', 'PNG')
-          except Exception as e:
-              print('Icon error:', e)
-
-          # 3. تنظیم مانیفست اندروید
-          manifest_path = 'android/app/src/main/AndroidManifest.xml'
-          if os.path.exists(manifest_path):
-              with open(manifest_path, 'r', encoding='utf-8') as f:
-                  m = f.read()
-
-              m = re.sub(r'android:label=\"[^\"]*\"', 'android:label=\"JetConfig VPN\"', m, count=1)
-
-              perms = '''
-                  <uses-permission android:name=\"android.permission.INTERNET\" />
-                  <uses-permission android:name=\"android.permission.FOREGROUND_SERVICE\" />
-                  <uses-permission android:name=\"android.permission.POST_NOTIFICATIONS\" />
-                  <uses-permission android:name=\"android.permission.ACCESS_NETWORK_STATE\" />
-                  <uses-permission android:name=\"android.permission.CHANGE_NETWORK_STATE\" />
-              '''
-              m = m.replace('<application', perms + '\n    <application')
-
-              queries = '''
-                  <queries>
-                      <intent>
-                          <action android:name=\"android.intent.action.VIEW\" />
-                          <data android:scheme=\"https\" />
-                      </intent>
-                      <intent>
-                          <action android:name=\"android.intent.action.VIEW\" />
-                          <data android:scheme=\"tg\" />
-                      </intent>
-                  </queries>
-              '''
-              m = m.replace('</manifest>', queries + '\n</manifest>')
-
-              with open(manifest_path, 'w', encoding='utf-8') as f:
-                  f.write(m)
-
-          # 4. تنظیم امضا و SDK
-          gradle_path = 'android/app/build.gradle'
-          if os.path.exists(gradle_path):
-              with open(gradle_path, 'r', encoding='utf-8') as f:
-                  g = f.read()
-
-              signing_config = '''
-                  signingConfigs {
-                      release {
-                          keyAlias 'jetconfig'
-                          keyPassword 'jetconfig1234'
-                          storeFile file('jetconfig-key.jks')
-                          storePassword 'jetconfig1234'
-                      }
+              if 'signingConfigs' not in g:
+                  g = re.sub(
+                      r'(android\s*\{)',
+                      r'''\1
+              signingConfigs {
+                  release {
+                      keyAlias keystoreProperties['keyAlias']
+                      keyPassword keystoreProperties['keyPassword']
+                      storeFile keystoreProperties['storeFile'] ? file(keystoreProperties['storeFile']) : null
+                      storePassword keystoreProperties['storePassword']
                   }
-              '''
-              g = re.sub(r'android\s*\{', 'android {\n' + signing_config, g, count=1)
-              g = g.replace('signingConfig signingConfigs.debug', 'signingConfig signingConfigs.release')
+              }
+          ''',
+                      g,
+                      count=1,
+                  )
+
+              if 'signingConfig signingConfigs.release' not in g:
+                  g = g.replace(
+                      'signingConfig signingConfigs.debug',
+                      'signingConfig signingConfigs.release',
+                  )
+                  if 'signingConfig signingConfigs.release' not in g:
+                      g = re.sub(
+                          r'(buildTypes\s*\{[\s\S]*?release\s*\{)',
+                          r'\1\n            signingConfig signingConfigs.release\n',
+                          g,
+                          count=1,
+                      )
 
               g = re.sub(r'minSdkVersion\s+flutter\.minSdkVersion', 'minSdkVersion 21', g)
               g = re.sub(r'minSdkVersion\s+\d+', 'minSdkVersion 21', g)
 
-              with open(gradle_path, 'w', encoding='utf-8') as f:
-                  f.write(g)
-          "
+              p.write_text(g, encoding='utf-8')
+              print(f'patched {name}')
+          PY
 
       - name: Install Dependencies
         run: flutter pub get
@@ -143,10 +113,15 @@ jobs:
       - name: Build Optimized Split APKs
         run: flutter build apk --release --split-per-abi
 
-      - name: Rename APK for Clean Release
+      - name: Prepare release artifact
         run: |
           mkdir -p release-files
-          cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk release-files/JetConfig-VPN.apk
+          if [ -f build/app/outputs/flutter-apk/app-arm64-v8a-release.apk ]; then
+            cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk release-files/JetConfig-VPN.apk
+          else
+            echo "APK not found"; ls -la build/app/outputs/flutter-apk/ || true
+            exit 1
+          fi
 
       - name: Auto Publish / Overwrite Latest Release
         uses: softprops/action-gh-release@v2
@@ -156,8 +131,8 @@ jobs:
           body: |
             🚀 **آخرین نسخه پایدار اپلیکیشن JetConfig VPN**
 
-            - لینک دانلود مستقیم نسخه اصلی (کم‌حجم و سریع مخصوص اکثر گوشی‌ها)
-            - به‌روزرسانی خودکار توسط سیستم CI/CD گیت‌هاب
+            - امضا با کلید ثابت (قابل آپدیت روی نسخه قبلی)
+            - بیلد خودکار GitHub Actions
           files: release-files/JetConfig-VPN.apk
           prerelease: false
           make_latest: true

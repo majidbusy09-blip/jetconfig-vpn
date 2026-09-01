@@ -39,13 +39,8 @@ jobs:
       - name: Set app name to JET VPN
         run: |
           MANIFEST="android/app/src/main/AndroidManifest.xml"
-          if [ -f "$MANIFEST" ]; then
-            sed -i 's/android:label="[^"]*"/android:label="JET VPN"/' "$MANIFEST"
-            echo "label set to JET VPN"
-          else
-            echo "manifest not found"
-            exit 1
-          fi
+          sed -i 's/android:label="[^"]*"/android:label="JET VPN"/' "$MANIFEST"
+          grep -o 'android:label="[^"]*"' "$MANIFEST" | head -1
 
       - name: Install icon tools
         run: sudo apt-get update -qq && sudo apt-get install -y -qq imagemagick
@@ -54,26 +49,21 @@ jobs:
         run: |
           curl -fsSL -o /tmp/app_icon.png "https://majid6064.ir/logo.png"
           file /tmp/app_icon.png
-          # اندازه‌های استاندارد لانچر
-          declare -A SIZES=(
-            [mipmap-mdpi]=48
-            [mipmap-hdpi]=72
-            [mipmap-xhdpi]=96
-            [mipmap-xxhdpi]=144
-            [mipmap-xxxhdpi]=192
-          )
           RES="android/app/src/main/res"
-          for folder in "${!SIZES[@]}"; do
-            dir="$RES/$folder"
-            mkdir -p "$dir"
-            size="${SIZES[$folder]}"
-            convert /tmp/app_icon.png -resize ${size}x${size} "$dir/ic_launcher.png"
-            convert /tmp/app_icon.png -resize ${size}x${size} "$dir/ic_launcher_round.png"
-            echo "wrote $dir (${size}px)"
-          done
-          # حذف adaptive icon که گاهی آیکون پیش‌فرض را برمی‌گرداند
+          mkdir -p "$RES/mipmap-mdpi" "$RES/mipmap-hdpi" "$RES/mipmap-xhdpi" "$RES/mipmap-xxhdpi" "$RES/mipmap-xxxhdpi"
+          convert /tmp/app_icon.png -resize 48x48   "$RES/mipmap-mdpi/ic_launcher.png"
+          convert /tmp/app_icon.png -resize 48x48   "$RES/mipmap-mdpi/ic_launcher_round.png"
+          convert /tmp/app_icon.png -resize 72x72   "$RES/mipmap-hdpi/ic_launcher.png"
+          convert /tmp/app_icon.png -resize 72x72   "$RES/mipmap-hdpi/ic_launcher_round.png"
+          convert /tmp/app_icon.png -resize 96x96   "$RES/mipmap-xhdpi/ic_launcher.png"
+          convert /tmp/app_icon.png -resize 96x96   "$RES/mipmap-xhdpi/ic_launcher_round.png"
+          convert /tmp/app_icon.png -resize 144x144 "$RES/mipmap-xxhdpi/ic_launcher.png"
+          convert /tmp/app_icon.png -resize 144x144 "$RES/mipmap-xxhdpi/ic_launcher_round.png"
+          convert /tmp/app_icon.png -resize 192x192 "$RES/mipmap-xxxhdpi/ic_launcher.png"
+          convert /tmp/app_icon.png -resize 192x192 "$RES/mipmap-xxxhdpi/ic_launcher_round.png"
           rm -f "$RES/mipmap-anydpi-v26/ic_launcher.xml" || true
           rm -f "$RES/mipmap-anydpi-v26/ic_launcher_round.xml" || true
+          echo "icons written"
 
       - name: Install Dependencies
         run: |
@@ -88,34 +78,39 @@ jobs:
 
       - name: Create key.properties
         run: |
-          cat > android/key.properties << PROP
-          storePassword=${{ secrets.KEYSTORE_PASSWORD }}
-          keyPassword=${{ secrets.KEY_PASSWORD }}
-          keyAlias=${{ secrets.KEY_ALIAS }}
-          storeFile=jetconfig-release.jks
-          PROP
+          printf '%s\n' \
+            "storePassword=${{ secrets.KEYSTORE_PASSWORD }}" \
+            "keyPassword=${{ secrets.KEY_PASSWORD }}" \
+            "keyAlias=${{ secrets.KEY_ALIAS }}" \
+            "storeFile=jetconfig-release.jks" \
+            > android/key.properties
+          wc -l android/key.properties
 
       - name: Patch build.gradle for signing and minSdk
         run: |
-          python3 << 'PY'
+          python3 - <<'PY'
           from pathlib import Path
           import re
-          path = Path('android/app/build.gradle')
-          g = path.read_text(encoding='utf-8')
-          loader = '''
+
+          path = Path("android/app/build.gradle")
+          g = path.read_text(encoding="utf-8")
+
+          loader = """
           def keystoreProperties = new Properties()
           def keystorePropertiesFile = rootProject.file('key.properties')
           if (keystorePropertiesFile.exists()) {
               keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
           }
-          '''
-          if 'keystoreProperties = new Properties()' not in g:
-              m = re.search(r'plugins\\s*\\{[\\s\\S]*?\\n\\}', g)
+          """
+
+          if "keystoreProperties = new Properties()" not in g:
+              m = re.search(r"plugins\s*\{[\s\S]*?\n\}", g)
               if m:
-                  g = g[:m.end()] + '\\n' + loader + '\\n' + g[m.end():]
+                  g = g[: m.end()] + "\n" + loader + "\n" + g[m.end() :]
               else:
-                  g = loader + '\\n' + g
-          signing_block = '''
+                  g = loader + "\n" + g
+
+          signing_block = """
               signingConfigs {
                   release {
                       keyAlias keystoreProperties['keyAlias']
@@ -124,16 +119,21 @@ jobs:
                       storePassword keystoreProperties['storePassword']
                   }
               }
-          '''
-          if 'signingConfigs {' not in g and 'signingConfigs{' not in g:
-              g = re.sub(r'(android\\s*\\{)', r'\\1' + signing_block, g, count=1)
-          g = g.replace('signingConfigs.debug', 'signingConfigs.release')
-          g = re.sub(r'minSdkVersion\\s+[^\\n]+', 'minSdkVersion 21', g)
-          g = re.sub(r'minSdk\\s*=\\s*[^\\n]+', 'minSdk = 21', g)
-          path.write_text(g, encoding='utf-8')
-          print('signing+minSdk OK')
+          """
+
+          if "signingConfigs {" not in g and "signingConfigs{" not in g:
+              g = re.sub(r"(android\s*\{)", r"\1" + signing_block, g, count=1)
+
+          g = g.replace("signingConfigs.debug", "signingConfigs.release")
+          g = re.sub(r"minSdkVersion\s+[^\n]+", "minSdkVersion 21", g)
+          g = re.sub(r"minSdk\s*=\s*[^\n]+", "minSdk = 21", g)
+
+          path.write_text(g, encoding="utf-8")
+          text = path.read_text(encoding="utf-8")
+          assert "signingConfigs {" in text
+          assert "minSdkVersion 21" in text or "minSdk = 21" in text
+          print("signing+minSdk OK")
           PY
-          sed -i 's/minSdkVersion .*/minSdkVersion 21/' android/app/build.gradle || true
 
       - name: Build release APK
         run: flutter build apk --release --split-per-abi
@@ -148,8 +148,7 @@ jobs:
         with:
           tag_name: latest
           name: "JET VPN (Latest Release)"
-          body: |
-            آخرین نسخه JET VPN
+          body: آخرین نسخه JET VPN
           files: release-files/JetConfig-VPN.apk
           make_latest: true
         env:

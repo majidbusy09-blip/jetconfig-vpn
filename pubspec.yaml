@@ -1,7 +1,7 @@
-name: jetconfig_vpn
-description: "JetConfig High Speed VPN"
+name: jet_vpn
+description: "JET VPN - High Speed Secure VPN"
 publish_to: 'none'
-version: 1.0.0+1
+version: 1.5.0+15
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
@@ -12,6 +12,7 @@ dependencies:
   flutter_v2ray: ^1.0.10
   http: ^1.2.0
   shared_preferences: ^2.2.2
+  url_launcher: ^6.2.5
   percent_indicator: ^4.2.3
   cupertino_icons: ^1.0.6
 

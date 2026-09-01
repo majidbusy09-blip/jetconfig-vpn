@@ -57,9 +57,10 @@ jobs:
           from pathlib import Path
           import re
 
-          gradle = Path('android/app/build.gradle')
-          g = gradle.read_text(encoding='utf-8')
+          path = Path('android/app/build.gradle')
+          g = path.read_text(encoding='utf-8')
 
+          # 1) loader بعد از plugins
           loader = '''
           def keystoreProperties = new Properties()
           def keystorePropertiesFile = rootProject.file('key.properties')
@@ -67,47 +68,43 @@ jobs:
               keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
           }
           '''
-
           if 'keystoreProperties' not in g:
-              # حتماً بعد از بلوک plugins {} قرار بگیرد
               m = re.search(r'plugins\s*\{[\s\S]*?\n\}', g)
               if m:
-                  insert_at = m.end()
-                  g = g[:insert_at] + '\n' + loader + '\n' + g[insert_at:]
+                  g = g[:m.end()] + '\n' + loader + '\n' + g[m.end():]
               else:
                   g = loader + '\n' + g
 
-          if 'signingConfigs' not in g:
-              g = re.sub(
-                  r'android\s*\{',
-                  '''android {
+          # 2) signingConfigs داخل اولین android {
+          signing_block = '''
               signingConfigs {
                   release {
                       keyAlias keystoreProperties['keyAlias']
                       keyPassword keystoreProperties['keyPassword']
-                      storeFile file(keystoreProperties['storeFile'])
+                      storeFile keystoreProperties['storeFile'] ? file(keystoreProperties['storeFile']) : null
                       storePassword keystoreProperties['storePassword']
                   }
               }
-          ''',
-                  g,
-                  count=1,
-              )
+          '''
+          if 'signingConfigs' not in g:
+              # فقط اولین android { سطح بالا
+              g = re.sub(r'(\nandroid\s*\{)', r'\1' + signing_block, g, count=1)
 
-          g = g.replace('signingConfig signingConfigs.debug', 'signingConfig signingConfigs.release')
-          if 'signingConfig signingConfigs.release' not in g:
-              g = re.sub(
-                  r'(release\s*\{)',
-                  r'\1\n            signingConfig signingConfigs.release',
-                  g,
-                  count=1,
-              )
+          # 3) همه ارجاع‌های debug → release
+          g = g.replace('signingConfigs.debug', 'signingConfigs.release')
+          g = g.replace('signingConfigs.getByName("debug")', 'signingConfigs.getByName("release")')
+          g = g.replace("signingConfigs.getByName('debug')", "signingConfigs.getByName('release')")
+
+          # اگر release بدون signingConfig ماند
+          if re.search(r'release\s*\{[^}]*signingConfig', g, re.S) is None:
+              g = re.sub(r'(release\s*\{)', r'\1\n            signingConfig signingConfigs.release', g, count=1)
 
           g = re.sub(r'minSdkVersion\s+flutter\.minSdkVersion', 'minSdkVersion 21', g)
-          g = re.sub(r'minSdkVersion\s+\d+', 'minSdkVersion 21', g)
+          g = re.sub(r'minSdk\s*=\s*flutter\.minSdkVersion', 'minSdk = 21', g)
 
-          gradle.write_text(g, encoding='utf-8')
-          print('patched OK')
+          path.write_text(g, encoding='utf-8')
+          print('----- build.gradle head -----')
+          print('\n'.join(path.read_text(encoding='utf-8').splitlines()[:80]))
           PY
 
       - name: Build release APK

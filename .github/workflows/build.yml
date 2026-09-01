@@ -56,7 +56,7 @@ jobs:
           storeFile=jetconfig-release.jks
           PROP
 
-      - name: Patch build.gradle for signing
+      - name: Patch build.gradle for signing + minSdk 21
         run: |
           python3 << 'PY'
           from pathlib import Path
@@ -93,9 +93,27 @@ jobs:
               g = re.sub(r'(android\s*\{)', r'\1' + signing_block, g, count=1)
 
           g = g.replace('signingConfigs.debug', 'signingConfigs.release')
+
+          # اجبار minSdk به 21 (همه شکل‌های رایج)
+          g = re.sub(r'minSdkVersion\s+flutter\.minSdkVersion', 'minSdkVersion 21', g)
+          g = re.sub(r'minSdkVersion\s+\d+', 'minSdkVersion 21', g)
+          g = re.sub(r'minSdk\s*=\s*flutter\.minSdkVersion', 'minSdk = 21', g)
+          g = re.sub(r'minSdk\s*=\s*\d+', 'minSdk = 21', g)
+
+          if 'minSdkVersion 21' not in g and 'minSdk = 21' not in g:
+              g = re.sub(
+                  r'(defaultConfig\s*\{)',
+                  r'\1\n        minSdkVersion 21\n',
+                  g,
+                  count=1,
+              )
+
           path.write_text(g, encoding='utf-8')
-          assert 'signingConfigs {' in path.read_text(encoding='utf-8')
-          print('signing OK')
+          text = path.read_text(encoding='utf-8')
+          assert 'signingConfigs {' in text
+          assert 'minSdkVersion 21' in text or 'minSdk = 21' in text
+          print('signing + minSdk OK')
+          print([line for line in text.splitlines() if 'minSdk' in line or 'signingConfig' in line])
           PY
 
       - name: Build release APK

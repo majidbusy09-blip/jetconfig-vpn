@@ -61,7 +61,22 @@ jobs:
           python3 << 'PY'
           from pathlib import Path
           import re
-
+      - name: Set app name to JET VPN
+        run: |
+          python3 << 'PY'
+          from pathlib import Path
+          import re
+          p = Path('android/app/src/main/AndroidManifest.xml')
+          if p.exists():
+              t = p.read_text(encoding='utf-8')
+              t2, n = re.subn(r'android:label="[^"]*"', 'android:label="JET VPN"', t, count=1)
+              if n == 0:
+                  t2 = t.replace('<application', '<application android:label="JET VPN"', 1)
+              p.write_text(t2, encoding='utf-8')
+              print('label set to JET VPN')
+          else:
+              print('manifest not found yet')
+          PY
           path = Path('android/app/build.gradle')
           g = path.read_text(encoding='utf-8')
 

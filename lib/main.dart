@@ -290,10 +290,17 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     if (userData == null) return 'نامحدود';
     final total = userData!['total_gb'];
     final remaining = userData!['remaining_gb'];
+    // حجم نامحدود
     if (total == null || total == 0 || total == 0.0 || total == '0') {
       return 'نامحدود';
     }
-    return '${remaining ?? 0} GB';
+    // باقیمانده را با حداکثر دو رقم اعشار نشان بده
+    final rem = remaining is num
+        ? (remaining as num).toDouble()
+        : double.tryParse('$remaining') ?? 0;
+    if (rem <= 0) return '0 GB';
+    if (rem < 1) return '${rem.toStringAsFixed(2)} GB';
+    return '${rem.toStringAsFixed(rem == rem.roundToDouble() ? 0 : 1)} GB';
   }
 
   String _getDisplayTotal() {
@@ -302,32 +309,46 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     if (total == null || total == 0 || total == 0.0 || total == '0') {
       return 'نامحدود';
     }
-    return '$total GB';
+    final t = total is num ? (total as num).toDouble() : double.tryParse('$total') ?? 0;
+    if (t < 1) return '${t.toStringAsFixed(2)} GB';
+    return '${t.toStringAsFixed(t == t.roundToDouble() ? 0 : 1)} GB';
   }
 
   String _getDisplayExpire() {
     if (userData == null) return 'نامحدود';
     final expire = userData!['expire_days'];
-    final total = userData!['total_gb'];
-    final expireStr = '$expire'.trim();
+    if (expire == null) return 'نامحدود';
 
-    if (expire == null ||
+    final expireStr = '$expire'.trim();
+    if (expireStr.isEmpty ||
         expireStr == 'null' ||
-        expireStr.isEmpty ||
         expireStr.contains('نامحدود') ||
         expireStr.contains('VIP') ||
-        expireStr.contains('Unlimited') ||
-        ((total == 0 || total == null) &&
-            (expireStr == '0' || expireStr == '0 روز' || expireStr == 'منقضی شده'))) {
+        expireStr.toLowerCase().contains('unlimited')) {
       return 'نامحدود';
     }
 
+    // اگر خود API گفته منقضی / پایان حجم، همان را نشان بده
+    if (expireStr.contains('منقضی')) return 'منقضی شده';
+    if (expireStr.contains('پایان حجم')) return 'پایان حجم';
+
+    // رشته‌های آماده از API را مستقیم نمایش بده
+    // مثال: "1 روز مانده" | "5 ساعت مانده" | "3 روز (شروع از اتصال)" | "شروع پس از اتصال"
+    if (expireStr.contains('مانده') ||
+        expireStr.contains('شروع') ||
+        expireStr.contains('ساعت') ||
+        expireStr.contains('دقیقه') ||
+        expireStr.contains('روز')) {
+      return expireStr;
+    }
+
+    // فقط عدد خام
     final intVal = int.tryParse(expireStr.replaceAll(RegExp(r'[^0-9\-]'), ''));
     if (intVal != null) {
-      if (intVal <= 0 && (total == 0 || total == null)) return 'نامحدود';
       if (intVal <= 0) return 'منقضی شده';
       return '$intVal روز';
     }
+
     return expireStr;
   }
 

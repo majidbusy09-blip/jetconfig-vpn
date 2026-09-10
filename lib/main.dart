@@ -195,7 +195,7 @@ class JetConfigApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'JetConfig VPN',
+      title: 'JET VPN',
       theme: ThemeData(
         brightness: Brightness.dark,
         scaffoldBackgroundColor: const Color(0xFF0A0E1A),
@@ -632,8 +632,9 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
       await flutterV2ray.startV2Ray(
         remark: target.name,
         config: configString,
+        // در حالت هوشمند: اپ‌های ایرانی + Smart View معاف از تونل
+        // bypassSubnets عمداً استفاده نمی‌شود؛ در بعضی نسخه‌های flutter_v2ray کل مسیریابی را خراب می‌کند
         blockedApps: onlyFilteredApps ? iranianAndBrowserPackages : null,
-        bypassSubnets: lanBypassSubnets,
         proxyOnly: false,
       );
     } catch (e) {
@@ -1126,7 +1127,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
                 ),
               ),
               const SizedBox(width: 8),
-              const Text('JetConfig VPN', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16.5)),
+              const Text('JET VPN', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16.5)),
             ],
           ),
           centerTitle: true,
@@ -1207,7 +1208,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
             ),
           ),
           const SizedBox(height: 16),
-          const Text('JetConfig VPN', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: Colors.white)),
+          const Text('JET VPN', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: Colors.white)),
           const SizedBox(height: 4),
           const Text('ورود هوشمند به اشتراک پرسرعت', style: TextStyle(color: Colors.grey, fontSize: 12)),
           const SizedBox(height: 22),
@@ -1468,7 +1469,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
           ),
           const SizedBox(height: 12),
           Text(
-            'JetConfig VPN • $appVersion',
+            'JET VPN • $appVersion',
             style: const TextStyle(fontSize: 10.5, color: Colors.white24),
           ),
           const SizedBox(height: 4),

@@ -19,15 +19,22 @@ const String appLogoUrl = 'https://majid6064.ir/logo.png';
 const String telegramBotUrl = 'https://t.me/JetConfig1bot';
 const String telegramChannelUrl = 'https://t.me/jetconfig11';
 
-// لیست پکیج‌های معاف از تونل
+// پکیج‌های معاف از تونل (در حالت «فقط برنامه‌های فیلترشده»)
+// مرورگر + بانک/پرداخت + سوپراپ ایرانی + Smart View / اشتراک‌گذاری صفحه
 const List<String> iranianAndBrowserPackages = [
+  // مرورگرها (خرید اینترنتی / درگاه)
   'com.android.chrome',
+  'com.chrome.beta',
+  'com.chrome.dev',
   'org.mozilla.firefox',
+  'org.mozilla.firefox_beta',
   'com.sec.android.app.sbrowser',
   'com.opera.browser',
   'com.opera.mini.native',
   'com.brave.browser',
   'com.microsoft.emmx',
+  'com.android.browser',
+  // صرافی / کریپتو
   'app.nobitex',
   'ir.nobitex',
   'ir.nobitex.market',
@@ -36,6 +43,7 @@ const List<String> iranianAndBrowserPackages = [
   'com.ramzinex.app',
   'ir.bitpin',
   'com.abantether',
+  // پرداخت‌یار / کارت
   'com.asanpardakht',
   'com.asanpardakht.app',
   'ir.asanpardakht',
@@ -52,6 +60,8 @@ const List<String> iranianAndBrowserPackages = [
   'com.digikala.digipay',
   'ir.digipay.app',
   'com.snapppay.app',
+  'ir.shaparak.payment',
+  // بانک‌ها
   'ir.bmi.bam.nativeweb',
   'ir.melli.bam',
   'ir.bmi.bam',
@@ -82,6 +92,7 @@ const List<String> iranianAndBrowserPackages = [
   'ir.qmb.hamrah',
   'ir.rqb.app',
   'com.samanpr.blu',
+  'ir.samanpr.blu',
   'ir.blubank',
   'ir.sb24.mobilbank',
   'com.saman.mobile',
@@ -99,10 +110,15 @@ const List<String> iranianAndBrowserPackages = [
   'ir.ayandeh.hamrah',
   'ir.postbank.mobile',
   'ir.ttbank.mobilebank',
+  'ir.karafarinbank.mobile',
+  'ir.middleeastbank.mobile',
+  'com.ios.mobilebank',
+  // تاکسی / فروشگاه / نقشه
   'cab.snapp.passenger',
   'com.snapp.passenger',
   'cab.snapp.driver',
   'ir.tapsi.cab',
+  'taxi.tap30.passenger',
   'com.digikala.mobile',
   'ir.divar',
   'ir.sheypoor.mobile',
@@ -111,6 +127,7 @@ const List<String> iranianAndBrowserPackages = [
   'com.torob',
   'ir.basalam.app',
   'ir.alibaba.travel',
+  // اپراتور / پیام‌رسان داخلی / دولت
   'ir.mtnirancell.myirancell',
   'ir.mci.ecareapp',
   'ir.rightel.ecare',
@@ -120,6 +137,27 @@ const List<String> iranianAndBrowserPackages = [
   'ir.ble.messenger',
   'ir.gov.my',
   'ir.police.my',
+  'ir.mci.mciapp',
+  // Samsung Smart View / AllShare / screencast
+  'com.samsung.android.smartmirroring',
+  'com.samsung.android.allshare.service.mediashare',
+  'com.samsung.android.allshare.service.fileshare',
+  'com.samsung.android.easysetup',
+  'com.samsung.android.networkshare',
+  'com.samsung.android.videolist',
+  'com.samsung.android.app.tvplus',
+  'com.samsung.android.tvplus',
+  'com.sec.android.app.chromecustomizations',
+];
+
+/// رنج شبکه محلی — همیشه از تونل خارج (Smart View، LAN، multicast)
+const List<String> lanBypassSubnets = [
+  '10.0.0.0/8',
+  '172.16.0.0/12',
+  '192.168.0.0/16',
+  '169.254.0.0/16',
+  '224.0.0.0/4',
+  '255.255.255.255/32',
 ];
 
 class ServerModel {
@@ -595,6 +633,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
         remark: target.name,
         config: configString,
         blockedApps: onlyFilteredApps ? iranianAndBrowserPackages : null,
+        bypassSubnets: lanBypassSubnets,
         proxyOnly: false,
       );
     } catch (e) {

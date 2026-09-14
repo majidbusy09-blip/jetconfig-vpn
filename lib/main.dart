@@ -14,7 +14,7 @@ void main() {
 }
 
 // مشخصات نسخه
-const String appVersion = 'v1.5.3';
+const String appVersion = 'v1.5.4';
 const String appLogoUrl = 'https://majid6064.ir/logo.png';
 const String telegramBotUrl = 'https://t.me/JetConfig1bot';
 const String telegramChannelUrl = 'https://t.me/jetconfig11';
@@ -437,61 +437,63 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     }
   }
 
+  /// شناسه پایدار سرور (UUID داخل لینک یا host:port)
+  String _stableServerId(ServerModel s) {
+    final c = s.config.trim();
+    final m = RegExp(r'(?:vless|trojan|ss)://([^@/?#]+)@', caseSensitive: false).firstMatch(c);
+    if (m != null && (m.group(1)?.isNotEmpty ?? false)) {
+      return m.group(1)!.toLowerCase();
+    }
+    if (s.host.isNotEmpty) {
+      return '${s.host.toLowerCase()}:${s.port}';
+    }
+    return s.name.trim().toLowerCase();
+  }
+
   Future<void> _saveSelectedServer(ServerModel s, {int? index}) async {
     final prefs = await SharedPreferences.getInstance();
+    final id = _stableServerId(s);
+    await prefs.setString('last_server_id', id);
     await prefs.setString('last_server_config', s.config);
     await prefs.setString('last_server_name', s.name);
     await prefs.setString('last_server_host', s.host);
     await prefs.setInt('last_server_port', s.port);
-    if (index != null) {
-      await prefs.setInt('last_server_index', index);
-    } else {
-      final i = serverList.indexOf(s);
-      if (i >= 0) await prefs.setInt('last_server_index', i);
-    }
+    final i = index ?? serverList.indexOf(s);
+    if (i >= 0) await prefs.setInt('last_server_index', i);
   }
 
   int _indexOfSavedServerFromPrefs(List<ServerModel> list, SharedPreferences prefs) {
     if (list.isEmpty) return 0;
+    final id = prefs.getString('last_server_id') ?? '';
     final cfg = prefs.getString('last_server_config') ?? '';
     final name = prefs.getString('last_server_name') ?? '';
     final host = prefs.getString('last_server_host') ?? '';
     final port = prefs.getInt('last_server_port') ?? 0;
-    final savedIdx = prefs.getInt('last_server_index');
 
-    // اگر ایندکس ذخیره‌شده هنوز همان host را دارد، همان را اولویت بده
-    if (savedIdx != null && savedIdx >= 0 && savedIdx < list.length) {
-      final at = list[savedIdx];
-      if (host.isNotEmpty && at.host == host) return savedIdx;
-      if (cfg.isNotEmpty && at.config == cfg) return savedIdx;
-      if (name.isNotEmpty && at.name == name) return savedIdx;
+    if (id.isNotEmpty) {
+      final byId = list.indexWhere((s) => _stableServerId(s) == id);
+      if (byId >= 0) return byId;
     }
-
     if (cfg.isNotEmpty) {
       final byCfg = list.indexWhere((s) => s.config == cfg);
       if (byCfg >= 0) return byCfg;
-      // گاهی لینک ساب کمی عوض می‌شود؛ اگر host داخل کانفیگ باشد همان را بگیر
-      if (host.isNotEmpty) {
-        final byCfgHost = list.indexWhere((s) => s.config.contains(host));
-        if (byCfgHost >= 0) return byCfgHost;
-      }
     }
     if (host.isNotEmpty) {
-      final byHostPort = list.indexWhere(
-          (s) => s.host == host && (port == 0 || s.port == port));
+      final byHostPort = list.indexWhere((s) => s.host == host && (port == 0 || s.port == port));
       if (byHostPort >= 0) return byHostPort;
       final byHost = list.indexWhere((s) => s.host == host);
       if (byHost >= 0) return byHost;
+      final byCfgHost = list.indexWhere((s) => s.config.contains(host));
+      if (byCfgHost >= 0) return byCfgHost;
     }
     if (name.isNotEmpty) {
       final byName = list.indexWhere((s) => s.name == name);
       if (byName >= 0) return byName;
-      // نام پنل اغلب با ایموجی/حجم عوض می‌شود؛ تطبیق جزئی
-      final byPartial = list.indexWhere((s) => s.name.contains(name) || name.contains(s.name));
-      if (byPartial >= 0) return byPartial;
     }
-    // پیدا نشد — ایندکس فعلی را خراب نکن؛ 0 یعنی اولین بعد از سورت پینگ
-    return selectedServerIndex.clamp(0, list.length - 1);
+    // پیدا نشد: ایندکس قبلی را فقط اگر در محدوده باشد نگه دار
+    final prev = selectedServerIndex;
+    if (prev >= 0 && prev < list.length) return prev;
+    return 0;
   }
 
   Future<void> _saveTunnelMode(bool val) async {
@@ -582,9 +584,13 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
           }
 
           if (parsed.isNotEmpty) {
-            // هنگام باز شدن خودکار: پینگ فقط برای نمایش؛ سرور را عوض نکن
-            // تعویض به خاطر تایم‌اوت فقط با تست دستی از لیست سرورها
-            await _pingAllServers(allowFallbackSwitch: !silentBackground && isManualRefresh);
+            // باز شدن خودکار: اصلاً پینگ/سورت نکن تا سرور جابه‌جا نشود
+            // پینگ فقط با دکمه بروزرسانی دستی یا تست در لیست سرورها
+            if (!silentBackground) {
+              await _pingAllServers(
+                allowFallbackSwitch: isManualRefresh,
+              );
+            }
           }
         } else {
           if (!silentBackground) {
@@ -1284,6 +1290,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
                   final prefs = await SharedPreferences.getInstance();
                   await prefs.remove('saved_username');
                   await prefs.remove('saved_password');
+                  await prefs.remove('last_server_id');
                   await prefs.remove('last_server_config');
                   await prefs.remove('last_server_name');
                   await prefs.remove('last_server_host');

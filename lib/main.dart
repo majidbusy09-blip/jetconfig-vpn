@@ -14,7 +14,7 @@ void main() {
 }
 
 // مشخصات نسخه
-const String appVersion = 'v1.5.5';
+const String appVersion = 'v1.5.6';
 const String appLogoUrl = 'https://majid6064.ir/logo.png';
 const String telegramBotUrl = 'https://t.me/JetConfig1bot';
 const String telegramChannelUrl = 'https://t.me/jetconfig11';
@@ -322,14 +322,35 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
       return 'نامحدود';
     }
 
+    // متن API را خراب نکن: «۲۴ ساعت مانده» نباید بشود «۲۴ روز»
+    if (expireStr.contains('ساعت')) {
+      final h = int.tryParse(expireStr.replaceAll(RegExp(r'[^0-9]'), ''));
+      if (h != null && h > 0) return '$h ساعت';
+      return expireStr;
+    }
+    if (expireStr.contains('دقیقه')) {
+      final m = int.tryParse(expireStr.replaceAll(RegExp(r'[^0-9]'), ''));
+      if (m != null && m > 0) return '$m دقیقه';
+      return expireStr;
+    }
+    if (expireStr.contains('منقضی') || expireStr.contains('پایان')) {
+      return expireStr.contains('حجم') ? 'پایان حجم' : 'منقضی شده';
+    }
+    if (expireStr.contains('روز')) {
+      final d = int.tryParse(expireStr.replaceAll(RegExp(r'[^0-9]'), ''));
+      if (d != null) {
+        if (d <= 0 && (total == 0 || total == null)) return 'نامحدود';
+        if (d <= 0) return 'منقضی شده';
+        return '$d روز';
+      }
+      return expireStr;
+    }
+
+    // عدد خالص از API
     final intVal = int.tryParse(expireStr.replaceAll(RegExp(r'[^0-9\-]'), ''));
     if (intVal != null) {
-      if (intVal <= 0 && (total == 0 || total == null)) {
-        return 'نامحدود';
-      }
-      if (intVal <= 0) {
-        return 'منقضی شده';
-      }
+      if (intVal <= 0 && (total == 0 || total == null)) return 'نامحدود';
+      if (intVal <= 0) return 'منقضی شده';
       return '$intVal روز';
     }
 
@@ -437,15 +458,25 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     }
   }
 
-  /// شناسه پایدار سرور (UUID داخل لینک یا host:port)
+  /// شناسه پایدار سرور
+  /// مهم: UUID برای همه سرورهای یک اکانت یکی است؛ نباید مبنا باشد.
+  /// مبنا: host:port (و در صورت نیاز تکهٔ یکتای کانفیگ)
   String _stableServerId(ServerModel s) {
-    final c = s.config.trim();
-    final m = RegExp(r'(?:vless|trojan|ss)://([^@/?#]+)@', caseSensitive: false).firstMatch(c);
-    if (m != null && (m.group(1)?.isNotEmpty ?? false)) {
-      return m.group(1)!.toLowerCase();
+    final host = s.host.trim().toLowerCase();
+    if (host.isNotEmpty) {
+      return '$host:${s.port}';
     }
-    if (s.host.isNotEmpty) {
-      return '${s.host.toLowerCase()}:${s.port}';
+    final c = s.config.trim();
+    // host را از لینک دربیاور
+    final hostInLink = RegExp(
+      r'(?:vless|trojan|ss)://[^@]+@([^:/?#]+)',
+      caseSensitive: false,
+    ).firstMatch(c);
+    if (hostInLink != null && (hostInLink.group(1)?.isNotEmpty ?? false)) {
+      final h = hostInLink.group(1)!.toLowerCase();
+      final portM = RegExp(r'@[^:/?#]+:(\d+)').firstMatch(c);
+      final pt = portM != null ? portM.group(1) : '${s.port}';
+      return '$h:$pt';
     }
     return s.name.trim().toLowerCase();
   }

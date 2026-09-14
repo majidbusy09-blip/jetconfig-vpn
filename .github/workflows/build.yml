@@ -29,48 +29,6 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: Ensure Android platform exists
-        run: |
-          if [ ! -d android ]; then
-            flutter create . --platforms=android --project-name=jetconfig_vpn --org com.jetconfig.vpn
-          fi
-          mkdir -p android/app
-
-      - name: Set app name to JET VPN
-        run: |
-          MANIFEST="android/app/src/main/AndroidManifest.xml"
-          sed -i 's/android:label="[^"]*"/android:label="JET VPN"/' "$MANIFEST"
-          grep -o 'android:label="[^"]*"' "$MANIFEST" | head -1
-
-      - name: Install icon tools
-        run: sudo apt-get update -qq && sudo apt-get install -y -qq imagemagick
-
-      - name: Set app icon from logo
-        run: |
-          curl -fsSL -o /tmp/app_icon.png "https://majid6064.ir/logo.png"
-          file /tmp/app_icon.png
-          RES="android/app/src/main/res"
-          mkdir -p "$RES/mipmap-mdpi" "$RES/mipmap-hdpi" "$RES/mipmap-xhdpi" "$RES/mipmap-xxhdpi" "$RES/mipmap-xxxhdpi"
-          convert /tmp/app_icon.png -resize 48x48   "$RES/mipmap-mdpi/ic_launcher.png"
-          convert /tmp/app_icon.png -resize 48x48   "$RES/mipmap-mdpi/ic_launcher_round.png"
-          convert /tmp/app_icon.png -resize 72x72   "$RES/mipmap-hdpi/ic_launcher.png"
-          convert /tmp/app_icon.png -resize 72x72   "$RES/mipmap-hdpi/ic_launcher_round.png"
-          convert /tmp/app_icon.png -resize 96x96   "$RES/mipmap-xhdpi/ic_launcher.png"
-          convert /tmp/app_icon.png -resize 96x96   "$RES/mipmap-xhdpi/ic_launcher_round.png"
-          convert /tmp/app_icon.png -resize 144x144 "$RES/mipmap-xxhdpi/ic_launcher.png"
-          convert /tmp/app_icon.png -resize 144x144 "$RES/mipmap-xxhdpi/ic_launcher_round.png"
-          convert /tmp/app_icon.png -resize 192x192 "$RES/mipmap-xxxhdpi/ic_launcher.png"
-          convert /tmp/app_icon.png -resize 192x192 "$RES/mipmap-xxxhdpi/ic_launcher_round.png"
-          rm -f "$RES/mipmap-anydpi-v26/ic_launcher.xml" || true
-          rm -f "$RES/mipmap-anydpi-v26/ic_launcher_round.xml" || true
-          echo "icons written"
-
-      - name: Install Dependencies
-        run: |
-          flutter pub get
-          flutter pub add url_launcher
-          flutter pub get
-
       - name: Decode release keystore
         run: |
           echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > android/app/jetconfig-release.jks
@@ -78,39 +36,46 @@ jobs:
 
       - name: Create key.properties
         run: |
-          printf '%s\n' \
-            "storePassword=${{ secrets.KEYSTORE_PASSWORD }}" \
-            "keyPassword=${{ secrets.KEY_PASSWORD }}" \
-            "keyAlias=${{ secrets.KEY_ALIAS }}" \
-            "storeFile=jetconfig-release.jks" \
-            > android/key.properties
-          wc -l android/key.properties
+          cat > android/key.properties << PROP
+          storePassword=${{ secrets.KEYSTORE_PASSWORD }}
+          keyPassword=${{ secrets.KEY_PASSWORD }}
+          keyAlias=${{ secrets.KEY_ALIAS }}
+          storeFile=jetconfig-release.jks
+          PROP
 
-      - name: Patch build.gradle for signing and minSdk
+      - name: Ensure release signing in build.gradle
         run: |
-          python3 - <<'PY'
+          python3 << 'PY'
           from pathlib import Path
           import re
 
-          path = Path("android/app/build.gradle")
-          g = path.read_text(encoding="utf-8")
+          # app-level gradle (Groovy)
+          for name in ['android/app/build.gradle', 'android/app/build.gradle.kts']:
+              p = Path(name)
+              if not p.exists():
+                  continue
+              g = p.read_text(encoding='utf-8')
 
-          loader = """
+              if name.endswith('.kts'):
+                  # Kotlin DSL – minimal skip; most Flutter 3.19 templates use Groovy
+                  print(f'skip kts auto-patch for {name}')
+                  continue
+
+              if 'key.properties' not in g:
+                  header = '''
           def keystoreProperties = new Properties()
           def keystorePropertiesFile = rootProject.file('key.properties')
           if (keystorePropertiesFile.exists()) {
               keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
           }
-          """
 
-          if "keystoreProperties = new Properties()" not in g:
-              m = re.search(r"plugins\s*\{[\s\S]*?\n\}", g)
-              if m:
-                  g = g[: m.end()] + "\n" + loader + "\n" + g[m.end() :]
-              else:
-                  g = loader + "\n" + g
+          '''
+                  g = header + g
 
-          signing_block = """
+              if 'signingConfigs' not in g:
+                  g = re.sub(
+                      r'(android\s*\{)',
+                      r'''\1
               signingConfigs {
                   release {
                       keyAlias keystoreProperties['keyAlias']
@@ -119,37 +84,88 @@ jobs:
                       storePassword keystoreProperties['storePassword']
                   }
               }
-          """
+          ''',
+                      g,
+                      count=1,
+                  )
 
-          if "signingConfigs {" not in g and "signingConfigs{" not in g:
-              g = re.sub(r"(android\s*\{)", r"\1" + signing_block, g, count=1)
+              if 'signingConfig signingConfigs.release' not in g:
+                  g = g.replace(
+                      'signingConfig signingConfigs.debug',
+                      'signingConfig signingConfigs.release',
+                  )
+                  # common buildTypes release block without signingConfig
+                  if 'signingConfig signingConfigs.release' not in g:
+                      g = re.sub(
+                          r'(buildTypes\s*\{[\s\S]*?release\s*\{)',
+                          r'\1\n            signingConfig signingConfigs.release\n',
+                          g,
+                          count=1,
+                      )
 
-          g = g.replace("signingConfigs.debug", "signingConfigs.release")
-          g = re.sub(r"minSdkVersion\s+[^\n]+", "minSdkVersion 21", g)
-          g = re.sub(r"minSdk\s*=\s*[^\n]+", "minSdk = 21", g)
+              # minSdk
+              g = re.sub(r'minSdkVersion\s+flutter\.minSdkVersion', 'minSdkVersion 21', g)
+              g = re.sub(r'minSdkVersion\s+\d+', 'minSdkVersion 21', g)
 
-          path.write_text(g, encoding="utf-8")
-          text = path.read_text(encoding="utf-8")
-          assert "signingConfigs {" in text
-          assert "minSdkVersion 21" in text or "minSdk = 21" in text
-          print("signing+minSdk OK")
+              p.write_text(g, encoding='utf-8')
+              print(f'patched {name}')
           PY
 
-      - name: Build release APK
+      - name: Install Dependencies
+        run: flutter pub get
+
+      - name: Build Optimized Split APKs
         run: flutter build apk --release --split-per-abi
 
       - name: Prepare release artifact
         run: |
           mkdir -p release-files
-          cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk release-files/JetConfig-VPN.apk
+          if [ -f build/app/outputs/flutter-apk/app-arm64-v8a-release.apk ]; then
+            cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk release-files/JetConfig-VPN.apk
+          else
+            echo "APK not found"; ls -la build/app/outputs/flutter-apk/ || true
+            exit 1
+          fi
 
-      - name: Publish GitHub Release
+      # نسخه از lib/main.dart؛ تگ یکتا = نسخه + شماره بیلد
+      # هر بیلد Release جدید با تاریخ امروز (دیگر overwrite روی tag: latest نیست)
+      - name: Read app version
+        id: ver
+        run: |
+          VER=""
+          if [ -f lib/main.dart ]; then
+            VER=$(grep -oP "appVersion\s*=\s*'\K[^']+" lib/main.dart | head -1 || true)
+          fi
+          if [ -z "$VER" ]; then
+            VER="v0.0.0"
+          fi
+          case "$VER" in
+            v*|V*) ;;
+            *) VER="v$VER" ;;
+          esac
+          TAG="${VER}-b${{ github.run_number }}"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "name=JET VPN ${VER}" >> "$GITHUB_OUTPUT"
+          echo "ver=$VER" >> "$GITHUB_OUTPUT"
+          echo "Using release tag: $TAG"
+
+      - name: Publish New Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: latest
-          name: "JET VPN (Latest Release)"
-          body: آخرین نسخه JET VPN
+          tag_name: ${{ steps.ver.outputs.tag }}
+          name: ${{ steps.ver.outputs.name }}
+          body: |
+            🚀 **JET VPN — بیلد خودکار**
+
+            - نسخه داخل اپ: `${{ steps.ver.outputs.ver }}`
+            - تگ Release: `${{ steps.ver.outputs.tag }}`
+            - امضا با کلید ثابت (قابل نصب روی نسخه قبلی)
+            - بیلد: GitHub Actions (run `${{ github.run_number }}`)
+
+            فایل APK: `JetConfig-VPN.apk` (arm64-v8a)
           files: release-files/JetConfig-VPN.apk
+          prerelease: false
           make_latest: true
+          generate_release_notes: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

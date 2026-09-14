@@ -14,7 +14,7 @@ void main() {
 }
 
 // مشخصات نسخه
-const String appVersion = 'v1.5.4';
+const String appVersion = 'v1.5.5';
 const String appLogoUrl = 'https://majid6064.ir/logo.png';
 const String telegramBotUrl = 'https://t.me/JetConfig1bot';
 const String telegramChannelUrl = 'https://t.me/jetconfig11';
@@ -514,15 +514,22 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
   }
 
   Future<void> _openTelegram(String url) async {
+    // نکته: روی اندروید ۱۱+ اغلب canLaunchUrl برای t.me اشتباهی false می‌دهد
+    // و باعث خطای «امکان باز کردن تلگرام وجود ندارد» می‌شود — مستقیم launch می‌کنیم.
     try {
       final uri = Uri.parse(url);
-      if (await canLaunchUrl(uri)) {
-        await launchUrl(uri, mode: LaunchMode.externalApplication);
-      } else {
-        _showToast('امکان باز کردن تلگرام وجود ندارد');
-      }
+      final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
+      if (ok) return;
+      final ok2 = await launchUrl(uri, mode: LaunchMode.platformDefault);
+      if (ok2) return;
+      _showToast('امکان باز کردن تلگرام وجود ندارد');
     } catch (_) {
-      _showToast('خطا در باز کردن لینک');
+      try {
+        final uri = Uri.parse(url);
+        await launchUrl(uri, mode: LaunchMode.platformDefault);
+      } catch (__) {
+        _showToast('خطا در باز کردن لینک');
+      }
     }
   }
 

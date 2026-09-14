@@ -14,7 +14,7 @@ void main() {
 }
 
 // مشخصات نسخه
-const String appVersion = 'v1.5.1';
+const String appVersion = 'v1.5.2';
 const String appLogoUrl = 'https://majid6064.ir/logo.png';
 const String telegramBotUrl = 'https://t.me/JetConfig1bot';
 const String telegramChannelUrl = 'https://t.me/jetconfig11';
@@ -455,21 +455,28 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     if (cfg.isNotEmpty) {
       final byCfg = list.indexWhere((s) => s.config == cfg);
       if (byCfg >= 0) return byCfg;
-    }
-    if (name.isNotEmpty && host.isNotEmpty) {
-      final byNh = list.indexWhere(
-          (s) => s.name == name && s.host == host && (port == 0 || s.port == port));
-      if (byNh >= 0) return byNh;
+      // گاهی لینک ساب کمی عوض می‌شود؛ اگر host داخل کانفیگ باشد همان را بگیر
+      if (host.isNotEmpty) {
+        final byCfgHost = list.indexWhere((s) => s.config.contains(host));
+        if (byCfgHost >= 0) return byCfgHost;
+      }
     }
     if (host.isNotEmpty) {
-      final byHost = list.indexWhere((s) => s.host == host && (port == 0 || s.port == port));
+      final byHostPort = list.indexWhere(
+          (s) => s.host == host && (port == 0 || s.port == port));
+      if (byHostPort >= 0) return byHostPort;
+      final byHost = list.indexWhere((s) => s.host == host);
       if (byHost >= 0) return byHost;
     }
     if (name.isNotEmpty) {
       final byName = list.indexWhere((s) => s.name == name);
       if (byName >= 0) return byName;
+      // نام پنل اغلب با ایموجی/حجم عوض می‌شود؛ تطبیق جزئی
+      final byPartial = list.indexWhere((s) => s.name.contains(name) || name.contains(s.name));
+      if (byPartial >= 0) return byPartial;
     }
-    return 0;
+    // پیدا نشد — ایندکس فعلی را خراب نکن؛ 0 یعنی اولین بعد از سورت پینگ
+    return selectedServerIndex.clamp(0, list.length - 1);
   }
 
   Future<void> _saveTunnelMode(bool val) async {
@@ -595,23 +602,69 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     }
   }
 
-  void _sortServersByPing() {
-    setState(() {
-      final currentSelected = serverList.isNotEmpty ? serverList[selectedServerIndex] : null;
-      serverList.sort((a, b) {
-        if (a.ping > 0 && b.ping > 0) return a.ping.compareTo(b.ping);
-        if (a.ping > 0) return -1;
-        if (b.ping > 0) return 1;
-        if (a.ping == -1 && b.ping == -2) return -1;
-        if (a.ping == -2 && b.ping == -1) return 1;
-        return 0;
-      });
+  void _sortServersByPing({bool keepSelection = true}) {
+    if (serverList.isEmpty) return;
+    final selected = (keepSelection && selectedServerIndex >= 0 && selectedServerIndex < serverList.length)
+        ? serverList[selectedServerIndex]
+        : null;
 
-      if (currentSelected != null) {
-        int newIdx = serverList.indexOf(currentSelected);
-        selectedServerIndex = (newIdx != -1) ? newIdx : 0;
-      }
+    serverList.sort((a, b) {
+      if (a.ping > 0 && b.ping > 0) return a.ping.compareTo(b.ping);
+      if (a.ping > 0) return -1;
+      if (b.ping > 0) return 1;
+      if (a.ping == -1 && b.ping == -2) return -1;
+      if (a.ping == -2 && b.ping == -1) return 1;
+      return 0;
     });
+
+    if (selected != null) {
+      final newIdx = serverList.indexOf(selected);
+      if (newIdx != -1) {
+        selectedServerIndex = newIdx;
+      }
+      // اگر پیدا نشد ایندکس را عوض نکن به «بهترین پینگ» — بعداً _preferLastServerOrFallback تصمیم می‌گیرد
+    }
+  }
+
+  /// روی آخرین سرور بمان؛ فقط اگر پینگ نداد (تایم‌اوت) برو سراغ کم‌پینگ‌ترین زنده
+  Future<void> _preferLastServerOrFallback() async {
+    if (serverList.isEmpty) return;
+    final prefs = await SharedPreferences.getInstance();
+    var idx = _indexOfSavedServerFromPrefs(serverList, prefs);
+    if (idx < 0 || idx >= serverList.length) {
+      idx = selectedServerIndex.clamp(0, serverList.length - 1);
+    }
+
+    final preferred = serverList[idx];
+    // پینگ موفق یا هنوز تست‌نشده (-1) → همان را نگه دار
+    if (preferred.ping != -2) {
+      if (mounted) {
+        setState(() => selectedServerIndex = idx);
+      }
+      await _saveSelectedServer(preferred);
+      return;
+    }
+
+    // آخرین سرور تایم‌اوت: بهترین پینگ مثبت
+    int bestIdx = -1;
+    int bestPing = 1 << 30;
+    for (int i = 0; i < serverList.length; i++) {
+      final p = serverList[i].ping;
+      if (p > 0 && p < bestPing) {
+        bestPing = p;
+        bestIdx = i;
+      }
+    }
+    if (bestIdx >= 0) {
+      if (mounted) {
+        setState(() => selectedServerIndex = bestIdx);
+      }
+      await _saveSelectedServer(serverList[bestIdx]);
+    } else {
+      if (mounted) {
+        setState(() => selectedServerIndex = idx);
+      }
+    }
   }
 
   Future<void> _pingAllServers() async {
@@ -628,8 +681,11 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     }));
 
     if (mounted) {
-      _sortServersByPing();
-      setState(() => isPingingAll = false);
+      setState(() {
+        _sortServersByPing(keepSelection: true);
+      });
+      await _preferLastServerOrFallback();
+      if (mounted) setState(() => isPingingAll = false);
     }
   }
 

@@ -14,7 +14,7 @@ void main() {
 }
 
 // مشخصات نسخه
-const String appVersion = 'v1.5.2';
+const String appVersion = 'v1.5.3';
 const String appLogoUrl = 'https://majid6064.ir/logo.png';
 const String telegramBotUrl = 'https://t.me/JetConfig1bot';
 const String telegramChannelUrl = 'https://t.me/jetconfig11';
@@ -437,12 +437,18 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     }
   }
 
-  Future<void> _saveSelectedServer(ServerModel s) async {
+  Future<void> _saveSelectedServer(ServerModel s, {int? index}) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('last_server_config', s.config);
     await prefs.setString('last_server_name', s.name);
     await prefs.setString('last_server_host', s.host);
     await prefs.setInt('last_server_port', s.port);
+    if (index != null) {
+      await prefs.setInt('last_server_index', index);
+    } else {
+      final i = serverList.indexOf(s);
+      if (i >= 0) await prefs.setInt('last_server_index', i);
+    }
   }
 
   int _indexOfSavedServerFromPrefs(List<ServerModel> list, SharedPreferences prefs) {
@@ -451,6 +457,15 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     final name = prefs.getString('last_server_name') ?? '';
     final host = prefs.getString('last_server_host') ?? '';
     final port = prefs.getInt('last_server_port') ?? 0;
+    final savedIdx = prefs.getInt('last_server_index');
+
+    // اگر ایندکس ذخیره‌شده هنوز همان host را دارد، همان را اولویت بده
+    if (savedIdx != null && savedIdx >= 0 && savedIdx < list.length) {
+      final at = list[savedIdx];
+      if (host.isNotEmpty && at.host == host) return savedIdx;
+      if (cfg.isNotEmpty && at.config == cfg) return savedIdx;
+      if (name.isNotEmpty && at.name == name) return savedIdx;
+    }
 
     if (cfg.isNotEmpty) {
       final byCfg = list.indexWhere((s) => s.config == cfg);
@@ -559,7 +574,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
 
           if (parsed.isNotEmpty) {
             final idx = restoreIdx.clamp(0, parsed.length - 1);
-            await _saveSelectedServer(parsed[idx]);
+            await _saveSelectedServer(parsed[idx], index: idx);
           }
 
           if (isManualRefresh) {
@@ -567,7 +582,9 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
           }
 
           if (parsed.isNotEmpty) {
-            _pingAllServers();
+            // هنگام باز شدن خودکار: پینگ فقط برای نمایش؛ سرور را عوض نکن
+            // تعویض به خاطر تایم‌اوت فقط با تست دستی از لیست سرورها
+            await _pingAllServers(allowFallbackSwitch: !silentBackground && isManualRefresh);
           }
         } else {
           if (!silentBackground) {
@@ -626,8 +643,9 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     }
   }
 
-  /// روی آخرین سرور بمان؛ فقط اگر پینگ نداد (تایم‌اوت) برو سراغ کم‌پینگ‌ترین زنده
-  Future<void> _preferLastServerOrFallback() async {
+  /// روی آخرین سرور بمان.
+  /// اگر [allowFallbackSwitch] true باشد و آخرین سرور تایم‌اوت بدهد، کم‌پینگ‌ترین زنده انتخاب می‌شود.
+  Future<void> _preferLastServerOrFallback({bool allowFallbackSwitch = true}) async {
     if (serverList.isEmpty) return;
     final prefs = await SharedPreferences.getInstance();
     var idx = _indexOfSavedServerFromPrefs(serverList, prefs);
@@ -636,16 +654,15 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     }
 
     final preferred = serverList[idx];
-    // پینگ موفق یا هنوز تست‌نشده (-1) → همان را نگه دار
-    if (preferred.ping != -2) {
+    // همیشه ترجیح با آخرین سرور؛ مگر صریحاً مجاز به تعویض باشیم و تایم‌اوت باشد
+    if (!allowFallbackSwitch || preferred.ping != -2) {
       if (mounted) {
         setState(() => selectedServerIndex = idx);
       }
-      await _saveSelectedServer(preferred);
+      await _saveSelectedServer(preferred, index: idx);
       return;
     }
 
-    // آخرین سرور تایم‌اوت: بهترین پینگ مثبت
     int bestIdx = -1;
     int bestPing = 1 << 30;
     for (int i = 0; i < serverList.length; i++) {
@@ -659,15 +676,16 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
       if (mounted) {
         setState(() => selectedServerIndex = bestIdx);
       }
-      await _saveSelectedServer(serverList[bestIdx]);
+      await _saveSelectedServer(serverList[bestIdx], index: bestIdx);
     } else {
       if (mounted) {
         setState(() => selectedServerIndex = idx);
       }
+      await _saveSelectedServer(preferred, index: idx);
     }
   }
 
-  Future<void> _pingAllServers() async {
+  Future<void> _pingAllServers({bool allowFallbackSwitch = true}) async {
     if (serverList.isEmpty || isPingingAll) return;
     setState(() => isPingingAll = true);
 
@@ -684,7 +702,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
       setState(() {
         _sortServersByPing(keepSelection: true);
       });
-      await _preferLastServerOrFallback();
+      await _preferLastServerOrFallback(allowFallbackSwitch: allowFallbackSwitch);
       if (mounted) setState(() => isPingingAll = false);
     }
   }

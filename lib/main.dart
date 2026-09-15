@@ -14,7 +14,7 @@ void main() {
 }
 
 // مشخصات نسخه
-const String appVersion = 'v1.5.6';
+const String appVersion = 'v1.5.7';
 const String appLogoUrl = 'https://majid6064.ir/logo.png';
 const String telegramBotUrl = 'https://t.me/JetConfig1bot';
 const String telegramChannelUrl = 'https://t.me/jetconfig11';
@@ -211,6 +211,10 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
   bool isRefreshingServers = false;
   bool onlyFilteredApps = true;
   bool _obscurePassword = true;
+  // تنظیمات کاربر
+  bool autoRefreshOnStart = true; // بروزرسانی اشتراک هنگام باز شدن
+  bool autoPingOnStart = false; // پینگ خودکار هنگام باز شدن
+  bool preferLastServer = true; // نگه داشتن آخرین سرور انتخاب‌شده
   int activePing = -1;
   String currentIpAddress = '...';
 
@@ -401,6 +405,9 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     final user = prefs.getString('saved_username');
     final pass = prefs.getString('saved_password') ?? '';
     final savedTunnelMode = prefs.getBool('only_filtered_apps') ?? true;
+    final prefAutoRefresh = prefs.getBool('pref_auto_refresh_on_start') ?? true;
+    final prefAutoPing = prefs.getBool('pref_auto_ping_on_start') ?? false;
+    final prefKeepServer = prefs.getBool('pref_prefer_last_server') ?? true;
 
     Map<String, dynamic>? cachedUser;
     List<ServerModel> cachedServers = [];
@@ -436,6 +443,9 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     if (mounted) {
       setState(() {
         onlyFilteredApps = savedTunnelMode;
+        autoRefreshOnStart = prefAutoRefresh;
+        autoPingOnStart = prefAutoPing;
+        preferLastServer = prefKeepServer;
         if (user != null && user.isNotEmpty && pass.isNotEmpty) {
           savedUser = user;
           savedPass = pass;
@@ -454,8 +464,24 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
 
     if (user != null && user.isNotEmpty && pass.isNotEmpty) {
       final hasCache = cachedUser != null && cachedServers.isNotEmpty;
-      _fetchUserData(user, pass, silentBackground: hasCache);
+      // بروزرسانی خودکار فقط اگر تنظیم روشن باشد یا کش نداشته باشیم
+      if (prefAutoRefresh || !hasCache) {
+        _fetchUserData(
+          user,
+          pass,
+          silentBackground: hasCache,
+          doPingOnLoad: prefAutoPing,
+        );
+      } else if (prefAutoPing && hasCache && cachedServers.isNotEmpty) {
+        // فقط پینگ بدون فراخوانی API
+        _pingAllServers(allowFallbackSwitch: false);
+      }
     }
+  }
+
+  Future<void> _savePrefBool(String key, bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(key, value);
   }
 
   /// شناسه پایدار سرور
@@ -569,6 +595,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     String password, {
     bool isManualRefresh = false,
     bool silentBackground = false,
+    bool doPingOnLoad = false,
   }) async {
     if (mounted) {
       setState(() {
@@ -622,12 +649,14 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
           }
 
           if (parsed.isNotEmpty) {
-            // باز شدن خودکار: اصلاً پینگ/سورت نکن تا سرور جابه‌جا نشود
-            // پینگ فقط با دکمه بروزرسانی دستی یا تست در لیست سرورها
-            if (!silentBackground) {
+            // پینگ: دستی، یا اگر کاربر در تنظیمات روشن کرده باشد
+            final shouldPing = isManualRefresh || doPingOnLoad || (!silentBackground && autoPingOnStart);
+            if (shouldPing) {
               await _pingAllServers(
-                allowFallbackSwitch: isManualRefresh,
+                allowFallbackSwitch: isManualRefresh && !preferLastServer,
               );
+            } else if (preferLastServer) {
+              await _preferLastServerOrFallback(allowFallbackSwitch: false);
             }
           }
         } else {
@@ -1306,6 +1335,11 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
             onPressed: () => _openTelegram(telegramChannelUrl),
           ),
           actions: [
+            IconButton(
+              icon: const Icon(Icons.settings_rounded, color: Color(0xFF00E5FF), size: 21),
+              tooltip: 'تنظیمات',
+              onPressed: _openSettings,
+            ),
             if (savedUser != null)
               IconButton(
                 icon: isRefreshingServers
@@ -1358,6 +1392,161 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
                 ? _buildLoginView()
                 : _buildDashboardView(),
       ),
+    );
+  }
+
+  void _openSettings() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF131B2E),
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setSheet) {
+            final currentName = serverList.isNotEmpty &&
+                    selectedServerIndex >= 0 &&
+                    selectedServerIndex < serverList.length
+                ? serverList[selectedServerIndex].name
+                : 'هنوز انتخاب نشده';
+
+            Widget switchTile({
+              required String title,
+              required String subtitle,
+              required bool value,
+              required ValueChanged<bool> onChanged,
+            }) {
+              return SwitchListTile(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+                activeColor: const Color(0xFF00E5FF),
+                title: Text(title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13.5)),
+                subtitle: Text(subtitle, style: const TextStyle(color: Colors.white54, fontSize: 11)),
+                value: value,
+                onChanged: (v) {
+                  onChanged(v);
+                  setSheet(() {});
+                },
+              );
+            }
+
+            return Directionality(
+              textDirection: TextDirection.rtl,
+              child: Padding(
+                padding: EdgeInsets.only(
+                  left: 16,
+                  right: 16,
+                  top: 12,
+                  bottom: MediaQuery.of(ctx).viewInsets.bottom + 20,
+                ),
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Center(
+                        child: Container(
+                          width: 40,
+                          height: 4,
+                          margin: const EdgeInsets.only(bottom: 12),
+                          decoration: BoxDecoration(
+                            color: Colors.white24,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                        ),
+                      ),
+                      const Text(
+                        'تنظیمات',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w900),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        'JET VPN • $appVersion',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(color: Colors.white38, fontSize: 11),
+                      ),
+                      const Divider(color: Colors.white12, height: 24),
+                      switchTile(
+                        title: 'بروزرسانی خودکار هنگام باز شدن',
+                        subtitle: 'لیست سرورها و وضعیت اشتراک از سرور گرفته شود',
+                        value: autoRefreshOnStart,
+                        onChanged: (v) async {
+                          setState(() => autoRefreshOnStart = v);
+                          await _savePrefBool('pref_auto_refresh_on_start', v);
+                        },
+                      ),
+                      switchTile(
+                        title: 'پینگ خودکار هنگام باز شدن',
+                        subtitle: 'ممکن است باز شدن را کمی کند کند؛ روی انتخاب سرور اثر نگذارد',
+                        value: autoPingOnStart,
+                        onChanged: (v) async {
+                          setState(() => autoPingOnStart = v);
+                          await _savePrefBool('pref_auto_ping_on_start', v);
+                        },
+                      ),
+                      switchTile(
+                        title: 'نگه داشتن آخرین سرور',
+                        subtitle: 'بعد از بروزرسانی به سرور کم‌پینگ‌تر نپرد (توصیه می‌شود)',
+                        value: preferLastServer,
+                        onChanged: (v) async {
+                          setState(() => preferLastServer = v);
+                          await _savePrefBool('pref_prefer_last_server', v);
+                        },
+                      ),
+                      switchTile(
+                        title: 'حالت تونل: فقط فیلترشده‌ها',
+                        subtitle: 'خاموش = تونل کل گوشی (همان سوئیچ داشبورد)',
+                        value: onlyFilteredApps,
+                        onChanged: (v) async {
+                          Navigator.pop(ctx);
+                          await _saveTunnelMode(v);
+                        },
+                      ),
+                      const Divider(color: Colors.white12, height: 20),
+                      ListTile(
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+                        leading: const Icon(Icons.dns_rounded, color: Color(0xFF00E5FF)),
+                        title: const Text('سرور منتخب', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13.5)),
+                        subtitle: Text(currentName, style: const TextStyle(color: Colors.white54, fontSize: 11), maxLines: 2, overflow: TextOverflow.ellipsis),
+                        trailing: const Icon(Icons.chevron_left, color: Colors.white38),
+                        onTap: () {
+                          Navigator.pop(ctx);
+                          if (serverList.isNotEmpty) {
+                            _openServerPicker();
+                          } else {
+                            _showToast('ابتدا وارد حساب شوید');
+                          }
+                        },
+                      ),
+                      const SizedBox(height: 8),
+                      OutlinedButton.icon(
+                        onPressed: () {
+                          Navigator.pop(ctx);
+                          _openTelegram(telegramBotUrl);
+                        },
+                        icon: const Icon(Icons.support_agent_rounded, color: Color(0xFF00FFA3)),
+                        label: const Text('پشتیبانی / ربات تلگرام', style: TextStyle(color: Color(0xFF00FFA3))),
+                        style: OutlinedButton.styleFrom(
+                          side: const BorderSide(color: Color(0xFF00FFA3), width: 1),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Text(
+                        'تغییرات بلافاصله ذخیره می‌شوند.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: Colors.white.withOpacity(0.35), fontSize: 10.5),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 

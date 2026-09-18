@@ -14,7 +14,7 @@ void main() {
 }
 
 // مشخصات نسخه (نمایش داخل اپ)
-const String appVersion = 'v1.6.3';
+const String appVersion = 'v1.6.5';
 const String appLogoUrl = 'https://majid6064.ir/logo.png';
 const String telegramBotUrl = 'https://t.me/JetConfig1bot';
 const String telegramChannelUrl = 'https://t.me/jetconfig11';
@@ -679,40 +679,11 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     }
   }
 
-  /// پینگ واقعی از مسیر هسته V2Ray — فقط برای تأیید سرورهایی که TCP زنده‌اند
-  Future<int> _testRealPing(ServerModel server) async {
-    try {
-      String configString = server.config.trim();
-      if (configString.isEmpty) return -2;
-
-      if (configString.startsWith('vless://') ||
-          configString.startsWith('vmess://') ||
-          configString.startsWith('trojan://') ||
-          configString.startsWith('ss://')) {
-        final parsedUrl = FlutterV2ray.parseFromURL(configString);
-        configString = parsedUrl.getFullConfiguration();
-      }
-
-      final delay = await flutterV2ray
-          .getServerDelay(
-            config: configString,
-            url: 'https://www.gstatic.com/generate_204',
-          )
-          .timeout(const Duration(seconds: 8), onTimeout: () => -1);
-
-      if (delay < 0) return -2;
-      return delay;
-    } catch (_) {
-      return -2;
-    }
-  }
-
-  /// TCP سریع: فقط باز بودن پورت (مرحله ۱)
   Future<int> _testTcpPing(String host, int port) async {
     if (host.isEmpty) return -2;
     final sw = Stopwatch()..start();
     try {
-      final socket = await Socket.connect(host, port, timeout: const Duration(milliseconds: 2000));
+      final socket = await Socket.connect(host, port, timeout: const Duration(milliseconds: 2500));
       socket.destroy();
       sw.stop();
       return sw.elapsedMilliseconds;
@@ -791,27 +762,13 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     if (serverList.isEmpty || isPingingAll) return;
     setState(() => isPingingAll = true);
 
-    // ── مرحله ۱: TCP موازی روی همه (سریع — سرورهای مرده را حذف می‌کند) ──
+    // فقط TCP موازی — سریع و یکدست
     await Future.wait(serverList.map((s) async {
       final p = await _testTcpPing(s.host, s.port);
       if (mounted) {
         setState(() => s.ping = p);
       }
     }));
-
-    if (!mounted) return;
-    setState(() => _sortServersByPing(keepSelection: true));
-
-    // ── مرحله ۲: فقط ۸ سرور اول TCP-زنده (بعد از مرتب‌سازی) — پینگ واقعی نوبتی ──
-    // اگر real fail شد عدد TCP می‌ماند (تایم‌اوت کاذب هسته).
-    final tcpAlive = serverList.where((s) => s.ping > 0).take(8).toList();
-    for (final s in tcpAlive) {
-      if (!mounted || !isPingingAll) break;
-      final real = await _testRealPing(s);
-      if (real > 0 && mounted) {
-        setState(() => s.ping = real);
-      }
-    }
 
     if (mounted) {
       setState(() => _sortServersByPing(keepSelection: true));
@@ -940,7 +897,6 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
                           Color pingColor = Colors.grey;
                           String pingText = '---';
                           if (s.ping > 0) {
-                            // تا ۸۰۰ سبز، بالاتر زرد؛ فقط تایم‌اوت قرمز
                             if (s.ping <= 800) {
                               pingColor = const Color(0xFF00FFA3);
                             } else {

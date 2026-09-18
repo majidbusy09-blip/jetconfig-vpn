@@ -679,6 +679,36 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     }
   }
 
+  /// پینگ واقعی از مسیر هسته V2Ray (مثل تجربه بعد از اتصال) — نه فقط TCP خام
+  Future<int> _testRealPing(ServerModel server) async {
+    try {
+      String configString = server.config.trim();
+      if (configString.isEmpty) return -2;
+
+      if (configString.startsWith('vless://') ||
+          configString.startsWith('vmess://') ||
+          configString.startsWith('trojan://') ||
+          configString.startsWith('ss://')) {
+        final parsedUrl = FlutterV2ray.parseFromURL(configString);
+        configString = parsedUrl.getFullConfiguration();
+      }
+
+      // generate_204 سبک است؛ همان متریک getConnectedServerDelay
+      final delay = await flutterV2ray
+          .getServerDelay(
+            config: configString,
+            url: 'https://www.gstatic.com/generate_204',
+          )
+          .timeout(const Duration(seconds: 10), onTimeout: () => -1);
+
+      if (delay < 0) return -2;
+      return delay;
+    } catch (_) {
+      return -2;
+    }
+  }
+
+  /// سازگاری با کد قدیمی در صورت نیاز
   Future<int> _testTcpPing(String host, int port) async {
     if (host.isEmpty) return -2;
     final sw = Stopwatch()..start();
@@ -762,14 +792,20 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     if (serverList.isEmpty || isPingingAll) return;
     setState(() => isPingingAll = true);
 
-    await Future.wait(serverList.map((s) async {
-      final p = await _testTcpPing(s.host, s.port);
-      if (mounted) {
-        setState(() {
-          s.ping = p;
-        });
-      }
-    }));
+    // پینگ واقعی هسته؛ همزمانی محدود تا هسته Native قفل نشود (کمی کندتر از TCP خام)
+    const concurrency = 2;
+    for (var i = 0; i < serverList.length; i += concurrency) {
+      if (!mounted) break;
+      final batch = serverList.skip(i).take(concurrency).toList();
+      await Future.wait(batch.map((s) async {
+        final p = await _testRealPing(s);
+        if (mounted) {
+          setState(() {
+            s.ping = p;
+          });
+        }
+      }));
+    }
 
     if (mounted) {
       setState(() {

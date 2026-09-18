@@ -13,8 +13,8 @@ void main() {
   runApp(const JetConfigApp());
 }
 
-// مشخصات نسخه
-const String appVersion = 'v1.5.7';
+// مشخصات نسخه (نمایش داخل اپ)
+const String appVersion = 'v1.6.0';
 const String appLogoUrl = 'https://majid6064.ir/logo.png';
 const String telegramBotUrl = 'https://t.me/JetConfig1bot';
 const String telegramChannelUrl = 'https://t.me/jetconfig11';
@@ -699,7 +699,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
             config: configString,
             url: 'https://www.gstatic.com/generate_204',
           )
-          .timeout(const Duration(seconds: 10), onTimeout: () => -1);
+          .timeout(const Duration(seconds: 6), onTimeout: () => -1);
 
       if (delay < 0) return -2;
       return delay;
@@ -792,8 +792,8 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     if (serverList.isEmpty || isPingingAll) return;
     setState(() => isPingingAll = true);
 
-    // پینگ واقعی هسته؛ همزمانی محدود تا هسته Native قفل نشود (کمی کندتر از TCP خام)
-    const concurrency = 2;
+    // پینگ واقعی هسته — موازی با سقف هم‌زمانی تا هم سریع باشد هم Native قفل نشود
+    const concurrency = 8;
     for (var i = 0; i < serverList.length; i += concurrency) {
       if (!mounted) break;
       final batch = serverList.skip(i).take(concurrency).toList();
@@ -936,9 +936,12 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
                           Color pingColor = Colors.grey;
                           String pingText = '---';
                           if (s.ping > 0) {
-                            if (s.ping < 250) pingColor = const Color(0xFF00FFA3);
-                            else if (s.ping < 500) pingColor = Colors.orangeAccent;
-                            else pingColor = Colors.redAccent;
+                            // تا ۸۰۰ سبز، بالاتر زرد؛ فقط تایم‌اوت قرمز
+                            if (s.ping <= 800) {
+                              pingColor = const Color(0xFF00FFA3);
+                            } else {
+                              pingColor = Colors.orangeAccent;
+                            }
                             pingText = '${s.ping} ms';
                           } else if (s.ping == -2) {
                             pingColor = Colors.redAccent;

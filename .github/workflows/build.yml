@@ -34,11 +34,10 @@ jobs:
         uses: android-actions/setup-android@v3
 
       - name: Install Android platform 35 + build-tools
-        run: {
+        run: |
           yes | sdkmanager --licenses >/dev/null || true
           sdkmanager "platforms;android-35" "build-tools;35.0.0" "platform-tools"
           sdkmanager --list_installed | grep -E 'platforms;android-35|build-tools;35' || true
-        }
 
       - name: Ensure Android platform exists
         run: |

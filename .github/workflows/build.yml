@@ -30,14 +30,30 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: Setup Android SDK 35
-        uses: android-actions/setup-android@v3
-
       - name: Install Android platform 35 + build-tools
         run: |
-          yes | sdkmanager --licenses >/dev/null || true
-          sdkmanager "platforms;android-35" "build-tools;35.0.0" "platform-tools"
-          sdkmanager --list_installed | grep -E 'platforms;android-35|build-tools;35' || true
+          set +e
+          SM=""
+          for c in \
+            "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
+            "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" \
+            "$ANDROID_HOME/cmdline-tools/bin/sdkmanager"
+          do
+            if [ -n "$c" ] && [ -x "$c" ]; then SM="$c"; break; fi
+          done
+          if [ -z "$SM" ]; then
+            SM=$(find "${ANDROID_HOME:-/usr/local/lib/android/sdk}" -name sdkmanager -type f 2>/dev/null | head -1)
+          fi
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          echo "Using sdkmanager: $SM"
+          if [ -z "$SM" ] || [ ! -x "$SM" ]; then
+            echo "ERROR: sdkmanager not found"
+            ls -la "${ANDROID_HOME:-/usr/local/lib/android/sdk}" || true
+            exit 1
+          fi
+          yes | "$SM" --licenses >/dev/null 2>&1 || true
+          yes | "$SM" "platforms;android-35" "build-tools;35.0.0" "platform-tools"
+          "$SM" --list_installed 2>/dev/null | grep -E 'android-35|build-tools;35' || true
 
       - name: Ensure Android platform exists
         run: |

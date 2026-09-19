@@ -25,9 +25,20 @@ jobs:
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.19.6'
+          # برای flutter_v2ray_client + compileSdk 35
+          flutter-version: '3.27.4'
           channel: 'stable'
           cache: true
+
+      - name: Setup Android SDK 35
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android platform 35 + build-tools
+        run: {
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager "platforms;android-35" "build-tools;35.0.0" "platform-tools"
+          sdkmanager --list_installed | grep -E 'platforms;android-35|build-tools;35' || true
+        }
 
       - name: Ensure Android platform exists
         run: |
@@ -91,7 +102,7 @@ jobs:
             > android/key.properties
           wc -l android/key.properties
 
-      - name: Patch build.gradle for signing and minSdk
+      - name: Patch build.gradle for signing, minSdk, compileSdk 35
         run: |
           python3 - <<'PY'
           from pathlib import Path
@@ -104,12 +115,16 @@ jobs:
               raise SystemExit("android/app/build.gradle not found")
 
           g = path.read_text(encoding="utf-8")
+          is_kts = path.suffix == ".kts"
 
-          if path.suffix == ".kts":
-              print("kts detected — minimal minSdk patch only")
-              g = re.sub(r"minSdk\s*=\s*[^\n]+", "minSdk = 21", g)
+          if is_kts:
+              g = re.sub(r"minSdk\s*=\s*[^\n]+", "minSdk = 24", g)
+              g = re.sub(r"compileSdk\s*=\s*[^\n]+", "compileSdk = 35", g)
+              g = re.sub(r"targetSdk\s*=\s*[^\n]+", "targetSdk = 35", g)
+              if "compileSdk" not in g:
+                  g = re.sub(r"(android\s*\{)", r"\1\n    compileSdk = 35\n", g, count=1)
               path.write_text(g, encoding="utf-8")
-              print("minSdk OK (kts)")
+              print("kts: compileSdk/targetSdk/minSdk patched")
               raise SystemExit(0)
 
           loader = """
@@ -142,10 +157,24 @@ jobs:
               g = re.sub(r"(android\s*\{)", r"\1" + signing_block, g, count=1)
 
           g = g.replace("signingConfigs.debug", "signingConfigs.release")
-          g = re.sub(r"minSdkVersion\s+[^\n]+", "minSdkVersion 21", g)
-          g = re.sub(r"minSdk\s*=\s*[^\n]+", "minSdk = 21", g)
 
-          # اطمینان از signingConfig در release
+          # minSdk 24 (VPN / flutter_v2ray_client)
+          g = re.sub(r"minSdkVersion\s+[^\n]+", "minSdkVersion 24", g)
+          g = re.sub(r"minSdk\s*=\s*[^\n]+", "minSdk = 24", g)
+
+          # compileSdk / targetSdk 35 — الزامی برای flutter_v2ray_client
+          if re.search(r"compileSdkVersion\s+\d+", g):
+              g = re.sub(r"compileSdkVersion\s+\d+", "compileSdkVersion 35", g)
+          elif re.search(r"compileSdk\s+\d+", g):
+              g = re.sub(r"compileSdk\s+\d+", "compileSdk 35", g)
+          elif "compileSdk" not in g:
+              g = re.sub(r"(android\s*\{)", r"\1\n    compileSdkVersion 35\n", g, count=1)
+
+          if re.search(r"targetSdkVersion\s+\d+", g):
+              g = re.sub(r"targetSdkVersion\s+\d+", "targetSdkVersion 35", g)
+          elif re.search(r"targetSdk\s+\d+", g):
+              g = re.sub(r"targetSdk\s+\d+", "targetSdk 35", g)
+
           if "signingConfig signingConfigs.release" not in g:
               g = re.sub(
                   r"(buildTypes\s*\{[\s\S]*?release\s*\{)",
@@ -157,12 +186,24 @@ jobs:
           path.write_text(g, encoding="utf-8")
           text = path.read_text(encoding="utf-8")
           assert "signingConfigs {" in text
-          assert "minSdkVersion 21" in text or "minSdk = 21" in text
-          print("signing+minSdk OK")
+          assert "35" in text
+          print("signing + minSdk24 + compileSdk35 OK")
+          print("--- app/build.gradle snippet ---")
+          for line in text.splitlines():
+              if any(k in line for k in ("compileSdk", "targetSdk", "minSdk", "signingConfig")):
+                  print(line)
           PY
 
+          # ریشه android/build.gradle اگر compileSdk سراسری داشت
+          ROOT_G="android/build.gradle"
+          if [ -f "$ROOT_G" ]; then
+            sed -i 's/compileSdkVersion\s*[0-9]\+/compileSdkVersion 35/g' "$ROOT_G" || true
+          fi
+
       - name: Build release APK
-        run: flutter build apk --release --split-per-abi
+        run: |
+          flutter doctor -v
+          flutter build apk --release --split-per-abi
 
       - name: Prepare release artifact
         run: |
@@ -175,7 +216,6 @@ jobs:
             exit 1
           fi
 
-      # تگ یکتا از نسخه اپ + شماره بیلد → هر بیلد Release جدید با تاریخ امروز
       - name: Read app version
         id: ver
         run: |
@@ -206,6 +246,7 @@ jobs:
 
             - نسخه داخل اپ: `${{ steps.ver.outputs.ver }}`
             - تگ: `${{ steps.ver.outputs.tag }}`
+            - هسته: flutter_v2ray_client (Xray 26.9.9) — پشتیبانی VLESS Encryption
             - امضا با کلید ثابت
             - Actions run: `${{ github.run_number }}`
 

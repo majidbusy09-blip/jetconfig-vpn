@@ -14,7 +14,7 @@ void main() {
 }
 
 // مشخصات نسخه (نمایش داخل اپ)
-const String appVersion = 'v1.7.0';
+const String appVersion = 'v1.7.1';
 const String appLogoUrl = 'https://majid6064.ir/logo.png';
 const String telegramBotUrl = 'https://t.me/JetConfig1bot';
 const String telegramChannelUrl = 'https://t.me/jetconfig11';
@@ -178,20 +178,20 @@ class MainVpnScreen extends StatefulWidget {
 class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateMixin {
   late final V2ray flutterV2ray = V2ray(
     onStatusChanged: (status) {
-      if (mounted) {
-        setState(() {
-          v2rayStatus = status;
-        });
-      }
+      if (!mounted) return;
+      setState(() {
+        v2rayStatus = status;
+        // قطع از نوار اعلان / سیستم — UI همگام شود
+        final st = (status.state ?? '').toUpperCase();
+        if (st.contains('DISCONNECT') || st == 'DISCONNECTED' || st == 'IDLE') {
+          activePing = -1;
+          isConnecting = false;
+        }
+      });
       if (status.state == 'CONNECTED') {
         _checkActivePing();
         _fetchCurrentIp();
       } else {
-        if (mounted) {
-          setState(() {
-            activePing = -1;
-          });
-        }
         _fetchCurrentIp();
       }
     },
@@ -863,6 +863,8 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
         config: configString,
         blockedApps: onlyFilteredApps ? iranianAndBrowserPackages : null,
         proxyOnly: false,
+        // دکمه نوار اعلان باید سرویس را قطع کند (نه فقط باز کردن اپ)
+        notificationDisconnectButtonName: 'قطع اتصال',
       );
       await _saveSelectedServer(target);
     } catch (e) {

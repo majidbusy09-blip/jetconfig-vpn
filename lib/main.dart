@@ -5,7 +5,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:flutter_v2ray/flutter_v2ray.dart';
+import 'package:flutter_v2ray_client/flutter_v2ray.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 void main() {
@@ -14,7 +14,7 @@ void main() {
 }
 
 // مشخصات نسخه (نمایش داخل اپ)
-const String appVersion = 'v1.6.5';
+const String appVersion = 'v1.7.0';
 const String appLogoUrl = 'https://majid6064.ir/logo.png';
 const String telegramBotUrl = 'https://t.me/JetConfig1bot';
 const String telegramChannelUrl = 'https://t.me/jetconfig11';
@@ -176,7 +176,7 @@ class MainVpnScreen extends StatefulWidget {
 }
 
 class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateMixin {
-  late final FlutterV2ray flutterV2ray = FlutterV2ray(
+  late final V2ray flutterV2ray = V2ray(
     onStatusChanged: (status) {
       if (mounted) {
         setState(() {
@@ -248,7 +248,45 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
   }
 
   Future<void> _initCore() async {
-    await flutterV2ray.initializeV2Ray();
+    await flutterV2ray.initialize(
+      notificationIconResourceType: 'mipmap',
+      notificationIconResourceName: 'ic_launcher',
+    );
+  }
+
+  /// آماده‌سازی کانفیگ برای هسته: JSON خام پاسارگاد یا لینک vless://
+  String _prepareConfigForCore(String raw) {
+    final s = raw.trim();
+    if (s.isEmpty) return s;
+
+    // کانفیگ کامل Xray JSON (ساب جدید پاسارگاد)
+    if (s.startsWith('{')) {
+      try {
+        final decoded = jsonDecode(s);
+        if (decoded is Map) {
+          // اطمینان از اینکه encryption جدید دست‌نخورده می‌ماند
+          return jsonEncode(decoded);
+        }
+      } catch (_) {
+        return s;
+      }
+      return s;
+    }
+
+    // لینک اشتراکی کلاسیک
+    if (s.startsWith('vless://') ||
+        s.startsWith('vmess://') ||
+        s.startsWith('trojan://') ||
+        s.startsWith('ss://')) {
+      try {
+        final parsedUrl = V2ray.parseFromURL(s);
+        return parsedUrl.getFullConfiguration();
+      } catch (_) {
+        return s;
+      }
+    }
+
+    return s;
   }
 
   Future<void> _fetchCurrentIp() async {
@@ -812,14 +850,12 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
       }
 
       final target = serverList[selectedServerIndex];
-      String configString = target.config.trim();
+      final configString = _prepareConfigForCore(target.config);
 
-      if (configString.startsWith('vless://') ||
-          configString.startsWith('vmess://') ||
-          configString.startsWith('trojan://') ||
-          configString.startsWith('ss://')) {
-        final parsedUrl = FlutterV2ray.parseFromURL(configString);
-        configString = parsedUrl.getFullConfiguration();
+      if (configString.isEmpty) {
+        _showToast('کانفیگ سرور خالی است — بروزرسانی کن');
+        if (mounted) setState(() => isConnecting = false);
+        return;
       }
 
       await flutterV2ray.startV2Ray(
@@ -830,7 +866,11 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
       );
       await _saveSelectedServer(target);
     } catch (e) {
-      _showToast('خطا در برقراری اتصال');
+      debugPrint('startV2Ray error: $e');
+      _showToast('خطا در اتصال — هسته یا کانفیگ');
+      try {
+        await flutterV2ray.stopV2Ray();
+      } catch (_) {}
     } finally {
       if (mounted) {
         setState(() => isConnecting = false);

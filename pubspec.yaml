@@ -1,15 +1,16 @@
 name: jet_vpn
 description: "JET VPN - High Speed Secure VPN"
 publish_to: 'none'
-version: 1.5.0+15
+version: 1.7.0+17
 
 environment:
-  sdk: '>=3.0.0 <4.0.0'
+  sdk: '>=3.1.0 <4.0.0'
 
 dependencies:
   flutter:
     sdk: flutter
-  flutter_v2ray: ^1.0.10
+  # هسته Xray 26.9.9 — پشتیبانی VLESS Encryption (mlkem768x25519plus)
+  flutter_v2ray_client: ^3.5.0
   http: ^1.2.0
   shared_preferences: ^2.2.2
   url_launcher: ^6.2.5

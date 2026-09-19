@@ -25,7 +25,6 @@ jobs:
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          # برای flutter_v2ray_client + compileSdk 35
           flutter-version: '3.27.4'
           channel: 'stable'
           cache: true
@@ -119,7 +118,7 @@ jobs:
 
       - name: Patch build.gradle for signing, minSdk, compileSdk 35
         run: |
-          python3 - <<'PY'
+          python3 << 'PY'
           from pathlib import Path
           import re
 
@@ -130,90 +129,98 @@ jobs:
               raise SystemExit("android/app/build.gradle not found")
 
           g = path.read_text(encoding="utf-8")
-          is_kts = path.suffix == ".kts"
+          print("Patching:", path)
 
-          if is_kts:
-              g = re.sub(r"minSdk\s*=\s*[^\n]+", "minSdk = 24", g)
-              g = re.sub(r"compileSdk\s*=\s*[^\n]+", "compileSdk = 35", g)
-              g = re.sub(r"targetSdk\s*=\s*[^\n]+", "targetSdk = 35", g)
-              if "compileSdk" not in g:
-                  g = re.sub(r"(android\s*\{)", r"\1\n    compileSdk = 35\n", g, count=1)
-              path.write_text(g, encoding="utf-8")
-              print("kts: compileSdk/targetSdk/minSdk patched")
-              raise SystemExit(0)
-
-          loader = """
-          def keystoreProperties = new Properties()
-          def keystorePropertiesFile = rootProject.file('key.properties')
-          if (keystorePropertiesFile.exists()) {
-              keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
-          }
-          """
-
-          if "keystoreProperties = new Properties()" not in g:
-              m = re.search(r"plugins\s*\{[\s\S]*?\n\}", g)
-              if m:
-                  g = g[: m.end()] + "\n" + loader + "\n" + g[m.end() :]
-              else:
-                  g = loader + "\n" + g
-
-          signing_block = """
-              signingConfigs {
-                  release {
-                      keyAlias keystoreProperties['keyAlias']
-                      keyPassword keystoreProperties['keyPassword']
-                      storeFile keystoreProperties['storeFile'] ? file(keystoreProperties['storeFile']) : null
-                      storePassword keystoreProperties['storePassword']
-                  }
-              }
-          """
-
-          if "signingConfigs {" not in g and "signingConfigs{" not in g:
-              g = re.sub(r"(android\s*\{)", r"\1" + signing_block, g, count=1)
-
-          g = g.replace("signingConfigs.debug", "signingConfigs.release")
-
-          # minSdk 24 (VPN / flutter_v2ray_client)
+          # Force explicit SDK numbers (Flutter 3.27 uses flutter.compileSdkVersion)
           g = re.sub(r"minSdkVersion\s+[^\n]+", "minSdkVersion 24", g)
           g = re.sub(r"minSdk\s*=\s*[^\n]+", "minSdk = 24", g)
+          g = re.sub(r"compileSdkVersion\s+[^\n]+", "compileSdkVersion 35", g)
+          g = re.sub(r"compileSdk\s*=\s*[^\n]+", "compileSdk = 35", g)
+          g = re.sub(r"compileSdk\s+\d+", "compileSdk 35", g)
+          g = re.sub(r"targetSdkVersion\s+[^\n]+", "targetSdkVersion 35", g)
+          g = re.sub(r"targetSdk\s*=\s*[^\n]+", "targetSdk = 35", g)
+          g = re.sub(r"targetSdk\s+\d+", "targetSdk 35", g)
 
-          # compileSdk / targetSdk 35 — الزامی برای flutter_v2ray_client
-          if re.search(r"compileSdkVersion\s+\d+", g):
-              g = re.sub(r"compileSdkVersion\s+\d+", "compileSdkVersion 35", g)
-          elif re.search(r"compileSdk\s+\d+", g):
-              g = re.sub(r"compileSdk\s+\d+", "compileSdk 35", g)
-          elif "compileSdk" not in g:
-              g = re.sub(r"(android\s*\{)", r"\1\n    compileSdkVersion 35\n", g, count=1)
-
-          if re.search(r"targetSdkVersion\s+\d+", g):
-              g = re.sub(r"targetSdkVersion\s+\d+", "targetSdkVersion 35", g)
-          elif re.search(r"targetSdk\s+\d+", g):
-              g = re.sub(r"targetSdk\s+\d+", "targetSdk 35", g)
-
-          if "signingConfig signingConfigs.release" not in g:
-              g = re.sub(
-                  r"(buildTypes\s*\{[\s\S]*?release\s*\{)",
-                  r"\1\n            signingConfig signingConfigs.release\n",
-                  g,
-                  count=1,
-              )
+          if path.suffix == ".kts":
+              if "compileSdk" not in g:
+                  g = re.sub(r"(android\s*\{)", r"\1\n    compileSdk = 35\n", g, count=1)
+              if "keystoreProperties" not in g:
+                  loader = (
+                      "import java.util.Properties\n"
+                      "import java.io.FileInputStream\n"
+                      "val keystoreProperties = Properties()\n"
+                      "val keystorePropertiesFile = rootProject.file(\"key.properties\")\n"
+                      "if (keystorePropertiesFile.exists()) {\n"
+                      "    keystoreProperties.load(FileInputStream(keystorePropertiesFile))\n"
+                      "}\n\n"
+                  )
+                  g = loader + g
+              if "signingConfigs" not in g:
+                  block = (
+                      "\n    signingConfigs {\n"
+                      "        create(\"release\") {\n"
+                      "            keyAlias = keystoreProperties[\"keyAlias\"] as String?\n"
+                      "            keyPassword = keystoreProperties[\"keyPassword\"] as String?\n"
+                      "            storeFile = (keystoreProperties[\"storeFile\"] as String?)?.let { file(it) }\n"
+                      "            storePassword = keystoreProperties[\"storePassword\"] as String?\n"
+                      "        }\n"
+                      "    }\n"
+                  )
+                  g = re.sub(r"(android\s*\{)", r"\1" + block, g, count=1)
+              if 'signingConfigs.getByName("release")' not in g:
+                  g = re.sub(
+                      r"(release\s*\{)",
+                      r'\1\n            signingConfig = signingConfigs.getByName("release")\n',
+                      g,
+                      count=1,
+                  )
+          else:
+              if "keystoreProperties = new Properties()" not in g:
+                  loader = (
+                      "\ndef keystoreProperties = new Properties()\n"
+                      "def keystorePropertiesFile = rootProject.file('key.properties')\n"
+                      "if (keystorePropertiesFile.exists()) {\n"
+                      "    keystoreProperties.load(new FileInputStream(keystorePropertiesFile))\n"
+                      "}\n"
+                  )
+                  m = re.search(r"plugins\s*\{[\s\S]*?\n\}", g)
+                  if m:
+                      g = g[: m.end()] + loader + g[m.end() :]
+                  else:
+                      g = loader + g
+              if "signingConfigs {" not in g:
+                  block = (
+                      "\n    signingConfigs {\n"
+                      "        release {\n"
+                      "            keyAlias keystoreProperties['keyAlias']\n"
+                      "            keyPassword keystoreProperties['keyPassword']\n"
+                      "            storeFile keystoreProperties['storeFile'] ? file(keystoreProperties['storeFile']) : null\n"
+                      "            storePassword keystoreProperties['storePassword']\n"
+                      "        }\n"
+                      "    }\n"
+                  )
+                  g = re.sub(r"(android\s*\{)", r"\1" + block, g, count=1)
+              g = g.replace("signingConfigs.debug", "signingConfigs.release")
+              if "signingConfig signingConfigs.release" not in g:
+                  g = re.sub(
+                      r"(buildTypes\s*\{[\s\S]*?release\s*\{)",
+                      r"\1\n            signingConfig signingConfigs.release\n",
+                      g,
+                      count=1,
+                  )
+              if "compileSdk" not in g and "compileSdkVersion" not in g:
+                  g = re.sub(r"(android\s*\{)", r"\1\n    compileSdkVersion 35\n", g, count=1)
 
           path.write_text(g, encoding="utf-8")
           text = path.read_text(encoding="utf-8")
-          assert "signingConfigs {" in text
-          assert "35" in text
-          print("signing + minSdk24 + compileSdk35 OK")
-          print("--- app/build.gradle snippet ---")
+          print("--- relevant lines ---")
           for line in text.splitlines():
-              if any(k in line for k in ("compileSdk", "targetSdk", "minSdk", "signingConfig")):
+              if any(k in line for k in ("compileSdk", "targetSdk", "minSdk", "signing")):
                   print(line)
+          if "35" not in text:
+              raise SystemExit("compileSdk 35 was not written")
+          print("patch OK")
           PY
-
-          # ریشه android/build.gradle اگر compileSdk سراسری داشت
-          ROOT_G="android/build.gradle"
-          if [ -f "$ROOT_G" ]; then
-            sed -i 's/compileSdkVersion\s*[0-9]\+/compileSdkVersion 35/g' "$ROOT_G" || true
-          fi
 
       - name: Build release APK
         run: |

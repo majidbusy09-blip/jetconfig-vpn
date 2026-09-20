@@ -14,7 +14,7 @@ void main() {
 }
 
 // مشخصات نسخه (نمایش داخل اپ)
-const String appVersion = 'v1.7.3';
+const String appVersion = 'v1.7.4';
 const String appLogoUrl = 'https://majid6064.ir/logo.png';
 const String telegramBotUrl = 'https://t.me/JetConfig1bot';
 const String telegramChannelUrl = 'https://t.me/jetconfig11';
@@ -179,25 +179,29 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
   late final V2ray flutterV2ray = V2ray(
     onStatusChanged: (status) {
       if (!mounted) return;
-      final st = (status.state ?? '').toUpperCase().trim();
       final prev = (_lastV2rayState ?? '').toUpperCase().trim();
       _lastV2rayState = status.state;
 
       setState(() {
         v2rayStatus = status;
+
         if (_statusMeansDisconnected(status.state)) {
           activePing = -1;
           isConnecting = false;
           _uiForceDisconnected = true;
         }
-        if (_statusMeansConnected(status.state)) {
+
+        // اگر کاربر عمداً قطع کرده، CONNECTEDهای باقی‌مانده از هسته را نادیده بگیر
+        // تا دکمه دوباره سبز نشود
+        if (_statusMeansConnected(status.state) && !_uiForceDisconnected) {
           isConnecting = false;
-          _uiForceDisconnected = false;
         }
       });
 
-      // IP فقط روی انتقال واقعی وصل/قطع
-      if (_statusMeansConnected(status.state) && prev != 'CONNECTED') {
+      // IP فقط روی انتقال واقعی؛ و فقط اگر UI در حالت قطع اجباری نیست
+      if (_statusMeansConnected(status.state) &&
+          prev != 'CONNECTED' &&
+          !_uiForceDisconnected) {
         _checkActivePing();
         _fetchCurrentIp(force: true);
       } else if (_statusMeansDisconnected(status.state) && prev == 'CONNECTED') {
@@ -886,11 +890,12 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
   }
 
   Future<void> _toggleConnect() async {
-    if (_isVpnConnected) {
-      // فوری UI را قطع کن تا دکمه سبز نماند
+    // اگر UI وصل است یا هسته هنوز CONNECTED می‌گوید → قطع کن
+    final coreStillUp = _statusMeansConnected(v2rayStatus.state);
+    if (_isVpnConnected || coreStillUp) {
       if (mounted) {
         setState(() {
-          _uiForceDisconnected = true;
+          _uiForceDisconnected = true; // تا status بعدی دوباره سبز نکند
           activePing = -1;
           isConnecting = false;
         });
@@ -899,6 +904,18 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
         await flutterV2ray.stopV2Ray();
       } catch (e) {
         debugPrint('stopV2Ray error: $e');
+      }
+      // بعضی دستگاه‌ها یک بار stop کافی نیست
+      try {
+        await Future.delayed(const Duration(milliseconds: 200));
+        await flutterV2ray.stopV2Ray();
+      } catch (_) {}
+      if (mounted) {
+        setState(() {
+          _uiForceDisconnected = true;
+          activePing = -1;
+          isConnecting = false;
+        });
       }
       _fetchCurrentIp(force: true);
       return;
@@ -909,6 +926,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
       return;
     }
 
+    // شروع اتصال جدید — از اینجا به بعد CONNECTED معتبر است
     setState(() {
       isConnecting = true;
       _uiForceDisconnected = false;

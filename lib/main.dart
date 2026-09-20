@@ -179,20 +179,29 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
   late final V2ray flutterV2ray = V2ray(
     onStatusChanged: (status) {
       if (!mounted) return;
+      final st = (status.state ?? '').toUpperCase();
+      final prev = (_lastV2rayState ?? '').toUpperCase();
+      _lastV2rayState = status.state;
+
       setState(() {
         v2rayStatus = status;
         // قطع از نوار اعلان / سیستم — UI همگام شود
-        final st = (status.state ?? '').toUpperCase();
         if (st.contains('DISCONNECT') || st == 'DISCONNECTED' || st == 'IDLE') {
           activePing = -1;
           isConnecting = false;
         }
+        if (st == 'CONNECTED') {
+          isConnecting = false;
+        }
       });
-      if (status.state == 'CONNECTED') {
+
+      // هسته هر لحظه status می‌فرستد (ترافیک) — IP را فقط روی تغییر وضعیت واقعی بگیر
+      if (st == 'CONNECTED' && prev != 'CONNECTED') {
         _checkActivePing();
-        _fetchCurrentIp();
-      } else {
-        _fetchCurrentIp();
+        _fetchCurrentIp(force: true);
+      } else if ((st.contains('DISCONNECT') || st == 'DISCONNECTED' || st == 'IDLE') &&
+          prev == 'CONNECTED') {
+        _fetchCurrentIp(force: true);
       }
     },
   );
@@ -217,6 +226,9 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
   bool preferLastServer = true; // نگه داشتن آخرین سرور انتخاب‌شده
   int activePing = -1;
   String currentIpAddress = '...';
+  String? _lastV2rayState;
+  DateTime? _lastIpFetchAt;
+  bool _ipFetchInFlight = false;
 
   Map<String, dynamic>? userData;
   String? savedUser;
@@ -289,18 +301,35 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     return s;
   }
 
-  Future<void> _fetchCurrentIp() async {
+  /// IP عمومی را sparingly می‌گیرد تا روی هر تیک status عوض نشود
+  Future<void> _fetchCurrentIp({bool force = false}) async {
+    if (_ipFetchInFlight) return;
+    final now = DateTime.now();
+    if (!force &&
+        _lastIpFetchAt != null &&
+        now.difference(_lastIpFetchAt!).inSeconds < 20) {
+      return;
+    }
+    _ipFetchInFlight = true;
     try {
-      final res = await http.get(Uri.parse('https://api.ipify.org')).timeout(const Duration(seconds: 4));
+      final res = await http
+          .get(Uri.parse('https://api.ipify.org'))
+          .timeout(const Duration(seconds: 5));
       if (res.statusCode == 200 && mounted) {
-        setState(() {
-          currentIpAddress = res.body.trim();
-        });
+        final ip = res.body.trim();
+        if (ip.isNotEmpty && ip != currentIpAddress) {
+          setState(() => currentIpAddress = ip);
+        } else if (ip.isNotEmpty && currentIpAddress == '...') {
+          setState(() => currentIpAddress = ip);
+        }
+        _lastIpFetchAt = DateTime.now();
       }
     } catch (_) {
-      if (mounted && currentIpAddress == '...') {
+      if (mounted && (currentIpAddress == '...' || currentIpAddress == '---')) {
         setState(() => currentIpAddress = '---');
       }
+    } finally {
+      _ipFetchInFlight = false;
     }
   }
 

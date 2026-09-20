@@ -179,28 +179,28 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
   late final V2ray flutterV2ray = V2ray(
     onStatusChanged: (status) {
       if (!mounted) return;
-      final st = (status.state ?? '').toUpperCase();
-      final prev = (_lastV2rayState ?? '').toUpperCase();
+      final st = (status.state ?? '').toUpperCase().trim();
+      final prev = (_lastV2rayState ?? '').toUpperCase().trim();
       _lastV2rayState = status.state;
 
       setState(() {
         v2rayStatus = status;
-        // قطع از نوار اعلان / سیستم — UI همگام شود
-        if (st.contains('DISCONNECT') || st == 'DISCONNECTED' || st == 'IDLE') {
+        if (_statusMeansDisconnected(status.state)) {
           activePing = -1;
           isConnecting = false;
+          _uiForceDisconnected = true;
         }
-        if (st == 'CONNECTED') {
+        if (_statusMeansConnected(status.state)) {
           isConnecting = false;
+          _uiForceDisconnected = false;
         }
       });
 
-      // هسته هر لحظه status می‌فرستد (ترافیک) — IP را فقط روی تغییر وضعیت واقعی بگیر
-      if (st == 'CONNECTED' && prev != 'CONNECTED') {
+      // IP فقط روی انتقال واقعی وصل/قطع
+      if (_statusMeansConnected(status.state) && prev != 'CONNECTED') {
         _checkActivePing();
         _fetchCurrentIp(force: true);
-      } else if ((st.contains('DISCONNECT') || st == 'DISCONNECTED' || st == 'IDLE') &&
-          prev == 'CONNECTED') {
+      } else if (_statusMeansDisconnected(status.state) && prev == 'CONNECTED') {
         _fetchCurrentIp(force: true);
       }
     },
@@ -229,6 +229,8 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
   String? _lastV2rayState;
   DateTime? _lastIpFetchAt;
   bool _ipFetchInFlight = false;
+  /// بعد از stop، تا رسیدن status قطع از هسته، UI را فوری قطع نشان بده
+  bool _uiForceDisconnected = false;
 
   Map<String, dynamic>? userData;
   String? savedUser;
@@ -302,7 +304,30 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
   }
 
   /// IP عمومی را sparingly می‌گیرد تا روی هر تیک status عوض نشود
-  Future<void> _fetchCurrentIp({bool force = false}) async {
+  Future<void> _fetchCurrentIp({bool force = false}
+
+  bool _statusMeansConnected(String? state) {
+    final st = (state ?? '').toUpperCase().trim();
+    return st == 'CONNECTED';
+  }
+
+  bool _statusMeansDisconnected(String? state) {
+    final st = (state ?? '').toUpperCase().trim();
+    if (st.isEmpty) return false;
+    return st.contains('DISCONNECT') ||
+        st == 'IDLE' ||
+        st == 'NONE' ||
+        st == 'STOPPED' ||
+        st == 'NO_PROCESS';
+  }
+
+  /// وضعیت واقعی دکمه/UI — نه فقط آخرین تیک هسته
+  bool get _isVpnConnected {
+    if (_uiForceDisconnected) return false;
+    return _statusMeansConnected(v2rayStatus.state);
+  }
+
+) async {
     if (_ipFetchInFlight) return;
     final now = DateTime.now();
     if (!force &&
@@ -629,7 +654,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
       });
     }
 
-    if (v2rayStatus.state == 'CONNECTED') {
+    if (_isVpnConnected) {
       _showToast('در حال تغییر حالت شبکه...', isError: false);
       await _toggleConnect();
       await Future.delayed(const Duration(milliseconds: 300));
@@ -856,10 +881,21 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
   }
 
   Future<void> _toggleConnect() async {
-    if (v2rayStatus.state == 'CONNECTED') {
-      await flutterV2ray.stopV2Ray();
-      if (mounted) setState(() => activePing = -1);
-      _fetchCurrentIp();
+    if (_isVpnConnected) {
+      // فوری UI را قطع کن تا دکمه سبز نماند
+      if (mounted) {
+        setState(() {
+          _uiForceDisconnected = true;
+          activePing = -1;
+          isConnecting = false;
+        });
+      }
+      try {
+        await flutterV2ray.stopV2Ray();
+      } catch (e) {
+        debugPrint('stopV2Ray error: $e');
+      }
+      _fetchCurrentIp(force: true);
       return;
     }
 
@@ -868,7 +904,10 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
       return;
     }
 
-    setState(() => isConnecting = true);
+    setState(() {
+      isConnecting = true;
+      _uiForceDisconnected = false;
+    });
 
     try {
       final bool permissionGranted = await flutterV2ray.requestPermission();
@@ -986,7 +1025,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
                               });
                               _saveSelectedServer(serverList[i]);
                               Navigator.pop(ctx);
-                              if (v2rayStatus.state == 'CONNECTED') {
+                              if (_isVpnConnected) {
                                 _toggleConnect().then((_) => _toggleConnect());
                               }
                             },
@@ -1040,7 +1079,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
   }
 
   Widget _buildNeonIpPill() {
-    final isConnected = v2rayStatus.state == 'CONNECTED';
+    final isConnected = _isVpnConnected;
     final glowColor = isConnected ? const Color(0xFF00FFA3) : const Color(0xFF00E5FF);
 
     return Container(
@@ -1166,7 +1205,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
   }
 
   Widget _buildTrafficCard() {
-    final isConnected = v2rayStatus.state == 'CONNECTED';
+    final isConnected = _isVpnConnected;
     final downloadBytes = isConnected ? v2rayStatus.download : 0;
     final uploadBytes = isConnected ? v2rayStatus.upload : 0;
 
@@ -1223,7 +1262,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
   }
 
   Widget _build3DAnimatedButton() {
-    final isConnected = v2rayStatus.state == 'CONNECTED';
+    final isConnected = _isVpnConnected;
 
     return GestureDetector(
       onTap: isConnecting ? null : _toggleConnect,
@@ -1440,7 +1479,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
                   await prefs.remove('cached_user_json');
                   await prefs.remove('cached_servers_json');
                   await prefs.remove('cached_for_username');
-                  if (v2rayStatus.state == 'CONNECTED') {
+                  if (_isVpnConnected) {
                     await flutterV2ray.stopV2Ray();
                   }
                   if (mounted) {
@@ -1740,7 +1779,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
   }
 
   Widget _buildDashboardView() {
-    final isConnected = v2rayStatus.state == 'CONNECTED';
+    final isConnected = _isVpnConnected;
     final currentServerName = serverList.isNotEmpty ? serverList[selectedServerIndex].name : 'سرور در دسترس';
 
     return SingleChildScrollView(

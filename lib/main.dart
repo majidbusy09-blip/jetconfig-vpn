@@ -14,7 +14,7 @@ void main() {
 }
 
 // مشخصات نسخه (نمایش داخل اپ)
-const String appVersion = 'v1.7.1';
+const String appVersion = 'v1.7.3';
 const String appLogoUrl = 'https://majid6064.ir/logo.png';
 const String telegramBotUrl = 'https://t.me/JetConfig1bot';
 const String telegramChannelUrl = 'https://t.me/jetconfig11';
@@ -303,9 +303,6 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     return s;
   }
 
-  /// IP عمومی را sparingly می‌گیرد تا روی هر تیک status عوض نشود
-  Future<void> _fetchCurrentIp({bool force = false}
-
   bool _statusMeansConnected(String? state) {
     final st = (state ?? '').toUpperCase().trim();
     return st == 'CONNECTED';
@@ -327,27 +324,35 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     return _statusMeansConnected(v2rayStatus.state);
   }
 
-) async {
+  /// IP عمومی:
+  /// - قبل از اتصال: IP واقعی اینترنت
+  /// - بعد از اتصال: IP خروجی سرور
+  /// - با عوض شدن سرور: دوباره گرفته می‌شود
+  /// - روی تیک‌های مکرر status (ترافیک) گرفته نمی‌شود تا چشمک نزند
+  Future<void> _fetchCurrentIp({bool force = false}) async {
     if (_ipFetchInFlight) return;
     final now = DateTime.now();
+    // فقط درخواست‌های غیرضروری را محدود کن؛ force همیشه اجرا می‌شود
     if (!force &&
         _lastIpFetchAt != null &&
-        now.difference(_lastIpFetchAt!).inSeconds < 20) {
+        now.difference(_lastIpFetchAt!).inSeconds < 8) {
       return;
     }
     _ipFetchInFlight = true;
     try {
       final res = await http
           .get(Uri.parse('https://api.ipify.org'))
-          .timeout(const Duration(seconds: 5));
+          .timeout(const Duration(seconds: 6));
       if (res.statusCode == 200 && mounted) {
         final ip = res.body.trim();
-        if (ip.isNotEmpty && ip != currentIpAddress) {
-          setState(() => currentIpAddress = ip);
-        } else if (ip.isNotEmpty && currentIpAddress == '...') {
-          setState(() => currentIpAddress = ip);
+        if (ip.isNotEmpty) {
+          if (ip != currentIpAddress) {
+            setState(() => currentIpAddress = ip);
+          } else if (currentIpAddress == '...' || currentIpAddress == '---') {
+            setState(() => currentIpAddress = ip);
+          }
+          _lastIpFetchAt = DateTime.now();
         }
-        _lastIpFetchAt = DateTime.now();
       }
     } catch (_) {
       if (mounted && (currentIpAddress == '...' || currentIpAddress == '---')) {
@@ -935,6 +940,10 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
         notificationDisconnectButtonName: 'قطع اتصال',
       );
       await _saveSelectedServer(target);
+      // کمی صبر تا تونل بالا بیاید، بعد IP سرور را بگیر
+      Future.delayed(const Duration(milliseconds: 1200), () {
+        if (mounted) _fetchCurrentIp(force: true);
+      });
     } catch (e) {
       debugPrint('startV2Ray error: $e');
       _showToast('خطا در اتصال — هسته یا کانفیگ');

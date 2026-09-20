@@ -211,14 +211,44 @@ jobs:
               if "compileSdk" not in g and "compileSdkVersion" not in g:
                   g = re.sub(r"(android\s*\{)", r"\1\n    compileSdkVersion 35\n", g, count=1)
 
+          # Ensure targetSdk exists even if Flutter template omitted it
+          if "targetSdk" not in g and "targetSdkVersion" not in g:
+              if path.suffix == ".kts":
+                  g = re.sub(
+                      r"(defaultConfig\s*\{)",
+                      r"\1\n        targetSdk = 35\n",
+                      g,
+                      count=1,
+                  )
+              else:
+                  g = re.sub(
+                      r"(defaultConfig\s*\{)",
+                      r"\1\n        targetSdkVersion 35\n",
+                      g,
+                      count=1,
+                  )
+
+          # Hard-overwrite any remaining flutter.targetSdkVersion references
+          g = g.replace("flutter.targetSdkVersion", "35")
+          g = g.replace("flutter.compileSdkVersion", "35")
+          g = g.replace("flutter.minSdkVersion", "24")
+
           path.write_text(g, encoding="utf-8")
           text = path.read_text(encoding="utf-8")
           print("--- relevant lines ---")
           for line in text.splitlines():
               if any(k in line for k in ("compileSdk", "targetSdk", "minSdk", "signing")):
                   print(line)
-          if "35" not in text:
-              raise SystemExit("compileSdk 35 was not written")
+          if "targetSdk" not in text and "targetSdkVersion" not in text:
+              raise SystemExit("targetSdk was not written — Bazaar will reject APK")
+          if not re.search(r"targetSdk(Version)?\s*=?\s*35", text):
+              # last resort inject at android { level
+              if path.suffix == ".kts":
+                  text = re.sub(r"(android\s*\{)", r"\1\n    targetSdk = 35\n", text, count=1)
+              else:
+                  text = re.sub(r"(android\s*\{)", r"\1\n    targetSdkVersion 35\n", text, count=1)
+              path.write_text(text, encoding="utf-8")
+              print("injected targetSdk 35 at android block")
           print("patch OK")
           PY
 
@@ -226,6 +256,42 @@ jobs:
         run: |
           flutter doctor -v
           flutter build apk --release --split-per-abi
+
+      - name: Verify targetSdk >= 32 (Cafe Bazaar requirement)
+        run: |
+          set -e
+          APK="build/app/outputs/flutter-apk/app-arm64-v8a-release.apk"
+          if [ ! -f "$APK" ]; then
+            APK=$(ls build/app/outputs/flutter-apk/*-release.apk 2>/dev/null | head -1)
+          fi
+          echo "Checking APK: $APK"
+          # try aapt / aapt2 from Android SDK
+          AAPT=$(find "${ANDROID_HOME:-$ANDROID_SDK_ROOT}" -name aapt2 -type f 2>/dev/null | head -1)
+          if [ -z "$AAPT" ]; then
+            AAPT=$(find "${ANDROID_HOME:-$ANDROID_SDK_ROOT}" -name aapt -type f 2>/dev/null | head -1)
+          fi
+          if [ -n "$AAPT" ]; then
+            echo "Using: $AAPT"
+            BADGING=$("$AAPT" dump badging "$APK" 2>/dev/null || true)
+            echo "$BADGING" | tr ' ' '\n' | grep -i sdk || true
+            TARGET=$(echo "$BADGING" | grep -oE "targetSdkVersion:'[0-9]+'" | grep -oE "[0-9]+" | head -1)
+            if [ -z "$TARGET" ]; then
+              TARGET=$(echo "$BADGING" | grep -oE "targetSdkVersion:[0-9]+" | grep -oE "[0-9]+" | head -1)
+            fi
+            echo "Parsed targetSdkVersion=$TARGET"
+            if [ -z "$TARGET" ]; then
+              echo "WARNING: could not parse targetSdk from aapt; continuing"
+            elif [ "$TARGET" -lt 32 ]; then
+              echo "ERROR: targetSdk=$TARGET is below 32 — Cafe Bazaar will reject this APK"
+              exit 1
+            else
+              echo "OK: targetSdk=$TARGET (>= 32)"
+            fi
+          else
+            echo "WARNING: aapt not found; skip binary verify"
+            # at least confirm gradle files still say 35
+            grep -R "targetSdk" android/app/ --include="*.gradle*" || true
+          fi
 
       - name: Prepare release artifact
         run: |

@@ -780,17 +780,62 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     }
   }
 
+  /// پینگ خام TCP — فقط باز بودن پورت (سریع؛ ممکن است روی CDN سبز دروغین باشد)
   Future<int> _testTcpPing(String host, int port) async {
     if (host.isEmpty) return -2;
     final sw = Stopwatch()..start();
     try {
-      final socket = await Socket.connect(host, port, timeout: const Duration(milliseconds: 2500));
+      final socket = await Socket.connect(
+        host,
+        port,
+        timeout: const Duration(milliseconds: 1400),
+      );
       socket.destroy();
       sw.stop();
       return sw.elapsedMilliseconds;
     } catch (_) {
       return -2;
     }
+  }
+
+  /// پینگ واقعی از هسته Xray (مثل Happ via-proxy / v2rayNG real delay)
+  /// fail یا تایم‌اوت → -2 (ناموجود)
+  Future<int> _testRealDelay(ServerModel s) async {
+    try {
+      final cfg = _prepareConfigForCore(s.config);
+      if (cfg.isEmpty) return -2;
+      final delay = await flutterV2ray
+          .getServerDelay(
+            config: cfg,
+            url: 'https://www.gstatic.com/generate_204',
+          )
+          .timeout(const Duration(milliseconds: 4200));
+      // هسته گاهی مقدار منفی یا خیلی بزرگ برای fail برمی‌گرداند
+      if (delay < 0 || delay > 12000) return -2;
+      return delay;
+    } catch (_) {
+      return -2;
+    }
+  }
+
+  /// اجرای همزمان با سقف concurrency (سریع‌تر از یکی‌یکی)
+  Future<void> _mapConcurrent<T>(
+    List<T> items,
+    int concurrency,
+    Future<void> Function(T item) fn,
+  ) async {
+    if (items.isEmpty) return;
+    final n = concurrency < 1 ? 1 : concurrency;
+    var i = 0;
+    Future<void> worker() async {
+      while (true) {
+        final idx = i++;
+        if (idx >= items.length) break;
+        await fn(items[idx]);
+      }
+    }
+
+    await Future.wait(List.generate(n.clamp(1, items.length), (_) => worker()));
   }
 
   void _sortServersByPing({bool keepSelection = true}) {
@@ -863,13 +908,27 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     if (serverList.isEmpty || isPingingAll) return;
     setState(() => isPingingAll = true);
 
-    // فقط TCP موازی — سریع و یکدست
+    // مرحله ۱: TCP موازی سریع — قطع‌های واضح فوراً قرمز/ناموجود
     await Future.wait(serverList.map((s) async {
       final p = await _testTcpPing(s.host, s.port);
       if (mounted) {
         setState(() => s.ping = p);
       }
     }));
+
+    if (!mounted) return;
+
+    // مرحله ۲: فقط روی سرورهایی که TCP سبز شدند، real-delay از هسته
+    // (CDN/فرانت سبز دروغین را فیلتر می‌کند — مثل Happ)
+    final candidates = serverList.where((s) => s.ping > 0).toList();
+    if (candidates.isNotEmpty) {
+      await _mapConcurrent(candidates, 4, (s) async {
+        final real = await _testRealDelay(s);
+        if (mounted) {
+          setState(() => s.ping = real);
+        }
+      });
+    }
 
     if (mounted) {
       setState(() => _sortServersByPing(keepSelection: true));
@@ -1041,8 +1100,9 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
                             }
                             pingText = '${s.ping} ms';
                           } else if (s.ping == -2) {
+                            // مثل Happ: سرور در دسترس نیست / قطع
                             pingColor = Colors.redAccent;
-                            pingText = 'تایم‌اوت';
+                            pingText = 'ناموجود';
                           }
 
                           return InkWell(

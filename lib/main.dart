@@ -13,8 +13,8 @@ void main() {
   runApp(const JetConfigApp());
 }
 
-// مشخصات نسخه (نمایش داخل اپ)
-const String appVersion = 'v1.7.4';
+// مشخصات نسخه (نمایش داخل اپ) — دستی عوض شود؛ خودکار زیاد نمی‌شود
+const String appVersion = 'v1.7.6';
 const String appLogoUrl = 'https://majid6064.ir/logo.png';
 const String telegramBotUrl = 'https://t.me/JetConfig1bot';
 const String telegramChannelUrl = 'https://t.me/jetconfig11';
@@ -188,22 +188,19 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
         if (_statusMeansDisconnected(status.state)) {
           activePing = -1;
           isConnecting = false;
+          _connectionVerified = false;
           _uiForceDisconnected = true;
         }
 
-        // اگر کاربر عمداً قطع کرده، CONNECTEDهای باقی‌مانده از هسته را نادیده بگیر
-        // تا دکمه دوباره سبز نشود
-        if (_statusMeansConnected(status.state) && !_uiForceDisconnected) {
-          isConnecting = false;
-        }
+        // CONNECTED خام هسته ≠ اتصال واقعی؛ تا verify نشود سبز نشو
+        // isConnecting را اینجا false نکن — بعد از _verifyLiveConnection
       });
 
-      // IP فقط روی انتقال واقعی؛ و فقط اگر UI در حالت قطع اجباری نیست
       if (_statusMeansConnected(status.state) &&
           prev != 'CONNECTED' &&
           !_uiForceDisconnected) {
-        _checkActivePing();
-        _fetchCurrentIp(force: true);
+        // تأیید واقعی مسیر پروکسی (مثل Happ / v2rayNG)
+        _verifyLiveConnection();
       } else if (_statusMeansDisconnected(status.state) && prev == 'CONNECTED') {
         _fetchCurrentIp(force: true);
       }
@@ -235,6 +232,9 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
   bool _ipFetchInFlight = false;
   /// بعد از stop، تا رسیدن status قطع از هسته، UI را فوری قطع نشان بده
   bool _uiForceDisconnected = false;
+  /// فقط بعد از تأیید واقعی (getConnectedServerDelay) دکمه سبز می‌شود
+  bool _connectionVerified = false;
+  int _verifyGen = 0; // برای باطل کردن verifyهای قدیمی
 
   Map<String, dynamic>? userData;
   String? savedUser;
@@ -322,10 +322,79 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
         st == 'NO_PROCESS';
   }
 
-  /// وضعیت واقعی دکمه/UI — نه فقط آخرین تیک هسته
+  /// وضعیت واقعی دکمه/UI — هسته CONNECTED + تأیید تأخیر واقعی
   bool get _isVpnConnected {
     if (_uiForceDisconnected) return false;
+    if (!_connectionVerified) return false;
     return _statusMeansConnected(v2rayStatus.state);
+  }
+
+  /// بعد از CONNECTED هسته: آیا اینترنت از داخل تونل واقعاً جواب می‌دهد؟
+  Future<void> _verifyLiveConnection() async {
+    final gen = ++_verifyGen;
+    if (mounted) {
+      setState(() {
+        isConnecting = true; // اسپینر تا تأیید
+        _connectionVerified = false;
+      });
+    }
+
+    // کمی صبر تا تونل پایدار شود
+    await Future.delayed(const Duration(milliseconds: 800));
+    if (!mounted || gen != _verifyGen || _uiForceDisconnected) return;
+
+    int delay = -1;
+    for (var attempt = 0; attempt < 2; attempt++) {
+      if (!mounted || gen != _verifyGen || _uiForceDisconnected) return;
+      try {
+        delay = await flutterV2ray
+            .getConnectedServerDelay()
+            .timeout(const Duration(milliseconds: 4500));
+      } catch (_) {
+        delay = -1;
+      }
+      if (delay >= 0 && delay <= 15000) break;
+      await Future.delayed(const Duration(milliseconds: 400));
+    }
+
+    if (!mounted || gen != _verifyGen) return;
+
+    if (_uiForceDisconnected || !_statusMeansConnected(v2rayStatus.state)) {
+      if (mounted) {
+        setState(() {
+          isConnecting = false;
+          _connectionVerified = false;
+        });
+      }
+      return;
+    }
+
+    if (delay >= 0 && delay <= 15000) {
+      if (mounted) {
+        setState(() {
+          _connectionVerified = true;
+          isConnecting = false;
+          activePing = delay;
+        });
+      }
+      _fetchCurrentIp(force: true);
+      return;
+    }
+
+    // اتصال واقعی برقرار نشد — مثل Happ: برگرد به قطع
+    debugPrint('verifyLiveConnection failed delay=$delay');
+    try {
+      await flutterV2ray.stopV2Ray();
+    } catch (_) {}
+    if (!mounted || gen != _verifyGen) return;
+    setState(() {
+      _uiForceDisconnected = true;
+      _connectionVerified = false;
+      isConnecting = false;
+      activePing = -1;
+    });
+    _showToast('اتصال برقرار نشد — سرور قطع یا ناموجود است');
+    _fetchCurrentIp(force: true);
   }
 
   /// IP عمومی:
@@ -949,12 +1018,14 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
   }
 
   Future<void> _toggleConnect() async {
-    // اگر UI وصل است یا هسته هنوز CONNECTED می‌گوید → قطع کن
+    // اگر UI وصل است یا هسته هنوز CONNECTED / در حال اتصال است → قطع کن
     final coreStillUp = _statusMeansConnected(v2rayStatus.state);
-    if (_isVpnConnected || coreStillUp) {
+    if (_isVpnConnected || coreStillUp || isConnecting) {
+      _verifyGen++; // باطل کردن verify در جریان
       if (mounted) {
         setState(() {
-          _uiForceDisconnected = true; // تا status بعدی دوباره سبز نکند
+          _uiForceDisconnected = true;
+          _connectionVerified = false;
           activePing = -1;
           isConnecting = false;
         });
@@ -964,7 +1035,6 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
       } catch (e) {
         debugPrint('stopV2Ray error: $e');
       }
-      // بعضی دستگاه‌ها یک بار stop کافی نیست
       try {
         await Future.delayed(const Duration(milliseconds: 200));
         await flutterV2ray.stopV2Ray();
@@ -972,6 +1042,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
       if (mounted) {
         setState(() {
           _uiForceDisconnected = true;
+          _connectionVerified = false;
           activePing = -1;
           isConnecting = false;
         });
@@ -985,26 +1056,41 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
       return;
     }
 
-    // شروع اتصال جدید — از اینجا به بعد CONNECTED معتبر است
+    final target = serverList[selectedServerIndex];
+    // هشدار نرم اگر پینگ ناموجود است (اجباری مسدود نمی‌کنیم)
+    if (target.ping == -2) {
+      _showToast('این سرور ناموجود است — در حال تلاش…');
+    }
+
     setState(() {
       isConnecting = true;
       _uiForceDisconnected = false;
+      _connectionVerified = false;
     });
 
     try {
       final bool permissionGranted = await flutterV2ray.requestPermission();
       if (!permissionGranted) {
         _showToast('مجوز اتصال VPN تایید نشد');
-        if (mounted) setState(() => isConnecting = false);
+        if (mounted) {
+          setState(() {
+            isConnecting = false;
+            _connectionVerified = false;
+          });
+        }
         return;
       }
 
-      final target = serverList[selectedServerIndex];
       final configString = _prepareConfigForCore(target.config);
 
       if (configString.isEmpty) {
         _showToast('کانفیگ سرور خالی است — بروزرسانی کن');
-        if (mounted) setState(() => isConnecting = false);
+        if (mounted) {
+          setState(() {
+            isConnecting = false;
+            _connectionVerified = false;
+          });
+        }
         return;
       }
 
@@ -1013,13 +1099,23 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
         config: configString,
         blockedApps: onlyFilteredApps ? iranianAndBrowserPackages : null,
         proxyOnly: false,
-        // دکمه نوار اعلان باید سرویس را قطع کند (نه فقط باز کردن اپ)
         notificationDisconnectButtonName: 'قطع اتصال',
       );
       await _saveSelectedServer(target);
-      // کمی صبر تا تونل بالا بیاید، بعد IP سرور را بگیر
-      Future.delayed(const Duration(milliseconds: 1200), () {
-        if (mounted) _fetchCurrentIp(force: true);
+      // تأیید واقعی در onStatusChanged → _verifyLiveConnection
+      // اگر هسته اصلاً CONNECTED نداد، بعد از چند ثانیه قطع کن
+      Future.delayed(const Duration(seconds: 8), () {
+        if (!mounted) return;
+        if (isConnecting && !_connectionVerified && !_uiForceDisconnected) {
+          _verifyGen++;
+          flutterV2ray.stopV2Ray().catchError((_) {});
+          setState(() {
+            isConnecting = false;
+            _connectionVerified = false;
+            _uiForceDisconnected = true;
+          });
+          _showToast('زمان اتصال تمام شد — سرور دیگری را امتحان کن');
+        }
       });
     } catch (e) {
       debugPrint('startV2Ray error: $e');
@@ -1027,9 +1123,12 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
       try {
         await flutterV2ray.stopV2Ray();
       } catch (_) {}
-    } finally {
       if (mounted) {
-        setState(() => isConnecting = false);
+        setState(() {
+          isConnecting = false;
+          _connectionVerified = false;
+          _uiForceDisconnected = true;
+        });
       }
     }
   }

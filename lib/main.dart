@@ -14,7 +14,7 @@ void main() {
 }
 
 // مشخصات نسخه (نمایش داخل اپ) — دستی عوض شود؛ خودکار زیاد نمی‌شود
-const String appVersion = 'v1.7.6';
+const String appVersion = 'v1.7.8';
 const String appLogoUrl = 'https://majid6064.ir/logo.png';
 const String telegramBotUrl = 'https://t.me/JetConfig1bot';
 const String telegramChannelUrl = 'https://t.me/jetconfig11';
@@ -471,6 +471,42 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     return '${remaining ?? 0} GB';
   }
 
+  /// دکمه «تمدید در ربات» فقط وقتی حجم/زمان رو به اتمام است
+  /// حجم ≤۲۰٪ مانده یا صفر | زمان ≤۳ روز / ساعت / دقیقه / منقضی
+  bool _shouldShowRenewInBot() {
+    if (userData == null) return false;
+
+    final totalRaw = userData!['total_gb'];
+    final remRaw = userData!['remaining_gb'];
+    final total = totalRaw is num ? totalRaw.toDouble() : double.tryParse('$totalRaw');
+    final rem = remRaw is num ? remRaw.toDouble() : double.tryParse('$remRaw');
+    if (total != null && total > 0) {
+      final left = rem ?? 0.0;
+      if (left <= 0 || (left / total) <= 0.20) return true;
+    }
+
+    final expire = userData!['expire_days'];
+    if (expire == null) return false;
+    final expireStr = '$expire'.trim();
+    if (expireStr.isEmpty ||
+        expireStr == 'null' ||
+        expireStr.contains('نامحدود') ||
+        expireStr.contains('VIP') ||
+        expireStr.contains('Unlimited')) {
+      return false;
+    }
+    if (expireStr.contains('منقضی') || expireStr.contains('پایان')) return true;
+    if (expireStr.contains('ساعت') || expireStr.contains('دقیقه')) return true;
+    if (expireStr.contains('روز')) {
+      final d = int.tryParse(expireStr.replaceAll(RegExp(r'[^0-9]'), ''));
+      if (d != null && d <= 3) return true;
+      return false;
+    }
+    final intVal = int.tryParse(expireStr.replaceAll(RegExp(r'[^0-9\-]'), ''));
+    if (intVal != null && intVal >= 0 && intVal <= 3) return true;
+    return false;
+  }
+
   String _getDisplayTotal() {
     if (userData == null) return 'نامحدود';
     final total = userData!['total_gb'];
@@ -815,7 +851,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
           }
 
           if (isManualRefresh) {
-            _showToast('کانفیگ‌ها بروزرسانی شدند', isError: false);
+            _showToast('سرورها بروزرسانی شدند', isError: false);
           }
 
           if (parsed.isNotEmpty) {
@@ -1644,7 +1680,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
                         child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF00E5FF)),
                       )
                     : const Icon(Icons.sync_rounded, color: Color(0xFF00E5FF), size: 21),
-                tooltip: 'بروزرسانی کانفیگ‌ها',
+                tooltip: 'بروزرسانی سرورها',
                 onPressed: isRefreshingServers
                     ? null
                     : () => _fetchUserData(savedUser!, savedPass ?? '', isManualRefresh: true),
@@ -2104,37 +2140,39 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
               fontSize: 11.5,
             ),
           ),
-          const SizedBox(height: 12),
-          InkWell(
-            onTap: () => _openTelegram(telegramBotUrl),
-            borderRadius: BorderRadius.circular(14),
-            child: Container(
-              padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 14),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    const Color(0xFF00E5FF).withOpacity(0.15),
-                    const Color(0xFF00FFA3).withOpacity(0.15),
+          if (_shouldShowRenewInBot()) ...[
+            const SizedBox(height: 12),
+            InkWell(
+              onTap: () => _openTelegram(telegramBotUrl),
+              borderRadius: BorderRadius.circular(14),
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 14),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      const Color(0xFF00E5FF).withOpacity(0.15),
+                      const Color(0xFF00FFA3).withOpacity(0.15),
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: const Color(0xFF00E5FF).withOpacity(0.3)),
+                ),
+                child: const Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.diamond_rounded, color: Color(0xFF00FFA3), size: 17),
+                    SizedBox(width: 6),
+                    Text(
+                      'تمدید اشتراک در ربات تلگرام',
+                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                    ),
+                    SizedBox(width: 4),
+                    Icon(Icons.arrow_forward_rounded, color: Color(0xFF00E5FF), size: 14),
                   ],
                 ),
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: const Color(0xFF00E5FF).withOpacity(0.3)),
-              ),
-              child: const Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.diamond_rounded, color: Color(0xFF00FFA3), size: 17),
-                  SizedBox(width: 6),
-                  Text(
-                    'تمدید اشتراک در ربات تلگرام',
-                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
-                  ),
-                  SizedBox(width: 4),
-                  Icon(Icons.arrow_forward_rounded, color: Color(0xFF00E5FF), size: 14),
-                ],
               ),
             ),
-          ),
+          ],
           const SizedBox(height: 12),
           Text(
             'JET VPN • $appVersion',

@@ -14,7 +14,7 @@ void main() {
 }
 
 // مشخصات نسخه (نمایش داخل اپ) — دستی عوض شود؛ خودکار زیاد نمی‌شود
-const String appVersion = 'v1.7.8';
+const String appVersion = 'v1.7.9';
 const String appLogoUrl = 'https://majid6064.ir/logo.png';
 const String telegramBotUrl = 'https://t.me/JetConfig1bot';
 const String telegramChannelUrl = 'https://t.me/jetconfig11';
@@ -223,6 +223,8 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
   bool _obscurePassword = true;
   // تنظیمات کاربر
   bool autoRefreshOnStart = true; // بروزرسانی اشتراک هنگام باز شدن
+  /// جلوگیری از تکرار دیالوگ انقضا در یک نشست
+  bool _subAlertShownThisSession = false;
   bool autoPingOnStart = false; // پینگ خودکار هنگام باز شدن
   bool preferLastServer = true; // نگه داشتن آخرین سرور انتخاب‌شده
   int activePing = -1;
@@ -506,6 +508,203 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     if (intVal != null && intVal >= 0 && intVal <= 3) return true;
     return false;
   }
+
+
+  bool _isTestUsername([Map? data]) {
+    final d = data ?? userData;
+    if (d == null) return false;
+    final u = '${d['username'] ?? savedUser ?? ''}'.toLowerCase();
+    return u.startsWith('test_') || u.contains('_test') || (d['is_test'] == true);
+  }
+
+  /// انقضای کامل: حجم صفر (وقتی سقف حجم دارد) یا زمان منقضی
+  bool _isSubscriptionExpired([Map? data]) {
+    final d = data ?? userData;
+    if (d == null) return false;
+
+    final totalRaw = d['total_gb'];
+    final remRaw = d['remaining_gb'];
+    final total = totalRaw is num ? totalRaw.toDouble() : double.tryParse('$totalRaw');
+    final rem = remRaw is num ? remRaw.toDouble() : double.tryParse('$remRaw');
+    if (total != null && total > 0) {
+      final left = rem ?? 0.0;
+      if (left <= 0.001) return true;
+    }
+
+    final status = '${d['status'] ?? d['panel_status'] ?? ''}'.toLowerCase();
+    if (status.contains('expired') || status.contains('disabled') || status == 'limited') {
+      // limited اغلب یعنی اتمام حجم
+      if (status == 'limited' || status.contains('expired')) return true;
+    }
+
+    final expire = d['expire_days'];
+    if (expire == null) return false;
+    final expireStr = '$expire'.trim();
+    if (expireStr.isEmpty ||
+        expireStr == 'null' ||
+        expireStr.contains('نامحدود') ||
+        expireStr.contains('VIP') ||
+        expireStr.contains('Unlimited')) {
+      return false;
+    }
+    if (expireStr.contains('منقضی') || expireStr.contains('پایان')) return true;
+    if (expireStr.contains('روز')) {
+      final dNum = int.tryParse(expireStr.replaceAll(RegExp(r'[^0-9\-]'), ''));
+      if (dNum != null && dNum <= 0) return true;
+    }
+    final intVal = int.tryParse(expireStr.replaceAll(RegExp(r'[^0-9\-]'), ''));
+    if (intVal != null && intVal < 0) return true;
+    if (intVal != null && intVal == 0 && !expireStr.contains('ساعت') && !expireStr.contains('دقیقه')) {
+      return true;
+    }
+    return false;
+  }
+
+  /// نزدیک اتمام (هنوز منقضی کامل نیست)
+  bool _isSubscriptionNearEnd([Map? data]) {
+    final d = data ?? userData;
+    if (d == null) return false;
+    if (_isSubscriptionExpired(d)) return false;
+
+    final totalRaw = d['total_gb'];
+    final remRaw = d['remaining_gb'];
+    final total = totalRaw is num ? totalRaw.toDouble() : double.tryParse('$totalRaw');
+    final rem = remRaw is num ? remRaw.toDouble() : double.tryParse('$remRaw');
+    if (total != null && total > 0) {
+      final left = rem ?? 0.0;
+      if (left > 0 && (left / total) <= 0.20) return true;
+    }
+
+    final expire = d['expire_days'];
+    if (expire == null) return false;
+    final expireStr = '$expire'.trim();
+    if (expireStr.isEmpty ||
+        expireStr == 'null' ||
+        expireStr.contains('نامحدود') ||
+        expireStr.contains('VIP') ||
+        expireStr.contains('Unlimited')) {
+      return false;
+    }
+    if (expireStr.contains('ساعت') || expireStr.contains('دقیقه')) return true;
+    if (expireStr.contains('روز')) {
+      final dNum = int.tryParse(expireStr.replaceAll(RegExp(r'[^0-9]'), ''));
+      if (dNum != null && dNum > 0 && dNum <= 3) return true;
+    }
+    final intVal = int.tryParse(expireStr.replaceAll(RegExp(r'[^0-9\-]'), ''));
+    if (intVal != null && intVal > 0 && intVal <= 3) return true;
+    return false;
+  }
+
+  Future<void> _maybeShowSubscriptionAlert(Map data, {bool fromManualRefresh = false}) async {
+    if (!mounted) return;
+    final expired = _isSubscriptionExpired(data);
+    final near = !expired && _isSubscriptionNearEnd(data);
+    if (!expired && !near) return;
+
+    final prefs = await SharedPreferences.getInstance();
+    final uname = '${data['username'] ?? savedUser ?? ''}';
+    final today = DateTime.now().toIso8601String().substring(0, 10);
+
+    if (expired) {
+      if (_subAlertShownThisSession && !fromManualRefresh) return;
+      final last = prefs.getString('sub_alert_expired_$uname') ?? '';
+      // حداکثر یک‌بار در روز مگر رفرش دستی
+      if (last == today && !fromManualRefresh) return;
+      await prefs.setString('sub_alert_expired_$uname', today);
+      _subAlertShownThisSession = true;
+      await _showSubscriptionDialog(expired: true, data: data);
+      return;
+    }
+
+    // هشدار نزدیک اتمام — حداکثر یک‌بار در روز
+    final lastW = prefs.getString('sub_alert_warn_$uname') ?? '';
+    if (lastW == today && !fromManualRefresh) return;
+    await prefs.setString('sub_alert_warn_$uname', today);
+    await _showSubscriptionDialog(expired: false, data: data);
+  }
+
+  Future<void> _showSubscriptionDialog({required bool expired, required Map data}) async {
+    if (!mounted) return;
+    final isTest = _isTestUsername(data);
+    final rem = _getDisplayRemaining();
+    final exp = _getDisplayExpire();
+
+    final title = expired
+        ? (isTest ? 'اشتراک تست تمام شد' : 'اشتراک به پایان رسید')
+        : 'اخطار: اشتراک رو به اتمام';
+
+    String body;
+    if (expired) {
+      if (isTest) {
+        body =
+            'دورهٔ تست تموم شده.\n\nاگر از سرعت و کیفیت راضی بودی، با خرید اشتراک جدید بدون وقفه ادامه بده.';
+      } else {
+        body =
+            'حجم یا اعتبار زمانی این اکانت تمام شده و اتصال پایدار نخواهد بود.\n\n'
+            'باقیمانده: $rem\nاعتبار: $exp\n\n'
+            'از ربات تمدید کن یا بستهٔ جدید بخر تا دوباره وصل شی.';
+      }
+    } else {
+      body =
+          'اشتراک‌ت به‌زودی تموم می‌شه — بهتره قبل از قطع شدن تمدید کنی.\n\n'
+          'باقیمانده: $rem\nاعتبار: $exp';
+    }
+
+    final primaryLabel = isTest ? 'خرید در ربات' : (expired ? 'تمدید / خرید در ربات' : 'تمدید در ربات');
+
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      builder: (ctx) {
+        return Directionality(
+          textDirection: TextDirection.rtl,
+          child: AlertDialog(
+            backgroundColor: const Color(0xFF131B2E),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            title: Row(
+              children: [
+                Icon(
+                  expired ? Icons.warning_amber_rounded : Icons.info_outline_rounded,
+                  color: expired ? const Color(0xFFFF5252) : Colors.amberAccent,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    title,
+                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                  ),
+                ),
+              ],
+            ),
+            content: Text(
+              body,
+              style: const TextStyle(color: Colors.white70, height: 1.45, fontSize: 13.5),
+            ),
+            actionsAlignment: MainAxisAlignment.spaceBetween,
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(),
+                child: const Text('بعداً', style: TextStyle(color: Colors.grey)),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: expired ? const Color(0xFFFF5252) : const Color(0xFF00E5FF),
+                  foregroundColor: Colors.black,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                onPressed: () {
+                  Navigator.of(ctx).pop();
+                  _openTelegram(telegramBotUrl);
+                },
+                child: Text(primaryLabel),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
 
   String _getDisplayTotal() {
     if (userData == null) return 'نامحدود';
@@ -853,6 +1052,14 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
           if (isManualRefresh) {
             _showToast('سرورها بروزرسانی شدند', isError: false);
           }
+
+          // پیام انقضا / اخطار نزدیک اتمام (ورود یا بروزرسانی)
+          try {
+            await _maybeShowSubscriptionAlert(
+              Map<String, dynamic>.from(data as Map),
+              fromManualRefresh: isManualRefresh,
+            );
+          } catch (_) {}
 
           if (parsed.isNotEmpty) {
             // پینگ: دستی، یا اگر کاربر در تنظیمات روشن کرده باشد

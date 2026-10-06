@@ -14,7 +14,7 @@ void main() {
 }
 
 // مشخصات نسخه (نمایش داخل اپ) — دستی عوض شود؛ خودکار زیاد نمی‌شود
-const String appVersion = 'v1.7.9';
+const String appVersion = 'v1.8.0';
 const String appLogoUrl = 'https://majid6064.ir/logo.png';
 const String telegramBotUrl = 'https://t.me/JetConfig1bot';
 const String telegramChannelUrl = 'https://t.me/jetconfig11';

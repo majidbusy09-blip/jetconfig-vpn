@@ -255,6 +255,9 @@ jobs:
       - name: Build release APK
         run: |
           flutter doctor -v
+          # universal (همه معماری‌ها) برای حداکثر سازگاری — سامسونگ A13 و مشابه
+          flutter build apk --release
+          # اختیاری: نسخه‌های جدا برای حجم کمتر
           flutter build apk --release --split-per-abi
 
       - name: Verify targetSdk >= 32 (Cafe Bazaar requirement)
@@ -296,13 +299,22 @@ jobs:
       - name: Prepare release artifact
         run: |
           mkdir -p release-files
-          if [ -f build/app/outputs/flutter-apk/app-arm64-v8a-release.apk ]; then
+          ls -la build/app/outputs/flutter-apk/ || true
+          # اولویت: APK کامل (universal) — سازگار با arm64 و armeabi-v7a
+          if [ -f build/app/outputs/flutter-apk/app-release.apk ]; then
+            cp build/app/outputs/flutter-apk/app-release.apk release-files/JetConfig-VPN.apk
+            echo "Using UNIVERSAL app-release.apk"
+          elif [ -f build/app/outputs/flutter-apk/app-arm64-v8a-release.apk ]; then
             cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk release-files/JetConfig-VPN.apk
+            echo "FALLBACK arm64-only"
           else
             echo "APK not found"
-            ls -la build/app/outputs/flutter-apk/ || true
             exit 1
           fi
+          # نسخه‌های split هم در صورت وجود کپی شوند
+          [ -f build/app/outputs/flutter-apk/app-arm64-v8a-release.apk ] &&             cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk release-files/JetConfig-VPN-arm64.apk || true
+          [ -f build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk ] &&             cp build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk release-files/JetConfig-VPN-arm32.apk || true
+          ls -la release-files/
 
       - name: Read app version
         id: ver
@@ -338,8 +350,9 @@ jobs:
             - امضا با کلید ثابت
             - Actions run: `${{ github.run_number }}`
 
-            APK: `JetConfig-VPN.apk` (arm64-v8a)
-          files: release-files/JetConfig-VPN.apk
+            APK اصلی (universal): `JetConfig-VPN.apk` — سازگار با اکثر گوشی‌ها (شامل A13)
+            اختیاری: arm64 / arm32 جدا
+          files: release-files/*.apk
           prerelease: false
           make_latest: true
         env:

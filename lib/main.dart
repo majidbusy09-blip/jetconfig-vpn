@@ -13,8 +13,12 @@ void main() {
   runApp(const JetConfigApp());
 }
 
-// مشخصات نسخه (نمایش داخل اپ) — دستی عوض شود؛ خودکار زیاد نمی‌شود
-const String appVersion = 'v1.8.0';
+// مشخصات نسخه (نمایش داخل اپ) — با هر ریلیز دستی بالا ببر
+const String appVersion = 'v1.8.1';
+const int appVersionCode = 23;
+/// کانال بسته‌بندی: با --dart-define=APK_CHANNEL=arm64|universal|arm32 در بیلد ست می‌شود
+const String apkChannel = String.fromEnvironment('APK_CHANNEL', defaultValue: 'arm64');
+const String appUpdateMetaUrl = 'https://majid6064.ir/app_version.json';
 const String appLogoUrl = 'https://majid6064.ir/logo.png';
 const String telegramBotUrl = 'https://t.me/JetConfig1bot';
 const String telegramChannelUrl = 'https://t.me/jetconfig11';
@@ -265,6 +269,10 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
 
     _loadSavedPreferences();
     _fetchCurrentIp();
+    // بررسی نامحسوس نسخه (فقط اگر ادمین enabled کرده باشد)
+    Future.delayed(const Duration(seconds: 2), () {
+      if (mounted) _checkAppUpdate(silent: true);
+    });
   }
 
   Future<void> _initCore() async {
@@ -1933,6 +1941,197 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     );
   }
 
+
+  /// بررسی بروزرسانی از سرور (کنترل با app_version.json → enabled)
+  Future<void> _checkAppUpdate({bool silent = false}) async {
+    try {
+      final res = await http
+          .get(Uri.parse(appUpdateMetaUrl))
+          .timeout(const Duration(seconds: 12));
+      if (res.statusCode != 200) {
+        if (!silent && mounted) _showToast('بررسی بروزرسانی ناموفق بود');
+        return;
+      }
+      final data = json.decode(utf8.decode(res.bodyBytes));
+      if (data is! Map) {
+        if (!silent && mounted) _showToast('پاسخ سرور نامعتبر است');
+        return;
+      }
+      final enabled = data['enabled'] == true;
+      if (!enabled) {
+        if (!silent && mounted) {
+          _showToast('نسخه فعلی به‌روز است');
+        }
+        return;
+      }
+      final remoteCode = int.tryParse('${data['version_code'] ?? 0}') ?? 0;
+      final minCode = int.tryParse('${data['min_version_code'] ?? 0}') ?? 0;
+      final force = data['force'] == true || (minCode > 0 && appVersionCode < minCode);
+      if (remoteCode <= appVersionCode && !force) {
+        if (!silent && mounted) {
+          _showToast('نسخه فعلی به‌روز است ($appVersion)');
+        }
+        return;
+      }
+      if (!mounted) return;
+      final urls = (data['urls'] is Map)
+          ? Map<String, dynamic>.from(data['urls'] as Map)
+          : <String, dynamic>{};
+      String channel = apkChannel;
+      // اگر کانال در JSON نبود، فال‌بک منطقی
+      String? apkUrl = urls[channel]?.toString();
+      if (apkUrl == null || apkUrl.isEmpty) {
+        if (channel == 'arm64') {
+          apkUrl = urls['universal']?.toString() ?? urls['arm32']?.toString();
+        } else if (channel == 'arm32') {
+          apkUrl = urls['universal']?.toString() ?? urls['arm64']?.toString();
+        } else {
+          apkUrl = urls['universal']?.toString() ?? urls['arm64']?.toString();
+        }
+      }
+      if (apkUrl == null || apkUrl.isEmpty) {
+        if (!silent && mounted) _showToast('لینک دانلود نسخه جدید موجود نیست');
+        return;
+      }
+      final title = (data['title'] ?? 'نسخه جدید آماده است').toString();
+      final changelog = (data['changelog'] ?? '').toString();
+      final remoteVer = (data['version'] ?? '').toString();
+      final protectNote = (data['play_protect_note'] ??
+              'اگر پیام منبع ناشناس یا برنامه مضر آمد، روی «جزئیات بیشتر» و سپس «نصب در هر حال» بزن. این برای نصب خارج از گوگل‌پلی طبیعی است.')
+          .toString();
+      await _showUpdateDialog(
+        title: title,
+        remoteVer: remoteVer,
+        changelog: changelog,
+        protectNote: protectNote,
+        apkUrl: apkUrl,
+        force: force,
+      );
+    } catch (e) {
+      if (!silent && mounted) {
+        _showToast('خطا در بررسی بروزرسانی');
+      }
+    }
+  }
+
+  Future<void> _showUpdateDialog({
+    required String title,
+    required String remoteVer,
+    required String changelog,
+    required String protectNote,
+    required String apkUrl,
+    required bool force,
+  }) async {
+    if (!mounted) return;
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: !force,
+      builder: (ctx) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF1A2332),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Text(
+            title,
+            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'نسخه فعلی: $appVersion  →  جدید: v$remoteVer',
+                  style: const TextStyle(color: Color(0xFF00E5FF), fontSize: 13),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'بسته این نصب: $apkChannel',
+                  style: const TextStyle(color: Colors.white54, fontSize: 11),
+                ),
+                if (changelog.trim().isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  const Text('تغییرات:', style: TextStyle(color: Colors.white70, fontWeight: FontWeight.bold, fontSize: 13)),
+                  const SizedBox(height: 4),
+                  Text(changelog, style: const TextStyle(color: Colors.white60, fontSize: 12.5, height: 1.4)),
+                ],
+                const SizedBox(height: 14),
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: Colors.orange.withOpacity(0.35)),
+                  ),
+                  child: Text(
+                    protectNote,
+                    style: const TextStyle(color: Color(0xFFFFCC80), fontSize: 11.5, height: 1.45),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            if (!force)
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('بعداً', style: TextStyle(color: Colors.white54)),
+              ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF00C853),
+                foregroundColor: Colors.white,
+              ),
+              onPressed: () async {
+                Navigator.pop(ctx);
+                await _startApkDownload(apkUrl);
+              },
+              child: const Text('دانلود و نصب'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _startApkDownload(String apkUrl) async {
+    if (!mounted) return;
+    _showToast('در حال آماده‌سازی دانلود…');
+    try {
+      final uri = Uri.parse(apkUrl);
+      // دانلود از طریق مرورگر/مدیریت دانلود سیستم — پایدارترین روش روی اندروید
+      final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
+      if (!ok && mounted) {
+        _showToast('باز کردن لینک دانلود ممکن نشد');
+        return;
+      }
+      if (mounted) {
+        await showDialog<void>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            backgroundColor: const Color(0xFF1A2332),
+            title: const Text('دانلود شروع شد', style: TextStyle(color: Colors.white, fontSize: 15)),
+            content: const Text(
+              'پس از اتمام دانلود، روی اعلان یا فایل APK بزن و نصب را تأیید کن.\n\n'
+              'اگر Play Protect هشدار داد:\n'
+              '• جزئیات بیشتر\n'
+              '• نصب در هر حال\n\n'
+              'فایل باید از همان کانال/گیت‌هاب رسمی باشد.',
+              style: TextStyle(color: Colors.white70, fontSize: 13, height: 1.45),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('متوجه شدم', style: TextStyle(color: Color(0xFF00E5FF))),
+              ),
+            ],
+          ),
+        );
+      }
+    } catch (_) {
+      if (mounted) _showToast('خطا در شروع دانلود');
+    }
+  }
+
   void _openSettings() {
     showModalBottomSheet(
       context: context,
@@ -2040,6 +2239,17 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
                         onChanged: (v) async {
                           Navigator.pop(ctx);
                           await _saveTunnelMode(v);
+                        },
+                      ),
+                      ListTile(
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+                        leading: const Icon(Icons.system_update_rounded, color: Color(0xFF69F0AE)),
+                        title: const Text('بررسی بروزرسانی', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13.5)),
+                        subtitle: Text('نسخه $appVersion · بسته $apkChannel', style: const TextStyle(color: Colors.white54, fontSize: 11)),
+                        trailing: const Icon(Icons.chevron_left, color: Colors.white38),
+                        onTap: () {
+                          Navigator.pop(ctx);
+                          _checkAppUpdate(silent: false);
                         },
                       ),
                       const Divider(color: Colors.white12, height: 20),

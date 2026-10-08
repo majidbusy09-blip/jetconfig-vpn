@@ -14,8 +14,8 @@ void main() {
 }
 
 // مشخصات نسخه (نمایش داخل اپ) — با هر ریلیز دستی بالا ببر
-const String appVersion = 'v1.8.2';
-const int appVersionCode = 24;
+const String appVersion = 'v1.8.4';
+const int appVersionCode = 26;
 /// کانال بسته‌بندی: با --dart-define=APK_CHANNEL=arm64|universal|arm32 در بیلد ست می‌شود
 const String apkChannel = String.fromEnvironment('APK_CHANNEL', defaultValue: 'arm64');
 const String appUpdateMetaUrl = 'https://majid6064.ir/app_version.json';
@@ -233,6 +233,8 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
   bool preferLastServer = true; // نگه داشتن آخرین سرور انتخاب‌شده
   int activePing = -1;
   String currentIpAddress = '...';
+  String currentIpFlag = '🌐';
+  String currentIpCountry = '';
   String? _lastV2rayState;
   DateTime? _lastIpFetchAt;
   bool _ipFetchInFlight = false;
@@ -384,6 +386,10 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
         setState(() {
           _connectionVerified = true;
           isConnecting = false;
+          // کمی صبر تا تونل پایدار شود، بعد IP خروجی
+          Future.delayed(const Duration(milliseconds: 900), () {
+            if (mounted) _fetchCurrentIp(force: true);
+          });
           activePing = delay;
         });
       }
@@ -407,39 +413,118 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     _fetchCurrentIp(force: true);
   }
 
-  /// IP عمومی:
-  /// - قبل از اتصال: IP واقعی اینترنت
-  /// - بعد از اتصال: IP خروجی سرور
-  /// - با عوض شدن سرور: دوباره گرفته می‌شود
-  /// - روی تیک‌های مکرر status (ترافیک) گرفته نمی‌شود تا چشمک نزند
+  /// کد کشور → پرچم اموجی (IR → 🇮🇷)
+  String _countryCodeToFlag(String code) {
+    final c = code.trim().toUpperCase();
+    if (c.length != 2) return '🌐';
+    final a = c.codeUnitAt(0);
+    final b = c.codeUnitAt(1);
+    if (a < 65 || a > 90 || b < 65 || b > 90) return '🌐';
+    return String.fromCharCodes([0x1F1E6 + a - 65, 0x1F1E6 + b - 65]);
+  }
+
+  /// IP + کشور:
+  /// قطع = IP ایران · وصل = IP خارج (خروجی تونل)
   Future<void> _fetchCurrentIp({bool force = false}) async {
-    if (_ipFetchInFlight) return;
+    if (_ipFetchInFlight && !force) return;
     final now = DateTime.now();
-    // فقط درخواست‌های غیرضروری را محدود کن؛ force همیشه اجرا می‌شود
     if (!force &&
         _lastIpFetchAt != null &&
-        now.difference(_lastIpFetchAt!).inSeconds < 8) {
+        now.difference(_lastIpFetchAt!).inSeconds < 4) {
       return;
     }
     _ipFetchInFlight = true;
+    if (force && mounted) {
+      setState(() {
+        currentIpAddress = '...';
+        currentIpFlag = '⏳';
+        currentIpCountry = '';
+      });
+    }
+    const ipEndpoints = <String>[
+      'https://api.ipify.org',
+      'https://api64.ipify.org',
+      'https://icanhazip.com',
+      'https://ifconfig.me/ip',
+    ];
+    const noCache = <String, String>{
+      'Cache-Control': 'no-cache, no-store',
+      'Pragma': 'no-cache',
+    };
     try {
-      final res = await http
-          .get(Uri.parse('https://api.ipify.org'))
-          .timeout(const Duration(seconds: 6));
-      if (res.statusCode == 200 && mounted) {
-        final ip = res.body.trim();
-        if (ip.isNotEmpty) {
-          if (ip != currentIpAddress) {
-            setState(() => currentIpAddress = ip);
-          } else if (currentIpAddress == '...' || currentIpAddress == '---') {
-            setState(() => currentIpAddress = ip);
+      String? ip;
+      for (final url in ipEndpoints) {
+        try {
+          final res = await http
+              .get(Uri.parse(url), headers: noCache)
+              .timeout(const Duration(seconds: 5));
+          if (res.statusCode == 200) {
+            final body = res.body.trim().split(RegExp(r'\s+')).first;
+            if (body.isNotEmpty && body.length < 46 && !body.contains('<')) {
+              ip = body;
+              break;
+            }
           }
+        } catch (_) {
+          continue;
+        }
+      }
+
+      String flag = '🌐';
+      String country = '';
+      if (ip != null && ip.isNotEmpty) {
+        // ipwho.is — بدون کلید، HTTPS
+        try {
+          final geo = await http
+              .get(Uri.parse('https://ipwho.is/$ip'), headers: noCache)
+              .timeout(const Duration(seconds: 5));
+          if (geo.statusCode == 200) {
+            final j = json.decode(geo.body);
+            if (j is Map && j['success'] != false) {
+              final cc = (j['country_code'] ?? j['countryCode'] ?? '').toString();
+              country = (j['country'] ?? '').toString();
+              if (cc.length == 2) flag = _countryCodeToFlag(cc);
+            }
+          }
+        } catch (_) {
+          try {
+            final geo2 = await http
+                .get(Uri.parse('https://ipapi.co/$ip/json/'), headers: noCache)
+                .timeout(const Duration(seconds: 5));
+            if (geo2.statusCode == 200) {
+              final j = json.decode(geo2.body);
+              if (j is Map) {
+                final cc = (j['country_code'] ?? '').toString();
+                country = (j['country_name'] ?? j['country'] ?? '').toString();
+                if (cc.length == 2) flag = _countryCodeToFlag(cc);
+              }
+            }
+          } catch (_) {}
+        }
+      }
+
+      if (mounted) {
+        if (ip != null && ip.isNotEmpty) {
+          setState(() {
+            currentIpAddress = ip!;
+            currentIpFlag = flag;
+            currentIpCountry = country;
+          });
           _lastIpFetchAt = DateTime.now();
+        } else if (currentIpAddress == '...' || currentIpAddress == '---') {
+          setState(() {
+            currentIpAddress = '---';
+            currentIpFlag = '🌐';
+            currentIpCountry = '';
+          });
         }
       }
     } catch (_) {
       if (mounted && (currentIpAddress == '...' || currentIpAddress == '---')) {
-        setState(() => currentIpAddress = '---');
+        setState(() {
+          currentIpAddress = '---';
+          currentIpFlag = '🌐';
+        });
       }
     } finally {
       _ipFetchInFlight = false;
@@ -1536,20 +1621,22 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            isConnected ? Icons.shield_rounded : Icons.location_on_rounded,
-            size: 14,
-            color: glowColor,
-          ),
-          const SizedBox(width: 6),
           Text(
-            currentIpAddress,
-            style: TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.w900,
-              fontSize: 11.5,
-              letterSpacing: 0.9,
-              fontFamily: 'monospace',
+            currentIpFlag,
+            style: const TextStyle(fontSize: 14, height: 1),
+          ),
+          const SizedBox(width: 5),
+          Flexible(
+            child: Text(
+              currentIpAddress,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w900,
+                fontSize: 11.5,
+                letterSpacing: 0.6,
+                fontFamily: 'monospace',
+              ),
             ),
           ),
         ],

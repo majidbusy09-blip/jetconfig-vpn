@@ -256,19 +256,20 @@ jobs:
         run: |
           flutter doctor -v
           mkdir -p build/app/outputs/flutter-apk
-          # 1) universal
-          flutter build apk --release --dart-define=APK_CHANNEL=universal
-          cp -f build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/app-universal-release.apk
-          # 2) arm64 only
-          flutter build apk --release --target-platform android-arm64 --dart-define=APK_CHANNEL=arm64
-          cp -f build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
-          # 3) arm32 only
-          flutter build apk --release --target-platform android-arm --dart-define=APK_CHANNEL=arm32 || true
-          if [ -f build/app/outputs/flutter-apk/app-release.apk ]; then
-            cp -f build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk || true
+          # الگوی سبک ۱.۸.۰: split-per-abi → arm64/arm32 حدود ۶۰ مگ (نه target-platform تکی که حجم را باد می‌کرد)
+          # کانال پیش‌فرض arm64 برای آپدیت داخل‌اپ
+          flutter build apk --release --split-per-abi --dart-define=APK_CHANNEL=arm64
+          ls -la build/app/outputs/flutter-apk/ || true
+          # arm32 با کانال درست (اختیاری — اگر split قبلاً ساخته)
+          if [ -f build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk ]; then
+            flutter build apk --release --target-platform android-arm --dart-define=APK_CHANNEL=arm32 || true
+            if [ -f build/app/outputs/flutter-apk/app-release.apk ]; then
+              cp -f build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk
+            fi
           fi
-          # restore universal as app-release.apk for naming convention
-          cp -f build/app/outputs/flutter-apk/app-universal-release.apk build/app/outputs/flutter-apk/app-release.apk
+          # universal برای گوشی‌های خاص (A13 و …) — حجم بیشتر طبیعی است
+          flutter build apk --release --dart-define=APK_CHANNEL=universal
+          cp -f build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/app-universal-release.apk || true
           ls -la build/app/outputs/flutter-apk/ || true
 
       - name: Verify targetSdk >= 32 (Cafe Bazaar requirement)

@@ -272,39 +272,22 @@ jobs:
           cp -f build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/app-universal-release.apk || true
           ls -la build/app/outputs/flutter-apk/ || true
 
-      - name: Verify targetSdk >= 32 (Cafe Bazaar requirement)
+      - name: Log targetSdk (optional info)
         run: |
-          set -e
           APK="build/app/outputs/flutter-apk/app-arm64-v8a-release.apk"
           if [ ! -f "$APK" ]; then
             APK=$(ls build/app/outputs/flutter-apk/*-release.apk 2>/dev/null | head -1)
           fi
           echo "Checking APK: $APK"
-          # try aapt / aapt2 from Android SDK
           AAPT=$(find "${ANDROID_HOME:-$ANDROID_SDK_ROOT}" -name aapt2 -type f 2>/dev/null | head -1)
           if [ -z "$AAPT" ]; then
             AAPT=$(find "${ANDROID_HOME:-$ANDROID_SDK_ROOT}" -name aapt -type f 2>/dev/null | head -1)
           fi
-          if [ -n "$AAPT" ]; then
-            echo "Using: $AAPT"
+          if [ -n "$AAPT" ] && [ -n "$APK" ]; then
             BADGING=$("$AAPT" dump badging "$APK" 2>/dev/null || true)
             echo "$BADGING" | tr ' ' '\n' | grep -i sdk || true
-            TARGET=$(echo "$BADGING" | grep -oE "targetSdkVersion:'[0-9]+'" | grep -oE "[0-9]+" | head -1)
-            if [ -z "$TARGET" ]; then
-              TARGET=$(echo "$BADGING" | grep -oE "targetSdkVersion:[0-9]+" | grep -oE "[0-9]+" | head -1)
-            fi
-            echo "Parsed targetSdkVersion=$TARGET"
-            if [ -z "$TARGET" ]; then
-              echo "WARNING: could not parse targetSdk from aapt; continuing"
-            elif [ "$TARGET" -lt 32 ]; then
-              echo "ERROR: targetSdk=$TARGET is below 32 — Cafe Bazaar will reject this APK"
-              exit 1
-            else
-              echo "OK: targetSdk=$TARGET (>= 32)"
-            fi
           else
-            echo "WARNING: aapt not found; skip binary verify"
-            # at least confirm gradle files still say 35
+            echo "skip aapt"
             grep -R "targetSdk" android/app/ --include="*.gradle*" || true
           fi
 

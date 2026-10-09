@@ -14,8 +14,8 @@ void main() {
 }
 
 // مشخصات نسخه (نمایش داخل اپ) — با هر ریلیز دستی بالا ببر
-const String appVersion = 'v1.8.6';
-const int appVersionCode = 28;
+const String appVersion = 'v1.8.7';
+const int appVersionCode = 29;
 /// کانال بسته‌بندی: با --dart-define=APK_CHANNEL=arm64|universal|arm32 در بیلد ست می‌شود
 const String apkChannel = String.fromEnvironment('APK_CHANNEL', defaultValue: 'arm64');
 const String appUpdateMetaUrl = 'https://majid6064.ir/app_version.json';
@@ -424,41 +424,122 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
   }
 
   /// وقتی VPN وصل است، درخواست از پروکسی محلی هسته می‌رود تا IP واقعی خروجی بیاید
+  /// پورت‌های inbound محلی هسته (HTTP)
+  static const List<int> _localHttpProxyPorts = [10809, 10808, 2081, 2080];
+
+  /// گرفتن IP خام از چند سرویس معتبر (مثل Happ / v2rayNG)
   Future<String?> _httpGetIp({required bool viaProxy}) async {
     final bust = DateTime.now().millisecondsSinceEpoch;
     final urls = <String>[
       'https://api.ipify.org?t=$bust',
       'https://api64.ipify.org?t=$bust',
       'https://icanhazip.com',
+      'https://ifconfig.me/ip',
+      'https://checkip.amazonaws.com',
     ];
-    if (viaProxy) {
-      // HTTP inbound هسته (معمولاً 10809) — ترافیک قطعاً از تونل می‌رود
-      final client = HttpClient();
-      client.connectionTimeout = const Duration(seconds: 6);
-      client.findProxy = (uri) => 'PROXY 127.0.0.1:10809';
-      client.badCertificateCallback = (cert, host, port) => true;
-      try {
-        for (final u in urls) {
-          try {
-            final req = await client.getUrl(Uri.parse(u)).timeout(const Duration(seconds: 6));
-            req.headers.set(HttpHeaders.cacheControlHeader, 'no-cache');
-            final res = await req.close().timeout(const Duration(seconds: 6));
-            if (res.statusCode == 200) {
-              final body = (await res.transform(utf8.decoder).join()).trim();
-              final ip = body.split(RegExp(r'\s+')).first;
-              if (ip.isNotEmpty && ip.length < 46 && !ip.contains('<')) {
-                return ip;
-              }
-            }
-          } catch (_) {
-            continue;
-          }
-        }
-      } finally {
-        client.close(force: true);
+
+    String? parseIp(String body) {
+      final text = body.trim();
+      // cloudflare trace: ip=x.x.x.x
+      final m = RegExp(r'(?:^|\n)ip=([0-9a-fA-F:\.]+)').firstMatch(text);
+      if (m != null) return m.group(1);
+      final first = text.split(RegExp(r'[\s,;]+')).firstWhere(
+        (s) => s.isNotEmpty,
+        orElse: () => '',
+      );
+      if (first.isEmpty || first.length > 45) return null;
+      if (first.contains('<') || first.contains('{')) return null;
+      // IPv4 or IPv6-ish
+      if (RegExp(r'^\d{1,3}(\.\d{1,3}){3}$').hasMatch(first) ||
+          first.contains(':')) {
+        return first;
       }
-      // فال‌بک: گاهی پورت 10808 فقط SOCKS است — مستقیم با پکیج http بعد از تونل سیستم
+      return null;
     }
+
+    if (viaProxy) {
+      for (final port in _localHttpProxyPorts) {
+        final client = HttpClient();
+        client.connectionTimeout = const Duration(seconds: 4);
+        client.idleTimeout = const Duration(seconds: 4);
+        client.findProxy = (uri) => 'PROXY 127.0.0.1:$port';
+        client.badCertificateCallback = (cert, host, port) => true;
+        try {
+          for (final u in urls) {
+            try {
+              final req =
+                  await client.getUrl(Uri.parse(u)).timeout(const Duration(seconds: 4));
+              req.headers.set(HttpHeaders.cacheControlHeader, 'no-cache');
+              req.headers.set(HttpHeaders.pragmaHeader, 'no-cache');
+              final res = await req.close().timeout(const Duration(seconds: 4));
+              if (res.statusCode == 200) {
+                final body = await res.transform(utf8.decoder).join();
+                final ip = parseIp(body);
+                if (ip != null) return ip;
+              }
+            } catch (_) {
+              continue;
+            }
+          }
+          // cloudflare trace از طریق پروکسی
+          try {
+            final req = await client
+                .getUrl(Uri.parse('https://www.cloudflare.com/cdn-cgi/trace'))
+                .timeout(const Duration(seconds: 4));
+            final res = await req.close().timeout(const Duration(seconds: 4));
+            if (res.statusCode == 200) {
+              final body = await res.transform(utf8.decoder).join();
+              final ip = parseIp(body);
+              if (ip != null) return ip;
+            }
+          } catch (_) {}
+        } finally {
+          client.close(force: true);
+        }
+      }
+      // در حالت تونل کامل، سیستم ممکن است خودش از VPN رد کند
+    }
+
+    // ——— مسیر مستقیم (بدون پروکسی اپ) — برای حالت قطع الزامی است
+    final client = HttpClient();
+    client.connectionTimeout = const Duration(seconds: 6);
+    client.idleTimeout = const Duration(seconds: 6);
+    // مهم: هرگز پروکسی سیستم/قبلی نماند
+    client.findProxy = (uri) => 'DIRECT';
+    client.badCertificateCallback = (cert, host, port) => true;
+    try {
+      for (final u in urls) {
+        try {
+          final req =
+              await client.getUrl(Uri.parse(u)).timeout(const Duration(seconds: 5));
+          req.headers.set(HttpHeaders.cacheControlHeader, 'no-cache');
+          req.headers.set(HttpHeaders.pragmaHeader, 'no-cache');
+          final res = await req.close().timeout(const Duration(seconds: 5));
+          if (res.statusCode == 200) {
+            final body = await res.transform(utf8.decoder).join();
+            final ip = parseIp(body);
+            if (ip != null) return ip;
+          }
+        } catch (_) {
+          continue;
+        }
+      }
+      try {
+        final req = await client
+            .getUrl(Uri.parse('https://www.cloudflare.com/cdn-cgi/trace'))
+            .timeout(const Duration(seconds: 5));
+        final res = await req.close().timeout(const Duration(seconds: 5));
+        if (res.statusCode == 200) {
+          final body = await res.transform(utf8.decoder).join();
+          final ip = parseIp(body);
+          if (ip != null) return ip;
+        }
+      } catch (_) {}
+    } finally {
+      client.close(force: true);
+    }
+
+    // فال‌بک پکیج http (ممکن است از proxy سیستم اندروید تبعیت کند)
     for (final u in urls) {
       try {
         final res = await http
@@ -471,15 +552,22 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
             )
             .timeout(const Duration(seconds: 5));
         if (res.statusCode == 200) {
-          final ip = res.body.trim().split(RegExp(r'\s+')).first;
-          if (ip.isNotEmpty && ip.length < 46 && !ip.contains('<')) {
-            return ip;
-          }
+          final ip = parseIp(res.body);
+          if (ip != null) return ip;
         }
       } catch (_) {
         continue;
       }
     }
+    try {
+      final res = await http
+          .get(Uri.parse('https://www.cloudflare.com/cdn-cgi/trace'))
+          .timeout(const Duration(seconds: 5));
+      if (res.statusCode == 200) {
+        final ip = parseIp(res.body);
+        if (ip != null) return ip;
+      }
+    } catch (_) {}
     return null;
   }
 
@@ -489,11 +577,12 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
       'Pragma': 'no-cache',
     };
     final bust = DateTime.now().millisecondsSinceEpoch;
-    // چند منبع — همیشه بر اساس همین IP (نه کش قبلی)
     final urls = <String>[
       'https://ipwho.is/$ip?t=$bust',
       'https://ipapi.co/$ip/json/?t=$bust',
       'https://api.country.is/$ip',
+      // HTTP ساده — گاهی در ایران پایدارتر است
+      'http://ip-api.com/json/$ip?fields=status,country,countryCode,query',
     ];
     for (final u in urls) {
       try {
@@ -503,15 +592,14 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
         if (res.statusCode != 200) continue;
         final j = json.decode(res.body);
         if (j is! Map) continue;
-        // ipwho / ipapi / country.is
+        if (j['status'] == 'fail') continue;
         String cc = (j['country_code'] ??
                 j['countryCode'] ??
-                j['country'] ??
                 '')
             .toString();
-        // country.is returns country as ISO2 in "country"
-        if (cc.length > 2) {
-          cc = (j['country_code'] ?? j['countryCode'] ?? '').toString();
+        if (cc.length != 2) {
+          final c = (j['country'] ?? '').toString();
+          if (c.length == 2) cc = c;
         }
         if (cc.length != 2) continue;
         final name = (j['country_name'] ??
@@ -532,13 +620,13 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     return {'flag': '🌐', 'country': '', 'cc': ''};
   }
 
-  /// قطع → IP ایران | وصل → IP خروجی سرور (از داخل تونل)
+  /// قطع → IP واقعی دستگاه (DIRECT) | وصل → IP خروجی از تونل (پروکسی محلی هسته)
   Future<void> _fetchCurrentIp({bool force = false}) async {
     if (_ipFetchInFlight && !force) return;
     final now = DateTime.now();
     if (!force &&
         _lastIpFetchAt != null &&
-        now.difference(_lastIpFetchAt!).inSeconds < 3) {
+        now.difference(_lastIpFetchAt!).inSeconds < 2) {
       return;
     }
     _ipFetchInFlight = true;
@@ -550,13 +638,19 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
       });
     }
     try {
-      final throughTunnel = _isVpnConnected; // فقط وقتی UI واقعاً وصل است
-      String? ip = await _httpGetIp(viaProxy: throughTunnel);
-      // اگر با پروکسی نشد و وصل بودیم، یک‌بار مستقیم هم امتحان (تونل سیستم)
-      if ((ip == null || ip.isEmpty) && throughTunnel) {
-        ip = await _httpGetIp(viaProxy: false);
-      }
-      if ((ip == null || ip.isEmpty) && !throughTunnel) {
+      final throughTunnel = _isVpnConnected;
+      String? ip;
+
+      if (throughTunnel) {
+        // اول اجباراً از inbound محلی هسته (حتی در حالت «فقط فیلترشده»)
+        ip = await _httpGetIp(viaProxy: true);
+        // اگر پروکسی محلی جواب نداد، تونل سیستم (حالت تمام‌گوشی)
+        if (ip == null || ip.isEmpty) {
+          ip = await _httpGetIp(viaProxy: false);
+        }
+      } else {
+        // بعد از قطع: کمی صبر تا VPNService اندروید آزاد شود
+        await Future.delayed(const Duration(milliseconds: 500));
         ip = await _httpGetIp(viaProxy: false);
       }
 
@@ -583,6 +677,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
         setState(() {
           currentIpAddress = '---';
           currentIpFlag = '🌐';
+          currentIpCountry = '';
         });
       }
     } finally {
@@ -1442,7 +1537,10 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
           isConnecting = false;
         });
       }
-      _fetchCurrentIp(force: true);
+      // صبر تا تونل سیستم کاملاً بسته شود، بعد IP واقعی
+      Future.delayed(const Duration(milliseconds: 700), () {
+        if (mounted) _fetchCurrentIp(force: true);
+      });
       return;
     }
 

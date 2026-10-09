@@ -539,7 +539,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
       });
     }
     try {
-      final throughTunnel = isConnected; // فقط وقتی UI واقعاً وصل است
+      final throughTunnel = _isVpnConnected; // فقط وقتی UI واقعاً وصل است
       String? ip = await _httpGetIp(viaProxy: throughTunnel);
       // اگر با پروکسی نشد و وصل بودیم، یک‌بار مستقیم هم امتحان (تونل سیستم)
       if ((ip == null || ip.isEmpty) && throughTunnel) {

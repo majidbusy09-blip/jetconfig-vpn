@@ -14,8 +14,8 @@ void main() {
 }
 
 // مشخصات نسخه (نمایش داخل اپ) — با هر ریلیز دستی بالا ببر
-const String appVersion = 'v1.8.4';
-const int appVersionCode = 26;
+const String appVersion = 'v1.8.5';
+const int appVersionCode = 27;
 /// کانال بسته‌بندی: با --dart-define=APK_CHANNEL=arm64|universal|arm32 در بیلد ست می‌شود
 const String apkChannel = String.fromEnvironment('APK_CHANNEL', defaultValue: 'arm64');
 const String appUpdateMetaUrl = 'https://majid6064.ir/app_version.json';
@@ -387,7 +387,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
           _connectionVerified = true;
           isConnecting = false;
           // کمی صبر تا تونل پایدار شود، بعد IP خروجی
-          Future.delayed(const Duration(milliseconds: 900), () {
+          Future.delayed(const Duration(milliseconds: 1500), () {
             if (mounted) _fetchCurrentIp(force: true);
           });
           activePing = delay;
@@ -423,14 +423,111 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     return String.fromCharCodes([0x1F1E6 + a - 65, 0x1F1E6 + b - 65]);
   }
 
-  /// IP + کشور:
-  /// قطع = IP ایران · وصل = IP خارج (خروجی تونل)
+  /// وقتی VPN وصل است، درخواست از پروکسی محلی هسته می‌رود تا IP واقعی خروجی بیاید
+  Future<String?> _httpGetIp({required bool viaProxy}) async {
+    final bust = DateTime.now().millisecondsSinceEpoch;
+    final urls = <String>[
+      'https://api.ipify.org?t=$bust',
+      'https://api64.ipify.org?t=$bust',
+      'https://icanhazip.com',
+    ];
+    if (viaProxy) {
+      // HTTP inbound هسته (معمولاً 10809) — ترافیک قطعاً از تونل می‌رود
+      final client = HttpClient();
+      client.connectionTimeout = const Duration(seconds: 6);
+      client.findProxy = (uri) => 'PROXY 127.0.0.1:10809';
+      client.badCertificateCallback = (cert, host, port) => true;
+      try {
+        for (final u in urls) {
+          try {
+            final req = await client.getUrl(Uri.parse(u)).timeout(const Duration(seconds: 6));
+            req.headers.set(HttpHeaders.cacheControlHeader, 'no-cache');
+            final res = await req.close().timeout(const Duration(seconds: 6));
+            if (res.statusCode == 200) {
+              final body = (await res.transform(utf8.decoder).join()).trim();
+              final ip = body.split(RegExp(r'\s+')).first;
+              if (ip.isNotEmpty && ip.length < 46 && !ip.contains('<')) {
+                return ip;
+              }
+            }
+          } catch (_) {
+            continue;
+          }
+        }
+      } finally {
+        client.close(force: true);
+      }
+      // فال‌بک: گاهی پورت 10808 فقط SOCKS است — مستقیم با پکیج http بعد از تونل سیستم
+    }
+    for (final u in urls) {
+      try {
+        final res = await http
+            .get(
+              Uri.parse(u),
+              headers: const {
+                'Cache-Control': 'no-cache, no-store',
+                'Pragma': 'no-cache',
+              },
+            )
+            .timeout(const Duration(seconds: 5));
+        if (res.statusCode == 200) {
+          final ip = res.body.trim().split(RegExp(r'\s+')).first;
+          if (ip.isNotEmpty && ip.length < 46 && !ip.contains('<')) {
+            return ip;
+          }
+        }
+      } catch (_) {
+        continue;
+      }
+    }
+    return null;
+  }
+
+  Future<Map<String, String>> _lookupGeo(String ip) async {
+    const noCache = <String, String>{
+      'Cache-Control': 'no-cache, no-store',
+      'Pragma': 'no-cache',
+    };
+    try {
+      final geo = await http
+          .get(Uri.parse('https://ipwho.is/$ip'), headers: noCache)
+          .timeout(const Duration(seconds: 5));
+      if (geo.statusCode == 200) {
+        final j = json.decode(geo.body);
+        if (j is Map && j['success'] != false) {
+          final cc = (j['country_code'] ?? '').toString();
+          final name = (j['country'] ?? '').toString();
+          if (cc.length == 2) {
+            return {'flag': _countryCodeToFlag(cc), 'country': name, 'cc': cc};
+          }
+        }
+      }
+    } catch (_) {}
+    try {
+      final geo2 = await http
+          .get(Uri.parse('https://ipapi.co/$ip/json/'), headers: noCache)
+          .timeout(const Duration(seconds: 5));
+      if (geo2.statusCode == 200) {
+        final j = json.decode(geo2.body);
+        if (j is Map) {
+          final cc = (j['country_code'] ?? '').toString();
+          final name = (j['country_name'] ?? j['country'] ?? '').toString();
+          if (cc.length == 2) {
+            return {'flag': _countryCodeToFlag(cc), 'country': name, 'cc': cc};
+          }
+        }
+      }
+    } catch (_) {}
+    return {'flag': '🌐', 'country': '', 'cc': ''};
+  }
+
+  /// قطع → IP ایران | وصل → IP خروجی سرور (از داخل تونل)
   Future<void> _fetchCurrentIp({bool force = false}) async {
     if (_ipFetchInFlight && !force) return;
     final now = DateTime.now();
     if (!force &&
         _lastIpFetchAt != null &&
-        now.difference(_lastIpFetchAt!).inSeconds < 4) {
+        now.difference(_lastIpFetchAt!).inSeconds < 3) {
       return;
     }
     _ipFetchInFlight = true;
@@ -441,74 +538,25 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
         currentIpCountry = '';
       });
     }
-    const ipEndpoints = <String>[
-      'https://api.ipify.org',
-      'https://api64.ipify.org',
-      'https://icanhazip.com',
-      'https://ifconfig.me/ip',
-    ];
-    const noCache = <String, String>{
-      'Cache-Control': 'no-cache, no-store',
-      'Pragma': 'no-cache',
-    };
     try {
-      String? ip;
-      for (final url in ipEndpoints) {
-        try {
-          final res = await http
-              .get(Uri.parse(url), headers: noCache)
-              .timeout(const Duration(seconds: 5));
-          if (res.statusCode == 200) {
-            final body = res.body.trim().split(RegExp(r'\s+')).first;
-            if (body.isNotEmpty && body.length < 46 && !body.contains('<')) {
-              ip = body;
-              break;
-            }
-          }
-        } catch (_) {
-          continue;
-        }
+      final throughTunnel = isConnected; // فقط وقتی UI واقعاً وصل است
+      String? ip = await _httpGetIp(viaProxy: throughTunnel);
+      // اگر با پروکسی نشد و وصل بودیم، یک‌بار مستقیم هم امتحان (تونل سیستم)
+      if ((ip == null || ip.isEmpty) && throughTunnel) {
+        ip = await _httpGetIp(viaProxy: false);
       }
-
-      String flag = '🌐';
-      String country = '';
-      if (ip != null && ip.isNotEmpty) {
-        // ipwho.is — بدون کلید، HTTPS
-        try {
-          final geo = await http
-              .get(Uri.parse('https://ipwho.is/$ip'), headers: noCache)
-              .timeout(const Duration(seconds: 5));
-          if (geo.statusCode == 200) {
-            final j = json.decode(geo.body);
-            if (j is Map && j['success'] != false) {
-              final cc = (j['country_code'] ?? j['countryCode'] ?? '').toString();
-              country = (j['country'] ?? '').toString();
-              if (cc.length == 2) flag = _countryCodeToFlag(cc);
-            }
-          }
-        } catch (_) {
-          try {
-            final geo2 = await http
-                .get(Uri.parse('https://ipapi.co/$ip/json/'), headers: noCache)
-                .timeout(const Duration(seconds: 5));
-            if (geo2.statusCode == 200) {
-              final j = json.decode(geo2.body);
-              if (j is Map) {
-                final cc = (j['country_code'] ?? '').toString();
-                country = (j['country_name'] ?? j['country'] ?? '').toString();
-                if (cc.length == 2) flag = _countryCodeToFlag(cc);
-              }
-            }
-          } catch (_) {}
-        }
+      if ((ip == null || ip.isEmpty) && !throughTunnel) {
+        ip = await _httpGetIp(viaProxy: false);
       }
 
       if (mounted) {
         if (ip != null && ip.isNotEmpty) {
+          final geo = await _lookupGeo(ip);
+          if (!mounted) return;
           setState(() {
             currentIpAddress = ip!;
-            currentIpFlag = flag;
-            currentIpCountry = country;
+            currentIpFlag = geo['flag'] ?? '🌐';
+            currentIpCountry = geo['country'] ?? '';
           });
           _lastIpFetchAt = DateTime.now();
         } else if (currentIpAddress == '...' || currentIpAddress == '---') {

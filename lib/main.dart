@@ -14,8 +14,8 @@ void main() {
 }
 
 // مشخصات نسخه (نمایش داخل اپ) — با هر ریلیز دستی بالا ببر
-const String appVersion = 'v1.8.5';
-const int appVersionCode = 27;
+const String appVersion = 'v1.8.6';
+const int appVersionCode = 28;
 /// کانال بسته‌بندی: با --dart-define=APK_CHANNEL=arm64|universal|arm32 در بیلد ست می‌شود
 const String apkChannel = String.fromEnvironment('APK_CHANNEL', defaultValue: 'arm64');
 const String appUpdateMetaUrl = 'https://majid6064.ir/app_version.json';
@@ -488,36 +488,47 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
       'Cache-Control': 'no-cache, no-store',
       'Pragma': 'no-cache',
     };
-    try {
-      final geo = await http
-          .get(Uri.parse('https://ipwho.is/$ip'), headers: noCache)
-          .timeout(const Duration(seconds: 5));
-      if (geo.statusCode == 200) {
-        final j = json.decode(geo.body);
-        if (j is Map && j['success'] != false) {
-          final cc = (j['country_code'] ?? '').toString();
-          final name = (j['country'] ?? '').toString();
-          if (cc.length == 2) {
-            return {'flag': _countryCodeToFlag(cc), 'country': name, 'cc': cc};
-          }
+    final bust = DateTime.now().millisecondsSinceEpoch;
+    // چند منبع — همیشه بر اساس همین IP (نه کش قبلی)
+    final urls = <String>[
+      'https://ipwho.is/$ip?t=$bust',
+      'https://ipapi.co/$ip/json/?t=$bust',
+      'https://api.country.is/$ip',
+    ];
+    for (final u in urls) {
+      try {
+        final res = await http
+            .get(Uri.parse(u), headers: noCache)
+            .timeout(const Duration(seconds: 5));
+        if (res.statusCode != 200) continue;
+        final j = json.decode(res.body);
+        if (j is! Map) continue;
+        // ipwho / ipapi / country.is
+        String cc = (j['country_code'] ??
+                j['countryCode'] ??
+                j['country'] ??
+                '')
+            .toString();
+        // country.is returns country as ISO2 in "country"
+        if (cc.length > 2) {
+          cc = (j['country_code'] ?? j['countryCode'] ?? '').toString();
         }
+        if (cc.length != 2) continue;
+        final name = (j['country_name'] ??
+                (j['country'] is String && (j['country'] as String).length > 2
+                    ? j['country']
+                    : '') ??
+                '')
+            .toString();
+        return {
+          'flag': _countryCodeToFlag(cc),
+          'country': name,
+          'cc': cc.toUpperCase(),
+        };
+      } catch (_) {
+        continue;
       }
-    } catch (_) {}
-    try {
-      final geo2 = await http
-          .get(Uri.parse('https://ipapi.co/$ip/json/'), headers: noCache)
-          .timeout(const Duration(seconds: 5));
-      if (geo2.statusCode == 200) {
-        final j = json.decode(geo2.body);
-        if (j is Map) {
-          final cc = (j['country_code'] ?? '').toString();
-          final name = (j['country_name'] ?? j['country'] ?? '').toString();
-          if (cc.length == 2) {
-            return {'flag': _countryCodeToFlag(cc), 'country': name, 'cc': cc};
-          }
-        }
-      }
-    } catch (_) {}
+    }
     return {'flag': '🌐', 'country': '', 'cc': ''};
   }
 
@@ -1671,18 +1682,20 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
         children: [
           Text(
             currentIpFlag,
-            style: const TextStyle(fontSize: 14, height: 1),
+            style: const TextStyle(fontSize: 15, height: 1),
           ),
           const SizedBox(width: 5),
           Flexible(
             child: Text(
-              currentIpAddress,
+              currentIpCountry.isNotEmpty
+                  ? '$currentIpAddress · $currentIpCountry'
+                  : currentIpAddress,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
                 color: Colors.white,
                 fontWeight: FontWeight.w900,
-                fontSize: 11.5,
-                letterSpacing: 0.6,
+                fontSize: 11,
+                letterSpacing: 0.4,
                 fontFamily: 'monospace',
               ),
             ),
@@ -2267,6 +2280,95 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     }
   }
 
+  Future<void> _changeAppPassword() async {
+    if (savedUser.isEmpty || savedPass.isEmpty) {
+      _showToast('ابتدا وارد حساب شو');
+      return;
+    }
+    final controller = TextEditingController();
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF1A2332),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Text('تغییر رمز ورود اپ', style: TextStyle(color: Colors.white, fontSize: 16)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'رمز جدید: ۵ تا ۸ حرف یا عدد انگلیسی\n(رمز اولیه معمولاً ۴ رقم بود)',
+                style: TextStyle(color: Colors.white70, fontSize: 12.5, height: 1.4),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: controller,
+                obscureText: true,
+                maxLength: 8,
+                style: const TextStyle(color: Colors.white),
+                decoration: InputDecoration(
+                  hintText: 'رمز جدید',
+                  hintStyle: const TextStyle(color: Colors.white38),
+                  counterStyle: const TextStyle(color: Colors.white38),
+                  filled: true,
+                  fillColor: const Color(0xFF0F1419),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('انصراف', style: TextStyle(color: Colors.white54)),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF00C853)),
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('ذخیره', style: TextStyle(color: Colors.white)),
+            ),
+          ],
+        );
+      },
+    );
+    if (ok != true) return;
+    final newPass = controller.text.trim();
+    if (newPass.length < 5 || newPass.length > 8) {
+      _showToast('رمز باید ۵ تا ۸ کاراکتر باشد');
+      return;
+    }
+    if (!RegExp(r'^[A-Za-z0-9]+$').hasMatch(newPass)) {
+      _showToast('فقط حرف و عدد انگلیسی');
+      return;
+    }
+    _showToast('در حال ذخیره…');
+    try {
+      final uri = Uri.parse(
+        'https://majid6064.ir/api.php'
+        '?username=${Uri.encodeComponent(savedUser)}'
+        '&password=${Uri.encodeComponent(savedPass)}'
+        '&action=change_password'
+        '&new_password=${Uri.encodeComponent(newPass)}',
+      );
+      final res = await http.get(uri).timeout(const Duration(seconds: 12));
+      final data = json.decode(utf8.decode(res.bodyBytes));
+      if (data is Map && data['ok'] == true) {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('saved_password', newPass);
+        if (mounted) {
+          setState(() => savedPass = newPass);
+          _passController.text = newPass;
+        }
+        _showToast('رمز عوض شد — در ربات هم «سرویس‌های من» را ببین');
+      } else {
+        _showToast((data is Map ? data['msg'] : null)?.toString() ?? 'تغییر رمز ناموفق');
+      }
+    } catch (_) {
+      _showToast('خطا در ارتباط با سرور');
+    }
+  }
+
   void _openSettings() {
     showModalBottomSheet(
       context: context,
@@ -2374,6 +2476,17 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
                         onChanged: (v) async {
                           Navigator.pop(ctx);
                           await _saveTunnelMode(v);
+                        },
+                      ),
+                      ListTile(
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+                        leading: const Icon(Icons.password_rounded, color: Color(0xFFFFD54F)),
+                        title: const Text('تغییر رمز ورود اپ', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13.5)),
+                        subtitle: const Text('۵ تا ۸ کاراکتر · در سرویس‌های من ربات هم دیده می‌شود', style: TextStyle(color: Colors.white54, fontSize: 11)),
+                        trailing: const Icon(Icons.chevron_left, color: Colors.white38),
+                        onTap: () {
+                          Navigator.pop(ctx);
+                          _changeAppPassword();
                         },
                       ),
                       ListTile(

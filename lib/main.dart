@@ -14,8 +14,8 @@ void main() {
 }
 
 // مشخصات نسخه (نمایش داخل اپ) — با هر ریلیز دستی بالا ببر
-const String appVersion = 'v1.8.7';
-const int appVersionCode = 29;
+const String appVersion = 'v1.8.8';
+const int appVersionCode = 30;
 /// کانال بسته‌بندی: با --dart-define=APK_CHANNEL=arm64|universal|arm32 در بیلد ست می‌شود
 const String apkChannel = String.fromEnvironment('APK_CHANNEL', defaultValue: 'arm64');
 const String appUpdateMetaUrl = 'https://majid6064.ir/app_version.json';
@@ -233,7 +233,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
   bool preferLastServer = true; // نگه داشتن آخرین سرور انتخاب‌شده
   int activePing = -1;
   String currentIpAddress = '...';
-  String currentIpFlag = '🌐';
+  String currentIpFlag = '';
   String currentIpCountry = '';
   String? _lastV2rayState;
   DateTime? _lastIpFetchAt;
@@ -285,17 +285,77 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
   }
 
   /// آماده‌سازی کانفیگ برای هسته: JSON خام پاسارگاد یا لینک vless://
+  /// اطمینان از inbound محلی HTTP روی 10809 تا اپ بتواند IP خروجی را بخواند
+  String _ensureLocalHttpInbound(String configJson) {
+    try {
+      final decoded = jsonDecode(configJson);
+      if (decoded is! Map) return configJson;
+      final map = Map<String, dynamic>.from(decoded as Map);
+      final inbounds = <dynamic>[];
+      if (map['inbounds'] is List) {
+        inbounds.addAll(List<dynamic>.from(map['inbounds'] as List));
+      }
+      bool hasHttp10809 = false;
+      for (final ib in inbounds) {
+        if (ib is! Map) continue;
+        final proto = '${ib['protocol'] ?? ''}'.toLowerCase();
+        final port = ib['port'];
+        if (proto == 'http' && (port == 10809 || port == '10809')) {
+          hasHttp10809 = true;
+          break;
+        }
+      }
+      if (!hasHttp10809) {
+        inbounds.add({
+          'tag': 'http-in-jet',
+          'port': 10809,
+          'listen': '127.0.0.1',
+          'protocol': 'http',
+          'settings': {
+            'timeout': 0,
+            'allowTransparent': false,
+          },
+        });
+      }
+      // SOCKS کمکی
+      bool hasSocks = false;
+      for (final ib in inbounds) {
+        if (ib is! Map) continue;
+        final proto = '${ib['protocol'] ?? ''}'.toLowerCase();
+        if (proto == 'socks') {
+          hasSocks = true;
+          break;
+        }
+      }
+      if (!hasSocks) {
+        inbounds.add({
+          'tag': 'socks-in-jet',
+          'port': 10808,
+          'listen': '127.0.0.1',
+          'protocol': 'socks',
+          'settings': {
+            'auth': 'noauth',
+            'udp': true,
+          },
+        });
+      }
+      map['inbounds'] = inbounds;
+      return jsonEncode(map);
+    } catch (_) {
+      return configJson;
+    }
+  }
+
   String _prepareConfigForCore(String raw) {
     final s = raw.trim();
     if (s.isEmpty) return s;
 
-    // کانفیگ کامل Xray JSON (ساب جدید پاسارگاد)
+    // کانفیگ کامل Xray JSON
     if (s.startsWith('{')) {
       try {
         final decoded = jsonDecode(s);
         if (decoded is Map) {
-          // اطمینان از اینکه encryption جدید دست‌نخورده می‌ماند
-          return jsonEncode(decoded);
+          return _ensureLocalHttpInbound(jsonEncode(decoded));
         }
       } catch (_) {
         return s;
@@ -310,7 +370,8 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
         s.startsWith('ss://')) {
       try {
         final parsedUrl = V2ray.parseFromURL(s);
-        return parsedUrl.getFullConfiguration();
+        final full = parsedUrl.getFullConfiguration();
+        return _ensureLocalHttpInbound(full);
       } catch (_) {
         return s;
       }
@@ -642,32 +703,35 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
       String? ip;
 
       if (throughTunnel) {
-        // اول اجباراً از inbound محلی هسته (حتی در حالت «فقط فیلترشده»)
+        // فقط از پروکسی محلی هسته — مستقیم = IP ایران و گمراه‌کننده است
         ip = await _httpGetIp(viaProxy: true);
-        // اگر پروکسی محلی جواب نداد، تونل سیستم (حالت تمام‌گوشی)
-        if (ip == null || ip.isEmpty) {
-          ip = await _httpGetIp(viaProxy: false);
-        }
       } else {
-        // بعد از قطع: کمی صبر تا VPNService اندروید آزاد شود
-        await Future.delayed(const Duration(milliseconds: 500));
+        await Future.delayed(const Duration(milliseconds: 400));
         ip = await _httpGetIp(viaProxy: false);
       }
 
       if (mounted) {
         if (ip != null && ip.isNotEmpty) {
-          final geo = await _lookupGeo(ip);
-          if (!mounted) return;
+          // بدون پرچم/کشور — فقط IP (جلوگیری از گیج شدن کاربر)
           setState(() {
             currentIpAddress = ip!;
-            currentIpFlag = geo['flag'] ?? '🌐';
-            currentIpCountry = geo['country'] ?? '';
+            currentIpFlag = '';
+            currentIpCountry = '';
           });
           _lastIpFetchAt = DateTime.now();
-        } else if (currentIpAddress == '...' || currentIpAddress == '---') {
+        } else if (throughTunnel) {
+          // وصل است ولی IP تونل خوانده نشد — عدد اشتباه ایران نشان نده
+          setState(() {
+            currentIpAddress = 'تونل فعال';
+            currentIpFlag = '';
+            currentIpCountry = '';
+          });
+        } else if (currentIpAddress == '...' ||
+            currentIpAddress == '---' ||
+            currentIpAddress == 'تونل فعال') {
           setState(() {
             currentIpAddress = '---';
-            currentIpFlag = '🌐';
+            currentIpFlag = '';
             currentIpCountry = '';
           });
         }
@@ -676,7 +740,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
       if (mounted && (currentIpAddress == '...' || currentIpAddress == '---')) {
         setState(() {
           currentIpAddress = '---';
-          currentIpFlag = '🌐';
+          currentIpFlag = '';
           currentIpCountry = '';
         });
       }
@@ -1778,22 +1842,21 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(
-            currentIpFlag,
-            style: const TextStyle(fontSize: 15, height: 1),
+          Icon(
+            Icons.public,
+            size: 14,
+            color: glowColor.withOpacity(0.9),
           ),
-          const SizedBox(width: 5),
+          const SizedBox(width: 6),
           Flexible(
             child: Text(
-              currentIpCountry.isNotEmpty
-                  ? '$currentIpAddress · $currentIpCountry'
-                  : currentIpAddress,
+              currentIpAddress,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
                 color: Colors.white,
                 fontWeight: FontWeight.w900,
-                fontSize: 11,
-                letterSpacing: 0.4,
+                fontSize: 11.5,
+                letterSpacing: 0.5,
                 fontFamily: 'monospace',
               ),
             ),

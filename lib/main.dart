@@ -2281,7 +2281,9 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
   }
 
   Future<void> _changeAppPassword() async {
-    if (savedUser.isEmpty || savedPass.isEmpty) {
+    final user = savedUser?.trim() ?? '';
+    final pass = savedPass?.trim() ?? '';
+    if (user.isEmpty || pass.isEmpty) {
       _showToast('ابتدا وارد حساب شو');
       return;
     }
@@ -2346,8 +2348,8 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     try {
       final uri = Uri.parse(
         'https://majid6064.ir/api.php'
-        '?username=${Uri.encodeComponent(savedUser)}'
-        '&password=${Uri.encodeComponent(savedPass)}'
+        '?username=${Uri.encodeComponent(user)}'
+        '&password=${Uri.encodeComponent(pass)}'
         '&action=change_password'
         '&new_password=${Uri.encodeComponent(newPass)}',
       );

@@ -14,8 +14,8 @@ void main() {
 }
 
 // مشخصات نسخه (نمایش داخل اپ) — با هر ریلیز دستی بالا ببر
-const String appVersion = 'v1.8.8';
-const int appVersionCode = 30;
+const String appVersion = 'v1.8.9';
+const int appVersionCode = 31;
 /// کانال بسته‌بندی: با --dart-define=APK_CHANNEL=arm64|universal|arm32 در بیلد ست می‌شود
 const String apkChannel = String.fromEnvironment('APK_CHANNEL', defaultValue: 'arm64');
 const String appUpdateMetaUrl = 'https://majid6064.ir/app_version.json';
@@ -233,8 +233,6 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
   bool preferLastServer = true; // نگه داشتن آخرین سرور انتخاب‌شده
   int activePing = -1;
   String currentIpAddress = '...';
-  String currentIpFlag = '';
-  String currentIpCountry = '';
   String? _lastV2rayState;
   DateTime? _lastIpFetchAt;
   bool _ipFetchInFlight = false;
@@ -474,16 +472,6 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     _fetchCurrentIp(force: true);
   }
 
-  /// کد کشور → پرچم اموجی (IR → 🇮🇷)
-  String _countryCodeToFlag(String code) {
-    final c = code.trim().toUpperCase();
-    if (c.length != 2) return '🌐';
-    final a = c.codeUnitAt(0);
-    final b = c.codeUnitAt(1);
-    if (a < 65 || a > 90 || b < 65 || b > 90) return '🌐';
-    return String.fromCharCodes([0x1F1E6 + a - 65, 0x1F1E6 + b - 65]);
-  }
-
   /// وقتی VPN وصل است، درخواست از پروکسی محلی هسته می‌رود تا IP واقعی خروجی بیاید
   /// پورت‌های inbound محلی هسته (HTTP)
   static const List<int> _localHttpProxyPorts = [10809, 10808, 2081, 2080];
@@ -632,56 +620,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     return null;
   }
 
-  Future<Map<String, String>> _lookupGeo(String ip) async {
-    const noCache = <String, String>{
-      'Cache-Control': 'no-cache, no-store',
-      'Pragma': 'no-cache',
-    };
-    final bust = DateTime.now().millisecondsSinceEpoch;
-    final urls = <String>[
-      'https://ipwho.is/$ip?t=$bust',
-      'https://ipapi.co/$ip/json/?t=$bust',
-      'https://api.country.is/$ip',
-      // HTTP ساده — گاهی در ایران پایدارتر است
-      'http://ip-api.com/json/$ip?fields=status,country,countryCode,query',
-    ];
-    for (final u in urls) {
-      try {
-        final res = await http
-            .get(Uri.parse(u), headers: noCache)
-            .timeout(const Duration(seconds: 5));
-        if (res.statusCode != 200) continue;
-        final j = json.decode(res.body);
-        if (j is! Map) continue;
-        if (j['status'] == 'fail') continue;
-        String cc = (j['country_code'] ??
-                j['countryCode'] ??
-                '')
-            .toString();
-        if (cc.length != 2) {
-          final c = (j['country'] ?? '').toString();
-          if (c.length == 2) cc = c;
-        }
-        if (cc.length != 2) continue;
-        final name = (j['country_name'] ??
-                (j['country'] is String && (j['country'] as String).length > 2
-                    ? j['country']
-                    : '') ??
-                '')
-            .toString();
-        return {
-          'flag': _countryCodeToFlag(cc),
-          'country': name,
-          'cc': cc.toUpperCase(),
-        };
-      } catch (_) {
-        continue;
-      }
-    }
-    return {'flag': '🌐', 'country': '', 'cc': ''};
-  }
-
-  /// قطع → IP واقعی دستگاه (DIRECT) | وصل → IP خروجی از تونل (پروکسی محلی هسته)
+  /// قطع: IP واقعی گوشی | وصل: بدون عدد گمراه‌کننده (اپ از تونل خارج است)
   Future<void> _fetchCurrentIp({bool force = false}) async {
     if (_ipFetchInFlight && !force) return;
     final now = DateTime.now();
@@ -692,57 +631,35 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     }
     _ipFetchInFlight = true;
     if (force && mounted) {
-      setState(() {
-        currentIpAddress = '...';
-        currentIpFlag = '⏳';
-        currentIpCountry = '';
-      });
+      setState(() => currentIpAddress = '...');
     }
     try {
-      final throughTunnel = _isVpnConnected;
-      String? ip;
-
-      if (throughTunnel) {
-        // فقط از پروکسی محلی هسته — مستقیم = IP ایران و گمراه‌کننده است
-        ip = await _httpGetIp(viaProxy: true);
+      if (_isVpnConnected) {
+        // روی اندروید خودِ اپ معمولاً از VPN رد نمی‌شود؛
+        // عدد اشتباه (IP ایران) نشان نمی‌دهیم.
+        if (mounted) {
+          setState(() => currentIpAddress = 'محافظت‌شده');
+          _lastIpFetchAt = DateTime.now();
+        }
+        // تلاش بی‌صدا برای IP خروجی از پروکسی محلی (اختیاری)
+        final tip = await _httpGetIp(viaProxy: true);
+        if (mounted && tip != null && tip.isNotEmpty && _isVpnConnected) {
+          setState(() => currentIpAddress = tip);
+          _lastIpFetchAt = DateTime.now();
+        }
       } else {
         await Future.delayed(const Duration(milliseconds: 400));
-        ip = await _httpGetIp(viaProxy: false);
-      }
-
-      if (mounted) {
-        if (ip != null && ip.isNotEmpty) {
-          // بدون پرچم/کشور — فقط IP (جلوگیری از گیج شدن کاربر)
+        final ip = await _httpGetIp(viaProxy: false);
+        if (mounted) {
           setState(() {
-            currentIpAddress = ip!;
-            currentIpFlag = '';
-            currentIpCountry = '';
+            currentIpAddress = (ip != null && ip.isNotEmpty) ? ip : '---';
           });
           _lastIpFetchAt = DateTime.now();
-        } else if (throughTunnel) {
-          // وصل است ولی IP تونل خوانده نشد — عدد اشتباه ایران نشان نده
-          setState(() {
-            currentIpAddress = 'تونل فعال';
-            currentIpFlag = '';
-            currentIpCountry = '';
-          });
-        } else if (currentIpAddress == '...' ||
-            currentIpAddress == '---' ||
-            currentIpAddress == 'تونل فعال') {
-          setState(() {
-            currentIpAddress = '---';
-            currentIpFlag = '';
-            currentIpCountry = '';
-          });
         }
       }
     } catch (_) {
       if (mounted && (currentIpAddress == '...' || currentIpAddress == '---')) {
-        setState(() {
-          currentIpAddress = '---';
-          currentIpFlag = '';
-          currentIpCountry = '';
-        });
+        setState(() => currentIpAddress = _isVpnConnected ? 'محافظت‌شده' : '---');
       }
     } finally {
       _ipFetchInFlight = false;
@@ -1839,29 +1756,16 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
           ),
         ],
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            Icons.public,
-            size: 14,
-            color: glowColor.withOpacity(0.9),
-          ),
-          const SizedBox(width: 6),
-          Flexible(
-            child: Text(
-              currentIpAddress,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.w900,
-                fontSize: 11.5,
-                letterSpacing: 0.5,
-                fontFamily: 'monospace',
-              ),
-            ),
-          ),
-        ],
+      child: Text(
+        currentIpAddress,
+        overflow: TextOverflow.ellipsis,
+        style: const TextStyle(
+          color: Colors.white,
+          fontWeight: FontWeight.w900,
+          fontSize: 12,
+          letterSpacing: 0.5,
+          fontFamily: 'monospace',
+        ),
       ),
     );
   }

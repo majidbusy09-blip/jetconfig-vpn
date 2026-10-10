@@ -2170,6 +2170,99 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     );
   }
 
+  Widget _buildConnectionModeSwitch() {
+    Widget side({
+      required String label,
+      required IconData icon,
+      required bool selected,
+      required Color color,
+      required VoidCallback onTap,
+    }) {
+      return Expanded(
+        child: GestureDetector(
+          onTap: onTap,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            padding: const EdgeInsets.symmetric(vertical: 9),
+            decoration: BoxDecoration(
+              color: selected ? color.withOpacity(0.22) : Colors.transparent,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: selected ? color : Colors.transparent,
+                width: 1.2,
+              ),
+            ),
+            child: Center(
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(icon, size: 15, color: selected ? color : Colors.grey),
+                  const SizedBox(width: 5),
+                  Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: selected ? Colors.white : Colors.grey,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: const Color(0xFF131B2E),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white.withOpacity(0.06)),
+      ),
+      child: Row(
+        children: [
+          side(
+            label: 'هوشمند',
+            icon: Icons.auto_awesome_rounded,
+            selected: connectionModeSmart,
+            color: const Color(0xFF00E5FF),
+            onTap: () async {
+              if (connectionModeSmart) return;
+              await _saveConnectionMode(smart: true);
+              if (mounted) {
+                _showToast('مود هوشمند فعال شد', isError: false);
+              }
+            },
+          ),
+          const SizedBox(width: 4),
+          side(
+            label: 'دستی',
+            icon: Icons.tune_rounded,
+            selected: !connectionModeSmart,
+            color: const Color(0xFFFFD54F),
+            onTap: () async {
+              if (!connectionModeSmart) return;
+              if (_isRecovering) {
+                _recoveryGen++;
+                _isRecovering = false;
+              }
+              if (!_isVpnConnected) {
+                _userWantsConnected = false;
+                _stopHealthWatch();
+              }
+              await _saveConnectionMode(smart: false);
+              if (mounted) {
+                _showToast('مود دستی فعال شد', isError: false);
+              }
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildTunnelModeSwitch() {
     return Container(
       padding: const EdgeInsets.all(4),

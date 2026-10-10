@@ -14,8 +14,8 @@ void main() {
 }
 
 // مشخصات نسخه (نمایش داخل اپ) — با هر ریلیز دستی بالا ببر
-const String appVersion = 'v1.8.9';
-const int appVersionCode = 31;
+const String appVersion = 'v1.9.0';
+const int appVersionCode = 32;
 /// کانال بسته‌بندی: با --dart-define=APK_CHANNEL=arm64|universal|arm32 در بیلد ست می‌شود
 const String apkChannel = String.fromEnvironment('APK_CHANNEL', defaultValue: 'arm64');
 const String appUpdateMetaUrl = 'https://majid6064.ir/app_version.json';
@@ -231,6 +231,12 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
   bool _subAlertShownThisSession = false;
   bool autoPingOnStart = false; // پینگ خودکار هنگام باز شدن
   bool preferLastServer = true; // نگه داشتن آخرین سرور انتخاب‌شده
+  /// مود اتصال: true = هوشمند (یک دکمه، بدون لیست سرور) / false = دستی
+  bool connectionModeSmart = true;
+  /// آیا کاربر حداقل یک‌بار مود را انتخاب کرده؟
+  bool connectionModeChosen = false;
+  /// ترجیح در مود هوشمند: true = پایداری / false = کم‌ترین تأخیر (فاز بعدی استفاده می‌شود)
+  bool preferStability = true;
   int activePing = -1;
   String currentIpAddress = '...';
   String? _lastV2rayState;
@@ -1041,6 +1047,9 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     final prefAutoRefresh = prefs.getBool('pref_auto_refresh_on_start') ?? true;
     final prefAutoPing = prefs.getBool('pref_auto_ping_on_start') ?? false;
     final prefKeepServer = prefs.getBool('pref_prefer_last_server') ?? true;
+    final prefSmart = prefs.getBool('pref_connection_mode_smart') ?? true;
+    final prefModeChosen = prefs.getBool('pref_connection_mode_chosen') ?? false;
+    final prefStability = prefs.getBool('pref_prefer_stability') ?? true;
 
     Map<String, dynamic>? cachedUser;
     List<ServerModel> cachedServers = [];
@@ -1079,6 +1088,9 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
         autoRefreshOnStart = prefAutoRefresh;
         autoPingOnStart = prefAutoPing;
         preferLastServer = prefKeepServer;
+        connectionModeSmart = prefSmart;
+        connectionModeChosen = prefModeChosen;
+        preferStability = prefStability;
         if (user != null && user.isNotEmpty && pass.isNotEmpty) {
           savedUser = user;
           savedPass = pass;
@@ -2436,6 +2448,165 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     }
   }
 
+
+  Future<void> _saveConnectionMode({required bool smart, bool markChosen = true}) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('pref_connection_mode_smart', smart);
+    if (markChosen) {
+      await prefs.setBool('pref_connection_mode_chosen', true);
+    }
+    if (mounted) {
+      setState(() {
+        connectionModeSmart = smart;
+        if (markChosen) connectionModeChosen = true;
+      });
+    }
+  }
+
+  /// دیالوگ انتخاب مود (اولین ورود یا از تنظیمات)
+  Future<void> _showConnectionModePicker({bool force = false}) async {
+    if (!mounted) return;
+    if (!force && connectionModeChosen) return;
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) {
+        return Directionality(
+          textDirection: TextDirection.rtl,
+          child: AlertDialog(
+            backgroundColor: const Color(0xFF1A2332),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            title: const Text(
+              'چطور می‌خواهی وصل شوی؟',
+              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+              textAlign: TextAlign.center,
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  'هر وقت خواستی از تنظیمات می‌توانی عوض کنی.',
+                  style: TextStyle(color: Colors.white54, fontSize: 12),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 16),
+                _modeChoiceCard(
+                  ctx,
+                  title: 'هوشمند',
+                  subtitle: 'یک دکمه اتصال — اپ خودش بهترین سرور را انتخاب می‌کند',
+                  icon: Icons.auto_awesome_rounded,
+                  color: const Color(0xFF00E5FF),
+                  onTap: () async {
+                    Navigator.pop(ctx);
+                    await _saveConnectionMode(smart: true);
+                    if (mounted) _showToast('مود هوشمند فعال شد', isError: false);
+                  },
+                ),
+                const SizedBox(height: 10),
+                _modeChoiceCard(
+                  ctx,
+                  title: 'دستی',
+                  subtitle: 'خودت سرور را ببین، پینگ بگیر و انتخاب کن',
+                  icon: Icons.tune_rounded,
+                  color: const Color(0xFFFFD54F),
+                  onTap: () async {
+                    Navigator.pop(ctx);
+                    await _saveConnectionMode(smart: false);
+                    if (mounted) _showToast('مود دستی فعال شد', isError: false);
+                  },
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+
+  Widget _settingsModeChip({
+    required String label,
+    required bool selected,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: selected ? color.withOpacity(0.18) : const Color(0xFF0D1526),
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: selected ? color : Colors.white12, width: selected ? 1.6 : 1),
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              color: selected ? color : Colors.white54,
+              fontWeight: FontWeight.w900,
+              fontSize: 14,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _modeChoiceCard(
+    BuildContext ctx, {
+    required String title,
+    required String subtitle,
+    required IconData icon,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: const Color(0xFF131B2E),
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: color.withOpacity(0.45)),
+          ),
+          child: Row(
+            children: [
+              Icon(icon, color: color, size: 28),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title, style: TextStyle(color: color, fontWeight: FontWeight.w900, fontSize: 15)),
+                    const SizedBox(height: 4),
+                    Text(subtitle, style: const TextStyle(color: Colors.white70, fontSize: 11.5, height: 1.35)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  String get _smartStatusLine {
+    if (!connectionModeSmart) return '';
+    if (isRefreshingServers) return 'در حال بروزرسانی اشتراک…';
+    if (isPingingAll) return 'در حال بررسی سرورها…';
+    if (isConnecting) return 'در حال اتصال…';
+    if (_isVpnConnected) return 'متصل — مدیریت سرور با اپ';
+    return '';
+  }
+
   void _openSettings() {
     showModalBottomSheet(
       context: context,
@@ -2509,6 +2680,56 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
                         style: const TextStyle(color: Colors.white38, fontSize: 11),
                       ),
                       const Divider(color: Colors.white12, height: 24),
+                      const Text(
+                        'مود اتصال',
+                        style: TextStyle(color: Colors.white70, fontWeight: FontWeight.bold, fontSize: 12.5),
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _settingsModeChip(
+                              label: 'هوشمند',
+                              selected: connectionModeSmart,
+                              color: const Color(0xFF00E5FF),
+                              onTap: () async {
+                                await _saveConnectionMode(smart: true);
+                                setSheet(() {});
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: _settingsModeChip(
+                              label: 'دستی',
+                              selected: !connectionModeSmart,
+                              color: const Color(0xFFFFD54F),
+                              onTap: () async {
+                                await _saveConnectionMode(smart: false);
+                                setSheet(() {});
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.only(top: 6, bottom: 10),
+                        child: Text(
+                          connectionModeSmart
+                              ? 'هوشمند: لیست سرور مخفی است؛ اپ خودش انتخاب می‌کند.'
+                              : 'دستی: لیست سرور، پینگ و انتخاب در داشبورد.',
+                          style: const TextStyle(color: Colors.white38, fontSize: 11),
+                        ),
+                      ),
+                      switchTile(
+                        title: 'ترجیح پایداری (مود هوشمند)',
+                        subtitle: 'روشن = سرور پایدارتر · خاموش = کم‌ترین تأخیر (در اتصال هوشمند بعدی)',
+                        value: preferStability,
+                        onChanged: (v) async {
+                          setState(() => preferStability = v);
+                          await _savePrefBool('pref_prefer_stability', v);
+                        },
+                      ),
                       switchTile(
                         title: 'بروزرسانی خودکار هنگام باز شدن',
                         subtitle: 'لیست سرورها و وضعیت اشتراک از سرور گرفته شود',
@@ -2568,6 +2789,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
                         },
                       ),
                       const Divider(color: Colors.white12, height: 20),
+                      if (!connectionModeSmart)
                       ListTile(
                         contentPadding: const EdgeInsets.symmetric(horizontal: 8),
                         leading: const Icon(Icons.dns_rounded, color: Color(0xFF00E5FF)),
@@ -2796,67 +3018,92 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
           const SizedBox(height: 8),
           _buildTunnelModeSwitch(),
           const SizedBox(height: 8),
-          Row(
-            children: [
-              Expanded(
-                child: InkWell(
-                  onTap: _openServerPicker,
+          if (!connectionModeSmart)
+            Row(
+              children: [
+                Expanded(
+                  child: InkWell(
+                    onTap: _openServerPicker,
+                    borderRadius: BorderRadius.circular(16),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF131B2E),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: const Color(0xFF00E5FF).withOpacity(0.2)),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.public_rounded, color: Color(0xFF00E5FF), size: 18),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text('موقعیت سرور (لمس جهت تغییر)', style: TextStyle(fontSize: 9.5, color: Colors.grey)),
+                                Text(currentServerName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.white), overflow: TextOverflow.ellipsis),
+                              ],
+                            ),
+                          ),
+                          const Icon(Icons.arrow_forward_ios_rounded, size: 11, color: Colors.grey),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 6),
+                InkWell(
+                  onTap: () {
+                    if (savedUser != null && savedPass != null) {
+                      _fetchUserData(savedUser!, savedPass!, isManualRefresh: true);
+                    }
+                  },
                   borderRadius: BorderRadius.circular(16),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
                     decoration: BoxDecoration(
                       color: const Color(0xFF131B2E),
                       borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: const Color(0xFF00E5FF).withOpacity(0.2)),
+                      border: Border.all(color: const Color(0xFF00FFA3).withOpacity(0.3)),
                     ),
-                    child: Row(
+                    child: const Row(
                       children: [
-                        const Icon(Icons.public_rounded, color: Color(0xFF00E5FF), size: 18),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text('موقعیت سرور (لمس جهت تغییر)', style: TextStyle(fontSize: 9.5, color: Colors.grey)),
-                              Text(currentServerName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.white), overflow: TextOverflow.ellipsis),
-                            ],
-                          ),
+                        Icon(Icons.sync_rounded, color: Color(0xFF00FFA3), size: 16),
+                        SizedBox(width: 4),
+                        Text(
+                          'بروزرسانی',
+                          style: TextStyle(color: Color(0xFF00FFA3), fontSize: 10.5, fontWeight: FontWeight.bold),
                         ),
-                        const Icon(Icons.arrow_forward_ios_rounded, size: 11, color: Colors.grey),
                       ],
                     ),
                   ),
                 ),
-              ),
-              const SizedBox(width: 6),
-              InkWell(
-                onTap: () {
-                  if (savedUser != null && savedPass != null) {
-                    _fetchUserData(savedUser!, savedPass!, isManualRefresh: true);
-                  }
-                },
+              ],
+            )
+          else
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: const Color(0xFF131B2E),
                 borderRadius: BorderRadius.circular(16),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF131B2E),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: const Color(0xFF00FFA3).withOpacity(0.3)),
-                  ),
-                  child: const Row(
-                    children: [
-                      Icon(Icons.sync_rounded, color: Color(0xFF00FFA3), size: 16),
-                      SizedBox(width: 4),
-                      Text(
-                        'بروزرسانی',
-                        style: TextStyle(color: Color(0xFF00FFA3), fontSize: 10.5, fontWeight: FontWeight.bold),
-                      ),
-                    ],
-                  ),
-                ),
+                border: Border.all(color: const Color(0xFF00E5FF).withOpacity(0.15)),
               ),
-            ],
-          ),
+              child: Row(
+                children: [
+                  const Icon(Icons.auto_awesome_rounded, color: Color(0xFF00E5FF), size: 18),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      isConnecting || isPingingAll || isRefreshingServers
+                          ? _smartStatusLine
+                          : (isConnected ? 'مود هوشمند · سرور به‌صورت خودکار مدیریت می‌شود' : 'مود هوشمند · فقط اتصال را بزن'),
+                      style: const TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           const SizedBox(height: 10),
           _buildNeonIpPill(),
           const SizedBox(height: 10),
@@ -2872,6 +3119,14 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
               fontSize: 11.5,
             ),
           ),
+          if (connectionModeSmart && _smartStatusLine.isNotEmpty && (isConnecting || isPingingAll || isRefreshingServers)) ...[
+            const SizedBox(height: 8),
+            Text(
+              _smartStatusLine,
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Color(0xFF00E5FF), fontSize: 12, fontWeight: FontWeight.w600),
+            ),
+          ],
           if (_shouldShowRenewInBot()) ...[
             const SizedBox(height: 12),
             InkWell(

@@ -238,6 +238,13 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
   bool _modePickerLock = false;
   /// ترجیح در مود هوشمند: true = پایداری / false = کم‌ترین تأخیر
   bool preferStability = true;
+  /// کاربر عمداً می‌خواهد وصل بماند (برای بازیابی خودکار)
+  bool _userWantsConnected = false;
+  bool _isRecovering = false;
+  int _recoveryGen = 0;
+  DateTime? _lastRecoveryAt;
+  int _healthFailCount = 0;
+  Timer? _healthTimer;
   int activePing = -1;
   String currentIpAddress = '...';
   String? _lastV2rayState;

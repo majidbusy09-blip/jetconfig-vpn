@@ -245,6 +245,8 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
   DateTime? _lastRecoveryAt;
   int _healthFailCount = 0;
   Timer? _healthTimer;
+  /// اینترنت خود دستگاه (وای‌فای/داده) قطع است
+  bool _deviceNetworkDown = false;
   int activePing = -1;
   String currentIpAddress = '...';
   String? _lastV2rayState;
@@ -1560,43 +1562,110 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
   void _startHealthWatch() {
     _stopHealthWatch();
     if (!connectionModeSmart || !_userWantsConnected) return;
-    // هر ۲۵ ثانیه یک چک سبک — نه پینگ همه سرورها
-    _healthTimer = Timer.periodic(const Duration(seconds: 25), (_) {
+    // چک سریع‌تر: قطعی اینترنت دستگاه را زودتر بفهمیم
+    _healthTimer = Timer.periodic(const Duration(seconds: 8), (_) {
       _healthTick();
     });
+    // اولین چک زودتر از دورهٔ کامل
+    Future.delayed(const Duration(seconds: 3), () {
+      if (mounted) _healthTick();
+    });
+  }
+
+  /// آیا اینترنت خود گوشی (نه لزوماً تونل) زنده است؟
+  Future<bool> _hasDeviceNetwork() async {
+    for (final host in <String>['1.1.1.1', '8.8.8.8']) {
+      try {
+        final socket = await Socket.connect(
+          host,
+          host == '8.8.8.8' ? 53 : 443,
+          timeout: const Duration(seconds: 2),
+        );
+        socket.destroy();
+        return true;
+      } catch (_) {}
+    }
+    return false;
   }
 
   Future<void> _healthTick() async {
     if (!mounted || !connectionModeSmart || !_userWantsConnected) return;
-    if (_isRecovering || isConnecting || !_connectionVerified) return;
+    if (_isRecovering || isConnecting) return;
+
+    // هسته قطع شده
     if (!_statusMeansConnected(v2rayStatus.state)) {
+      if (mounted && _connectionVerified) {
+        setState(() {
+          _connectionVerified = false;
+          activePing = -1;
+        });
+      }
       _scheduleSmartRecovery('health_state');
       return;
     }
+
+    // سلامت واقعی تونل (وقتی اینترنت گوشی قطع است معمولاً timeout می‌شود)
+    int delay = -1;
     try {
-      final delay = await flutterV2ray
+      delay = await flutterV2ray
           .getConnectedServerDelay()
-          .timeout(const Duration(seconds: 5));
-      if (!mounted) return;
-      if (delay >= 0 && delay <= 15000) {
-        _healthFailCount = 0;
-        if (mounted) setState(() => activePing = delay);
-        return;
-      }
-    } catch (_) {}
-    _healthFailCount++;
-    if (_healthFailCount >= 2) {
-      _healthFailCount = 0;
-      _scheduleSmartRecovery('health_delay');
+          .timeout(const Duration(seconds: 4));
+    } catch (_) {
+      delay = -1;
     }
+    if (!mounted || !_userWantsConnected) return;
+
+    if (delay >= 0 && delay <= 15000) {
+      _healthFailCount = 0;
+      if (mounted) {
+        setState(() {
+          activePing = delay;
+          _deviceNetworkDown = false;
+          // اگر قبلاً از سبز خارج شده بود و تونل دوباره سالم است
+          if (!_connectionVerified) {
+            _connectionVerified = true;
+          }
+        });
+      }
+      return;
+    }
+
+    // شکست: فوراً دکمه از سبز خارج شود (حتی قبل از بازیابی)
+    _healthFailCount++;
+    if (mounted) {
+      setState(() {
+        _connectionVerified = false;
+        activePing = -1;
+        // اگر خود شبکه هم پاسخ ندهد برچسب مناسب
+        _deviceNetworkDown = true; // موقت؛ پایین‌تر دقیق می‌شود
+      });
+    }
+
+    // تشخیص تقریبی: آیا خود دستگاه شبکه دارد؟
+    // فقط وقتی تونل جواب نداد — اگر سوکت هم شکست → اینترنت دستگاه
+    final netOk = await _hasDeviceNetwork();
+    if (!mounted) return;
+    if (mounted) {
+      setState(() => _deviceNetworkDown = !netOk);
+    }
+
+    if (!netOk) {
+      // شبکه دستگاه قطع — منتظر تیک بعدی؛ دکمه دیگر سبز نیست
+      return;
+    }
+
+    // شبکه هست ولی تونل مرده → بازیابی
+    _healthFailCount = 0;
+    _scheduleSmartRecovery('health_delay');
   }
 
   void _scheduleSmartRecovery(String reason) {
     if (!connectionModeSmart || !_userWantsConnected) return;
     if (_isRecovering) return;
     final now = DateTime.now();
+    final minGap = reason == 'network_back' ? 3 : 10;
     if (_lastRecoveryAt != null &&
-        now.difference(_lastRecoveryAt!).inSeconds < 10) {
+        now.difference(_lastRecoveryAt!).inSeconds < minGap) {
       return; // ضد flapping
     }
     debugPrint('scheduleSmartRecovery: $reason');
@@ -1620,6 +1689,24 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     debugPrint('runSmartRecovery start: $reason');
 
     try {
+      // اگر خود اینترنت گوشی قطع است بازیابی بی‌فایده است
+      if (!await _hasDeviceNetwork()) {
+        if (!mounted || gen != _recoveryGen) return;
+        if (mounted) {
+          setState(() {
+            _isRecovering = false;
+            isConnecting = false;
+            _connectionVerified = false;
+            _deviceNetworkDown = true;
+            activePing = -1;
+          });
+        }
+        // health watch را برگردان تا با برگشت شبکه دوباره تلاش کند
+        _startHealthWatch();
+        return;
+      }
+      if (mounted) setState(() => _deviceNetworkDown = false);
+
       // ۱) تلاش مجدد همان سرور
       try {
         await flutterV2ray.stopV2Ray();
@@ -1772,6 +1859,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
           activePing = -1;
           isConnecting = false;
           _isRecovering = false;
+          _deviceNetworkDown = false;
         });
       }
       try {
@@ -2919,11 +3007,13 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
 
   String get _smartStatusLine {
     if (!connectionModeSmart) return '';
+    if (_deviceNetworkDown) return 'اینترنت دستگاه قطع است — منتظر شبکه…';
     if (_isRecovering) return 'در حال بازیابی اتصال…';
     if (isRefreshingServers) return 'در حال بروزرسانی اشتراک…';
     if (isPingingAll) return 'در حال بررسی سرورها…';
     if (isConnecting) return 'در حال اتصال…';
     if (_isVpnConnected) return 'متصل — مدیریت سرور با اپ';
+    if (_userWantsConnected && !_isVpnConnected) return 'در حال بررسی اتصال…';
     return '';
   }
 
@@ -3446,7 +3536,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
               fontSize: 11.5,
             ),
           ),
-          if (connectionModeSmart && _smartStatusLine.isNotEmpty && (isConnecting || isPingingAll || isRefreshingServers || _isRecovering)) ...[
+          if (connectionModeSmart && _smartStatusLine.isNotEmpty && (isConnecting || isPingingAll || isRefreshingServers || _isRecovering || _deviceNetworkDown || (_userWantsConnected && !_isVpnConnected))) ...[
             const SizedBox(height: 8),
             Text(
               _smartStatusLine,

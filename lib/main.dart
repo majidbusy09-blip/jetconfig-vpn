@@ -3433,6 +3433,8 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
           const SizedBox(height: 8),
           _buildTrafficCard(),
           const SizedBox(height: 8),
+          _buildConnectionModeSwitch(),
+          const SizedBox(height: 8),
           _buildTunnelModeSwitch(),
           const SizedBox(height: 8),
           if (!connectionModeSmart)

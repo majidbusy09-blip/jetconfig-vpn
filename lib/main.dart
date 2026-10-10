@@ -235,7 +235,8 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
   bool connectionModeSmart = true;
   /// آیا کاربر حداقل یک‌بار مود را انتخاب کرده؟
   bool connectionModeChosen = false;
-  /// ترجیح در مود هوشمند: true = پایداری / false = کم‌ترین تأخیر (فاز بعدی استفاده می‌شود)
+  bool _modePickerLock = false;
+  /// ترجیح در مود هوشمند: true = پایداری / false = کم‌ترین تأخیر
   bool preferStability = true;
   int activePing = -1;
   String currentIpAddress = '...';
@@ -1500,6 +1501,42 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     } catch (_) {}
   }
 
+
+  /// انتخاب بهترین سرور برای مود هوشمند (بعد از پینگ سریع+واقعی)
+  Future<void> _selectSmartBestServer() async {
+    if (serverList.isEmpty) return;
+    int bestIdx = -1;
+    int bestPing = 1 << 30;
+
+    for (int i = 0; i < serverList.length; i++) {
+      final p = serverList[i].ping;
+      if (p <= 0) continue;
+      if (preferStability && p < 30) continue;
+      if (p < bestPing) {
+        bestPing = p;
+        bestIdx = i;
+      }
+    }
+    if (bestIdx < 0) {
+      bestPing = 1 << 30;
+      for (int i = 0; i < serverList.length; i++) {
+        final p = serverList[i].ping;
+        if (p <= 0) continue;
+        if (p < bestPing) {
+          bestPing = p;
+          bestIdx = i;
+        }
+      }
+    }
+    if (bestIdx < 0) {
+      bestIdx = selectedServerIndex.clamp(0, serverList.length - 1);
+    }
+    if (mounted) {
+      setState(() => selectedServerIndex = bestIdx);
+    }
+    await _saveSelectedServer(serverList[bestIdx], index: bestIdx);
+  }
+
   Future<void> _toggleConnect() async {
     // اگر UI وصل است یا هسته هنوز CONNECTED / در حال اتصال است → قطع کن
     final coreStillUp = _statusMeansConnected(v2rayStatus.state);
@@ -1538,21 +1575,52 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     }
 
     if (serverList.isEmpty) {
-      _showToast('هیچ سروری در لیست وجود ندارد');
+      _showToast('هیچ سروری در لیست وجود ندارد — یک‌بار از ربات وارد شو یا بروزرسانی کن');
       return;
     }
 
-    final target = serverList[selectedServerIndex];
-    // هشدار نرم اگر پینگ ناموجود است (اجباری مسدود نمی‌کنیم)
+    // مود هوشمند: پینگ سریع+واقعی، انتخاب بهترین، بعد اتصال (بدون رفرش لیست)
+    if (connectionModeSmart) {
+      if (mounted) {
+        setState(() {
+          isConnecting = true;
+          _uiForceDisconnected = false;
+          _connectionVerified = false;
+        });
+      }
+      try {
+        await _pingAllServers(allowFallbackSwitch: true);
+        await _selectSmartBestServer();
+        if (!mounted) return;
+        final hasAlive = serverList.any((s) => s.ping > 0);
+        if (!hasAlive) {
+          _showToast('سرور زنده‌ای پیدا نشد — بعداً دوباره امتحان کن');
+          if (mounted) {
+            setState(() {
+              isConnecting = false;
+              _connectionVerified = false;
+              _uiForceDisconnected = true;
+            });
+          }
+          return;
+        }
+      } catch (e) {
+        debugPrint('smart pre-connect error: $e');
+      }
+    }
+
+    final target = serverList[selectedServerIndex.clamp(0, serverList.length - 1)];
     if (target.ping == -2) {
       _showToast('این سرور ناموجود است — در حال تلاش…');
     }
 
-    setState(() {
-      isConnecting = true;
-      _uiForceDisconnected = false;
-      _connectionVerified = false;
-    });
+    if (mounted) {
+      setState(() {
+        isConnecting = true;
+        _uiForceDisconnected = false;
+        _connectionVerified = false;
+      });
+    }
 
     try {
       final bool permissionGranted = await flutterV2ray.requestPermission();
@@ -2464,9 +2532,28 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
   }
 
   /// دیالوگ انتخاب مود (اولین ورود یا از تنظیمات)
+  Future<void> _ensureConnectionModePicker() async {
+    if (!mounted || connectionModeChosen || _modePickerLock) return;
+    if (userData == null || isLoading) return;
+    _modePickerLock = true;
+    try {
+      await Future.delayed(const Duration(milliseconds: 450));
+      if (!mounted || connectionModeChosen) return;
+      await _showConnectionModePicker(force: true);
+    } finally {
+      _modePickerLock = false;
+    }
+  }
+
   Future<void> _showConnectionModePicker({bool force = false}) async {
     if (!mounted) return;
     if (!force && connectionModeChosen) return;
+    if (isLoading) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _ensureConnectionModePicker();
+      });
+      return;
+    }
     await showDialog<void>(
       context: context,
       barrierDismissible: false,
@@ -2956,7 +3043,14 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
 
   Widget _buildDashboardView() {
     final isConnected = _isVpnConnected;
-    final currentServerName = serverList.isNotEmpty ? serverList[selectedServerIndex].name : 'سرور در دسترس';
+    final currentServerName = serverList.isNotEmpty
+        ? serverList[selectedServerIndex.clamp(0, serverList.length - 1)].name
+        : 'سرور در دسترس';
+    if (!connectionModeChosen) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _ensureConnectionModePicker();
+      });
+    }
 
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),

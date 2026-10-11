@@ -261,6 +261,8 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
   Map<String, dynamic>? userData;
   String? savedUser;
   String? savedPass;
+  /// پروفایل‌های محلی: هر کدام username/password/label
+  List<Map<String, String>> profiles = [];
   List<ServerModel> serverList = [];
   int selectedServerIndex = 0;
 
@@ -1053,8 +1055,165 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     ));
   }
 
+
+  static const String _kProfilesKey = 'app_profiles_json';
+
+  Future<void> _persistProfiles() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_kProfilesKey, json.encode(profiles));
+  }
+
+  Future<void> _loadProfilesFromPrefs(SharedPreferences prefs) async {
+    final raw = prefs.getString(_kProfilesKey);
+    final List<Map<String, String>> loaded = [];
+    if (raw != null && raw.isNotEmpty) {
+      try {
+        final decoded = json.decode(raw);
+        if (decoded is List) {
+          for (final e in decoded) {
+            if (e is Map) {
+              final u = '${e['username'] ?? ''}'.trim();
+              final pw = '${e['password'] ?? ''}';
+              if (u.isEmpty) continue;
+              loaded.add({
+                'username': u,
+                'password': pw,
+                'label': '${e['label'] ?? u}'.trim().isEmpty ? u : '${e['label'] ?? u}'.trim(),
+              });
+            }
+          }
+        }
+      } catch (_) {}
+    }
+    // مهاجرت از ذخیرهٔ تک‌اشتراکی قبلی
+    final legacyUser = prefs.getString('saved_username');
+    final legacyPass = prefs.getString('saved_password') ?? '';
+    if (legacyUser != null &&
+        legacyUser.trim().isNotEmpty &&
+        legacyPass.isNotEmpty &&
+        !loaded.any((e) => e['username'] == legacyUser.trim())) {
+      loaded.add({
+        'username': legacyUser.trim(),
+        'password': legacyPass,
+        'label': legacyUser.trim(),
+      });
+    }
+    profiles = loaded;
+    if (loaded.isNotEmpty) {
+      await prefs.setString(_kProfilesKey, json.encode(loaded));
+    }
+  }
+
+  Future<void> _upsertProfile(String username, String password, {String? label}) async {
+    final u = username.trim();
+    if (u.isEmpty) return;
+    final lbl = (label ?? u).trim().isEmpty ? u : (label ?? u).trim();
+    final idx = profiles.indexWhere((e) => e['username'] == u);
+    final entry = {'username': u, 'password': password, 'label': lbl};
+    if (idx >= 0) {
+      // برچسب قبلی را نگه دار اگر کاربر عوض نکرده
+      final prevLabel = profiles[idx]['label'];
+      if (label == null && prevLabel != null && prevLabel.isNotEmpty) {
+        entry['label'] = prevLabel!;
+      }
+      profiles[idx] = entry;
+    } else {
+      profiles.add(entry);
+    }
+    await _persistProfiles();
+  }
+
+  Future<void> _deleteProfile(String username) async {
+    final u = username.trim();
+    profiles.removeWhere((e) => e['username'] == u);
+    await _persistProfiles();
+    final prefs = await SharedPreferences.getInstance();
+    if (savedUser == u) {
+      // اگر پروفایل فعال حذف شد
+      await _clearActiveSession(prefs, stopVpn: true);
+      if (profiles.isNotEmpty) {
+        final next = profiles.first;
+        await _activateProfile(next['username']!, next['password']!, fetch: true);
+      }
+    }
+  }
+
+  Future<void> _clearActiveSession(SharedPreferences prefs, {bool stopVpn = false}) async {
+    await prefs.remove('saved_username');
+    await prefs.remove('saved_password');
+    await prefs.remove('last_server_id');
+    await prefs.remove('last_server_config');
+    await prefs.remove('last_server_name');
+    await prefs.remove('last_server_host');
+    await prefs.remove('last_server_port');
+    await prefs.remove('cached_user_json');
+    await prefs.remove('cached_servers_json');
+    await prefs.remove('cached_for_username');
+    if (stopVpn) {
+      try {
+        if (_isVpnConnected || _statusMeansConnected(v2rayStatus.state)) {
+          await flutterV2ray.stopV2Ray();
+        }
+      } catch (_) {}
+    }
+    if (mounted) {
+      setState(() {
+        savedUser = null;
+        savedPass = null;
+        userData = null;
+        serverList.clear();
+        selectedServerIndex = 0;
+        activePing = -1;
+        _connectionVerified = false;
+        _uiForceDisconnected = true;
+        isConnecting = false;
+        _userWantsConnected = false;
+        _isRecovering = false;
+      });
+    }
+  }
+
+  Future<void> _activateProfile(String username, String password, {bool fetch = true}) async {
+    // قطع اتصال قبلی قبل از سوئیچ
+    _verifyGen++;
+    _recoveryGen++;
+    _userWantsConnected = false;
+    _stopHealthWatch();
+    try {
+      await flutterV2ray.stopV2Ray();
+    } catch (_) {}
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('saved_username', username);
+    await prefs.setString('saved_password', password);
+    // کش سرور پروفایل قبلی را پاک کن تا قاطی نشود
+    await prefs.remove('cached_user_json');
+    await prefs.remove('cached_servers_json');
+    await prefs.remove('cached_for_username');
+    await prefs.remove('last_server_id');
+    if (mounted) {
+      setState(() {
+        savedUser = username;
+        savedPass = password;
+        userData = null;
+        serverList.clear();
+        selectedServerIndex = 0;
+        activePing = -1;
+        _connectionVerified = false;
+        _uiForceDisconnected = true;
+        isConnecting = false;
+        _userController.text = username;
+        _passController.text = password;
+      });
+    }
+    await _upsertProfile(username, password);
+    if (fetch) {
+      await _fetchUserData(username, password, doPingOnLoad: false);
+    }
+  }
+
   Future<void> _loadSavedPreferences() async {
     final prefs = await SharedPreferences.getInstance();
+    await _loadProfilesFromPrefs(prefs);
     final user = prefs.getString('saved_username');
     final pass = prefs.getString('saved_password') ?? '';
     final savedTunnelMode = prefs.getBool('only_filtered_apps') ?? true;
@@ -1276,6 +1435,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
           final prefs = await SharedPreferences.getInstance();
           await prefs.setString('saved_username', username);
           await prefs.setString('saved_password', password);
+          await _upsertProfile(username, password);
 
           final List<dynamic> rawServers = data['servers'] ?? [];
           final parsed = rawServers.map((s) => ServerModel.fromJson(s)).toList();
@@ -2627,6 +2787,12 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
               tooltip: 'تنظیمات',
               onPressed: _openSettings,
             ),
+            if (savedUser != null || profiles.isNotEmpty)
+              IconButton(
+                icon: const Icon(Icons.people_alt_rounded, color: Color(0xFF00E5FF), size: 21),
+                tooltip: 'اشتراک‌ها',
+                onPressed: _showProfilesSheet,
+              ),
             if (savedUser != null)
               IconButton(
                 icon: isRefreshingServers
@@ -2644,30 +2810,14 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
             if (savedUser != null)
               IconButton(
                 icon: const Icon(Icons.logout_rounded, color: Colors.redAccent, size: 19),
-                tooltip: 'خروج از حساب',
+                tooltip: 'خروج از نشست فعلی',
                 onPressed: () async {
                   final prefs = await SharedPreferences.getInstance();
-                  await prefs.remove('saved_username');
-                  await prefs.remove('saved_password');
-                  await prefs.remove('last_server_id');
-                  await prefs.remove('last_server_config');
-                  await prefs.remove('last_server_name');
-                  await prefs.remove('last_server_host');
-                  await prefs.remove('last_server_port');
-                  await prefs.remove('cached_user_json');
-                  await prefs.remove('cached_servers_json');
-                  await prefs.remove('cached_for_username');
-                  if (_isVpnConnected) {
-                    await flutterV2ray.stopV2Ray();
-                  }
+                  // فقط نشست فعال؛ پروفایل‌های ذخیره‌شده می‌مانند
+                  await _clearActiveSession(prefs, stopVpn: true);
                   if (mounted) {
-                    setState(() {
-                      savedUser = null;
-                      savedPass = null;
-                      userData = null;
-                      serverList.clear();
-                      selectedServerIndex = 0;
-                    });
+                    _userController.clear();
+                    _passController.clear();
                   }
                 },
               )
@@ -2951,6 +3101,9 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
       if (data is Map && data['ok'] == true) {
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('saved_password', newPass);
+        if (user.isNotEmpty) {
+          await _upsertProfile(user, newPass);
+        }
         if (mounted) {
           setState(() => savedPass = newPass);
           _passController.text = newPass;
@@ -3306,6 +3459,20 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
                       ),
                       ListTile(
                         contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+                        leading: const Icon(Icons.people_alt_rounded, color: Color(0xFF00E5FF)),
+                        title: const Text('مدیریت اشتراک‌ها', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13.5)),
+                        subtitle: Text(
+                          profiles.isEmpty ? 'افزودن و تعویض چند اشتراک روی این گوشی' : '${profiles.length} اشتراک ذخیره شده',
+                          style: const TextStyle(color: Colors.white54, fontSize: 11),
+                        ),
+                        trailing: const Icon(Icons.chevron_left, color: Colors.white38),
+                        onTap: () {
+                          Navigator.pop(ctx);
+                          _showProfilesSheet();
+                        },
+                      ),
+                      ListTile(
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 8),
                         leading: const Icon(Icons.password_rounded, color: Color(0xFFFFD54F)),
                         title: const Text('تغییر رمز ورود اپ', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13.5)),
                         subtitle: const Text('۵ تا ۸ کاراکتر · در سرویس‌های من ربات هم دیده می‌شود', style: TextStyle(color: Colors.white54, fontSize: 11)),
@@ -3474,6 +3641,37 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
             },
             child: const Text('ورود و دریافت کانفیگ‌ها', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
           ),
+          if (profiles.isNotEmpty) ...[
+            const SizedBox(height: 18),
+            const Align(
+              alignment: Alignment.centerRight,
+              child: Text('اشتراک‌های ذخیره‌شده', style: TextStyle(color: Colors.white54, fontSize: 12)),
+            ),
+            const SizedBox(height: 8),
+            ...profiles.map((pr) {
+              final u = pr['username'] ?? '';
+              final label = pr['label'] ?? u;
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Material(
+                  color: const Color(0xFF131B2E),
+                  borderRadius: BorderRadius.circular(14),
+                  child: ListTile(
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                      side: BorderSide(color: Colors.white.withOpacity(0.06)),
+                    ),
+                    dense: true,
+                    leading: const Icon(Icons.person_rounded, color: Color(0xFF00E5FF), size: 20),
+                    title: Text(label, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
+                    subtitle: Text(u, style: const TextStyle(color: Colors.white38, fontSize: 11)),
+                    trailing: const Icon(Icons.login_rounded, color: Color(0xFF00E5FF), size: 20),
+                    onTap: () => _activateProfile(u, pr['password'] ?? '', fetch: true),
+                  ),
+                ),
+              );
+            }),
+          ],
           const SizedBox(height: 24),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),

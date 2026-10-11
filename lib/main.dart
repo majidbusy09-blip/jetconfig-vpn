@@ -7,6 +7,8 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_v2ray_client/flutter_v2ray.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:open_filex/open_filex.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -14,8 +16,8 @@ void main() {
 }
 
 // مشخصات نسخه (نمایش داخل اپ) — با هر ریلیز دستی بالا ببر
-const String appVersion = 'v1.9.1';
-const int appVersionCode = 33;
+const String appVersion = 'v1.9.2';
+const int appVersionCode = 34;
 /// کانال بسته‌بندی: با --dart-define=APK_CHANNEL=arm64|universal|arm32 در بیلد ست می‌شود
 const String apkChannel = String.fromEnvironment('APK_CHANNEL', defaultValue: 'arm64');
 const String appUpdateMetaUrl = 'https://majid6064.ir/app_version.json';
@@ -3206,40 +3208,202 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
 
   Future<void> _startApkDownload(String apkUrl) async {
     if (!mounted) return;
-    _showToast('در حال آماده‌سازی دانلود…');
-    try {
-      final uri = Uri.parse(apkUrl);
-      // دانلود از طریق مرورگر/مدیریت دانلود سیستم — پایدارترین روش روی اندروید
-      final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
-      if (!ok && mounted) {
-        _showToast('باز کردن لینک دانلود ممکن نشد');
-        return;
-      }
-      if (mounted) {
-        await showDialog<void>(
-          context: context,
-          builder: (ctx) => AlertDialog(
+
+    final progress = ValueNotifier<double>(0);
+    final status = ValueNotifier<String>('در حال آماده‌سازی…');
+    var cancelled = false;
+    http.Client? client;
+
+    // دیالوگ پیشرفت دانلود داخل اپ
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) {
+        return Directionality(
+          textDirection: TextDirection.rtl,
+          child: AlertDialog(
             backgroundColor: const Color(0xFF1A2332),
-            title: const Text('دانلود شروع شد', style: TextStyle(color: Colors.white, fontSize: 15)),
-            content: const Text(
-              'پس از اتمام دانلود، روی اعلان یا فایل APK بزن و نصب را تأیید کن.\n\n'
-              'اگر Play Protect هشدار داد:\n'
-              '• جزئیات بیشتر\n'
-              '• نصب در هر حال\n\n'
-              'فایل باید از همان کانال/گیت‌هاب رسمی باشد.',
-              style: TextStyle(color: Colors.white70, fontSize: 13, height: 1.45),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            title: const Text(
+              'دانلود بروزرسانی',
+              style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold),
+            ),
+            content: ValueListenableBuilder<String>(
+              valueListenable: status,
+              builder: (_, st, __) {
+                return ValueListenableBuilder<double>(
+                  valueListenable: progress,
+                  builder: (_, p, __) {
+                    final pct = (p * 100).clamp(0, 100).toStringAsFixed(0);
+                    return Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Text(st, style: const TextStyle(color: Colors.white70, fontSize: 13)),
+                        const SizedBox(height: 14),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: LinearProgressIndicator(
+                            value: p > 0 && p < 1 ? p : (p >= 1 ? 1 : null),
+                            minHeight: 8,
+                            backgroundColor: Colors.white12,
+                            color: const Color(0xFF00E5FF),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          p > 0 ? '$pct٪' : '…',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(color: Color(0xFF00E5FF), fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 10),
+                        const Text(
+                          'بعد از دانلود، صفحه نصب سیستم باز می‌شود.\n'
+                          'اگر هشدار منبع ناشناس آمد: جزئیات بیشتر ← نصب در هر حال',
+                          style: TextStyle(color: Colors.white38, fontSize: 11.5, height: 1.4),
+                        ),
+                      ],
+                    );
+                  },
+                );
+              },
             ),
             actions: [
               TextButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: const Text('متوجه شدم', style: TextStyle(color: Color(0xFF00E5FF))),
+                onPressed: () {
+                  cancelled = true;
+                  try {
+                    client?.close();
+                  } catch (_) {}
+                  Navigator.pop(ctx);
+                },
+                child: const Text('انصراف', style: TextStyle(color: Colors.redAccent)),
               ),
             ],
           ),
         );
+      },
+    );
+
+    try {
+      status.value = 'در حال دانلود از سرور…';
+      final dir = await getTemporaryDirectory();
+      final file = File('${dir.path}/jetvpn_update.apk');
+      if (await file.exists()) {
+        try {
+          await file.delete();
+        } catch (_) {}
       }
-    } catch (_) {
-      if (mounted) _showToast('خطا در شروع دانلود');
+
+      client = http.Client();
+      final req = http.Request('GET', Uri.parse(apkUrl));
+      req.headers['User-Agent'] = 'JET-VPN-Updater/$appVersion';
+      final streamed = await client.send(req).timeout(const Duration(minutes: 5));
+      if (streamed.statusCode < 200 || streamed.statusCode >= 300) {
+        throw Exception('HTTP ${streamed.statusCode}');
+      }
+
+      final total = streamed.contentLength ?? 0;
+      final sink = file.openWrite();
+      var received = 0;
+      await for (final chunk in streamed.stream) {
+        if (cancelled) break;
+        sink.add(chunk);
+        received += chunk.length;
+        if (total > 0) {
+          progress.value = (received / total).clamp(0.0, 1.0);
+          status.value = 'در حال دانلود… ${(progress.value * 100).toStringAsFixed(0)}٪';
+        } else {
+          status.value = 'در حال دانلود… ${(received / (1024 * 1024)).toStringAsFixed(1)} مگابایت';
+        }
+      }
+      await sink.close();
+      try {
+        client.close();
+      } catch (_) {}
+      client = null;
+
+      if (cancelled) {
+        try {
+          if (await file.exists()) await file.delete();
+        } catch (_) {}
+        return;
+      }
+
+      if (!await file.exists() || await file.length() < 1000) {
+        throw Exception('فایل دانلود ناقص است');
+      }
+
+      progress.value = 1;
+      status.value = 'دانلود کامل شد — در حال باز کردن نصب…';
+
+      if (mounted) {
+        // بستن دیالوگ پیشرفت
+        final nav = Navigator.of(context, rootNavigator: true);
+        if (nav.canPop()) nav.pop();
+      }
+
+      if (!mounted) return;
+
+      // راهنما + دکمه نصب
+      final goInstall = await showDialog<bool>(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => Directionality(
+          textDirection: TextDirection.rtl,
+          child: AlertDialog(
+            backgroundColor: const Color(0xFF1A2332),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            title: const Text(
+              'آماده نصب',
+              style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold),
+            ),
+            content: const Text(
+              'فایل بروزرسانی دانلود شد.\n\n'
+              'با زدن «نصب» صفحه نصب اندروید باز می‌شود.\n\n'
+              'اگر پیام منبع ناشناس / برنامه مضر آمد:\n'
+              '۱) جزئیات بیشتر\n'
+              '۲) نصب در هر حال',
+              style: TextStyle(color: Colors.white70, fontSize: 13, height: 1.45),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('بعداً', style: TextStyle(color: Colors.white54)),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF00C853),
+                  foregroundColor: Colors.white,
+                ),
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text('نصب'),
+              ),
+            ],
+          ),
+        ),
+      );
+
+      if (goInstall == true) {
+        final result = await OpenFilex.open(file.path, type: 'application/vnd.android.package-archive');
+        debugPrint('OpenFilex: ${result.type} ${result.message}');
+        if (result.type != ResultType.done && mounted) {
+          _showToast('باز کردن نصب‌کننده ممکن نشد: ${result.message}');
+        }
+      }
+    } catch (e) {
+      debugPrint('in-app update error: $e');
+      try {
+        client?.close();
+      } catch (_) {}
+      if (mounted) {
+        final nav = Navigator.of(context, rootNavigator: true);
+        if (nav.canPop()) nav.pop();
+        _showToast('دانلود ناموفق بود — بعداً دوباره تلاش کن');
+      }
+    } finally {
+      progress.dispose();
+      status.dispose();
     }
   }
 

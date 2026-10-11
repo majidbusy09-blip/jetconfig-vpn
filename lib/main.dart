@@ -1886,15 +1886,10 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
       return;
     }
 
-    if (serverList.isEmpty) {
-      _showToast('هیچ سروری در لیست وجود ندارد — یک‌بار از ربات وارد شو یا بروزرسانی کن');
-      return;
-    }
-
     _userWantsConnected = true;
     _stopHealthWatch();
 
-    // مود هوشمند: پینگ سریع+واقعی، انتخاب بهترین، بعد اتصال (بدون رفرش لیست)
+    // مود هوشمند: پینگ → اگر زنده نبود رفرش اشتراک → پینگ دوباره → اتصال
     if (connectionModeSmart) {
       if (mounted) {
         setState(() {
@@ -1904,12 +1899,47 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
         });
       }
       try {
-        await _pingAllServers(allowFallbackSwitch: true);
-        await _selectSmartBestServer();
+        // اگر لیست خالی است اول رفرش کن
+        if (serverList.isEmpty && savedUser != null && savedPass != null) {
+          await _fetchUserData(
+            savedUser!,
+            savedPass!,
+            silentBackground: true,
+            doPingOnLoad: false,
+          );
+        }
+
+        if (serverList.isNotEmpty) {
+          await _pingAllServers(allowFallbackSwitch: true);
+          await _selectSmartBestServer();
+        }
+
         if (!mounted) return;
-        final hasAlive = serverList.any((s) => s.ping > 0);
+        var hasAlive = serverList.any((s) => s.ping > 0);
+
+        // هیچ سرور زنده‌ای نیست → یک‌بار بروزرسانی اشتراک و تلاش مجدد
+        if (!hasAlive && savedUser != null && savedPass != null) {
+          debugPrint('smart connect: no alive servers → refresh subscription');
+          await _fetchUserData(
+            savedUser!,
+            savedPass!,
+            silentBackground: true,
+            doPingOnLoad: false,
+          );
+          if (!mounted) return;
+          if (serverList.isNotEmpty) {
+            await _pingAllServers(allowFallbackSwitch: true);
+            await _selectSmartBestServer();
+          }
+          hasAlive = serverList.any((s) => s.ping > 0);
+        }
+
         if (!hasAlive) {
-          _showToast('سرور زنده‌ای پیدا نشد — بعداً دوباره امتحان کن');
+          _showToast(
+            serverList.isEmpty
+                ? 'لیست سرور خالی است — از ربات وارد شو یا پشتیبانی'
+                : 'بعد از بروزرسانی هم سرور زنده‌ای پیدا نشد',
+          );
           if (mounted) {
             setState(() {
               isConnecting = false;
@@ -1917,11 +1947,16 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
               _uiForceDisconnected = true;
             });
           }
+          _userWantsConnected = false;
           return;
         }
       } catch (e) {
         debugPrint('smart pre-connect error: $e');
       }
+    } else if (serverList.isEmpty) {
+      _showToast('هیچ سروری در لیست وجود ندارد — یک‌بار بروزرسانی کن');
+      _userWantsConnected = false;
+      return;
     }
 
     final target = serverList[selectedServerIndex.clamp(0, serverList.length - 1)];

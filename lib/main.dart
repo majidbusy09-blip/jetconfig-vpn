@@ -14,8 +14,8 @@ void main() {
 }
 
 // مشخصات نسخه (نمایش داخل اپ) — با هر ریلیز دستی بالا ببر
-const String appVersion = 'v1.9.0';
-const int appVersionCode = 32;
+const String appVersion = 'v1.9.1';
+const int appVersionCode = 33;
 /// کانال بسته‌بندی: با --dart-define=APK_CHANNEL=arm64|universal|arm32 در بیلد ست می‌شود
 const String apkChannel = String.fromEnvironment('APK_CHANNEL', defaultValue: 'arm64');
 const String appUpdateMetaUrl = 'https://majid6064.ir/app_version.json';
@@ -2365,6 +2365,226 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     );
   }
 
+
+  Future<void> _showAddProfileDialog() async {
+    final uCtrl = TextEditingController();
+    final pCtrl = TextEditingController();
+    var obscure = true;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) {
+        return Directionality(
+          textDirection: TextDirection.rtl,
+          child: StatefulBuilder(
+            builder: (ctx, setLocal) {
+              return AlertDialog(
+                backgroundColor: const Color(0xFF1A2332),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+                title: const Text('افزودن اشتراک', style: TextStyle(color: Colors.white, fontSize: 16)),
+                content: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextField(
+                      controller: uCtrl,
+                      style: const TextStyle(color: Colors.white),
+                      decoration: const InputDecoration(
+                        labelText: 'نام کاربری',
+                        labelStyle: TextStyle(color: Colors.white54),
+                      ),
+                    ),
+                    TextField(
+                      controller: pCtrl,
+                      obscureText: obscure,
+                      style: const TextStyle(color: Colors.white),
+                      decoration: InputDecoration(
+                        labelText: 'رمز عبور',
+                        labelStyle: const TextStyle(color: Colors.white54),
+                        suffixIcon: IconButton(
+                          icon: Icon(obscure ? Icons.visibility_off : Icons.visibility, color: Colors.grey),
+                          onPressed: () => setLocal(() => obscure = !obscure),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(ctx, false),
+                    child: const Text('انصراف', style: TextStyle(color: Colors.redAccent)),
+                  ),
+                  TextButton(
+                    onPressed: () => Navigator.pop(ctx, true),
+                    child: const Text('افزودن', style: TextStyle(color: Color(0xFF00E5FF))),
+                  ),
+                ],
+              );
+            },
+          ),
+        );
+      },
+    );
+    if (ok != true) return;
+    final u = uCtrl.text.trim();
+    final pw = pCtrl.text.trim();
+    if (u.isEmpty || pw.isEmpty) {
+      _showToast('نام کاربری و رمز را وارد کن');
+      return;
+    }
+    await _activateProfile(u, pw, fetch: true);
+    if (mounted && userData != null) {
+      _showToast('اشتراک اضافه شد', isError: false);
+    }
+  }
+
+  Future<void> _showProfilesSheet() async {
+    if (!mounted) return;
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: const Color(0xFF131B2E),
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return Directionality(
+          textDirection: TextDirection.rtl,
+          child: SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 40,
+                    height: 4,
+                    margin: const EdgeInsets.only(bottom: 12),
+                    decoration: BoxDecoration(
+                      color: Colors.white24,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  ),
+                  const Text(
+                    'اشتراک‌های من',
+                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                  ),
+                  const SizedBox(height: 4),
+                  const Text(
+                    'برای تعویض، روی هر اشتراک بزن',
+                    style: TextStyle(color: Colors.white38, fontSize: 11),
+                  ),
+                  const SizedBox(height: 12),
+                  if (profiles.isEmpty)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 20),
+                      child: Text('هنوز اشتراکی ذخیره نشده', style: TextStyle(color: Colors.white54)),
+                    )
+                  else
+                    ConstrainedBox(
+                      constraints: BoxConstraints(
+                        maxHeight: MediaQuery.of(ctx).size.height * 0.45,
+                      ),
+                      child: ListView.separated(
+                        shrinkWrap: true,
+                        itemCount: profiles.length,
+                        separatorBuilder: (_, __) => const SizedBox(height: 8),
+                        itemBuilder: (_, i) {
+                          final pr = profiles[i];
+                          final u = pr['username'] ?? '';
+                          final label = pr['label'] ?? u;
+                          final active = u == savedUser;
+                          return Material(
+                            color: active
+                                ? const Color(0xFF00E5FF).withOpacity(0.12)
+                                : const Color(0xFF0D1424),
+                            borderRadius: BorderRadius.circular(14),
+                            child: ListTile(
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
+                                side: BorderSide(
+                                  color: active ? const Color(0xFF00E5FF) : Colors.white10,
+                                ),
+                              ),
+                              leading: Icon(
+                                active
+                                    ? Icons.check_circle_rounded
+                                    : Icons.person_outline_rounded,
+                                color: active ? const Color(0xFF00E5FF) : Colors.white54,
+                              ),
+                              title: Text(
+                                label,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 13,
+                                ),
+                              ),
+                              subtitle: Text(
+                                u,
+                                style: const TextStyle(color: Colors.white38, fontSize: 11),
+                              ),
+                              trailing: IconButton(
+                                icon: const Icon(
+                                  Icons.delete_outline_rounded,
+                                  color: Colors.redAccent,
+                                  size: 20,
+                                ),
+                                onPressed: () async {
+                                  Navigator.pop(ctx);
+                                  await _deleteProfile(u);
+                                  if (mounted) {
+                                    _showToast('اشتراک از این دستگاه حذف شد', isError: false);
+                                  }
+                                },
+                              ),
+                              onTap: () async {
+                                Navigator.pop(ctx);
+                                if (active) return;
+                                await _activateProfile(
+                                  u,
+                                  pr['password'] ?? '',
+                                  fetch: true,
+                                );
+                                if (mounted) {
+                                  _showToast('اشتراک فعال شد', isError: false);
+                                }
+                              },
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF00E5FF),
+                        foregroundColor: Colors.black,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                      onPressed: () {
+                        Navigator.pop(ctx);
+                        _showAddProfileDialog();
+                      },
+                      icon: const Icon(Icons.add_rounded),
+                      label: const Text(
+                        'افزودن اشتراک',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   Widget _buildConnectionModeSwitch() {
     Widget side({
       required String label,
@@ -3708,14 +3928,38 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF131B2E),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.white.withOpacity(0.05)),
+              GestureDetector(
+                onTap: _showProfilesSheet,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF131B2E),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFF00E5FF).withOpacity(0.35)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.swap_horiz_rounded, size: 14, color: Color(0xFF00E5FF)),
+                      const SizedBox(width: 4),
+                      Text(
+                        'کاربر: ${userData!['username']}',
+                        style: const TextStyle(
+                          color: Color(0xFF00E5FF),
+                          fontWeight: FontWeight.bold,
+                          fontSize: 11.5,
+                        ),
+                      ),
+                      if (profiles.length > 1) ...[
+                        const SizedBox(width: 4),
+                        Text(
+                          '(${profiles.length})',
+                          style: const TextStyle(color: Colors.white38, fontSize: 10),
+                        ),
+                      ],
+                    ],
+                  ),
                 ),
-                child: Text('کاربر: ${userData!['username']}', style: const TextStyle(color: Color(0xFF00E5FF), fontWeight: FontWeight.bold, fontSize: 11.5)),
               ),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),

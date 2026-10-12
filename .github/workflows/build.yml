@@ -96,7 +96,8 @@ jobs:
           m = Path("android/app/src/main/AndroidManifest.xml")
           t = m.read_text()
           if "REQUEST_INSTALL_PACKAGES" not in t:
-              t = t.replace("<application", "    <uses-permission android:name=\"android.permission.REQUEST_INSTALL_PACKAGES\"/>\n    <application", 1)
+              t = t.replace("<application", "    <uses-permission android:name=\"android.permission.REQUEST_INSTALL_PACKAGES"/>
+    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES\"/>\n    <application", 1)
           if "FileProvider" not in t:
               provider = """        <provider
                       android:name=\"androidx.core.content.FileProvider\"
@@ -142,7 +143,7 @@ jobs:
       - name: Install Dependencies
         run: |
           flutter pub get
-          flutter pub add url_launcher path_provider open_filex || true
+          flutter pub add url_launcher path_provider open_filex installed_apps || true
           flutter pub get
 
       - name: Decode release keystore

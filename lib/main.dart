@@ -9,6 +9,8 @@ import 'package:flutter_v2ray_client/flutter_v2ray.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:open_filex/open_filex.dart';
+import 'package:installed_apps/installed_apps.dart';
+import 'package:installed_apps/app_info.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -16,8 +18,8 @@ void main() {
 }
 
 // مشخصات نسخه (نمایش داخل اپ) — با هر ریلیز دستی بالا ببر
-const String appVersion = 'v1.9.3';
-const int appVersionCode = 35;
+const String appVersion = 'v1.9.4';
+const int appVersionCode = 36;
 /// کانال بسته‌بندی: با --dart-define=APK_CHANNEL=arm64|universal|arm32 در بیلد ست می‌شود
 const String apkChannel = String.fromEnvironment('APK_CHANNEL', defaultValue: 'arm64');
 const String appUpdateMetaUrl = 'https://majid6064.ir/app_version.json';
@@ -132,22 +134,42 @@ const List<String> iranianLocalPackages = [
 
 const List<Map<String, String>> selectableVpnApps = [
   {'pkg': 'org.telegram.messenger', 'name': 'تلگرام'},
-  {'pkg': 'org.telegram.messenger.web', 'name': 'تلگرام وب'},
+  {'pkg': 'org.telegram.messenger.web', 'name': 'تلگرام (وب/نسخه دیگر)'},
+  {'pkg': 'org.telegram.messenger.beta', 'name': 'تلگرام بتا'},
+  {'pkg': 'org.thunderdog.challegram', 'name': 'Telegram X'},
+  {'pkg': 'org.telegram.plus', 'name': 'تلگرام پلاس'},
+  {'pkg': 'nekox.messenger', 'name': 'NekoX'},
   {'pkg': 'com.instagram.android', 'name': 'اینستاگرام'},
+  {'pkg': 'com.instagram.barcelona', 'name': 'Threads'},
   {'pkg': 'com.google.android.youtube', 'name': 'یوتیوب'},
   {'pkg': 'com.twitter.android', 'name': 'توییتر / X'},
   {'pkg': 'com.whatsapp', 'name': 'واتساپ'},
+  {'pkg': 'com.whatsapp.w4b', 'name': 'واتساپ بیزنس'},
   {'pkg': 'com.zhiliaoapp.musically', 'name': 'تیک‌تاک'},
+  {'pkg': 'com.ss.android.ugc.trill', 'name': 'تیک‌تاک بین‌الملل'},
   {'pkg': 'com.android.chrome', 'name': 'کروم'},
+  {'pkg': 'com.chrome.beta', 'name': 'کروم بتا'},
   {'pkg': 'org.mozilla.firefox', 'name': 'فایرفاکس'},
   {'pkg': 'com.brave.browser', 'name': 'Brave'},
   {'pkg': 'com.microsoft.emmx', 'name': 'Edge'},
+  {'pkg': 'com.opera.browser', 'name': 'اوپرا'},
   {'pkg': 'com.sec.android.app.sbrowser', 'name': 'مرورگر سامسونگ'},
   {'pkg': 'com.google.android.gm', 'name': 'جیمیل'},
   {'pkg': 'com.discord', 'name': 'دیسکورد'},
   {'pkg': 'com.spotify.music', 'name': 'اسپاتیفای'},
+  {'pkg': 'com.reddit.frontpage', 'name': 'ردیت'},
+  {'pkg': 'com.linkedin.android', 'name': 'لینکدین'},
   {'pkg': 'com.facebook.katana', 'name': 'فیسبوک'},
+  {'pkg': 'com.facebook.orca', 'name': 'مسنجر'},
+  {'pkg': 'com.facebook.lite', 'name': 'فیسبوک لایت'},
+  {'pkg': 'com.snapchat.android', 'name': 'اسنپ‌چت'},
+  {'pkg': 'com.pinterest', 'name': 'پین‌ترست'},
+  {'pkg': 'com.google.android.apps.maps', 'name': 'گوگل مپ'},
+  {'pkg': 'com.google.android.googlequicksearchbox', 'name': 'گوگل'},
+  {'pkg': 'com.openai.chatgpt', 'name': 'ChatGPT'},
+  {'pkg': 'com.google.android.apps.youtube.music', 'name': 'یوتیوب موزیک'},
 ];
+
 
 
 class ServerModel {
@@ -510,16 +532,50 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     cfg['routing'] = routing;
   }
 
-  List<String>? _blockedAppsForConnect() {
+  static const List<String> _alwaysDirectPackages = [
+    'com.jetconfig.vpn',
+    'com.android.systemui',
+    'com.android.phone',
+    'com.android.server.telecom',
+    'com.android.settings',
+  ];
+
+  /// حالت «انتخاب من»: هر اپی که تیک نخورده مستقیم است؛ فقط تیک‌خورده‌ها از VPN
+  Future<List<String>?> _blockedAppsForConnect() async {
     if (tunnelMode == 'full') return null;
     if (tunnelMode == 'bypass_local') {
       return List<String>.from(iranianLocalPackages);
     }
-    final block = <String>{...iranianLocalPackages};
-    for (final item in selectableVpnApps) {
-      final pkg = item['pkg']!;
-      if (!selectedVpnPackages.contains(pkg)) block.add(pkg);
+
+    if (selectedVpnPackages.isEmpty) {
+      return List<String>.from(iranianLocalPackages);
     }
+
+    final selected = selectedVpnPackages.toSet();
+    final block = <String>{..._alwaysDirectPackages};
+
+    try {
+      // false = شامل اپ‌های سیستم هم بشود تا واقعاً «فقط انتخابی» باشد
+      final apps = await InstalledApps.getInstalledApps(false, false);
+      for (final a in apps) {
+        final pkg = a.packageName;
+        if (pkg.isEmpty) continue;
+        if (selected.contains(pkg)) continue;
+        block.add(pkg);
+      }
+    } catch (e) {
+      debugPrint('installed_apps error: $e');
+      for (final item in selectableVpnApps) {
+        final pkg = item['pkg']!;
+        if (!selected.contains(pkg)) block.add(pkg);
+      }
+      block.addAll(iranianLocalPackages);
+    }
+
+    for (final p in iranianLocalPackages) {
+      if (!selected.contains(p)) block.add(p);
+    }
+
     return block.toList();
   }
 
@@ -1575,7 +1631,51 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
 
   Future<void> _showSelectedAppsSheet() async {
     if (!mounted) return;
+
+    // لیست از اپ‌های نصب‌شده + نام‌های آشنا
+    final knownNames = <String, String>{
+      for (final e in selectableVpnApps) e['pkg']!: e['name']!,
+    };
+    var catalog = <Map<String, String>>[];
+    try {
+      final apps = await InstalledApps.getInstalledApps(true, false);
+      for (final a in apps) {
+        final pkg = a.packageName;
+        if (pkg.isEmpty) continue;
+        if (pkg == 'com.jetconfig.vpn') continue;
+        final name = (a.name.trim().isNotEmpty)
+            ? a.name.trim()
+            : (knownNames[pkg] ?? pkg);
+        catalog.add({'pkg': pkg, 'name': name});
+      }
+    } catch (e) {
+      debugPrint('sheet installed_apps: $e');
+      catalog = selectableVpnApps
+          .map((e) => {'pkg': e['pkg']!, 'name': e['name']!})
+          .toList();
+    }
+
+    // اپ‌های انتخاب‌شده که الان نصب نیستند را هم نگه دار
+    for (final pkg in selectedVpnPackages) {
+      if (catalog.every((e) => e['pkg'] != pkg)) {
+        catalog.add({'pkg': pkg, 'name': knownNames[pkg] ?? pkg});
+      }
+    }
+
+    void sortCatalog(List<Map<String, String>> list, Set<String> checked) {
+      list.sort((a, b) {
+        final ac = checked.contains(a['pkg']);
+        final bc = checked.contains(b['pkg']);
+        if (ac != bc) return ac ? -1 : 1;
+        return (a['name'] ?? '').compareTo(b['name'] ?? '');
+      });
+    }
+
     var draft = List<String>.from(selectedVpnPackages);
+    sortCatalog(catalog, draft.toSet());
+    _selectedAppsFilter = '';
+
+    if (!mounted) return;
     await showModalBottomSheet<void>(
       context: context,
       backgroundColor: const Color(0xFF131B2E),
@@ -1588,6 +1688,18 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
           textDirection: TextDirection.rtl,
           child: StatefulBuilder(
             builder: (ctx, setLocal) {
+              // filter در setLocal نگه داشته می‌شود با closure بیرونی
+              List<Map<String, String>> visible() {
+                final f = _selectedAppsFilter.trim().toLowerCase();
+                final list = catalog.where((e) {
+                  if (f.isEmpty) return true;
+                  return (e['name'] ?? '').toLowerCase().contains(f) ||
+                      (e['pkg'] ?? '').toLowerCase().contains(f);
+                }).toList();
+                sortCatalog(list, draft.toSet());
+                return list;
+              }
+
               return SafeArea(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
@@ -1609,34 +1721,65 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
                       ),
                       const SizedBox(height: 4),
                       const Text(
-                        'فقط اپ‌های تیک‌خورده از VPN می‌روند.\nبانک و اپ‌های داخلی همیشه مستقیم‌اند.',
+                        'فقط اپ‌های تیک‌خورده از VPN می‌روند.\nبقیه مستقیم می‌مانند (مثل بانک).',
                         textAlign: TextAlign.center,
                         style: TextStyle(color: Colors.white38, fontSize: 11.5, height: 1.35),
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 10),
+                      TextField(
+                        style: const TextStyle(color: Colors.white, fontSize: 13),
+                        decoration: InputDecoration(
+                          hintText: 'جستجوی نام اپ…',
+                          hintStyle: const TextStyle(color: Colors.white30),
+                          prefixIcon: const Icon(Icons.search, color: Colors.white38, size: 20),
+                          filled: true,
+                          fillColor: const Color(0xFF0D1424),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide.none,
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        ),
+                        onChanged: (v) => setLocal(() => _selectedAppsFilter = v),
+                      ),
+                      const SizedBox(height: 8),
                       ConstrainedBox(
-                        constraints: BoxConstraints(maxHeight: MediaQuery.of(ctx).size.height * 0.5),
-                        child: ListView.builder(
-                          shrinkWrap: true,
-                          itemCount: selectableVpnApps.length,
-                          itemBuilder: (_, i) {
-                            final item = selectableVpnApps[i];
-                            final pkg = item['pkg']!;
-                            final name = item['name']!;
-                            final on = draft.contains(pkg);
-                            return CheckboxListTile(
-                              value: on,
-                              activeColor: const Color(0xFF00E5FF),
-                              title: Text(name, style: const TextStyle(color: Colors.white, fontSize: 13.5)),
-                              subtitle: Text(pkg, style: const TextStyle(color: Colors.white30, fontSize: 10)),
-                              onChanged: (v) {
-                                setLocal(() {
-                                  if (v == true) {
-                                    if (!draft.contains(pkg)) draft.add(pkg);
-                                  } else {
-                                    draft.remove(pkg);
-                                  }
-                                });
+                        constraints: BoxConstraints(
+                          maxHeight: MediaQuery.of(ctx).size.height * 0.48,
+                        ),
+                        child: Builder(
+                          builder: (_) {
+                            final items = visible();
+                            if (items.isEmpty) {
+                              return const Padding(
+                                padding: EdgeInsets.all(24),
+                                child: Text('اپی پیدا نشد', style: TextStyle(color: Colors.white54)),
+                              );
+                            }
+                            return ListView.builder(
+                              shrinkWrap: true,
+                              itemCount: items.length,
+                              itemBuilder: (_, i) {
+                                final item = items[i];
+                                final pkg = item['pkg']!;
+                                final name = item['name']!;
+                                final on = draft.contains(pkg);
+                                return CheckboxListTile(
+                                  value: on,
+                                  activeColor: const Color(0xFF00E5FF),
+                                  title: Text(name, style: const TextStyle(color: Colors.white, fontSize: 13.5)),
+                                  subtitle: Text(pkg, style: const TextStyle(color: Colors.white30, fontSize: 10)),
+                                  onChanged: (v) {
+                                    setLocal(() {
+                                      if (v == true) {
+                                        if (!draft.contains(pkg)) draft.insert(0, pkg);
+                                      } else {
+                                        draft.remove(pkg);
+                                      }
+                                      sortCatalog(catalog, draft.toSet());
+                                    });
+                                  },
+                                );
                               },
                             );
                           },
@@ -1653,10 +1796,25 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                           ),
                           onPressed: () async {
+                            // سورت نهایی: تیک‌خورده‌ها اول
+                            final checked = <String>[];
+                            final rest = <String>[];
+                            for (final e in catalog) {
+                              final pkg = e['pkg']!;
+                              if (draft.contains(pkg)) {
+                                if (!checked.contains(pkg)) checked.add(pkg);
+                              }
+                            }
+                            for (final pkg in draft) {
+                              if (!checked.contains(pkg)) checked.add(pkg);
+                            }
                             Navigator.pop(ctx);
-                            await _saveSelectedVpnPackages(draft);
+                            await _saveSelectedVpnPackages(checked);
                           },
-                          child: const Text('ذخیره', style: TextStyle(fontWeight: FontWeight.bold)),
+                          child: Text(
+                            'ذخیره (${draft.length} اپ)',
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
                         ),
                       ),
                     ],
@@ -2257,6 +2415,10 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
   Future<bool> _startCoreOnIndex(int index, {required int recoveryGen}) async {
     if (serverList.isEmpty || index < 0 || index >= serverList.length) return false;
     if (!mounted || recoveryGen != _recoveryGen || !_userWantsConnected) return false;
+    if (tunnelMode == 'selected' && selectedVpnPackages.isEmpty) {
+      if (mounted) _showToast('در حالت «انتخاب من» حداقل یک اپ را تیک بزن');
+      return false;
+    }
     final target = serverList[index];
     try {
       final bool permissionGranted = await flutterV2ray.requestPermission();
@@ -2274,7 +2436,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
       await flutterV2ray.startV2Ray(
         remark: target.name,
         config: configString,
-        blockedApps: _blockedAppsForConnect(),
+        blockedApps: await _blockedAppsForConnect(),
         proxyOnly: false,
         notificationDisconnectButtonName: 'قطع اتصال',
       );
@@ -2443,7 +2605,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
       await flutterV2ray.startV2Ray(
         remark: target.name,
         config: configString,
-        blockedApps: _blockedAppsForConnect(),
+        blockedApps: await _blockedAppsForConnect(),
         proxyOnly: false,
         notificationDisconnectButtonName: 'قطع اتصال',
       );

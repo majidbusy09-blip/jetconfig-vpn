@@ -279,6 +279,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     'com.whatsapp',
   ];
   bool get onlyFilteredApps => tunnelMode != 'full';
+  String _selectedAppsFilter = '';
   bool _obscurePassword = true;
   // تنظیمات کاربر
   bool autoRefreshOnStart = true; // بروزرسانی اشتراک هنگام باز شدن
@@ -556,7 +557,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
 
     try {
       // false = شامل اپ‌های سیستم هم بشود تا واقعاً «فقط انتخابی» باشد
-      final apps = await InstalledApps.getInstalledApps(false, false);
+      final apps = await InstalledApps.getInstalledApps(excludeSystemApps: false, withIcon: false, detectPlatformType: false);
       for (final a in apps) {
         final pkg = a.packageName;
         if (pkg.isEmpty) continue;
@@ -1638,7 +1639,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     };
     var catalog = <Map<String, String>>[];
     try {
-      final apps = await InstalledApps.getInstalledApps(true, false);
+      final apps = await InstalledApps.getInstalledApps(excludeSystemApps: true, withIcon: false, detectPlatformType: false);
       for (final a in apps) {
         final pkg = a.packageName;
         if (pkg.isEmpty) continue;

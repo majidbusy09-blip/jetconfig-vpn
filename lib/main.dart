@@ -16,8 +16,8 @@ void main() {
 }
 
 // مشخصات نسخه (نمایش داخل اپ) — با هر ریلیز دستی بالا ببر
-const String appVersion = 'v1.9.2';
-const int appVersionCode = 34;
+const String appVersion = 'v1.9.3';
+const int appVersionCode = 35;
 /// کانال بسته‌بندی: با --dart-define=APK_CHANNEL=arm64|universal|arm32 در بیلد ست می‌شود
 const String apkChannel = String.fromEnvironment('APK_CHANNEL', defaultValue: 'arm64');
 const String appUpdateMetaUrl = 'https://majid6064.ir/app_version.json';
@@ -25,15 +25,9 @@ const String appLogoUrl = 'https://majid6064.ir/logo.png';
 const String telegramBotUrl = 'https://t.me/JetConfig1bot';
 const String telegramChannelUrl = 'https://t.me/jetconfig11';
 
-// لیست پکیج‌های معاف از تونل
-const List<String> iranianAndBrowserPackages = [
-  'com.android.chrome',
-  'org.mozilla.firefox',
-  'com.sec.android.app.sbrowser',
-  'com.opera.browser',
-  'com.opera.mini.native',
-  'com.brave.browser',
-  'com.microsoft.emmx',
+// برنامه‌های داخلی — خارج از تونل (حالت بجز برنامه‌های داخلی)
+// مرورگرها اینجا نیستند؛ دامنه .ir با routing مستقیم می‌شود
+const List<String> iranianLocalPackages = [
   'app.nobitex',
   'ir.nobitex',
   'ir.nobitex.market',
@@ -126,7 +120,35 @@ const List<String> iranianAndBrowserPackages = [
   'ir.ble.messenger',
   'ir.gov.my',
   'ir.police.my',
+  'com.tapsi.passenger',
+  'taxi.tapsi.passenger',
+  'com.digikala.app',
+  'com.farsitel.bazaar',
+  'com.cafe.bazaar',
+  'ir.mservices.market',
+  'com.myket',
+  'ir.shaparak.ap',
 ];
+
+const List<Map<String, String>> selectableVpnApps = [
+  {'pkg': 'org.telegram.messenger', 'name': 'تلگرام'},
+  {'pkg': 'org.telegram.messenger.web', 'name': 'تلگرام وب'},
+  {'pkg': 'com.instagram.android', 'name': 'اینستاگرام'},
+  {'pkg': 'com.google.android.youtube', 'name': 'یوتیوب'},
+  {'pkg': 'com.twitter.android', 'name': 'توییتر / X'},
+  {'pkg': 'com.whatsapp', 'name': 'واتساپ'},
+  {'pkg': 'com.zhiliaoapp.musically', 'name': 'تیک‌تاک'},
+  {'pkg': 'com.android.chrome', 'name': 'کروم'},
+  {'pkg': 'org.mozilla.firefox', 'name': 'فایرفاکس'},
+  {'pkg': 'com.brave.browser', 'name': 'Brave'},
+  {'pkg': 'com.microsoft.emmx', 'name': 'Edge'},
+  {'pkg': 'com.sec.android.app.sbrowser', 'name': 'مرورگر سامسونگ'},
+  {'pkg': 'com.google.android.gm', 'name': 'جیمیل'},
+  {'pkg': 'com.discord', 'name': 'دیسکورد'},
+  {'pkg': 'com.spotify.music', 'name': 'اسپاتیفای'},
+  {'pkg': 'com.facebook.katana', 'name': 'فیسبوک'},
+];
+
 
 class ServerModel {
   final String name;
@@ -225,7 +247,16 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
   bool isConnecting = false;
   bool isPingingAll = false;
   bool isRefreshingServers = false;
-  bool onlyFilteredApps = true;
+  String tunnelMode = 'bypass_local'; // full | bypass_local | selected
+  List<String> selectedVpnPackages = [
+    'org.telegram.messenger',
+    'com.instagram.android',
+    'com.google.android.youtube',
+    'com.android.chrome',
+    'com.twitter.android',
+    'com.whatsapp',
+  ];
+  bool get onlyFilteredApps => tunnelMode != 'full';
   bool _obscurePassword = true;
   // تنظیمات کاربر
   bool autoRefreshOnStart = true; // بروزرسانی اشتراک هنگام باز شدن
@@ -368,12 +399,13 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     final s = raw.trim();
     if (s.isEmpty) return s;
 
-    // کانفیگ کامل Xray JSON
     if (s.startsWith('{')) {
       try {
         final decoded = jsonDecode(s);
         if (decoded is Map) {
-          return _ensureLocalHttpInbound(jsonEncode(decoded));
+          final map = Map<String, dynamic>.from(decoded);
+          _injectIranDomainDirectRules(map);
+          return _ensureLocalHttpInbound(jsonEncode(map));
         }
       } catch (_) {
         return s;
@@ -381,7 +413,6 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
       return s;
     }
 
-    // لینک اشتراکی کلاسیک
     if (s.startsWith('vless://') ||
         s.startsWith('vmess://') ||
         s.startsWith('trojan://') ||
@@ -389,6 +420,14 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
       try {
         final parsedUrl = V2ray.parseFromURL(s);
         final full = parsedUrl.getFullConfiguration();
+        try {
+          final decoded = jsonDecode(full);
+          if (decoded is Map) {
+            final map = Map<String, dynamic>.from(decoded);
+            _injectIranDomainDirectRules(map);
+            return _ensureLocalHttpInbound(jsonEncode(map));
+          }
+        } catch (_) {}
         return _ensureLocalHttpInbound(full);
       } catch (_) {
         return s;
@@ -396,6 +435,103 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     }
 
     return s;
+  }
+
+  void _injectIranDomainDirectRules(Map<String, dynamic> cfg) {
+    if (tunnelMode == 'full') return;
+    String directTag = 'direct';
+    final outs = cfg['outbounds'];
+    if (outs is List) {
+      var found = false;
+      for (final o in outs) {
+        if (o is! Map) continue;
+        final tag = '${o['tag'] ?? ''}'.toLowerCase();
+        final proto = '${o['protocol'] ?? ''}'.toLowerCase();
+        if (tag == 'direct' || tag == 'freedom' || tag == 'direct-out') {
+          directTag = '${o['tag']}';
+          found = true;
+          break;
+        }
+        if (proto == 'freedom') {
+          directTag = '${o['tag'] ?? 'direct'}';
+          found = true;
+        }
+      }
+      if (!found) {
+        outs.add({'protocol': 'freedom', 'tag': 'direct'});
+        directTag = 'direct';
+      }
+    } else {
+      cfg['outbounds'] = [{'protocol': 'freedom', 'tag': 'direct'}];
+      directTag = 'direct';
+    }
+    final iranRule = {
+      'type': 'field',
+      'domain': [
+        r'regexp:.*\.ir$',
+        'domain:ir',
+        'domain:digikala.com',
+        'domain:shaparak.ir',
+        'domain:bmi.ir',
+        'domain:bankmellat.ir',
+        'domain:cafebazaar.ir',
+        'domain:myket.ir',
+      ],
+      'outboundTag': directTag,
+    };
+    final privateRule = {
+      'type': 'field',
+      'ip': [
+        'geoip:private',
+        '10.0.0.0/8',
+        '127.0.0.0/8',
+        '172.16.0.0/12',
+        '192.168.0.0/16',
+      ],
+      'outboundTag': directTag,
+    };
+    Map<String, dynamic> routing = cfg['routing'] is Map
+        ? Map<String, dynamic>.from(cfg['routing'] as Map)
+        : {'domainStrategy': 'IPIfNonMatch', 'rules': <dynamic>[]};
+    final rules = <dynamic>[];
+    if (routing['rules'] is List) {
+      rules.addAll(List<dynamic>.from(routing['rules'] as List));
+    }
+    final already = rules.any((r) =>
+        r is Map &&
+        r['domain'] is List &&
+        (r['domain'] as List).any((d) => '$d'.contains('.ir')));
+    if (!already) {
+      rules.insert(0, privateRule);
+      rules.insert(0, iranRule);
+    }
+    routing['rules'] = rules;
+    routing['domainStrategy'] = routing['domainStrategy'] ?? 'IPIfNonMatch';
+    cfg['routing'] = routing;
+  }
+
+  List<String>? _blockedAppsForConnect() {
+    if (tunnelMode == 'full') return null;
+    if (tunnelMode == 'bypass_local') {
+      return List<String>.from(iranianLocalPackages);
+    }
+    final block = <String>{...iranianLocalPackages};
+    for (final item in selectableVpnApps) {
+      final pkg = item['pkg']!;
+      if (!selectedVpnPackages.contains(pkg)) block.add(pkg);
+    }
+    return block.toList();
+  }
+
+  String get tunnelModeLabel {
+    switch (tunnelMode) {
+      case 'full':
+        return 'کل گوشی';
+      case 'selected':
+        return 'انتخاب من';
+      default:
+        return 'بجز برنامه‌های داخلی';
+    }
   }
 
   bool _statusMeansConnected(String? state) {
@@ -1218,7 +1354,31 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     await _loadProfilesFromPrefs(prefs);
     final user = prefs.getString('saved_username');
     final pass = prefs.getString('saved_password') ?? '';
-    final savedTunnelMode = prefs.getBool('only_filtered_apps') ?? true;
+    String savedTunnel = prefs.getString('pref_tunnel_mode') ?? '';
+    if (savedTunnel.isEmpty) {
+      final oldBool = prefs.getBool('only_filtered_apps');
+      savedTunnel = (oldBool == false) ? 'full' : 'bypass_local';
+    }
+    if (savedTunnel != 'full' && savedTunnel != 'bypass_local' && savedTunnel != 'selected') {
+      savedTunnel = 'bypass_local';
+    }
+    final savedSelectedRaw = prefs.getString('pref_selected_vpn_packages');
+    List<String> savedSelected = [
+      'org.telegram.messenger',
+      'com.instagram.android',
+      'com.google.android.youtube',
+      'com.android.chrome',
+      'com.twitter.android',
+      'com.whatsapp',
+    ];
+    if (savedSelectedRaw != null && savedSelectedRaw.isNotEmpty) {
+      try {
+        final dec = json.decode(savedSelectedRaw);
+        if (dec is List) {
+          savedSelected = dec.map((e) => '$e').where((e) => e.isNotEmpty).toList();
+        }
+      } catch (_) {}
+    }
     final prefAutoRefresh = prefs.getBool('pref_auto_refresh_on_start') ?? true;
     final prefAutoPing = prefs.getBool('pref_auto_ping_on_start') ?? false;
     final prefKeepServer = prefs.getBool('pref_prefer_last_server') ?? true;
@@ -1259,7 +1419,8 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
 
     if (mounted) {
       setState(() {
-        onlyFilteredApps = savedTunnelMode;
+        tunnelMode = savedTunnel;
+        selectedVpnPackages = savedSelected;
         autoRefreshOnStart = prefAutoRefresh;
         autoPingOnStart = prefAutoPing;
         preferLastServer = prefKeepServer;
@@ -1373,21 +1534,140 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     return 0;
   }
 
-  Future<void> _saveTunnelMode(bool val) async {
+  Future<void> _saveTunnelMode(String mode) async {
+    if (mode != 'full' && mode != 'bypass_local' && mode != 'selected') {
+      mode = 'bypass_local';
+    }
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('only_filtered_apps', val);
+    await prefs.setString('pref_tunnel_mode', mode);
+    await prefs.setBool('only_filtered_apps', mode != 'full');
     if (mounted) {
       setState(() {
-        onlyFilteredApps = val;
+        tunnelMode = mode;
       });
     }
-
+    if (mode == 'selected' && mounted) {
+      Future.microtask(() => _showSelectedAppsSheet());
+    }
     if (_isVpnConnected) {
-      _showToast('در حال تغییر حالت شبکه...', isError: false);
+      _showToast('در حال اعمال حالت تونل...', isError: false);
       await _toggleConnect();
       await Future.delayed(const Duration(milliseconds: 300));
       await _toggleConnect();
     }
+  }
+
+  Future<void> _saveSelectedVpnPackages(List<String> pkgs) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('pref_selected_vpn_packages', json.encode(pkgs));
+    if (mounted) {
+      setState(() {
+        selectedVpnPackages = List<String>.from(pkgs);
+      });
+    }
+    if (_isVpnConnected && tunnelMode == 'selected') {
+      _showToast('در حال اعمال لیست اپ‌ها...', isError: false);
+      await _toggleConnect();
+      await Future.delayed(const Duration(milliseconds: 300));
+      await _toggleConnect();
+    }
+  }
+
+  Future<void> _showSelectedAppsSheet() async {
+    if (!mounted) return;
+    var draft = List<String>.from(selectedVpnPackages);
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: const Color(0xFF131B2E),
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return Directionality(
+          textDirection: TextDirection.rtl,
+          child: StatefulBuilder(
+            builder: (ctx, setLocal) {
+              return SafeArea(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 40,
+                        height: 4,
+                        margin: const EdgeInsets.only(bottom: 12),
+                        decoration: BoxDecoration(
+                          color: Colors.white24,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                      ),
+                      const Text(
+                        'انتخاب من',
+                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                      ),
+                      const SizedBox(height: 4),
+                      const Text(
+                        'فقط اپ‌های تیک‌خورده از VPN می‌روند.\nبانک و اپ‌های داخلی همیشه مستقیم‌اند.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: Colors.white38, fontSize: 11.5, height: 1.35),
+                      ),
+                      const SizedBox(height: 12),
+                      ConstrainedBox(
+                        constraints: BoxConstraints(maxHeight: MediaQuery.of(ctx).size.height * 0.5),
+                        child: ListView.builder(
+                          shrinkWrap: true,
+                          itemCount: selectableVpnApps.length,
+                          itemBuilder: (_, i) {
+                            final item = selectableVpnApps[i];
+                            final pkg = item['pkg']!;
+                            final name = item['name']!;
+                            final on = draft.contains(pkg);
+                            return CheckboxListTile(
+                              value: on,
+                              activeColor: const Color(0xFF00E5FF),
+                              title: Text(name, style: const TextStyle(color: Colors.white, fontSize: 13.5)),
+                              subtitle: Text(pkg, style: const TextStyle(color: Colors.white30, fontSize: 10)),
+                              onChanged: (v) {
+                                setLocal(() {
+                                  if (v == true) {
+                                    if (!draft.contains(pkg)) draft.add(pkg);
+                                  } else {
+                                    draft.remove(pkg);
+                                  }
+                                });
+                              },
+                            );
+                          },
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF00E5FF),
+                            foregroundColor: Colors.black,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                          ),
+                          onPressed: () async {
+                            Navigator.pop(ctx);
+                            await _saveSelectedVpnPackages(draft);
+                          },
+                          child: const Text('ذخیره', style: TextStyle(fontWeight: FontWeight.bold)),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        );
+      },
+    );
   }
 
   Future<void> _openTelegram(String url) async {
@@ -1994,7 +2274,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
       await flutterV2ray.startV2Ray(
         remark: target.name,
         config: configString,
-        blockedApps: onlyFilteredApps ? iranianAndBrowserPackages : null,
+        blockedApps: _blockedAppsForConnect(),
         proxyOnly: false,
         notificationDisconnectButtonName: 'قطع اتصال',
       );
@@ -2163,7 +2443,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
       await flutterV2ray.startV2Ray(
         remark: target.name,
         config: configString,
-        blockedApps: onlyFilteredApps ? iranianAndBrowserPackages : null,
+        blockedApps: _blockedAppsForConnect(),
         proxyOnly: false,
         notificationDisconnectButtonName: 'قطع اتصال',
       );
@@ -2681,6 +2961,49 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
   }
 
   Widget _buildTunnelModeSwitch() {
+    Widget chip({
+      required String mode,
+      required String label,
+      required IconData icon,
+      required Color color,
+    }) {
+      final on = tunnelMode == mode;
+      return Expanded(
+        child: GestureDetector(
+          onTap: () => _saveTunnelMode(mode),
+          onLongPress: mode == 'selected' ? () => _showSelectedAppsSheet() : null,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 2),
+            decoration: BoxDecoration(
+              color: on ? color.withOpacity(0.2) : Colors.transparent,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: on ? color : Colors.transparent, width: 1.2),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icon, size: 15, color: on ? color : Colors.grey),
+                const SizedBox(height: 3),
+                Text(
+                  label,
+                  textAlign: TextAlign.center,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 9.5,
+                    fontWeight: FontWeight.bold,
+                    height: 1.15,
+                    color: on ? Colors.white : Colors.grey,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
     return Container(
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
@@ -2690,75 +3013,11 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
       ),
       child: Row(
         children: [
-          Expanded(
-            child: GestureDetector(
-              onTap: () => _saveTunnelMode(false),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                padding: const EdgeInsets.symmetric(vertical: 9),
-                decoration: BoxDecoration(
-                  color: !onlyFilteredApps ? const Color(0xFF00E5FF).withOpacity(0.2) : Colors.transparent,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: !onlyFilteredApps ? const Color(0xFF00E5FF) : Colors.transparent,
-                    width: 1.2,
-                  ),
-                ),
-                child: Center(
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.public, size: 15, color: !onlyFilteredApps ? const Color(0xFF00E5FF) : Colors.grey),
-                      const SizedBox(width: 5),
-                      Text(
-                        'تونل کل گوشی',
-                        style: TextStyle(
-                          fontSize: 11.5,
-                          fontWeight: FontWeight.bold,
-                          color: !onlyFilteredApps ? Colors.white : Colors.grey,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 4),
-          Expanded(
-            child: GestureDetector(
-              onTap: () => _saveTunnelMode(true),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                padding: const EdgeInsets.symmetric(vertical: 9),
-                decoration: BoxDecoration(
-                  color: onlyFilteredApps ? const Color(0xFF00FFA3).withOpacity(0.2) : Colors.transparent,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: onlyFilteredApps ? const Color(0xFF00FFA3) : Colors.transparent,
-                    width: 1.2,
-                  ),
-                ),
-                child: Center(
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.flash_on, size: 15, color: onlyFilteredApps ? const Color(0xFF00FFA3) : Colors.grey),
-                      const SizedBox(width: 5),
-                      Text(
-                        'فقط برنامه‌های فیلترشده',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
-                          color: onlyFilteredApps ? Colors.white : Colors.grey,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
+          chip(mode: 'full', label: 'کل گوشی', icon: Icons.public, color: const Color(0xFF00E5FF)),
+          const SizedBox(width: 3),
+          chip(mode: 'bypass_local', label: 'بجز برنامه‌های داخلی', icon: Icons.home_work_outlined, color: const Color(0xFF00FFA3)),
+          const SizedBox(width: 3),
+          chip(mode: 'selected', label: 'انتخاب من', icon: Icons.checklist_rtl, color: const Color(0xFFFFD54F)),
         ],
       ),
     );
@@ -3756,49 +4015,13 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
                       ),
                       const Divider(color: Colors.white12, height: 24),
                       const Text(
-                        'مود اتصال',
+                        'اتصال و سرور',
                         style: TextStyle(color: Colors.white70, fontWeight: FontWeight.bold, fontSize: 12.5),
                       ),
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: _settingsModeChip(
-                              label: 'هوشمند',
-                              selected: connectionModeSmart,
-                              color: const Color(0xFF00E5FF),
-                              onTap: () async {
-                                await _saveConnectionMode(smart: true);
-                                setSheet(() {});
-                              },
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: _settingsModeChip(
-                              label: 'دستی',
-                              selected: !connectionModeSmart,
-                              color: const Color(0xFFFFD54F),
-                              onTap: () async {
-                                await _saveConnectionMode(smart: false);
-                                setSheet(() {});
-                              },
-                            ),
-                          ),
-                        ],
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.only(top: 6, bottom: 10),
-                        child: Text(
-                          connectionModeSmart
-                              ? 'هوشمند: لیست سرور مخفی است؛ اپ خودش انتخاب می‌کند.'
-                              : 'دستی: لیست سرور، پینگ و انتخاب در داشبورد.',
-                          style: const TextStyle(color: Colors.white38, fontSize: 11),
-                        ),
-                      ),
+
                       switchTile(
-                        title: 'ترجیح پایداری (مود هوشمند)',
-                        subtitle: 'روشن = سرور پایدارتر · خاموش = کم‌ترین تأخیر (در اتصال هوشمند بعدی)',
+                        title: 'ترجیح پایداری',
+                        subtitle: 'در اتصال هوشمند: پایدارتر به‌جای فقط کم‌پینگ',
                         value: preferStability,
                         onChanged: (v) async {
                           setState(() => preferStability = v);
@@ -3806,8 +4029,8 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
                         },
                       ),
                       switchTile(
-                        title: 'بروزرسانی خودکار هنگام باز شدن',
-                        subtitle: 'لیست سرورها و وضعیت اشتراک از سرور گرفته شود',
+                        title: 'بروزرسانی سرور هنگام باز شدن',
+                        subtitle: 'با هر ورود، لیست سرورها و وضعیت اشتراک تازه شود',
                         value: autoRefreshOnStart,
                         onChanged: (v) async {
                           setState(() => autoRefreshOnStart = v);
@@ -3815,8 +4038,8 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
                         },
                       ),
                       switchTile(
-                        title: 'پینگ خودکار هنگام باز شدن',
-                        subtitle: 'ممکن است باز شدن را کمی کند کند؛ روی انتخاب سرور اثر نگذارد',
+                        title: 'پینگ هنگام باز شدن',
+                        subtitle: 'با ورود به اپ پینگ گرفته شود (کمی کندتر)',
                         value: autoPingOnStart,
                         onChanged: (v) async {
                           setState(() => autoPingOnStart = v);
@@ -3824,21 +4047,28 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
                         },
                       ),
                       switchTile(
-                        title: 'نگه داشتن آخرین سرور',
-                        subtitle: 'بعد از بروزرسانی به سرور کم‌پینگ‌تر نپرد (توصیه می‌شود)',
+                        title: 'سرور قبلی را نگه دار',
+                        subtitle: 'بعد از بروزرسانی خودکار سرور عوض نشود',
                         value: preferLastServer,
                         onChanged: (v) async {
                           setState(() => preferLastServer = v);
                           await _savePrefBool('pref_prefer_last_server', v);
                         },
                       ),
-                      switchTile(
-                        title: 'حالت تونل: فقط فیلترشده‌ها',
-                        subtitle: 'خاموش = تونل کل گوشی (همان سوئیچ داشبورد)',
-                        value: onlyFilteredApps,
-                        onChanged: (v) async {
+                      ListTile(
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+                        leading: const Icon(Icons.checklist_rtl, color: Color(0xFFFFD54F)),
+                        title: const Text('اپ‌های «انتخاب من»', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13.5)),
+                        subtitle: Text(
+                          tunnelMode == 'selected'
+                              ? '${selectedVpnPackages.length} اپ برای VPN'
+                              : 'برای حالت تونل «انتخاب من»',
+                          style: const TextStyle(color: Colors.white54, fontSize: 11),
+                        ),
+                        trailing: const Icon(Icons.chevron_left, color: Colors.white38),
+                        onTap: () {
                           Navigator.pop(ctx);
-                          await _saveTunnelMode(v);
+                          _showSelectedAppsSheet();
                         },
                       ),
                       ListTile(
@@ -4264,7 +4494,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
           const SizedBox(height: 8),
           Text(
             isConnected
-                ? (onlyFilteredApps ? 'اتصال هوشمند (فقط برنامه‌های فیلترشده)' : 'اتصال کامل (تونل کل گوشی)')
+                ? 'تونل: $tunnelModeLabel'
                 : 'جهت اتصال لمس کنید',
             style: TextStyle(
               color: isConnected ? const Color(0xFF00FFA3) : Colors.grey,

@@ -18,8 +18,8 @@ void main() {
 }
 
 // مشخصات نسخه (نمایش داخل اپ) — با هر ریلیز دستی بالا ببر
-const String appVersion = 'v1.9.4';
-const int appVersionCode = 36;
+const String appVersion = 'v1.9.6';
+const int appVersionCode = 38;
 /// کانال بسته‌بندی: با --dart-define=APK_CHANNEL=arm64|universal|arm32 در بیلد ست می‌شود
 const String apkChannel = String.fromEnvironment('APK_CHANNEL', defaultValue: 'arm64');
 const String appUpdateMetaUrl = 'https://majid6064.ir/app_version.json';
@@ -541,6 +541,121 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     'com.android.settings',
   ];
 
+  /// خانواده‌های پکیج — با تیک یکی، بقیهٔ مرتبط (اگر نصب باشند) خودکار اضافه می‌شوند
+  static const Map<String, List<String>> _relatedVpnPackages = {
+    'org.telegram.messenger': [
+      'org.telegram.messenger',
+      'org.telegram.messenger.web',
+      'org.telegram.messenger.beta',
+      'org.thunderdog.challegram',
+      'org.telegram.plus',
+      'nekox.messenger',
+    ],
+    'org.telegram.messenger.web': [
+      'org.telegram.messenger',
+      'org.telegram.messenger.web',
+      'org.telegram.messenger.beta',
+    ],
+    'org.thunderdog.challegram': [
+      'org.thunderdog.challegram',
+      'org.telegram.messenger',
+      'org.telegram.messenger.web',
+    ],
+    'com.instagram.android': [
+      'com.instagram.android',
+      'com.instagram.barcelona',
+      'com.instagram.android.preload',
+      'com.instagram.lite',
+    ],
+    'com.instagram.barcelona': [
+      'com.instagram.android',
+      'com.instagram.barcelona',
+    ],
+    'com.android.chrome': [
+      'com.android.chrome',
+      'com.chrome.beta',
+      'com.chrome.dev',
+      'com.chrome.canary',
+      'com.google.android.apps.chrome',
+    ],
+    'com.chrome.beta': [
+      'com.android.chrome',
+      'com.chrome.beta',
+    ],
+    'org.mozilla.firefox': [
+      'org.mozilla.firefox',
+      'org.mozilla.firefox_beta',
+      'org.mozilla.focus',
+    ],
+    'com.sec.android.app.sbrowser': [
+      'com.sec.android.app.sbrowser',
+      'com.sec.android.app.sbrowser.beta',
+    ],
+    'com.opera.browser': [
+      'com.opera.browser',
+      'com.opera.mini.native',
+    ],
+    'com.brave.browser': [
+      'com.brave.browser',
+      'com.brave.browser_beta',
+    ],
+    'com.microsoft.emmx': [
+      'com.microsoft.emmx',
+    ],
+    'com.google.android.youtube': [
+      'com.google.android.youtube',
+      'com.google.android.apps.youtube.music',
+      'com.vanced.android.youtube',
+      'app.revanced.android.youtube',
+    ],
+    'com.whatsapp': [
+      'com.whatsapp',
+      'com.whatsapp.w4b',
+    ],
+    'com.whatsapp.w4b': [
+      'com.whatsapp',
+      'com.whatsapp.w4b',
+    ],
+    'com.twitter.android': [
+      'com.twitter.android',
+      'com.twitter.android.lite',
+    ],
+    'com.facebook.katana': [
+      'com.facebook.katana',
+      'com.facebook.lite',
+      'com.facebook.orca',
+      'com.facebook.mlite',
+    ],
+    'com.zhiliaoapp.musically': [
+      'com.zhiliaoapp.musically',
+      'com.ss.android.ugc.trill',
+      'com.ss.android.ugc.aweme',
+    ],
+  };
+
+  Set<String> _expandRelatedPackages(Iterable<String> selected) {
+    final out = <String>{...selected};
+    for (final pkg in List<String>.from(selected)) {
+      final rel = _relatedVpnPackages[pkg];
+      if (rel != null) out.addAll(rel);
+      for (final entry in _relatedVpnPackages.entries) {
+        if (entry.value.contains(pkg)) out.addAll(entry.value);
+      }
+    }
+    return out;
+  }
+
+  /// اعضای خانوادهٔ یک پکیج (برای تیک/حذف هوشمند در UI)
+  Set<String> _familyOf(String pkg) {
+    final out = <String>{pkg};
+    final rel = _relatedVpnPackages[pkg];
+    if (rel != null) out.addAll(rel);
+    for (final entry in _relatedVpnPackages.entries) {
+      if (entry.value.contains(pkg)) out.addAll(entry.value);
+    }
+    return out;
+  }
+
   /// حالت «انتخاب من»: هر اپی که تیک نخورده مستقیم است؛ فقط تیک‌خورده‌ها از VPN
   Future<List<String>?> _blockedAppsForConnect() async {
     if (tunnelMode == 'full') return null;
@@ -552,7 +667,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
       return List<String>.from(iranianLocalPackages);
     }
 
-    final selected = selectedVpnPackages.toSet();
+    final selected = _expandRelatedPackages(selectedVpnPackages);
     final block = <String>{..._alwaysDirectPackages};
 
     try {
@@ -587,7 +702,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
       case 'selected':
         return 'انتخاب من';
       default:
-        return 'بجز برنامه‌های داخلی';
+        return 'هوشمند'; // تونل: بجز برنامه‌های داخلی
     }
   }
 
@@ -1603,8 +1718,8 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
         tunnelMode = mode;
       });
     }
-    if (mode == 'selected' && mounted) {
-      Future.microtask(() => _showSelectedAppsSheet());
+    if (mode == 'selected' && selectedVpnPackages.isEmpty && mounted) {
+      _showToast('برای انتخاب اپ‌ها دکمه را لمس طولانی کنید', isError: false);
     }
     if (_isVpnConnected) {
       _showToast('در حال اعمال حالت تونل...', isError: false);
@@ -1722,7 +1837,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
                       ),
                       const SizedBox(height: 4),
                       const Text(
-                        'فقط اپ‌های تیک‌خورده از VPN می‌روند.\nبقیه مستقیم می‌مانند (مثل بانک).',
+                        'فقط اپ‌های تیک‌خورده از VPN می‌روند.\nبا تیک اینستا/تلگرام/کروم، نسخه‌های مرتبط خودکار اضافه می‌شوند.',
                         textAlign: TextAlign.center,
                         style: TextStyle(color: Colors.white38, fontSize: 11.5, height: 1.35),
                       ),
@@ -1772,10 +1887,18 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
                                   subtitle: Text(pkg, style: const TextStyle(color: Colors.white30, fontSize: 10)),
                                   onChanged: (v) {
                                     setLocal(() {
+                                      final family = _familyOf(pkg);
+                                      final installed = catalog.map((e) => e['pkg']!).toSet();
                                       if (v == true) {
-                                        if (!draft.contains(pkg)) draft.insert(0, pkg);
+                                        // پکیج اصلی + مرتبط‌های نصب‌شده (نامحسوس)
+                                        for (final p in family) {
+                                          if (p == pkg || installed.contains(p)) {
+                                            if (!draft.contains(p)) draft.insert(0, p);
+                                          }
+                                        }
                                       } else {
-                                        draft.remove(pkg);
+                                        // برداشتن تیک = کل خانواده از انتخاب خارج
+                                        draft.removeWhere((p) => family.contains(p));
                                       }
                                       sortCatalog(catalog, draft.toSet());
                                     });
@@ -1797,16 +1920,19 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                           ),
                           onPressed: () async {
-                            // سورت نهایی: تیک‌خورده‌ها اول
+                            // سورت + گسترش هوشمند خانواده‌ها
+                            final installed = catalog.map((e) => e['pkg']!).toSet();
+                            final expanded = _expandRelatedPackages(draft)
+                                .where((p) => installed.contains(p) || draft.contains(p))
+                                .toList();
                             final checked = <String>[];
-                            final rest = <String>[];
                             for (final e in catalog) {
                               final pkg = e['pkg']!;
-                              if (draft.contains(pkg)) {
-                                if (!checked.contains(pkg)) checked.add(pkg);
+                              if (expanded.contains(pkg) && !checked.contains(pkg)) {
+                                checked.add(pkg);
                               }
                             }
-                            for (final pkg in draft) {
+                            for (final pkg in expanded) {
                               if (!checked.contains(pkg)) checked.add(pkg);
                             }
                             Navigator.pop(ctx);
@@ -3030,6 +3156,23 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     );
   }
 
+  Widget _sectionLabel(String text) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 4, bottom: 6, top: 2),
+      child: Align(
+        alignment: Alignment.centerRight,
+        child: Text(
+          text,
+          style: const TextStyle(
+            color: Colors.white54,
+            fontSize: 11.5,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildConnectionModeSwitch() {
     Widget side({
       required String label,
@@ -3074,52 +3217,58 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
       );
     }
 
-    return Container(
-      padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(
-        color: const Color(0xFF131B2E),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withOpacity(0.06)),
-      ),
-      child: Row(
-        children: [
-          side(
-            label: 'هوشمند',
-            icon: Icons.auto_awesome_rounded,
-            selected: connectionModeSmart,
-            color: const Color(0xFF00E5FF),
-            onTap: () async {
-              if (connectionModeSmart) return;
-              await _saveConnectionMode(smart: true);
-              if (mounted) {
-                _showToast('مود هوشمند فعال شد', isError: false);
-              }
-            },
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _sectionLabel('نحوه اتصال'),
+        Container(
+          padding: const EdgeInsets.all(4),
+          decoration: BoxDecoration(
+            color: const Color(0xFF131B2E),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Colors.white.withOpacity(0.06)),
           ),
-          const SizedBox(width: 4),
-          side(
-            label: 'دستی',
-            icon: Icons.tune_rounded,
-            selected: !connectionModeSmart,
-            color: const Color(0xFFFFD54F),
-            onTap: () async {
-              if (!connectionModeSmart) return;
-              if (_isRecovering) {
-                _recoveryGen++;
-                _isRecovering = false;
-              }
-              if (!_isVpnConnected) {
-                _userWantsConnected = false;
-                _stopHealthWatch();
-              }
-              await _saveConnectionMode(smart: false);
-              if (mounted) {
-                _showToast('مود دستی فعال شد', isError: false);
-              }
-            },
+          child: Row(
+            children: [
+              side(
+                label: 'هوشمند',
+                icon: Icons.auto_awesome_rounded,
+                selected: connectionModeSmart,
+                color: const Color(0xFF00E5FF),
+                onTap: () async {
+                  if (connectionModeSmart) return;
+                  await _saveConnectionMode(smart: true);
+                  if (mounted) {
+                    _showToast('نحوه اتصال: هوشمند', isError: false);
+                  }
+                },
+              ),
+              const SizedBox(width: 4),
+              side(
+                label: 'دستی',
+                icon: Icons.tune_rounded,
+                selected: !connectionModeSmart,
+                color: const Color(0xFFFFD54F),
+                onTap: () async {
+                  if (!connectionModeSmart) return;
+                  if (_isRecovering) {
+                    _recoveryGen++;
+                    _isRecovering = false;
+                  }
+                  if (!_isVpnConnected) {
+                    _userWantsConnected = false;
+                    _stopHealthWatch();
+                  }
+                  await _saveConnectionMode(smart: false);
+                  if (mounted) {
+                    _showToast('نحوه اتصال: دستی', isError: false);
+                  }
+                },
+              ),
+            ],
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
@@ -3151,10 +3300,10 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
                 Text(
                   label,
                   textAlign: TextAlign.center,
-                  maxLines: 2,
+                  maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    fontSize: 9.5,
+                    fontSize: 10.5,
                     fontWeight: FontWeight.bold,
                     height: 1.15,
                     color: on ? Colors.white : Colors.grey,
@@ -3167,22 +3316,37 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
       );
     }
 
-    return Container(
-      padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(
-        color: const Color(0xFF131B2E),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withOpacity(0.06)),
-      ),
-      child: Row(
-        children: [
-          chip(mode: 'full', label: 'کل گوشی', icon: Icons.public, color: const Color(0xFF00E5FF)),
-          const SizedBox(width: 3),
-          chip(mode: 'bypass_local', label: 'بجز برنامه‌های داخلی', icon: Icons.home_work_outlined, color: const Color(0xFF00FFA3)),
-          const SizedBox(width: 3),
-          chip(mode: 'selected', label: 'انتخاب من', icon: Icons.checklist_rtl, color: const Color(0xFFFFD54F)),
-        ],
-      ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _sectionLabel('تونل'),
+        Container(
+          padding: const EdgeInsets.all(4),
+          decoration: BoxDecoration(
+            color: const Color(0xFF131B2E),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Colors.white.withOpacity(0.06)),
+          ),
+          child: Row(
+            children: [
+              chip(mode: 'full', label: 'کل گوشی', icon: Icons.public, color: const Color(0xFF00E5FF)),
+              const SizedBox(width: 3),
+              chip(mode: 'bypass_local', label: 'هوشمند', icon: Icons.home_work_outlined, color: const Color(0xFF00FFA3)),
+              const SizedBox(width: 3),
+              chip(mode: 'selected', label: 'انتخاب من', icon: Icons.checklist_rtl, color: const Color(0xFFFFD54F)),
+            ],
+          ),
+        ),
+        if (tunnelMode == 'selected')
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Text(
+              'لمس طولانی «انتخاب من» = لیست اپ‌ها  ·  ${selectedVpnPackages.length} اپ',
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Colors.white38, fontSize: 10),
+            ),
+          ),
+      ],
     );
   }
 

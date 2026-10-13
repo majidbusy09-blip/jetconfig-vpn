@@ -592,14 +592,6 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     'com.samsung.android.themecenter',
   ];
 
-  /// زیرشبکه‌های محلی — از تونل VPN خارج (سطح VpnService، مؤثرتر از فقط routing)
-  static const List<String> _lanBypassSubnets = [
-    '10.0.0.0/8',
-    '172.16.0.0/12',
-    '192.168.0.0/16',
-    '169.254.0.0/16',
-    '224.0.0.0/4',
-  ];
 
   /// خانواده‌های پکیج — با تیک یکی، مرتبط‌های نصب‌شده نامحسوس اضافه می‌شوند
   /// (نسخه‌های رسمی/لایت/بتا + WebView/سرویس‌های لازم برای همان خانواده)
@@ -2942,7 +2934,6 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
         remark: target.name,
         config: configString,
         blockedApps: await _blockedAppsForConnect(),
-        bypassSubnets: _lanBypassSubnets,
         proxyOnly: false,
         notificationDisconnectButtonName: 'قطع اتصال',
       );
@@ -3112,7 +3103,6 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
         remark: target.name,
         config: configString,
         blockedApps: await _blockedAppsForConnect(),
-        bypassSubnets: _lanBypassSubnets,
         proxyOnly: false,
         notificationDisconnectButtonName: 'قطع اتصال',
       );

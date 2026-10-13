@@ -18,8 +18,8 @@ void main() {
 }
 
 // مشخصات نسخه (نمایش داخل اپ) — با هر ریلیز دستی بالا ببر
-const String appVersion = 'v1.9.6';
-const int appVersionCode = 38;
+const String appVersion = 'v1.9.7';
+const int appVersionCode = 39;
 /// کانال بسته‌بندی: با --dart-define=APK_CHANNEL=arm64|universal|arm32 در بیلد ست می‌شود
 const String apkChannel = String.fromEnvironment('APK_CHANNEL', defaultValue: 'arm64');
 const String appUpdateMetaUrl = 'https://majid6064.ir/app_version.json';
@@ -541,8 +541,10 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     'com.android.settings',
   ];
 
-  /// خانواده‌های پکیج — با تیک یکی، بقیهٔ مرتبط (اگر نصب باشند) خودکار اضافه می‌شوند
+  /// خانواده‌های پکیج — با تیک یکی، مرتبط‌های نصب‌شده نامحسوس اضافه می‌شوند
+  /// (نسخه‌های رسمی/لایت/بتا + WebView/سرویس‌های لازم برای همان خانواده)
   static const Map<String, List<String>> _relatedVpnPackages = {
+    // —— تلگرام ——
     'org.telegram.messenger': [
       'org.telegram.messenger',
       'org.telegram.messenger.web',
@@ -550,8 +552,22 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
       'org.thunderdog.challegram',
       'org.telegram.plus',
       'nekox.messenger',
+      'com.android.webview',
+      'com.google.android.webview',
     ],
     'org.telegram.messenger.web': [
+      'org.telegram.messenger',
+      'org.telegram.messenger.web',
+      'org.telegram.messenger.beta',
+      'com.android.chrome',
+      'com.chrome.beta',
+      'com.google.android.apps.chrome',
+      'com.sec.android.app.sbrowser',
+      'org.mozilla.firefox',
+      'com.android.webview',
+      'com.google.android.webview',
+    ],
+    'org.telegram.messenger.beta': [
       'org.telegram.messenger',
       'org.telegram.messenger.web',
       'org.telegram.messenger.beta',
@@ -561,53 +577,47 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
       'org.telegram.messenger',
       'org.telegram.messenger.web',
     ],
+    // —— اینستا / تردز ——
     'com.instagram.android': [
       'com.instagram.android',
       'com.instagram.barcelona',
       'com.instagram.android.preload',
       'com.instagram.lite',
+      'com.android.webview',
+      'com.google.android.webview',
     ],
     'com.instagram.barcelona': [
       'com.instagram.android',
       'com.instagram.barcelona',
     ],
-    'com.android.chrome': [
-      'com.android.chrome',
-      'com.chrome.beta',
-      'com.chrome.dev',
-      'com.chrome.canary',
-      'com.google.android.apps.chrome',
+    'com.instagram.lite': [
+      'com.instagram.android',
+      'com.instagram.lite',
     ],
-    'com.chrome.beta': [
-      'com.android.chrome',
-      'com.chrome.beta',
+    // —— فیسبوک / مسنجر ——
+    'com.facebook.katana': [
+      'com.facebook.katana',
+      'com.facebook.lite',
+      'com.facebook.orca',
+      'com.facebook.mlite',
+      'com.facebook.system',
+      'com.facebook.appmanager',
+      'com.facebook.services',
+      'com.android.webview',
+      'com.google.android.webview',
     ],
-    'org.mozilla.firefox': [
-      'org.mozilla.firefox',
-      'org.mozilla.firefox_beta',
-      'org.mozilla.focus',
+    'com.facebook.orca': [
+      'com.facebook.orca',
+      'com.facebook.katana',
+      'com.facebook.mlite',
+      'com.facebook.lite',
     ],
-    'com.sec.android.app.sbrowser': [
-      'com.sec.android.app.sbrowser',
-      'com.sec.android.app.sbrowser.beta',
+    'com.facebook.lite': [
+      'com.facebook.lite',
+      'com.facebook.katana',
+      'com.facebook.orca',
     ],
-    'com.opera.browser': [
-      'com.opera.browser',
-      'com.opera.mini.native',
-    ],
-    'com.brave.browser': [
-      'com.brave.browser',
-      'com.brave.browser_beta',
-    ],
-    'com.microsoft.emmx': [
-      'com.microsoft.emmx',
-    ],
-    'com.google.android.youtube': [
-      'com.google.android.youtube',
-      'com.google.android.apps.youtube.music',
-      'com.vanced.android.youtube',
-      'app.revanced.android.youtube',
-    ],
+    // —— واتساپ ——
     'com.whatsapp': [
       'com.whatsapp',
       'com.whatsapp.w4b',
@@ -616,26 +626,172 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
       'com.whatsapp',
       'com.whatsapp.w4b',
     ],
+    // —— یوتیوب ——
+    'com.google.android.youtube': [
+      'com.google.android.youtube',
+      'com.google.android.apps.youtube.music',
+      'com.google.android.youtube.tv',
+      'com.vanced.android.youtube',
+      'app.revanced.android.youtube',
+      'com.android.vending',
+    ],
+    'com.google.android.apps.youtube.music': [
+      'com.google.android.apps.youtube.music',
+      'com.google.android.youtube',
+    ],
+    // —— توییتر / X ——
     'com.twitter.android': [
       'com.twitter.android',
       'com.twitter.android.lite',
+      'com.android.webview',
+      'com.google.android.webview',
     ],
-    'com.facebook.katana': [
-      'com.facebook.katana',
-      'com.facebook.lite',
-      'com.facebook.orca',
-      'com.facebook.mlite',
-    ],
+    // —— تیک‌تاک ——
     'com.zhiliaoapp.musically': [
       'com.zhiliaoapp.musically',
       'com.ss.android.ugc.trill',
       'com.ss.android.ugc.aweme',
+      'com.android.webview',
+      'com.google.android.webview',
+    ],
+    'com.ss.android.ugc.trill': [
+      'com.ss.android.ugc.trill',
+      'com.zhiliaoapp.musically',
+    ],
+    // —— دیسکورد ——
+    'com.discord': [
+      'com.discord',
+      'com.android.webview',
+      'com.google.android.webview',
+    ],
+    // —— ردیت ——
+    'com.reddit.frontpage': [
+      'com.reddit.frontpage',
+      'com.reddit.frontpage.lite',
+      'com.android.webview',
+      'com.google.android.webview',
+    ],
+    // —— اسپاتیفای ——
+    'com.spotify.music': [
+      'com.spotify.music',
+      'com.spotify.lite',
+    ],
+    // —— لینکدین ——
+    'com.linkedin.android': [
+      'com.linkedin.android',
+      'com.android.webview',
+      'com.google.android.webview',
+    ],
+    // —— اسنپ‌چت ——
+    'com.snapchat.android': [
+      'com.snapchat.android',
+      'com.android.webview',
+      'com.google.android.webview',
+    ],
+    // —— پین‌ترست ——
+    'com.pinterest': [
+      'com.pinterest',
+      'com.android.webview',
+      'com.google.android.webview',
+    ],
+    // —— ChatGPT / OpenAI ——
+    'com.openai.chatgpt': [
+      'com.openai.chatgpt',
+      'com.android.webview',
+      'com.google.android.webview',
+      'com.android.chrome',
+    ],
+    // —— گوگل (جستجو / جیمیل / مپ) ——
+    'com.google.android.googlequicksearchbox': [
+      'com.google.android.googlequicksearchbox',
+      'com.google.android.gm',
+      'com.google.android.apps.maps',
+    ],
+    'com.google.android.gm': [
+      'com.google.android.gm',
+      'com.google.android.gms',
+    ],
+    'com.google.android.apps.maps': [
+      'com.google.android.apps.maps',
+    ],
+    // —— مرورگرها + WebView ——
+    'com.android.chrome': [
+      'com.android.chrome',
+      'com.chrome.beta',
+      'com.chrome.dev',
+      'com.chrome.canary',
+      'com.google.android.apps.chrome',
+      'com.android.webview',
+      'com.google.android.webview',
+    ],
+    'com.chrome.beta': [
+      'com.android.chrome',
+      'com.chrome.beta',
+      'com.android.webview',
+      'com.google.android.webview',
+    ],
+    'com.google.android.apps.chrome': [
+      'com.android.chrome',
+      'com.google.android.apps.chrome',
+      'com.android.webview',
+      'com.google.android.webview',
+    ],
+    'org.mozilla.firefox': [
+      'org.mozilla.firefox',
+      'org.mozilla.firefox_beta',
+      'org.mozilla.focus',
+      'org.mozilla.fenix',
+    ],
+    'com.sec.android.app.sbrowser': [
+      'com.sec.android.app.sbrowser',
+      'com.sec.android.app.sbrowser.beta',
+      'com.android.webview',
+      'com.google.android.webview',
+    ],
+    'com.opera.browser': [
+      'com.opera.browser',
+      'com.opera.mini.native',
+      'com.opera.mini.android',
+    ],
+    'com.brave.browser': [
+      'com.brave.browser',
+      'com.brave.browser_beta',
+    ],
+    'com.microsoft.emmx': [
+      'com.microsoft.emmx',
+    ],
+    'com.android.webview': [
+      'com.android.webview',
+      'com.google.android.webview',
+    ],
+    'com.google.android.webview': [
+      'com.android.webview',
+      'com.google.android.webview',
+    ],
+    // —— سیگنال / تلگرام‌مانند ——
+    'org.thoughtcrime.securesms': [
+      'org.thoughtcrime.securesms',
+    ],
+    // —— اسکایپ ——
+    'com.skype.raider': [
+      'com.skype.raider',
+      'com.skype.m2',
+    ],
+    // —— تلگرام‌های متفرقه رایج ایران ——
+    'org.telegram.plus': [
+      'org.telegram.plus',
+      'org.telegram.messenger',
+      'org.telegram.messenger.web',
+    ],
+    'nekox.messenger': [
+      'nekox.messenger',
+      'org.telegram.messenger',
     ],
   };
 
   Set<String> _expandRelatedPackages(Iterable<String> selected) {
     final out = <String>{...selected};
-    for (final pkg in List<String>.from(selected)) {
+    for (final pkg in List<String>.from(out)) {
       final rel = _relatedVpnPackages[pkg];
       if (rel != null) out.addAll(rel);
       for (final entry in _relatedVpnPackages.entries) {
@@ -1748,33 +1904,162 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
   Future<void> _showSelectedAppsSheet() async {
     if (!mounted) return;
 
-    // لیست از اپ‌های نصب‌شده + نام‌های آشنا
     final knownNames = <String, String>{
       for (final e in selectableVpnApps) e['pkg']!: e['name']!,
+      'com.android.chrome': 'کروم (Chrome)',
+      'com.chrome.beta': 'کروم بتا',
+      'com.chrome.dev': 'کروم Dev',
+      'com.google.android.apps.chrome': 'کروم',
+      'com.android.webview': 'Android System WebView',
+      'com.google.android.webview': 'Android System WebView',
+      'org.telegram.messenger': 'تلگرام',
+      'org.telegram.messenger.web': 'تلگرام (وب)',
+      'org.telegram.messenger.beta': 'تلگرام بتا',
+      'org.thunderdog.challegram': 'Telegram X',
+      'com.instagram.android': 'اینستاگرام',
+      'com.instagram.barcelona': 'Threads',
+      'com.google.android.youtube': 'یوتیوب',
+      'com.whatsapp': 'واتساپ',
+      'com.twitter.android': 'توییتر / X',
+      'org.mozilla.firefox': 'فایرفاکس',
+      'com.sec.android.app.sbrowser': 'مرورگر سامسونگ',
+      'com.opera.browser': 'اوپرا',
+      'com.brave.browser': 'Brave',
+      'com.microsoft.emmx': 'Edge',
+      'com.facebook.katana': 'فیسبوک',
+      'com.facebook.orca': 'مسنجر',
+      'com.zhiliaoapp.musically': 'تیک‌تاک',
+      'com.discord': 'دیسکورد',
     };
+
+    const forceCheckPackages = <String>[
+      'com.android.chrome',
+      'com.chrome.beta',
+      'com.chrome.dev',
+      'com.google.android.apps.chrome',
+      'com.android.webview',
+      'com.google.android.webview',
+      'org.telegram.messenger',
+      'org.telegram.messenger.web',
+      'org.telegram.messenger.beta',
+      'org.thunderdog.challegram',
+      'org.telegram.plus',
+      'nekox.messenger',
+      'com.instagram.android',
+      'com.instagram.barcelona',
+      'com.instagram.lite',
+      'com.facebook.katana',
+      'com.facebook.orca',
+      'com.facebook.lite',
+      'com.google.android.youtube',
+      'com.google.android.apps.youtube.music',
+      'com.whatsapp',
+      'com.whatsapp.w4b',
+      'com.twitter.android',
+      'com.zhiliaoapp.musically',
+      'com.ss.android.ugc.trill',
+      'com.discord',
+      'com.reddit.frontpage',
+      'com.spotify.music',
+      'com.linkedin.android',
+      'com.snapchat.android',
+      'com.openai.chatgpt',
+      'com.google.android.gm',
+      'com.google.android.apps.maps',
+      'org.mozilla.firefox',
+      'com.sec.android.app.sbrowser',
+      'com.opera.browser',
+      'com.brave.browser',
+      'com.microsoft.emmx',
+    ];
+
     var catalog = <Map<String, String>>[];
+    final seen = <String>{};
+
+    void addPkg(String pkg, String name) {
+      if (pkg.isEmpty || pkg == 'com.jetconfig.vpn') return;
+      if (seen.contains(pkg)) return;
+      seen.add(pkg);
+      catalog.add({'pkg': pkg, 'name': name});
+    }
+
+    // ۱) همه اپ‌های قابل‌اجرا (حتی سیستمی مثل کروم)
     try {
-      final apps = await InstalledApps.getInstalledApps(excludeSystemApps: true, withIcon: false, detectPlatformType: false);
+      final apps = await InstalledApps.getInstalledApps(
+        excludeSystemApps: false,
+        excludeNonLaunchableApps: false,
+        withIcon: false,
+        detectPlatformType: false,
+      );
       for (final a in apps) {
         final pkg = a.packageName;
-        if (pkg.isEmpty) continue;
-        if (pkg == 'com.jetconfig.vpn') continue;
+        // شلوغی سیستم را کم کن؛ ولی کروم/تلگرام و ... را نگه دار
+        final isForced = forceCheckPackages.contains(pkg) ||
+            knownNames.containsKey(pkg) ||
+            pkg.contains('chrome') ||
+            pkg.contains('telegram') ||
+            pkg.contains('instagram') ||
+            pkg.contains('firefox') ||
+            pkg.contains('webview');
+        final isJunk = pkg.startsWith('com.android.providers.') ||
+            pkg.startsWith('com.android.server.') ||
+            pkg == 'android' ||
+            pkg.startsWith('com.qualcomm.') ||
+            pkg.startsWith('com.samsung.android.providers.');
+        if (isJunk && !isForced) continue;
         final name = (a.name.trim().isNotEmpty)
             ? a.name.trim()
             : (knownNames[pkg] ?? pkg);
-        catalog.add({'pkg': pkg, 'name': name});
+        addPkg(pkg, name);
       }
     } catch (e) {
-      debugPrint('sheet installed_apps: $e');
-      catalog = selectableVpnApps
-          .map((e) => {'pkg': e['pkg']!, 'name': e['name']!})
-          .toList();
+      debugPrint('sheet getInstalledApps: $e');
     }
 
-    // اپ‌های انتخاب‌شده که الان نصب نیستند را هم نگه دار
+    // ۲) پکیج‌های مهم را مستقیم با packageNames بگیر (قابل‌اطمینان‌تر)
+    try {
+      final forced = await InstalledApps.getInstalledApps(
+        packageNames: forceCheckPackages,
+        excludeSystemApps: false,
+        withIcon: false,
+        detectPlatformType: false,
+      );
+      for (final a in forced) {
+        final pkg = a.packageName;
+        final name = (a.name.trim().isNotEmpty)
+            ? a.name.trim()
+            : (knownNames[pkg] ?? pkg);
+        addPkg(pkg, name);
+      }
+    } catch (e) {
+      debugPrint('sheet packageNames: $e');
+    }
+
+    // ۳) isAppInstalled تک‌تک برای اطمینان از کروم و ...
+    for (final pkg in forceCheckPackages) {
+      if (seen.contains(pkg)) continue;
+      try {
+        final ok = await InstalledApps.isAppInstalled(pkg);
+        if (ok == true) {
+          String name = knownNames[pkg] ?? pkg;
+          try {
+            final info = await InstalledApps.getAppInfo(pkg, withIcon: false);
+            if (info != null && info.name.trim().isNotEmpty) name = info.name.trim();
+          } catch (_) {}
+          addPkg(pkg, name);
+        }
+      } catch (_) {}
+    }
+
+    if (catalog.isEmpty) {
+      for (final e in selectableVpnApps) {
+        addPkg(e['pkg']!, e['name']!);
+      }
+    }
+
     for (final pkg in selectedVpnPackages) {
-      if (catalog.every((e) => e['pkg'] != pkg)) {
-        catalog.add({'pkg': pkg, 'name': knownNames[pkg] ?? pkg});
+      if (!seen.contains(pkg)) {
+        addPkg(pkg, knownNames[pkg] ?? pkg);
       }
     }
 
@@ -1783,6 +2068,17 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
         final ac = checked.contains(a['pkg']);
         final bc = checked.contains(b['pkg']);
         if (ac != bc) return ac ? -1 : 1;
+        // محبوب‌ها بالاتر در جستجو
+        int score(Map<String, String> e) {
+          final pkg = e['pkg'] ?? '';
+          if (pkg == 'com.android.chrome') return 0;
+          if (pkg.contains('telegram')) return 1;
+          if (pkg.contains('instagram')) return 2;
+          if (pkg.contains('chrome')) return 3;
+          return 10;
+        }
+        final s = score(a).compareTo(score(b));
+        if (s != 0) return s;
         return (a['name'] ?? '').compareTo(b['name'] ?? '');
       });
     }
@@ -1804,147 +2100,161 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
           textDirection: TextDirection.rtl,
           child: StatefulBuilder(
             builder: (ctx, setLocal) {
-              // filter در setLocal نگه داشته می‌شود با closure بیرونی
+              final media = MediaQuery.of(ctx);
+              final kb = media.viewInsets.bottom;
+              final maxListH = (media.size.height - kb) * 0.42;
+
               List<Map<String, String>> visible() {
                 final f = _selectedAppsFilter.trim().toLowerCase();
                 final list = catalog.where((e) {
                   if (f.isEmpty) return true;
-                  return (e['name'] ?? '').toLowerCase().contains(f) ||
-                      (e['pkg'] ?? '').toLowerCase().contains(f);
+                  final name = (e['name'] ?? '').toLowerCase();
+                  final pkg = (e['pkg'] ?? '').toLowerCase();
+                  // جستجوی هوشمند: chr → chrome
+                  if (f == 'chr' || f == 'chro' || f == 'chrom') {
+                    return name.contains('chrome') ||
+                        name.contains('کروم') ||
+                        pkg.contains('chrome');
+                  }
+                  if (f.contains('کروم')) {
+                    return name.contains('کروم') ||
+                        name.contains('chrome') ||
+                        pkg.contains('chrome');
+                  }
+                  return name.contains(f) || pkg.contains(f);
                 }).toList();
                 sortCatalog(list, draft.toSet());
                 return list;
               }
 
-              return SafeArea(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        width: 40,
-                        height: 4,
-                        margin: const EdgeInsets.only(bottom: 12),
-                        decoration: BoxDecoration(
-                          color: Colors.white24,
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                      ),
-                      const Text(
-                        'انتخاب من',
-                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
-                      ),
-                      const SizedBox(height: 4),
-                      const Text(
-                        'فقط اپ‌های تیک‌خورده از VPN می‌روند.\nبا تیک اینستا/تلگرام/کروم، نسخه‌های مرتبط خودکار اضافه می‌شوند.',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(color: Colors.white38, fontSize: 11.5, height: 1.35),
-                      ),
-                      const SizedBox(height: 10),
-                      TextField(
-                        style: const TextStyle(color: Colors.white, fontSize: 13),
-                        decoration: InputDecoration(
-                          hintText: 'جستجوی نام اپ…',
-                          hintStyle: const TextStyle(color: Colors.white30),
-                          prefixIcon: const Icon(Icons.search, color: Colors.white38, size: 20),
-                          filled: true,
-                          fillColor: const Color(0xFF0D1424),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide.none,
+              return Padding(
+                padding: EdgeInsets.only(bottom: kb),
+                child: SafeArea(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 40,
+                          height: 4,
+                          margin: const EdgeInsets.only(bottom: 12),
+                          decoration: BoxDecoration(
+                            color: Colors.white24,
+                            borderRadius: BorderRadius.circular(4),
                           ),
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                         ),
-                        onChanged: (v) => setLocal(() => _selectedAppsFilter = v),
-                      ),
-                      const SizedBox(height: 8),
-                      ConstrainedBox(
-                        constraints: BoxConstraints(
-                          maxHeight: MediaQuery.of(ctx).size.height * 0.48,
+                        const Text(
+                          'انتخاب من',
+                          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
                         ),
-                        child: Builder(
-                          builder: (_) {
-                            final items = visible();
-                            if (items.isEmpty) {
-                              return const Padding(
-                                padding: EdgeInsets.all(24),
-                                child: Text('اپی پیدا نشد', style: TextStyle(color: Colors.white54)),
-                              );
-                            }
-                            return ListView.builder(
-                              shrinkWrap: true,
-                              itemCount: items.length,
-                              itemBuilder: (_, i) {
-                                final item = items[i];
-                                final pkg = item['pkg']!;
-                                final name = item['name']!;
-                                final on = draft.contains(pkg);
-                                return CheckboxListTile(
-                                  value: on,
-                                  activeColor: const Color(0xFF00E5FF),
-                                  title: Text(name, style: const TextStyle(color: Colors.white, fontSize: 13.5)),
-                                  subtitle: Text(pkg, style: const TextStyle(color: Colors.white30, fontSize: 10)),
-                                  onChanged: (v) {
-                                    setLocal(() {
-                                      final family = _familyOf(pkg);
-                                      final installed = catalog.map((e) => e['pkg']!).toSet();
-                                      if (v == true) {
-                                        // پکیج اصلی + مرتبط‌های نصب‌شده (نامحسوس)
-                                        for (final p in family) {
-                                          if (p == pkg || installed.contains(p)) {
-                                            if (!draft.contains(p)) draft.insert(0, p);
-                                          }
-                                        }
-                                      } else {
-                                        // برداشتن تیک = کل خانواده از انتخاب خارج
-                                        draft.removeWhere((p) => family.contains(p));
-                                      }
-                                      sortCatalog(catalog, draft.toSet());
-                                    });
-                                  },
+                        const SizedBox(height: 4),
+                        const Text(
+                          'فقط اپ‌های تیک‌خورده از VPN می‌روند.\nبا تیک هر اپ، پیش‌نیازهای مرتبط (اگر نصب باشند) خودکار اضافه می‌شوند.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(color: Colors.white38, fontSize: 11.5, height: 1.35),
+                        ),
+                        const SizedBox(height: 10),
+                        TextField(
+                          style: const TextStyle(color: Colors.white, fontSize: 13),
+                          decoration: InputDecoration(
+                            hintText: 'جستجو (مثلاً chrome یا کروم)',
+                            hintStyle: const TextStyle(color: Colors.white30),
+                            prefixIcon: const Icon(Icons.search, color: Colors.white38, size: 20),
+                            filled: true,
+                            fillColor: const Color(0xFF0D1424),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide.none,
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                          ),
+                          onChanged: (v) => setLocal(() => _selectedAppsFilter = v),
+                        ),
+                        const SizedBox(height: 8),
+                        ConstrainedBox(
+                          constraints: BoxConstraints(maxHeight: maxListH.clamp(120.0, 420.0)),
+                          child: Builder(
+                            builder: (_) {
+                              final items = visible();
+                              if (items.isEmpty) {
+                                return const Padding(
+                                  padding: EdgeInsets.all(24),
+                                  child: Text(
+                                    'اپی پیدا نشد — اگر کروم نصب است یک‌بار VPN را قطع کنید و دوباره لیست را باز کنید',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(color: Colors.white54, fontSize: 12),
+                                  ),
                                 );
-                              },
-                            );
-                          },
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF00E5FF),
-                            foregroundColor: Colors.black,
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                          ),
-                          onPressed: () async {
-                            // سورت + گسترش هوشمند خانواده‌ها
-                            final installed = catalog.map((e) => e['pkg']!).toSet();
-                            final expanded = _expandRelatedPackages(draft)
-                                .where((p) => installed.contains(p) || draft.contains(p))
-                                .toList();
-                            final checked = <String>[];
-                            for (final e in catalog) {
-                              final pkg = e['pkg']!;
-                              if (expanded.contains(pkg) && !checked.contains(pkg)) {
-                                checked.add(pkg);
                               }
-                            }
-                            for (final pkg in expanded) {
-                              if (!checked.contains(pkg)) checked.add(pkg);
-                            }
-                            Navigator.pop(ctx);
-                            await _saveSelectedVpnPackages(checked);
-                          },
-                          child: Text(
-                            'ذخیره (${draft.length} اپ)',
-                            style: const TextStyle(fontWeight: FontWeight.bold),
+                              return ListView.builder(
+                                shrinkWrap: true,
+                                keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+                                itemCount: items.length,
+                                itemBuilder: (_, i) {
+                                  final item = items[i];
+                                  final pkg = item['pkg']!;
+                                  final name = item['name']!;
+                                  final on = draft.contains(pkg);
+                                  return CheckboxListTile(
+                                    value: on,
+                                    activeColor: const Color(0xFF00E5FF),
+                                    title: Text(name, style: const TextStyle(color: Colors.white, fontSize: 13.5)),
+                                    subtitle: Text(pkg, style: const TextStyle(color: Colors.white30, fontSize: 10)),
+                                    onChanged: (v) {
+                                      setLocal(() {
+                                        final family = _familyOf(pkg);
+                                        final installed = catalog.map((e) => e['pkg']!).toSet();
+                                        if (v == true) {
+                                          for (final p in family) {
+                                            // حتی اگر در کاتالوگ نباشد، برای اتصال ذخیره شود
+                                            if (p == pkg || installed.contains(p) || forceCheckPackages.contains(p)) {
+                                              if (!draft.contains(p)) draft.insert(0, p);
+                                            }
+                                          }
+                                        } else {
+                                          draft.removeWhere((p) => family.contains(p));
+                                        }
+                                        sortCatalog(catalog, draft.toSet());
+                                      });
+                                    },
+                                  );
+                                },
+                              );
+                            },
                           ),
                         ),
-                      ),
-                    ],
+                        const SizedBox(height: 10),
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF00E5FF),
+                              foregroundColor: Colors.black,
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                            ),
+                            onPressed: () async {
+                              final installed = catalog.map((e) => e['pkg']!).toSet();
+                              final expanded = _expandRelatedPackages(draft).toList();
+                              // فقط نصب‌شده‌ها + چیزهایی که کاربر صریح داشته
+                              final checked = <String>[];
+                              for (final pkg in expanded) {
+                                if (installed.contains(pkg) || draft.contains(pkg) || forceCheckPackages.contains(pkg)) {
+                                  if (!checked.contains(pkg)) checked.add(pkg);
+                                }
+                              }
+                              Navigator.pop(ctx);
+                              await _saveSelectedVpnPackages(checked);
+                            },
+                            child: Text(
+                              'ذخیره (${draft.length} اپ)',
+                              style: const TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               );

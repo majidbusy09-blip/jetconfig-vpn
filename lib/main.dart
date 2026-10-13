@@ -461,7 +461,8 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
   }
 
   void _injectIranDomainDirectRules(Map<String, dynamic> cfg) {
-    if (tunnelMode == 'full') return;
+    // همیشه شبکهٔ محلی (LAN) مستقیم — لازم برای Smart View / Miracast / Cast محلی
+    // دامنه‌های .ir فقط وقتی تونل «کل گوشی» نیست
     String directTag = 'direct';
     final outs = cfg['outbounds'];
     if (outs is List) {
@@ -485,9 +486,26 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
         directTag = 'direct';
       }
     } else {
-      cfg['outbounds'] = [{'protocol': 'freedom', 'tag': 'direct'}];
+      cfg['outbounds'] = [
+        {'protocol': 'freedom', 'tag': 'direct'}
+      ];
       directTag = 'direct';
     }
+
+    final privateRule = {
+      'type': 'field',
+      'ip': [
+        'geoip:private',
+        '10.0.0.0/8',
+        '127.0.0.0/8',
+        '172.16.0.0/12',
+        '192.168.0.0/16',
+        '169.254.0.0/16',
+        '224.0.0.0/4',
+      ],
+      'outboundTag': directTag,
+    };
+
     final iranRule = {
       'type': 'field',
       'domain': [
@@ -502,17 +520,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
       ],
       'outboundTag': directTag,
     };
-    final privateRule = {
-      'type': 'field',
-      'ip': [
-        'geoip:private',
-        '10.0.0.0/8',
-        '127.0.0.0/8',
-        '172.16.0.0/12',
-        '192.168.0.0/16',
-      ],
-      'outboundTag': directTag,
-    };
+
     Map<String, dynamic> routing = cfg['routing'] is Map
         ? Map<String, dynamic>.from(cfg['routing'] as Map)
         : {'domainStrategy': 'IPIfNonMatch', 'rules': <dynamic>[]};
@@ -520,14 +528,25 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     if (routing['rules'] is List) {
       rules.addAll(List<dynamic>.from(routing['rules'] as List));
     }
-    final already = rules.any((r) =>
+
+    final hasPrivate = rules.any((r) =>
         r is Map &&
-        r['domain'] is List &&
-        (r['domain'] as List).any((d) => '$d'.contains('.ir')));
-    if (!already) {
+        r['ip'] is List &&
+        (r['ip'] as List).any((d) => '$d'.contains('private') || '$d'.contains('192.168')));
+    if (!hasPrivate) {
       rules.insert(0, privateRule);
-      rules.insert(0, iranRule);
     }
+
+    if (tunnelMode != 'full') {
+      final hasIran = rules.any((r) =>
+          r is Map &&
+          r['domain'] is List &&
+          (r['domain'] as List).any((d) => '$d'.contains('.ir')));
+      if (!hasIran) {
+        rules.insert(0, iranRule);
+      }
+    }
+
     routing['rules'] = rules;
     routing['domainStrategy'] = routing['domainStrategy'] ?? 'IPIfNonMatch';
     cfg['routing'] = routing;
@@ -539,6 +558,31 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     'com.android.phone',
     'com.android.server.telecom',
     'com.android.settings',
+  ];
+
+  /// Smart View / Screen Mirroring / Cast محلی — همیشه خارج از تونل
+  static const List<String> _castMirrorPackages = [
+    'com.samsung.android.smartmirroring',
+    'com.samsung.android.screenmirroring',
+    'com.samsung.android.allshare.service.mediashare',
+    'com.samsung.android.allshare.service.fileshare',
+    'com.samsung.android.mdx',
+    'com.samsung.android.mdx.kit',
+    'com.samsung.android.mdx.quickboard',
+    'com.samsung.android.tvplus',
+    'com.samsung.android.video',
+    'com.samsung.android.homemenu',
+    'com.samsung.android.app.tvout',
+    'com.sec.android.app.wfctrl',
+    'com.samsung.android.oneconnect',
+    'com.samsung.android.networkstack',
+    'com.google.android.gms',
+    'com.google.android.gsf',
+    'com.google.android.apps.chromecast.app',
+    'com.google.android.apps.nbu.files',
+    'com.android.companiondevicemanager',
+    'com.android.networkstack',
+    'com.android.networkstack.tethering',
   ];
 
   /// خانواده‌های پکیج — با تیک یکی، مرتبط‌های نصب‌شده نامحسوس اضافه می‌شوند
@@ -814,17 +858,25 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
 
   /// حالت «انتخاب من»: هر اپی که تیک نخورده مستقیم است؛ فقط تیک‌خورده‌ها از VPN
   Future<List<String>?> _blockedAppsForConnect() async {
-    if (tunnelMode == 'full') return null;
+    final castBypass = <String>{
+      ..._alwaysDirectPackages,
+      ..._castMirrorPackages,
+    };
+
+    // حتی «کل گوشی»: سرویس‌های آینه‌سازی/Cast محلی مستقیم بمانند
+    if (tunnelMode == 'full') {
+      return castBypass.toList();
+    }
     if (tunnelMode == 'bypass_local') {
-      return List<String>.from(iranianLocalPackages);
+      return {...iranianLocalPackages, ...castBypass}.toList();
     }
 
     if (selectedVpnPackages.isEmpty) {
-      return List<String>.from(iranianLocalPackages);
+      return {...iranianLocalPackages, ...castBypass}.toList();
     }
 
     final selected = _expandRelatedPackages(selectedVpnPackages);
-    final block = <String>{..._alwaysDirectPackages};
+    final block = <String>{...castBypass};
 
     try {
       // false = شامل اپ‌های سیستم هم بشود تا واقعاً «فقط انتخابی» باشد

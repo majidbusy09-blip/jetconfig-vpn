@@ -18,18 +18,20 @@ void main() {
 }
 
 // مشخصات نسخه (نمایش داخل اپ) — با هر ریلیز دستی بالا ببر
-const String appVersion = 'v1.9.8';
-const int appVersionCode = 40;
+const String appVersion = 'v1.9.9';
+const int appVersionCode = 41;
 /// کانال بسته‌بندی: با --dart-define=APK_CHANNEL=arm64|universal|arm32 در بیلد ست می‌شود
 const String apkChannel = String.fromEnvironment('APK_CHANNEL', defaultValue: 'arm64');
 const String appUpdateMetaUrl = 'https://majid6064.ir/app_version.json';
+const String tunnelBypassMetaUrl = 'https://majid6064.ir/tunnel_bypass.json';
+const int tunnelBypassRefreshHours = 72; // هر ۷۲ ساعت یک‌بار از سرور
 const String appLogoUrl = 'https://majid6064.ir/logo.png';
 const String telegramBotUrl = 'https://t.me/JetConfig1bot';
 const String telegramChannelUrl = 'https://t.me/jetconfig11';
 
 // برنامه‌های داخلی — خارج از تونل (حالت بجز برنامه‌های داخلی)
 // مرورگرها اینجا نیستند؛ دامنه .ir با routing مستقیم می‌شود
-const List<String> iranianLocalPackages = [
+const List<String> _defaultIranianLocalPackages = [
   'app.nobitex',
   'ir.nobitex',
   'ir.nobitex.market',
@@ -270,6 +272,17 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
   bool isPingingAll = false;
   bool isRefreshingServers = false;
   String tunnelMode = 'bypass_local'; // full | bypass_local | selected
+  List<String> _iranPackages = List<String>.from(_defaultIranianLocalPackages);
+  List<String> _iranDomains = [
+    r'regexp:.*\.ir$',
+    'domain:ir',
+    'domain:digikala.com',
+    'domain:shaparak.ir',
+    'domain:bmi.ir',
+    'domain:bankmellat.ir',
+    'domain:cafebazaar.ir',
+    'domain:myket.ir',
+  ];
   List<String> selectedVpnPackages = [
     'org.telegram.messenger',
     'com.instagram.android',
@@ -508,16 +521,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
 
     final iranRule = {
       'type': 'field',
-      'domain': [
-        r'regexp:.*\.ir$',
-        'domain:ir',
-        'domain:digikala.com',
-        'domain:shaparak.ir',
-        'domain:bmi.ir',
-        'domain:bankmellat.ir',
-        'domain:cafebazaar.ir',
-        'domain:myket.ir',
-      ],
+      'domain': List<String>.from(_iranDomains),
       'outboundTag': directTag,
     };
 
@@ -864,6 +868,71 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     return out;
   }
 
+
+  Future<void> _loadCachedTunnelBypass() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString('tunnel_bypass_json');
+      if (raw == null || raw.isEmpty) return;
+      final data = json.decode(raw);
+      if (data is! Map) return;
+      _applyTunnelBypassMap(Map<String, dynamic>.from(data), save: false);
+    } catch (e) {
+      debugPrint('loadCachedTunnelBypass: $e');
+    }
+  }
+
+  void _applyTunnelBypassMap(Map<String, dynamic> data, {bool save = true}) {
+    try {
+      final pkgs = data['packages'];
+      final doms = data['domains'];
+      if (pkgs is List && pkgs.isNotEmpty) {
+        final list = pkgs.map((e) => e.toString().trim()).where((e) => e.isNotEmpty).toList();
+        if (list.length >= 10) {
+          _iranPackages = list;
+        }
+      }
+      if (doms is List && doms.isNotEmpty) {
+        final list = doms.map((e) => e.toString().trim()).where((e) => e.isNotEmpty).toList();
+        if (list.isNotEmpty) {
+          _iranDomains = list;
+        }
+      }
+      if (save) {
+        SharedPreferences.getInstance().then((prefs) async {
+          await prefs.setString('tunnel_bypass_json', json.encode(data));
+          await prefs.setInt('tunnel_bypass_fetched_at', DateTime.now().millisecondsSinceEpoch);
+        });
+      }
+    } catch (e) {
+      debugPrint('applyTunnelBypassMap: $e');
+    }
+  }
+
+  /// لیست اپ/دامنه داخلی را در صورت نیاز از سرور تازه می‌کند (fallback = لیست داخل اپ)
+  Future<void> _refreshTunnelBypassIfNeeded({bool force = false}) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final last = prefs.getInt('tunnel_bypass_fetched_at') ?? 0;
+      final ageMs = DateTime.now().millisecondsSinceEpoch - last;
+      final maxAge = tunnelBypassRefreshHours * 3600 * 1000;
+      if (!force && last > 0 && ageMs < maxAge) {
+        return;
+      }
+      final res = await http
+          .get(Uri.parse(tunnelBypassMetaUrl))
+          .timeout(const Duration(seconds: 10));
+      if (res.statusCode != 200) return;
+      final data = json.decode(res.body);
+      if (data is Map) {
+        _applyTunnelBypassMap(Map<String, dynamic>.from(data), save: true);
+        debugPrint('tunnel bypass list refreshed (${_iranPackages.length} pkgs)');
+      }
+    } catch (e) {
+      debugPrint('refreshTunnelBypass: $e');
+    }
+  }
+
   /// حالت «انتخاب من»: هر اپی که تیک نخورده مستقیم است؛ فقط تیک‌خورده‌ها از VPN
   Future<List<String>?> _blockedAppsForConnect() async {
     final castBypass = <String>{
@@ -876,11 +945,11 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
       return castBypass.toList();
     }
     if (tunnelMode == 'bypass_local') {
-      return {...iranianLocalPackages, ...castBypass}.toList();
+      return {..._iranPackages, ...castBypass}.toList();
     }
 
     if (selectedVpnPackages.isEmpty) {
-      return {...iranianLocalPackages, ...castBypass}.toList();
+      return {..._iranPackages, ...castBypass}.toList();
     }
 
     final selected = _expandRelatedPackages(selectedVpnPackages);
@@ -901,10 +970,10 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
         final pkg = item['pkg']!;
         if (!selected.contains(pkg)) block.add(pkg);
       }
-      block.addAll(iranianLocalPackages);
+      block.addAll(_iranPackages);
     }
 
-    for (final p in iranianLocalPackages) {
+    for (final p in _iranPackages) {
       if (!selected.contains(p)) block.add(p);
     }
 
@@ -1808,6 +1877,8 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     if (mounted) {
       setState(() {
         tunnelMode = savedTunnel;
+        // ignore: discarded_futures
+        _loadCachedTunnelBypass().then((_) => _refreshTunnelBypassIfNeeded());
         selectedVpnPackages = savedSelected;
         autoRefreshOnStart = prefAutoRefresh;
         autoPingOnStart = prefAutoPing;

@@ -18,8 +18,8 @@ void main() {
 }
 
 // مشخصات نسخه (نمایش داخل اپ) — با هر ریلیز دستی بالا ببر
-const String appVersion = 'v1.9.7';
-const int appVersionCode = 39;
+const String appVersion = 'v1.9.8';
+const int appVersionCode = 40;
 /// کانال بسته‌بندی: با --dart-define=APK_CHANNEL=arm64|universal|arm32 در بیلد ست می‌شود
 const String apkChannel = String.fromEnvironment('APK_CHANNEL', defaultValue: 'arm64');
 const String appUpdateMetaUrl = 'https://majid6064.ir/app_version.json';
@@ -2345,6 +2345,45 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     }
   }
 
+
+  /// User-Agent شبیه کلاینت‌های رسمی تا در پنل «کلاینت‌های اشتراک» درست دیده شود
+  String _clientUserAgent() {
+    try {
+      final os = Platform.isAndroid
+          ? 'Android'
+          : (Platform.isIOS ? 'iOS' : Platform.operatingSystem);
+      var ver = Platform.operatingSystemVersion;
+      // کوتاه‌سازی نسخه طولانی اندروید
+      if (ver.length > 40) {
+        ver = ver.substring(0, 40);
+      }
+      return 'JetConfig/$appVersion ($os; $ver)';
+    } catch (_) {
+      return 'JetConfig/$appVersion';
+    }
+  }
+
+  /// ثبت حضور کلاینت واقعی در پنل (سابسکریپشن از روی گوشی با UA درست)
+  Future<void> _registerClientOnPanel(Map data) async {
+    try {
+      final sub = (data['subscription_url'] ?? data['sub_link'] ?? '').toString().trim();
+      if (sub.isEmpty || !sub.startsWith('http')) return;
+      final req = http.Request('GET', Uri.parse(sub));
+      req.headers['User-Agent'] = _clientUserAgent();
+      req.headers['Accept'] = '*/*';
+      final client = http.Client();
+      try {
+        final streamed = await client.send(req).timeout(const Duration(seconds: 8));
+        // بدنه لازم نیست؛ فقط هدر برای ثبت در پنل
+        await streamed.stream.drain();
+      } finally {
+        client.close();
+      }
+    } catch (e) {
+      debugPrint('registerClientOnPanel: $e');
+    }
+  }
+
   Future<void> _fetchUserData(
     String username,
     String password, {
@@ -2403,6 +2442,9 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
           if (isManualRefresh) {
             _showToast('سرورها بروزرسانی شدند', isError: false);
           }
+
+          // ثبت کلاینت در پنل پاسارگاد/مرزبان با UA واقعی گوشی
+          unawaited(_registerClientOnPanel(Map<String, dynamic>.from(data as Map)));
 
           // پیام انقضا / اخطار نزدیک اتمام (ورود یا بروزرسانی)
           try {

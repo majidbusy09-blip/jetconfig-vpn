@@ -1,7 +1,7 @@
 name: jet_vpn
 description: "JET VPN - High Speed Secure VPN"
 publish_to: 'none'
-version: 1.9.6+38
+version: 1.9.8+40
 
 environment:
   sdk: '>=3.1.0 <4.0.0'

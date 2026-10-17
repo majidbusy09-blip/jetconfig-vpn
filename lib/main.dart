@@ -18,8 +18,8 @@ void main() {
 }
 
 // مشخصات نسخه (نمایش داخل اپ) — با هر ریلیز دستی بالا ببر
-const String appVersion = 'v1.9.10';
-const int appVersionCode = 42;
+const String appVersion = 'v1.9.11';
+const int appVersionCode = 43;
 /// کانال بسته‌بندی: با --dart-define=APK_CHANNEL=arm64|universal|arm32 در بیلد ست می‌شود
 const String apkChannel = String.fromEnvironment('APK_CHANNEL', defaultValue: 'arm64');
 const String appUpdateMetaUrl = 'https://majid6064.ir/app_version.json';
@@ -4227,6 +4227,55 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     } catch (_) {}
   }
 
+
+  Future<void> _showUpToDateDialog() async {
+    if (!mounted) return;
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => Directionality(
+        textDirection: TextDirection.rtl,
+        child: AlertDialog(
+          backgroundColor: const Color(0xFF12261A),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
+            side: BorderSide(color: const Color(0xFF00C853).withOpacity(0.45)),
+          ),
+          title: const Row(
+            children: [
+              Text('✅  ', style: TextStyle(fontSize: 22)),
+              Expanded(
+                child: Text(
+                  'همه‌چیز به‌روز است',
+                  style: TextStyle(
+                    color: Color(0xFF69F0AE),
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          content: Text(
+            '🚀 نسخه $appVersion روی دستگاه شما نصب است و آخرین نسخه منتشرشده را دارید.\n\n'
+            'نیازی به دانلود نیست — با خیال راحت ادامه بده.',
+            style: const TextStyle(color: Colors.white70, fontSize: 13.5, height: 1.5),
+          ),
+          actions: [
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF00C853),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('باشه، عالی ✨'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   /// بررسی بروزرسانی از سرور (کنترل با app_version.json → enabled)
   Future<void> _checkAppUpdate({bool silent = false}) async {
     try {
@@ -4276,7 +4325,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
       final enabled = data['enabled'] == true;
       if (!enabled) {
         if (!silent && mounted) {
-          _showToast('نسخه فعلی به‌روز است');
+          await _showUpToDateDialog();
         }
         return;
       }
@@ -4285,7 +4334,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
       final force = data['force'] == true || (minCode > 0 && appVersionCode < minCode);
       if (remoteCode <= appVersionCode && !force) {
         if (!silent && mounted) {
-          _showToast('نسخه فعلی به‌روز است ($appVersion)');
+          await _showUpToDateDialog();
         }
         return;
       }

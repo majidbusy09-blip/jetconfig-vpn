@@ -18,8 +18,8 @@ void main() {
 }
 
 // مشخصات نسخه (نمایش داخل اپ) — با هر ریلیز دستی بالا ببر
-const String appVersion = 'v1.9.9';
-const int appVersionCode = 41;
+const String appVersion = 'v1.9.10';
+const int appVersionCode = 42;
 /// کانال بسته‌بندی: با --dart-define=APK_CHANNEL=arm64|universal|arm32 در بیلد ست می‌شود
 const String apkChannel = String.fromEnvironment('APK_CHANNEL', defaultValue: 'arm64');
 const String appUpdateMetaUrl = 'https://majid6064.ir/app_version.json';
@@ -357,7 +357,9 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     _loadSavedPreferences();
     _fetchCurrentIp();
     // بررسی نامحسوس نسخه (فقط اگر ادمین enabled کرده باشد)
-    Future.delayed(const Duration(seconds: 2), () {
+    Future.delayed(const Duration(seconds: 2), () async {
+      if (!mounted) return;
+      await _cleanupInstalledUpdateIfNeeded();
       if (mounted) _checkAppUpdate(silent: true);
     });
   }
@@ -4124,9 +4126,141 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
   }
 
 
+  // ---------- بروزرسانی پایدار APK ----------
+  static const String _kUpPath = 'update_apk_path';
+  static const String _kUpVer = 'update_apk_version';
+  static const String _kUpCode = 'update_apk_version_code';
+  static const String _kUpChannel = 'update_apk_channel';
+  static const String _kUpSize = 'update_apk_size';
+  static const String _kUpUrl = 'update_apk_url';
+
+  Future<Directory> _updateStorageDir() async {
+    // پایدارتر از temp؛ مخصوص اپ
+    final support = await getApplicationSupportDirectory();
+    final dir = Directory('${support.path}/updates');
+    if (!await dir.exists()) {
+      await dir.create(recursive: true);
+    }
+    return dir;
+  }
+
+  Future<Map<String, dynamic>?> _loadPendingUpdate() async {
+    final prefs = await SharedPreferences.getInstance();
+    final p = prefs.getString(_kUpPath);
+    if (p == null || p.isEmpty) return null;
+    final f = File(p);
+    if (!await f.exists()) {
+      await _clearPendingUpdatePrefs();
+      return null;
+    }
+    final len = await f.length();
+    final expected = prefs.getInt(_kUpSize) ?? 0;
+    if (len < 1000 || (expected > 0 && len < expected * 0.95)) {
+      // ناقص
+      try {
+        await f.delete();
+      } catch (_) {}
+      await _clearPendingUpdatePrefs();
+      return null;
+    }
+    final code = prefs.getInt(_kUpCode) ?? 0;
+    // اگر همین نسخه یا قدیمی‌تر نصب شده، فایل را پاک کن
+    if (code > 0 && appVersionCode >= code) {
+      try {
+        await f.delete();
+      } catch (_) {}
+      await _clearPendingUpdatePrefs();
+      return null;
+    }
+    return {
+      'path': p,
+      'version': prefs.getString(_kUpVer) ?? '',
+      'version_code': code,
+      'channel': prefs.getString(_kUpChannel) ?? apkChannel,
+      'size': len,
+      'url': prefs.getString(_kUpUrl) ?? '',
+    };
+  }
+
+  Future<void> _clearPendingUpdatePrefs() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_kUpPath);
+    await prefs.remove(_kUpVer);
+    await prefs.remove(_kUpCode);
+    await prefs.remove(_kUpChannel);
+    await prefs.remove(_kUpSize);
+    await prefs.remove(_kUpUrl);
+  }
+
+  Future<void> _savePendingUpdate({
+    required String path,
+    required String version,
+    required int versionCode,
+    required String channel,
+    required int size,
+    required String url,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_kUpPath, path);
+    await prefs.setString(_kUpVer, version);
+    await prefs.setInt(_kUpCode, versionCode);
+    await prefs.setString(_kUpChannel, channel);
+    await prefs.setInt(_kUpSize, size);
+    await prefs.setString(_kUpUrl, url);
+  }
+
+  Future<void> _deletePendingUpdateFile() async {
+    final info = await _loadPendingUpdate();
+    if (info != null) {
+      try {
+        final f = File(info['path'] as String);
+        if (await f.exists()) await f.delete();
+      } catch (_) {}
+    }
+    await _clearPendingUpdatePrefs();
+  }
+
+  /// پاکسازی فایل قدیمی بعد از نصب موفق (روی استارت)
+  Future<void> _cleanupInstalledUpdateIfNeeded() async {
+    try {
+      await _loadPendingUpdate(); // داخلش اگر code <= appVersionCode پاک می‌کند
+    } catch (_) {}
+  }
+
   /// بررسی بروزرسانی از سرور (کنترل با app_version.json → enabled)
   Future<void> _checkAppUpdate({bool silent = false}) async {
     try {
+      // اول: اگر فایل محلی آماده است
+      final pending = await _loadPendingUpdate();
+      if (pending != null && !silent) {
+        // متادیتای سرور را هم بگیر تا اگر نسخه جدیدتر آمد بگوییم
+        Map<String, dynamic>? remote;
+        try {
+          final res = await http.get(Uri.parse(appUpdateMetaUrl)).timeout(const Duration(seconds: 12));
+          if (res.statusCode == 200) {
+            final data = json.decode(utf8.decode(res.bodyBytes));
+            if (data is Map) remote = Map<String, dynamic>.from(data);
+          }
+        } catch (_) {}
+
+        final localCode = pending['version_code'] as int;
+        final remoteCode = int.tryParse('${remote?['version_code'] ?? 0}') ?? 0;
+        final remoteNewer = remote != null && remote['enabled'] == true && remoteCode > localCode;
+
+        if (!remoteNewer) {
+          await _showPendingInstallDialog(pending);
+          return;
+        }
+        // سرور جدیدتر است → ادامه می‌دهیم برای دانلود نسخه تازه (فایل قبلی بعداً جایگزین می‌شود)
+      } else if (pending != null && silent) {
+        // در حالت خاموش اگر فایل آماده است و نسخه بالاتر است، دیالوگ نصب نشان بده
+        final localCode = pending['version_code'] as int;
+        if (localCode > appVersionCode) {
+          if (mounted) await _showPendingInstallDialog(pending);
+          return;
+        }
+      }
+
       final res = await http
           .get(Uri.parse(appUpdateMetaUrl))
           .timeout(const Duration(seconds: 12));
@@ -4155,12 +4289,19 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
         }
         return;
       }
+
+      // اگر همان نسخه از قبل دانلود شده
+      final again = await _loadPendingUpdate();
+      if (again != null && (again['version_code'] as int) == remoteCode) {
+        if (mounted) await _showPendingInstallDialog(again);
+        return;
+      }
+
       if (!mounted) return;
       final urls = (data['urls'] is Map)
           ? Map<String, dynamic>.from(data['urls'] as Map)
           : <String, dynamic>{};
       String channel = apkChannel;
-      // اگر کانال در JSON نبود، فال‌بک منطقی
       String? apkUrl = urls[channel]?.toString();
       if (apkUrl == null || apkUrl.isEmpty) {
         if (channel == 'arm64') {
@@ -4184,6 +4325,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
       await _showUpdateDialog(
         title: title,
         remoteVer: remoteVer,
+        remoteCode: remoteCode,
         changelog: changelog,
         protectNote: protectNote,
         apkUrl: apkUrl,
@@ -4196,9 +4338,71 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     }
   }
 
+  Future<void> _showPendingInstallDialog(Map<String, dynamic> pending) async {
+    if (!mounted) return;
+    final ver = pending['version']?.toString() ?? '?';
+    final path = pending['path'] as String;
+    final sizeMb = ((pending['size'] as int) / (1024 * 1024)).toStringAsFixed(1);
+    final ch = pending['channel']?.toString() ?? apkChannel;
+
+    final action = await showDialog<String>(
+      context: context,
+      barrierDismissible: true,
+      builder: (ctx) => Directionality(
+        textDirection: TextDirection.rtl,
+        child: AlertDialog(
+          backgroundColor: const Color(0xFF1A2332),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Text(
+            'فایل بروزرسانی آماده است',
+            style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold),
+          ),
+          content: Text(
+            'نسخه دانلود‌شده: v$ver\n'
+            'بسته: $ch\n'
+            'حجم: $sizeMb مگابایت\n\n'
+            'نیازی به دانلود مجدد نیست.\n'
+            'می‌توانید نصب کنید یا فایل را حذف کنید.',
+            style: const TextStyle(color: Colors.white70, fontSize: 13, height: 1.45),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, 'delete'),
+              child: const Text('حذف فایل', style: TextStyle(color: Colors.redAccent)),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, 'later'),
+              child: const Text('بعداً', style: TextStyle(color: Colors.white54)),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF00C853),
+                foregroundColor: Colors.white,
+              ),
+              onPressed: () => Navigator.pop(ctx, 'install'),
+              child: const Text('نصب'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (action == 'delete') {
+      await _deletePendingUpdateFile();
+      if (mounted) _showToast('فایل بروزرسانی حذف شد');
+    } else if (action == 'install') {
+      final result = await OpenFilex.open(path, type: 'application/vnd.android.package-archive');
+      debugPrint('OpenFilex pending: ${result.type} ${result.message}');
+      if (result.type != ResultType.done && mounted) {
+        _showToast('باز کردن نصب‌کننده ممکن نشد: ${result.message}');
+      }
+    }
+  }
+
   Future<void> _showUpdateDialog({
     required String title,
     required String remoteVer,
+    required int remoteCode,
     required String changelog,
     required String protectNote,
     required String apkUrl,
@@ -4265,7 +4469,11 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
               ),
               onPressed: () async {
                 Navigator.pop(ctx);
-                await _startApkDownload(apkUrl);
+                await _startApkDownload(
+                  apkUrl: apkUrl,
+                  remoteVer: remoteVer,
+                  remoteCode: remoteCode,
+                );
               },
               child: const Text('دانلود و نصب'),
             ),
@@ -4275,7 +4483,11 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     );
   }
 
-  Future<void> _startApkDownload(String apkUrl) async {
+  Future<void> _startApkDownload({
+    required String apkUrl,
+    required String remoteVer,
+    required int remoteCode,
+  }) async {
     if (!mounted) return;
 
     final progress = ValueNotifier<double>(0);
@@ -4283,7 +4495,6 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     var cancelled = false;
     http.Client? client;
 
-    // دیالوگ پیشرفت دانلود داخل اپ
     showDialog<void>(
       context: context,
       barrierDismissible: false,
@@ -4327,8 +4538,8 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
                         ),
                         const SizedBox(height: 10),
                         const Text(
-                          'بعد از دانلود، صفحه نصب سیستم باز می‌شود.\n'
-                          'اگر هشدار منبع ناشناس آمد: جزئیات بیشتر ← نصب در هر حال',
+                          'فایل بعد از دانلود نگه داشته می‌شود.\n'
+                          'اگر الان نصب نکردید، از «بررسی بروزرسانی» دوباره نصب کنید.',
                           style: TextStyle(color: Colors.white38, fontSize: 11.5, height: 1.4),
                         ),
                       ],
@@ -4354,10 +4565,24 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
       },
     );
 
+    File? file;
     try {
       status.value = 'در حال دانلود از سرور…';
-      final dir = await getTemporaryDirectory();
-      final file = File('${dir.path}/jetvpn_update.apk');
+      final dir = await _updateStorageDir();
+      final safeVer = remoteVer.replaceAll(RegExp(r'[^0-9A-Za-z._-]'), '_');
+      file = File('${dir.path}/jetvpn_${safeVer}_${apkChannel}.apk');
+
+      // فایل‌های قدیمی آپدیت را پاک کن (نه در صورت انصراف ناقص همین فایل)
+      try {
+        await for (final entity in dir.list()) {
+          if (entity is File && entity.path.endsWith('.apk') && entity.path != file.path) {
+            try {
+              await entity.delete();
+            } catch (_) {}
+          }
+        }
+      } catch (_) {}
+
       if (await file.exists()) {
         try {
           await file.delete();
@@ -4399,25 +4624,33 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
         return;
       }
 
-      if (!await file.exists() || await file.length() < 1000) {
+      final finalSize = await file.length();
+      if (!await file.exists() || finalSize < 1000) {
         throw Exception('فایل دانلود ناقص است');
       }
 
+      await _savePendingUpdate(
+        path: file.path,
+        version: remoteVer,
+        versionCode: remoteCode,
+        channel: apkChannel,
+        size: finalSize,
+        url: apkUrl,
+      );
+
       progress.value = 1;
-      status.value = 'دانلود کامل شد — در حال باز کردن نصب…';
+      status.value = 'دانلود کامل شد';
 
       if (mounted) {
-        // بستن دیالوگ پیشرفت
         final nav = Navigator.of(context, rootNavigator: true);
         if (nav.canPop()) nav.pop();
       }
 
       if (!mounted) return;
 
-      // راهنما + دکمه نصب
       final goInstall = await showDialog<bool>(
         context: context,
-        barrierDismissible: false,
+        barrierDismissible: true,
         builder: (ctx) => Directionality(
           textDirection: TextDirection.rtl,
           child: AlertDialog(
@@ -4427,13 +4660,14 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
               'آماده نصب',
               style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold),
             ),
-            content: const Text(
-              'فایل بروزرسانی دانلود شد.\n\n'
-              'با زدن «نصب» صفحه نصب اندروید باز می‌شود.\n\n'
-              'اگر پیام منبع ناشناس / برنامه مضر آمد:\n'
+            content: Text(
+              'نسخه v$remoteVer دانلود و ذخیره شد.\n\n'
+              'با «نصب» صفحه نصب اندروید باز می‌شود.\n'
+              'اگر الان نخواهید، بعداً از «بررسی بروزرسانی» بدون دانلود مجدد نصب کنید.\n\n'
+              'اگر پیام منبع ناشناس آمد:\n'
               '۱) جزئیات بیشتر\n'
               '۲) نصب در هر حال',
-              style: TextStyle(color: Colors.white70, fontSize: 13, height: 1.45),
+              style: const TextStyle(color: Colors.white70, fontSize: 13, height: 1.45),
             ),
             actions: [
               TextButton(
@@ -4459,11 +4693,22 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
         if (result.type != ResultType.done && mounted) {
           _showToast('باز کردن نصب‌کننده ممکن نشد: ${result.message}');
         }
+      } else if (mounted) {
+        _showToast('فایل ذخیره شد — از بررسی بروزرسانی دوباره نصب کنید');
       }
     } catch (e) {
       debugPrint('in-app update error: $e');
       try {
         client?.close();
+      } catch (_) {}
+      // فایل ناقص را پاک کن؛ prefs را فقط اگر کامل ذخیره نشده بود
+      try {
+        if (file != null && await file.exists()) {
+          final pending = await _loadPendingUpdate();
+          if (pending == null || pending['path'] != file.path) {
+            await file.delete();
+          }
+        }
       } catch (_) {}
       if (mounted) {
         final nav = Navigator.of(context, rootNavigator: true);

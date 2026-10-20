@@ -18,18 +18,20 @@ void main() {
 }
 
 // مشخصات نسخه (نمایش داخل اپ) — با هر ریلیز دستی بالا ببر
-const String appVersion = 'v1.9.7';
-const int appVersionCode = 39;
+const String appVersion = 'v1.9.12';
+const int appVersionCode = 43;
 /// کانال بسته‌بندی: با --dart-define=APK_CHANNEL=arm64|universal|arm32 در بیلد ست می‌شود
 const String apkChannel = String.fromEnvironment('APK_CHANNEL', defaultValue: 'arm64');
 const String appUpdateMetaUrl = 'https://majid6064.ir/app_version.json';
+const String tunnelBypassMetaUrl = 'https://majid6064.ir/tunnel_bypass.json';
+const int tunnelBypassRefreshHours = 72; // هر ۷۲ ساعت یک‌بار از سرور
 const String appLogoUrl = 'https://majid6064.ir/logo.png';
 const String telegramBotUrl = 'https://t.me/JetConfig1bot';
 const String telegramChannelUrl = 'https://t.me/jetconfig11';
 
 // برنامه‌های داخلی — خارج از تونل (حالت بجز برنامه‌های داخلی)
 // مرورگرها اینجا نیستند؛ دامنه .ir با routing مستقیم می‌شود
-const List<String> iranianLocalPackages = [
+const List<String> _defaultIranianLocalPackages = [
   'app.nobitex',
   'ir.nobitex',
   'ir.nobitex.market',
@@ -270,6 +272,17 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
   bool isPingingAll = false;
   bool isRefreshingServers = false;
   String tunnelMode = 'bypass_local'; // full | bypass_local | selected
+  List<String> _iranPackages = List<String>.from(_defaultIranianLocalPackages);
+  List<String> _iranDomains = [
+    r'regexp:.*\.ir$',
+    'domain:ir',
+    'domain:digikala.com',
+    'domain:shaparak.ir',
+    'domain:bmi.ir',
+    'domain:bankmellat.ir',
+    'domain:cafebazaar.ir',
+    'domain:myket.ir',
+  ];
   List<String> selectedVpnPackages = [
     'org.telegram.messenger',
     'com.instagram.android',
@@ -344,7 +357,9 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     _loadSavedPreferences();
     _fetchCurrentIp();
     // بررسی نامحسوس نسخه (فقط اگر ادمین enabled کرده باشد)
-    Future.delayed(const Duration(seconds: 2), () {
+    Future.delayed(const Duration(seconds: 2), () async {
+      if (!mounted) return;
+      await _cleanupInstalledUpdateIfNeeded();
       if (mounted) _checkAppUpdate(silent: true);
     });
   }
@@ -387,6 +402,11 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
             'timeout': 0,
             'allowTransparent': false,
           },
+          'sniffing': {
+            'enabled': true,
+            'destOverride': ['http', 'tls', 'quic'],
+            'routeOnly': false,
+          },
         });
       }
       // SOCKS کمکی
@@ -409,7 +429,27 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
             'auth': 'noauth',
             'udp': true,
           },
+          'sniffing': {
+            'enabled': true,
+            'destOverride': ['http', 'tls', 'quic'],
+            'routeOnly': false,
+          },
         });
+      }
+      // sniffing روی inboundهای موجود (کمک به روتینگ دامنه‌ای)
+      for (var i = 0; i < inbounds.length; i++) {
+        final ib = inbounds[i];
+        if (ib is! Map) continue;
+        final m = Map<String, dynamic>.from(ib);
+        final sniff = m['sniffing'];
+        if (sniff is! Map || sniff['enabled'] != true) {
+          m['sniffing'] = {
+            'enabled': true,
+            'destOverride': ['http', 'tls', 'quic'],
+            'routeOnly': false,
+          };
+          inbounds[i] = m;
+        }
       }
       map['inbounds'] = inbounds;
       return jsonEncode(map);
@@ -461,47 +501,66 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
   }
 
   void _injectIranDomainDirectRules(Map<String, dynamic> cfg) {
-    if (tunnelMode == 'full') return;
+    // همیشه شبکهٔ محلی (LAN) مستقیم — لازم برای Smart View / Miracast / Cast محلی
+    // دامنه‌های .ir فقط وقتی تونل «کل گوشی» نیست
+    // + پایداری استریم (یوتیوب و …): بلاک QUIC/UDP:443 تا روی TCP بیفتد
     String directTag = 'direct';
+    String blockTag = 'block';
     final outs = cfg['outbounds'];
     if (outs is List) {
-      var found = false;
+      var foundDirect = false;
+      var foundBlock = false;
       for (final o in outs) {
         if (o is! Map) continue;
         final tag = '${o['tag'] ?? ''}'.toLowerCase();
         final proto = '${o['protocol'] ?? ''}'.toLowerCase();
         if (tag == 'direct' || tag == 'freedom' || tag == 'direct-out') {
           directTag = '${o['tag']}';
-          found = true;
-          break;
-        }
-        if (proto == 'freedom') {
+          foundDirect = true;
+        } else if (!foundDirect && proto == 'freedom') {
           directTag = '${o['tag'] ?? 'direct'}';
-          found = true;
+          foundDirect = true;
+        }
+        if (tag == 'block' || tag == 'blocked' || tag == 'blackhole') {
+          blockTag = '${o['tag']}';
+          foundBlock = true;
+        } else if (!foundBlock && proto == 'blackhole') {
+          blockTag = '${o['tag'] ?? 'block'}';
+          foundBlock = true;
         }
       }
-      if (!found) {
+      if (!foundDirect) {
         outs.add({'protocol': 'freedom', 'tag': 'direct'});
         directTag = 'direct';
       }
+      if (!foundBlock) {
+        outs.add({'protocol': 'blackhole', 'tag': 'block'});
+        blockTag = 'block';
+      }
     } else {
-      cfg['outbounds'] = [{'protocol': 'freedom', 'tag': 'direct'}];
+      cfg['outbounds'] = [
+        {'protocol': 'freedom', 'tag': 'direct'},
+        {'protocol': 'blackhole', 'tag': 'block'},
+      ];
       directTag = 'direct';
+      blockTag = 'block';
     }
-    final iranRule = {
-      'type': 'field',
-      'domain': [
-        r'regexp:.*\.ir$',
-        'domain:ir',
-        'domain:digikala.com',
-        'domain:shaparak.ir',
-        'domain:bmi.ir',
-        'domain:bankmellat.ir',
-        'domain:cafebazaar.ir',
-        'domain:myket.ir',
-      ],
-      'outboundTag': directTag,
-    };
+
+    // DNS پایدار + ترجیح IPv4 (کاهش گیر یوتیوب روی IPv6 نیمه‌کاره)
+    if (cfg['dns'] is! Map) {
+      cfg['dns'] = {
+        'servers': ['1.1.1.1', '8.8.8.8'],
+        'queryStrategy': 'UseIPv4',
+      };
+    } else {
+      final dns = Map<String, dynamic>.from(cfg['dns'] as Map);
+      if (dns['servers'] is! List || (dns['servers'] as List).isEmpty) {
+        dns['servers'] = ['1.1.1.1', '8.8.8.8'];
+      }
+      dns['queryStrategy'] = dns['queryStrategy'] ?? 'UseIPv4';
+      cfg['dns'] = dns;
+    }
+
     final privateRule = {
       'type': 'field',
       'ip': [
@@ -510,9 +569,26 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
         '127.0.0.0/8',
         '172.16.0.0/12',
         '192.168.0.0/16',
+        '169.254.0.0/16',
+        '224.0.0.0/4',
       ],
       'outboundTag': directTag,
     };
+
+    final iranRule = {
+      'type': 'field',
+      'domain': List<String>.from(_iranDomains),
+      'outboundTag': directTag,
+    };
+
+    // QUIC = UDP/443 — بلاک تا کلاینت‌ها (یوتیوب و …) به TCP برگردند
+    final quicBlockRule = {
+      'type': 'field',
+      'network': 'udp',
+      'port': '443',
+      'outboundTag': blockTag,
+    };
+
     Map<String, dynamic> routing = cfg['routing'] is Map
         ? Map<String, dynamic>.from(cfg['routing'] as Map)
         : {'domainStrategy': 'IPIfNonMatch', 'rules': <dynamic>[]};
@@ -520,14 +596,46 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     if (routing['rules'] is List) {
       rules.addAll(List<dynamic>.from(routing['rules'] as List));
     }
-    final already = rules.any((r) =>
+
+    final hasPrivate = rules.any((r) =>
         r is Map &&
-        r['domain'] is List &&
-        (r['domain'] as List).any((d) => '$d'.contains('.ir')));
-    if (!already) {
+        r['ip'] is List &&
+        (r['ip'] as List).any((d) => '$d'.contains('private') || '$d'.contains('192.168')));
+    if (!hasPrivate) {
       rules.insert(0, privateRule);
-      rules.insert(0, iranRule);
     }
+
+    if (tunnelMode != 'full') {
+      final hasIran = rules.any((r) =>
+          r is Map &&
+          r['domain'] is List &&
+          (r['domain'] as List).any((d) => '$d'.contains('.ir')));
+      if (!hasIran) {
+        rules.insert(0, iranRule);
+      }
+    }
+
+    final hasQuicBlock = rules.any((r) =>
+        r is Map &&
+        '${r['network'] ?? ''}'.toLowerCase() == 'udp' &&
+        '${r['port'] ?? ''}'.contains('443') &&
+        ('${r['outboundTag'] ?? ''}'.toLowerCase().contains('block') ||
+            '${r['outboundTag'] ?? ''}'.toLowerCase().contains('blackhole')));
+    if (!hasQuicBlock) {
+      // بعد از private/iran — قبل از قوانین عمومی پنل
+      var insertAt = 0;
+      if (hasPrivate) insertAt++;
+      if (tunnelMode != 'full') {
+        final hasIranNow = rules.any((r) =>
+            r is Map &&
+            r['domain'] is List &&
+            (r['domain'] as List).any((d) => '$d'.contains('.ir')));
+        if (hasIranNow) insertAt++;
+      }
+      if (insertAt > rules.length) insertAt = rules.length;
+      rules.insert(insertAt, quicBlockRule);
+    }
+
     routing['rules'] = rules;
     routing['domainStrategy'] = routing['domainStrategy'] ?? 'IPIfNonMatch';
     cfg['routing'] = routing;
@@ -540,6 +648,39 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     'com.android.server.telecom',
     'com.android.settings',
   ];
+
+  /// Smart View / Screen Mirroring / Cast محلی — همیشه خارج از تونل
+  static const List<String> _castMirrorPackages = [
+    'com.samsung.android.smartmirroring',
+    'com.samsung.android.screenmirroring',
+    'com.samsung.android.allshare.service.mediashare',
+    'com.samsung.android.allshare.service.fileshare',
+    'com.samsung.android.mdx',
+    'com.samsung.android.mdx.kit',
+    'com.samsung.android.mdx.quickboard',
+    'com.samsung.android.tvplus',
+    'com.samsung.android.video',
+    'com.samsung.android.homemenu',
+    'com.samsung.android.app.tvout',
+    'com.sec.android.app.wfctrl',
+    'com.samsung.android.oneconnect',
+    'com.samsung.android.networkstack',
+    'com.google.android.gms',
+    'com.google.android.gsf',
+    'com.google.android.apps.chromecast.app',
+    'com.google.android.apps.nbu.files',
+    'com.android.companiondevicemanager',
+    'com.android.networkstack',
+    'com.android.networkstack.tethering',
+    'com.samsung.android.mobileservice',
+    'com.samsung.android.cmfa.framework',
+    'com.samsung.android.scs',
+    'com.samsung.android.wifi.p2paware',
+    'com.sec.android.daemonapp',
+    'com.samsung.android.sm.devicesecurity',
+    'com.samsung.android.themecenter',
+  ];
+
 
   /// خانواده‌های پکیج — با تیک یکی، مرتبط‌های نصب‌شده نامحسوس اضافه می‌شوند
   /// (نسخه‌های رسمی/لایت/بتا + WebView/سرویس‌های لازم برای همان خانواده)
@@ -812,19 +953,92 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     return out;
   }
 
+
+  Future<void> _loadCachedTunnelBypass() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString('tunnel_bypass_json');
+      if (raw == null || raw.isEmpty) return;
+      final data = json.decode(raw);
+      if (data is! Map) return;
+      _applyTunnelBypassMap(Map<String, dynamic>.from(data), save: false);
+    } catch (e) {
+      debugPrint('loadCachedTunnelBypass: $e');
+    }
+  }
+
+  void _applyTunnelBypassMap(Map<String, dynamic> data, {bool save = true}) {
+    try {
+      final pkgs = data['packages'];
+      final doms = data['domains'];
+      if (pkgs is List && pkgs.isNotEmpty) {
+        final list = pkgs.map((e) => e.toString().trim()).where((e) => e.isNotEmpty).toList();
+        if (list.length >= 10) {
+          _iranPackages = list;
+        }
+      }
+      if (doms is List && doms.isNotEmpty) {
+        final list = doms.map((e) => e.toString().trim()).where((e) => e.isNotEmpty).toList();
+        if (list.isNotEmpty) {
+          _iranDomains = list;
+        }
+      }
+      if (save) {
+        SharedPreferences.getInstance().then((prefs) async {
+          await prefs.setString('tunnel_bypass_json', json.encode(data));
+          await prefs.setInt('tunnel_bypass_fetched_at', DateTime.now().millisecondsSinceEpoch);
+        });
+      }
+    } catch (e) {
+      debugPrint('applyTunnelBypassMap: $e');
+    }
+  }
+
+  /// لیست اپ/دامنه داخلی را در صورت نیاز از سرور تازه می‌کند (fallback = لیست داخل اپ)
+  Future<void> _refreshTunnelBypassIfNeeded({bool force = false}) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final last = prefs.getInt('tunnel_bypass_fetched_at') ?? 0;
+      final ageMs = DateTime.now().millisecondsSinceEpoch - last;
+      final maxAge = tunnelBypassRefreshHours * 3600 * 1000;
+      if (!force && last > 0 && ageMs < maxAge) {
+        return;
+      }
+      final res = await http
+          .get(Uri.parse(tunnelBypassMetaUrl))
+          .timeout(const Duration(seconds: 10));
+      if (res.statusCode != 200) return;
+      final data = json.decode(res.body);
+      if (data is Map) {
+        _applyTunnelBypassMap(Map<String, dynamic>.from(data), save: true);
+        debugPrint('tunnel bypass list refreshed (${_iranPackages.length} pkgs)');
+      }
+    } catch (e) {
+      debugPrint('refreshTunnelBypass: $e');
+    }
+  }
+
   /// حالت «انتخاب من»: هر اپی که تیک نخورده مستقیم است؛ فقط تیک‌خورده‌ها از VPN
   Future<List<String>?> _blockedAppsForConnect() async {
-    if (tunnelMode == 'full') return null;
+    final castBypass = <String>{
+      ..._alwaysDirectPackages,
+      ..._castMirrorPackages,
+    };
+
+    // حتی «کل گوشی»: سرویس‌های آینه‌سازی/Cast محلی مستقیم بمانند
+    if (tunnelMode == 'full') {
+      return castBypass.toList();
+    }
     if (tunnelMode == 'bypass_local') {
-      return List<String>.from(iranianLocalPackages);
+      return {..._iranPackages, ...castBypass}.toList();
     }
 
     if (selectedVpnPackages.isEmpty) {
-      return List<String>.from(iranianLocalPackages);
+      return {..._iranPackages, ...castBypass}.toList();
     }
 
     final selected = _expandRelatedPackages(selectedVpnPackages);
-    final block = <String>{..._alwaysDirectPackages};
+    final block = <String>{...castBypass};
 
     try {
       // false = شامل اپ‌های سیستم هم بشود تا واقعاً «فقط انتخابی» باشد
@@ -841,10 +1055,10 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
         final pkg = item['pkg']!;
         if (!selected.contains(pkg)) block.add(pkg);
       }
-      block.addAll(iranianLocalPackages);
+      block.addAll(_iranPackages);
     }
 
-    for (final p in iranianLocalPackages) {
+    for (final p in _iranPackages) {
       if (!selected.contains(p)) block.add(p);
     }
 
@@ -1748,6 +1962,8 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     if (mounted) {
       setState(() {
         tunnelMode = savedTunnel;
+        // ignore: discarded_futures
+        _loadCachedTunnelBypass().then((_) => _refreshTunnelBypassIfNeeded());
         selectedVpnPackages = savedSelected;
         autoRefreshOnStart = prefAutoRefresh;
         autoPingOnStart = prefAutoPing;
@@ -1904,18 +2120,20 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
   Future<void> _showSelectedAppsSheet() async {
     if (!mounted) return;
 
-    // نام‌های آشنا + پکیج‌های مهم که گاهی «سیستمی» حساب می‌شوند و در لیست عادی نیستند
     final knownNames = <String, String>{
       for (final e in selectableVpnApps) e['pkg']!: e['name']!,
-      'com.android.chrome': 'کروم',
+      'com.android.chrome': 'کروم (Chrome)',
       'com.chrome.beta': 'کروم بتا',
+      'com.chrome.dev': 'کروم Dev',
       'com.google.android.apps.chrome': 'کروم',
       'com.android.webview': 'Android System WebView',
       'com.google.android.webview': 'Android System WebView',
       'org.telegram.messenger': 'تلگرام',
       'org.telegram.messenger.web': 'تلگرام (وب)',
       'org.telegram.messenger.beta': 'تلگرام بتا',
+      'org.thunderdog.challegram': 'Telegram X',
       'com.instagram.android': 'اینستاگرام',
+      'com.instagram.barcelona': 'Threads',
       'com.google.android.youtube': 'یوتیوب',
       'com.whatsapp': 'واتساپ',
       'com.twitter.android': 'توییتر / X',
@@ -1924,10 +2142,16 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
       'com.opera.browser': 'اوپرا',
       'com.brave.browser': 'Brave',
       'com.microsoft.emmx': 'Edge',
+      'com.facebook.katana': 'فیسبوک',
+      'com.facebook.orca': 'مسنجر',
+      'com.zhiliaoapp.musically': 'تیک‌تاک',
+      'com.discord': 'دیسکورد',
     };
+
     const forceCheckPackages = <String>[
       'com.android.chrome',
       'com.chrome.beta',
+      'com.chrome.dev',
       'com.google.android.apps.chrome',
       'com.android.webview',
       'com.google.android.webview',
@@ -1964,22 +2188,59 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
       'com.brave.browser',
       'com.microsoft.emmx',
     ];
+
     var catalog = <Map<String, String>>[];
     final seen = <String>{};
+
     void addPkg(String pkg, String name) {
       if (pkg.isEmpty || pkg == 'com.jetconfig.vpn') return;
       if (seen.contains(pkg)) return;
       seen.add(pkg);
       catalog.add({'pkg': pkg, 'name': name});
     }
+
+    // ۱) همه اپ‌های قابل‌اجرا (حتی سیستمی مثل کروم)
     try {
-      // اپ‌های کاربر
       final apps = await InstalledApps.getInstalledApps(
-        excludeSystemApps: true,
+        excludeSystemApps: false,
+        excludeNonLaunchableApps: false,
         withIcon: false,
         detectPlatformType: false,
       );
       for (final a in apps) {
+        final pkg = a.packageName;
+        // شلوغی سیستم را کم کن؛ ولی کروم/تلگرام و ... را نگه دار
+        final isForced = forceCheckPackages.contains(pkg) ||
+            knownNames.containsKey(pkg) ||
+            pkg.contains('chrome') ||
+            pkg.contains('telegram') ||
+            pkg.contains('instagram') ||
+            pkg.contains('firefox') ||
+            pkg.contains('webview');
+        final isJunk = pkg.startsWith('com.android.providers.') ||
+            pkg.startsWith('com.android.server.') ||
+            pkg == 'android' ||
+            pkg.startsWith('com.qualcomm.') ||
+            pkg.startsWith('com.samsung.android.providers.');
+        if (isJunk && !isForced) continue;
+        final name = (a.name.trim().isNotEmpty)
+            ? a.name.trim()
+            : (knownNames[pkg] ?? pkg);
+        addPkg(pkg, name);
+      }
+    } catch (e) {
+      debugPrint('sheet getInstalledApps: $e');
+    }
+
+    // ۲) پکیج‌های مهم را مستقیم با packageNames بگیر (قابل‌اطمینان‌تر)
+    try {
+      final forced = await InstalledApps.getInstalledApps(
+        packageNames: forceCheckPackages,
+        excludeSystemApps: false,
+        withIcon: false,
+        detectPlatformType: false,
+      );
+      for (final a in forced) {
         final pkg = a.packageName;
         final name = (a.name.trim().isNotEmpty)
             ? a.name.trim()
@@ -1987,32 +2248,31 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
         addPkg(pkg, name);
       }
     } catch (e) {
-      debugPrint('sheet installed_apps: $e');
+      debugPrint('sheet packageNames: $e');
     }
-    // کروم و اپ‌های مهم — حتی اگر سیستمی باشند
+
+    // ۳) isAppInstalled تک‌تک برای اطمینان از کروم و ...
     for (final pkg in forceCheckPackages) {
       if (seen.contains(pkg)) continue;
       try {
-        final installed = await InstalledApps.isAppInstalled(pkg);
-        if (installed == true) {
+        final ok = await InstalledApps.isAppInstalled(pkg);
+        if (ok == true) {
           String name = knownNames[pkg] ?? pkg;
           try {
             final info = await InstalledApps.getAppInfo(pkg, withIcon: false);
-            if (info != null && info.name.trim().isNotEmpty) {
-              name = info.name.trim();
-            }
+            if (info != null && info.name.trim().isNotEmpty) name = info.name.trim();
           } catch (_) {}
           addPkg(pkg, name);
         }
       } catch (_) {}
     }
-    // فال‌بک لیست ثابت
+
     if (catalog.isEmpty) {
       for (final e in selectableVpnApps) {
         addPkg(e['pkg']!, e['name']!);
       }
     }
-    // انتخاب‌شده‌های قبلی
+
     for (final pkg in selectedVpnPackages) {
       if (!seen.contains(pkg)) {
         addPkg(pkg, knownNames[pkg] ?? pkg);
@@ -2024,6 +2284,17 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
         final ac = checked.contains(a['pkg']);
         final bc = checked.contains(b['pkg']);
         if (ac != bc) return ac ? -1 : 1;
+        // محبوب‌ها بالاتر در جستجو
+        int score(Map<String, String> e) {
+          final pkg = e['pkg'] ?? '';
+          if (pkg == 'com.android.chrome') return 0;
+          if (pkg.contains('telegram')) return 1;
+          if (pkg.contains('instagram')) return 2;
+          if (pkg.contains('chrome')) return 3;
+          return 10;
+        }
+        final s = score(a).compareTo(score(b));
+        if (s != 0) return s;
         return (a['name'] ?? '').compareTo(b['name'] ?? '');
       });
     }
@@ -2045,147 +2316,161 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
           textDirection: TextDirection.rtl,
           child: StatefulBuilder(
             builder: (ctx, setLocal) {
-              // filter در setLocal نگه داشته می‌شود با closure بیرونی
+              final media = MediaQuery.of(ctx);
+              final kb = media.viewInsets.bottom;
+              final maxListH = (media.size.height - kb) * 0.42;
+
               List<Map<String, String>> visible() {
                 final f = _selectedAppsFilter.trim().toLowerCase();
                 final list = catalog.where((e) {
                   if (f.isEmpty) return true;
-                  return (e['name'] ?? '').toLowerCase().contains(f) ||
-                      (e['pkg'] ?? '').toLowerCase().contains(f);
+                  final name = (e['name'] ?? '').toLowerCase();
+                  final pkg = (e['pkg'] ?? '').toLowerCase();
+                  // جستجوی هوشمند: chr → chrome
+                  if (f == 'chr' || f == 'chro' || f == 'chrom') {
+                    return name.contains('chrome') ||
+                        name.contains('کروم') ||
+                        pkg.contains('chrome');
+                  }
+                  if (f.contains('کروم')) {
+                    return name.contains('کروم') ||
+                        name.contains('chrome') ||
+                        pkg.contains('chrome');
+                  }
+                  return name.contains(f) || pkg.contains(f);
                 }).toList();
                 sortCatalog(list, draft.toSet());
                 return list;
               }
 
-              return SafeArea(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        width: 40,
-                        height: 4,
-                        margin: const EdgeInsets.only(bottom: 12),
-                        decoration: BoxDecoration(
-                          color: Colors.white24,
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                      ),
-                      const Text(
-                        'انتخاب من',
-                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
-                      ),
-                      const SizedBox(height: 4),
-                      const Text(
-                        'فقط اپ‌های تیک‌خورده از VPN می‌روند.\nبا تیک اینستا/تلگرام/کروم، نسخه‌های مرتبط خودکار اضافه می‌شوند.',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(color: Colors.white38, fontSize: 11.5, height: 1.35),
-                      ),
-                      const SizedBox(height: 10),
-                      TextField(
-                        style: const TextStyle(color: Colors.white, fontSize: 13),
-                        decoration: InputDecoration(
-                          hintText: 'جستجوی نام اپ…',
-                          hintStyle: const TextStyle(color: Colors.white30),
-                          prefixIcon: const Icon(Icons.search, color: Colors.white38, size: 20),
-                          filled: true,
-                          fillColor: const Color(0xFF0D1424),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide.none,
+              return Padding(
+                padding: EdgeInsets.only(bottom: kb),
+                child: SafeArea(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 40,
+                          height: 4,
+                          margin: const EdgeInsets.only(bottom: 12),
+                          decoration: BoxDecoration(
+                            color: Colors.white24,
+                            borderRadius: BorderRadius.circular(4),
                           ),
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                         ),
-                        onChanged: (v) => setLocal(() => _selectedAppsFilter = v),
-                      ),
-                      const SizedBox(height: 8),
-                      ConstrainedBox(
-                        constraints: BoxConstraints(
-                          maxHeight: MediaQuery.of(ctx).size.height * 0.48,
+                        const Text(
+                          'انتخاب من',
+                          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
                         ),
-                        child: Builder(
-                          builder: (_) {
-                            final items = visible();
-                            if (items.isEmpty) {
-                              return const Padding(
-                                padding: EdgeInsets.all(24),
-                                child: Text('اپی پیدا نشد', style: TextStyle(color: Colors.white54)),
-                              );
-                            }
-                            return ListView.builder(
-                              shrinkWrap: true,
-                              itemCount: items.length,
-                              itemBuilder: (_, i) {
-                                final item = items[i];
-                                final pkg = item['pkg']!;
-                                final name = item['name']!;
-                                final on = draft.contains(pkg);
-                                return CheckboxListTile(
-                                  value: on,
-                                  activeColor: const Color(0xFF00E5FF),
-                                  title: Text(name, style: const TextStyle(color: Colors.white, fontSize: 13.5)),
-                                  subtitle: Text(pkg, style: const TextStyle(color: Colors.white30, fontSize: 10)),
-                                  onChanged: (v) {
-                                    setLocal(() {
-                                      final family = _familyOf(pkg);
-                                      final installed = catalog.map((e) => e['pkg']!).toSet();
-                                      if (v == true) {
-                                        // پکیج اصلی + مرتبط‌های نصب‌شده (نامحسوس)
-                                        for (final p in family) {
-                                          if (p == pkg || installed.contains(p)) {
-                                            if (!draft.contains(p)) draft.insert(0, p);
-                                          }
-                                        }
-                                      } else {
-                                        // برداشتن تیک = کل خانواده از انتخاب خارج
-                                        draft.removeWhere((p) => family.contains(p));
-                                      }
-                                      sortCatalog(catalog, draft.toSet());
-                                    });
-                                  },
+                        const SizedBox(height: 4),
+                        const Text(
+                          'فقط اپ‌های تیک‌خورده از VPN می‌روند.\nبا تیک هر اپ، پیش‌نیازهای مرتبط (اگر نصب باشند) خودکار اضافه می‌شوند.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(color: Colors.white38, fontSize: 11.5, height: 1.35),
+                        ),
+                        const SizedBox(height: 10),
+                        TextField(
+                          style: const TextStyle(color: Colors.white, fontSize: 13),
+                          decoration: InputDecoration(
+                            hintText: 'جستجو (مثلاً chrome یا کروم)',
+                            hintStyle: const TextStyle(color: Colors.white30),
+                            prefixIcon: const Icon(Icons.search, color: Colors.white38, size: 20),
+                            filled: true,
+                            fillColor: const Color(0xFF0D1424),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide.none,
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                          ),
+                          onChanged: (v) => setLocal(() => _selectedAppsFilter = v),
+                        ),
+                        const SizedBox(height: 8),
+                        ConstrainedBox(
+                          constraints: BoxConstraints(maxHeight: maxListH.clamp(120.0, 420.0)),
+                          child: Builder(
+                            builder: (_) {
+                              final items = visible();
+                              if (items.isEmpty) {
+                                return const Padding(
+                                  padding: EdgeInsets.all(24),
+                                  child: Text(
+                                    'اپی پیدا نشد — اگر کروم نصب است یک‌بار VPN را قطع کنید و دوباره لیست را باز کنید',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(color: Colors.white54, fontSize: 12),
+                                  ),
                                 );
-                              },
-                            );
-                          },
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF00E5FF),
-                            foregroundColor: Colors.black,
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                          ),
-                          onPressed: () async {
-                            // سورت + گسترش هوشمند خانواده‌ها
-                            final installed = catalog.map((e) => e['pkg']!).toSet();
-                            final expanded = _expandRelatedPackages(draft)
-                                .where((p) => installed.contains(p) || draft.contains(p))
-                                .toList();
-                            final checked = <String>[];
-                            for (final e in catalog) {
-                              final pkg = e['pkg']!;
-                              if (expanded.contains(pkg) && !checked.contains(pkg)) {
-                                checked.add(pkg);
                               }
-                            }
-                            for (final pkg in expanded) {
-                              if (!checked.contains(pkg)) checked.add(pkg);
-                            }
-                            Navigator.pop(ctx);
-                            await _saveSelectedVpnPackages(checked);
-                          },
-                          child: Text(
-                            'ذخیره (${draft.length} اپ)',
-                            style: const TextStyle(fontWeight: FontWeight.bold),
+                              return ListView.builder(
+                                shrinkWrap: true,
+                                keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+                                itemCount: items.length,
+                                itemBuilder: (_, i) {
+                                  final item = items[i];
+                                  final pkg = item['pkg']!;
+                                  final name = item['name']!;
+                                  final on = draft.contains(pkg);
+                                  return CheckboxListTile(
+                                    value: on,
+                                    activeColor: const Color(0xFF00E5FF),
+                                    title: Text(name, style: const TextStyle(color: Colors.white, fontSize: 13.5)),
+                                    subtitle: Text(pkg, style: const TextStyle(color: Colors.white30, fontSize: 10)),
+                                    onChanged: (v) {
+                                      setLocal(() {
+                                        final family = _familyOf(pkg);
+                                        final installed = catalog.map((e) => e['pkg']!).toSet();
+                                        if (v == true) {
+                                          for (final p in family) {
+                                            // حتی اگر در کاتالوگ نباشد، برای اتصال ذخیره شود
+                                            if (p == pkg || installed.contains(p) || forceCheckPackages.contains(p)) {
+                                              if (!draft.contains(p)) draft.insert(0, p);
+                                            }
+                                          }
+                                        } else {
+                                          draft.removeWhere((p) => family.contains(p));
+                                        }
+                                        sortCatalog(catalog, draft.toSet());
+                                      });
+                                    },
+                                  );
+                                },
+                              );
+                            },
                           ),
                         ),
-                      ),
-                    ],
+                        const SizedBox(height: 10),
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF00E5FF),
+                              foregroundColor: Colors.black,
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                            ),
+                            onPressed: () async {
+                              final installed = catalog.map((e) => e['pkg']!).toSet();
+                              final expanded = _expandRelatedPackages(draft).toList();
+                              // فقط نصب‌شده‌ها + چیزهایی که کاربر صریح داشته
+                              final checked = <String>[];
+                              for (final pkg in expanded) {
+                                if (installed.contains(pkg) || draft.contains(pkg) || forceCheckPackages.contains(pkg)) {
+                                  if (!checked.contains(pkg)) checked.add(pkg);
+                                }
+                              }
+                              Navigator.pop(ctx);
+                              await _saveSelectedVpnPackages(checked);
+                            },
+                            child: Text(
+                              'ذخیره (${draft.length} اپ)',
+                              style: const TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               );
@@ -2213,6 +2498,45 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
       } catch (__) {
         _showToast('خطا در باز کردن لینک');
       }
+    }
+  }
+
+
+  /// User-Agent شبیه کلاینت‌های رسمی تا در پنل «کلاینت‌های اشتراک» درست دیده شود
+  String _clientUserAgent() {
+    try {
+      final os = Platform.isAndroid
+          ? 'Android'
+          : (Platform.isIOS ? 'iOS' : Platform.operatingSystem);
+      var ver = Platform.operatingSystemVersion;
+      // کوتاه‌سازی نسخه طولانی اندروید
+      if (ver.length > 40) {
+        ver = ver.substring(0, 40);
+      }
+      return 'JetConfig/$appVersion ($os; $ver)';
+    } catch (_) {
+      return 'JetConfig/$appVersion';
+    }
+  }
+
+  /// ثبت حضور کلاینت واقعی در پنل (سابسکریپشن از روی گوشی با UA درست)
+  Future<void> _registerClientOnPanel(Map data) async {
+    try {
+      final sub = (data['subscription_url'] ?? data['sub_link'] ?? '').toString().trim();
+      if (sub.isEmpty || !sub.startsWith('http')) return;
+      final req = http.Request('GET', Uri.parse(sub));
+      req.headers['User-Agent'] = _clientUserAgent();
+      req.headers['Accept'] = '*/*';
+      final client = http.Client();
+      try {
+        final streamed = await client.send(req).timeout(const Duration(seconds: 8));
+        // بدنه لازم نیست؛ فقط هدر برای ثبت در پنل
+        await streamed.stream.drain();
+      } finally {
+        client.close();
+      }
+    } catch (e) {
+      debugPrint('registerClientOnPanel: $e');
     }
   }
 
@@ -2274,6 +2598,9 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
           if (isManualRefresh) {
             _showToast('سرورها بروزرسانی شدند', isError: false);
           }
+
+          // ثبت کلاینت در پنل پاسارگاد/مرزبان با UA واقعی گوشی
+          unawaited(_registerClientOnPanel(Map<String, dynamic>.from(data as Map)));
 
           // پیام انقضا / اخطار نزدیک اتمام (ورود یا بروزرسانی)
           try {
@@ -3882,9 +4209,190 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
   }
 
 
+  // ---------- بروزرسانی پایدار APK ----------
+  static const String _kUpPath = 'update_apk_path';
+  static const String _kUpVer = 'update_apk_version';
+  static const String _kUpCode = 'update_apk_version_code';
+  static const String _kUpChannel = 'update_apk_channel';
+  static const String _kUpSize = 'update_apk_size';
+  static const String _kUpUrl = 'update_apk_url';
+
+  Future<Directory> _updateStorageDir() async {
+    // پایدارتر از temp؛ مخصوص اپ
+    final support = await getApplicationSupportDirectory();
+    final dir = Directory('${support.path}/updates');
+    if (!await dir.exists()) {
+      await dir.create(recursive: true);
+    }
+    return dir;
+  }
+
+  Future<Map<String, dynamic>?> _loadPendingUpdate() async {
+    final prefs = await SharedPreferences.getInstance();
+    final p = prefs.getString(_kUpPath);
+    if (p == null || p.isEmpty) return null;
+    final f = File(p);
+    if (!await f.exists()) {
+      await _clearPendingUpdatePrefs();
+      return null;
+    }
+    final len = await f.length();
+    final expected = prefs.getInt(_kUpSize) ?? 0;
+    if (len < 1000 || (expected > 0 && len < expected * 0.95)) {
+      // ناقص
+      try {
+        await f.delete();
+      } catch (_) {}
+      await _clearPendingUpdatePrefs();
+      return null;
+    }
+    final code = prefs.getInt(_kUpCode) ?? 0;
+    // اگر همین نسخه یا قدیمی‌تر نصب شده، فایل را پاک کن
+    if (code > 0 && appVersionCode >= code) {
+      try {
+        await f.delete();
+      } catch (_) {}
+      await _clearPendingUpdatePrefs();
+      return null;
+    }
+    return {
+      'path': p,
+      'version': prefs.getString(_kUpVer) ?? '',
+      'version_code': code,
+      'channel': prefs.getString(_kUpChannel) ?? apkChannel,
+      'size': len,
+      'url': prefs.getString(_kUpUrl) ?? '',
+    };
+  }
+
+  Future<void> _clearPendingUpdatePrefs() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_kUpPath);
+    await prefs.remove(_kUpVer);
+    await prefs.remove(_kUpCode);
+    await prefs.remove(_kUpChannel);
+    await prefs.remove(_kUpSize);
+    await prefs.remove(_kUpUrl);
+  }
+
+  Future<void> _savePendingUpdate({
+    required String path,
+    required String version,
+    required int versionCode,
+    required String channel,
+    required int size,
+    required String url,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_kUpPath, path);
+    await prefs.setString(_kUpVer, version);
+    await prefs.setInt(_kUpCode, versionCode);
+    await prefs.setString(_kUpChannel, channel);
+    await prefs.setInt(_kUpSize, size);
+    await prefs.setString(_kUpUrl, url);
+  }
+
+  Future<void> _deletePendingUpdateFile() async {
+    final info = await _loadPendingUpdate();
+    if (info != null) {
+      try {
+        final f = File(info['path'] as String);
+        if (await f.exists()) await f.delete();
+      } catch (_) {}
+    }
+    await _clearPendingUpdatePrefs();
+  }
+
+  /// پاکسازی فایل قدیمی بعد از نصب موفق (روی استارت)
+  Future<void> _cleanupInstalledUpdateIfNeeded() async {
+    try {
+      await _loadPendingUpdate(); // داخلش اگر code <= appVersionCode پاک می‌کند
+    } catch (_) {}
+  }
+
+
+  Future<void> _showUpToDateDialog() async {
+    if (!mounted) return;
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => Directionality(
+        textDirection: TextDirection.rtl,
+        child: AlertDialog(
+          backgroundColor: const Color(0xFF12261A),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
+            side: BorderSide(color: const Color(0xFF00C853).withOpacity(0.45)),
+          ),
+          title: const Row(
+            children: [
+              Text('✅  ', style: TextStyle(fontSize: 22)),
+              Expanded(
+                child: Text(
+                  'همه‌چیز به‌روز است',
+                  style: TextStyle(
+                    color: Color(0xFF69F0AE),
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          content: Text(
+            '🚀 نسخه $appVersion روی دستگاه شما نصب است و آخرین نسخه منتشرشده را دارید.\n\n'
+            'نیازی به دانلود نیست — با خیال راحت ادامه بده.',
+            style: const TextStyle(color: Colors.white70, fontSize: 13.5, height: 1.5),
+          ),
+          actions: [
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF00C853),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('باشه، عالی ✨'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   /// بررسی بروزرسانی از سرور (کنترل با app_version.json → enabled)
   Future<void> _checkAppUpdate({bool silent = false}) async {
     try {
+      // اول: اگر فایل محلی آماده است
+      final pending = await _loadPendingUpdate();
+      if (pending != null && !silent) {
+        // متادیتای سرور را هم بگیر تا اگر نسخه جدیدتر آمد بگوییم
+        Map<String, dynamic>? remote;
+        try {
+          final res = await http.get(Uri.parse(appUpdateMetaUrl)).timeout(const Duration(seconds: 12));
+          if (res.statusCode == 200) {
+            final data = json.decode(utf8.decode(res.bodyBytes));
+            if (data is Map) remote = Map<String, dynamic>.from(data);
+          }
+        } catch (_) {}
+
+        final localCode = pending['version_code'] as int;
+        final remoteCode = int.tryParse('${remote?['version_code'] ?? 0}') ?? 0;
+        final remoteNewer = remote != null && remote['enabled'] == true && remoteCode > localCode;
+
+        if (!remoteNewer) {
+          await _showPendingInstallDialog(pending);
+          return;
+        }
+        // سرور جدیدتر است → ادامه می‌دهیم برای دانلود نسخه تازه (فایل قبلی بعداً جایگزین می‌شود)
+      } else if (pending != null && silent) {
+        // در حالت خاموش اگر فایل آماده است و نسخه بالاتر است، دیالوگ نصب نشان بده
+        final localCode = pending['version_code'] as int;
+        if (localCode > appVersionCode) {
+          if (mounted) await _showPendingInstallDialog(pending);
+          return;
+        }
+      }
+
       final res = await http
           .get(Uri.parse(appUpdateMetaUrl))
           .timeout(const Duration(seconds: 12));
@@ -3900,7 +4408,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
       final enabled = data['enabled'] == true;
       if (!enabled) {
         if (!silent && mounted) {
-          _showToast('نسخه فعلی به‌روز است');
+          await _showUpToDateDialog();
         }
         return;
       }
@@ -3909,16 +4417,23 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
       final force = data['force'] == true || (minCode > 0 && appVersionCode < minCode);
       if (remoteCode <= appVersionCode && !force) {
         if (!silent && mounted) {
-          _showToast('نسخه فعلی به‌روز است ($appVersion)');
+          await _showUpToDateDialog();
         }
         return;
       }
+
+      // اگر همان نسخه از قبل دانلود شده
+      final again = await _loadPendingUpdate();
+      if (again != null && (again['version_code'] as int) == remoteCode) {
+        if (mounted) await _showPendingInstallDialog(again);
+        return;
+      }
+
       if (!mounted) return;
       final urls = (data['urls'] is Map)
           ? Map<String, dynamic>.from(data['urls'] as Map)
           : <String, dynamic>{};
       String channel = apkChannel;
-      // اگر کانال در JSON نبود، فال‌بک منطقی
       String? apkUrl = urls[channel]?.toString();
       if (apkUrl == null || apkUrl.isEmpty) {
         if (channel == 'arm64') {
@@ -3942,6 +4457,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
       await _showUpdateDialog(
         title: title,
         remoteVer: remoteVer,
+        remoteCode: remoteCode,
         changelog: changelog,
         protectNote: protectNote,
         apkUrl: apkUrl,
@@ -3954,9 +4470,71 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     }
   }
 
+  Future<void> _showPendingInstallDialog(Map<String, dynamic> pending) async {
+    if (!mounted) return;
+    final ver = pending['version']?.toString() ?? '?';
+    final path = pending['path'] as String;
+    final sizeMb = ((pending['size'] as int) / (1024 * 1024)).toStringAsFixed(1);
+    final ch = pending['channel']?.toString() ?? apkChannel;
+
+    final action = await showDialog<String>(
+      context: context,
+      barrierDismissible: true,
+      builder: (ctx) => Directionality(
+        textDirection: TextDirection.rtl,
+        child: AlertDialog(
+          backgroundColor: const Color(0xFF1A2332),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Text(
+            'فایل بروزرسانی آماده است',
+            style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold),
+          ),
+          content: Text(
+            'نسخه دانلود‌شده: v$ver\n'
+            'بسته: $ch\n'
+            'حجم: $sizeMb مگابایت\n\n'
+            'نیازی به دانلود مجدد نیست.\n'
+            'می‌توانید نصب کنید یا فایل را حذف کنید.',
+            style: const TextStyle(color: Colors.white70, fontSize: 13, height: 1.45),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, 'delete'),
+              child: const Text('حذف فایل', style: TextStyle(color: Colors.redAccent)),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, 'later'),
+              child: const Text('بعداً', style: TextStyle(color: Colors.white54)),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF00C853),
+                foregroundColor: Colors.white,
+              ),
+              onPressed: () => Navigator.pop(ctx, 'install'),
+              child: const Text('نصب'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (action == 'delete') {
+      await _deletePendingUpdateFile();
+      if (mounted) _showToast('فایل بروزرسانی حذف شد');
+    } else if (action == 'install') {
+      final result = await OpenFilex.open(path, type: 'application/vnd.android.package-archive');
+      debugPrint('OpenFilex pending: ${result.type} ${result.message}');
+      if (result.type != ResultType.done && mounted) {
+        _showToast('باز کردن نصب‌کننده ممکن نشد: ${result.message}');
+      }
+    }
+  }
+
   Future<void> _showUpdateDialog({
     required String title,
     required String remoteVer,
+    required int remoteCode,
     required String changelog,
     required String protectNote,
     required String apkUrl,
@@ -4023,7 +4601,11 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
               ),
               onPressed: () async {
                 Navigator.pop(ctx);
-                await _startApkDownload(apkUrl);
+                await _startApkDownload(
+                  apkUrl: apkUrl,
+                  remoteVer: remoteVer,
+                  remoteCode: remoteCode,
+                );
               },
               child: const Text('دانلود و نصب'),
             ),
@@ -4033,7 +4615,11 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     );
   }
 
-  Future<void> _startApkDownload(String apkUrl) async {
+  Future<void> _startApkDownload({
+    required String apkUrl,
+    required String remoteVer,
+    required int remoteCode,
+  }) async {
     if (!mounted) return;
 
     final progress = ValueNotifier<double>(0);
@@ -4041,7 +4627,6 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     var cancelled = false;
     http.Client? client;
 
-    // دیالوگ پیشرفت دانلود داخل اپ
     showDialog<void>(
       context: context,
       barrierDismissible: false,
@@ -4085,8 +4670,8 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
                         ),
                         const SizedBox(height: 10),
                         const Text(
-                          'بعد از دانلود، صفحه نصب سیستم باز می‌شود.\n'
-                          'اگر هشدار منبع ناشناس آمد: جزئیات بیشتر ← نصب در هر حال',
+                          'فایل بعد از دانلود نگه داشته می‌شود.\n'
+                          'اگر الان نصب نکردید، از «بررسی بروزرسانی» دوباره نصب کنید.',
                           style: TextStyle(color: Colors.white38, fontSize: 11.5, height: 1.4),
                         ),
                       ],
@@ -4112,10 +4697,24 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
       },
     );
 
+    File? file;
     try {
       status.value = 'در حال دانلود از سرور…';
-      final dir = await getTemporaryDirectory();
-      final file = File('${dir.path}/jetvpn_update.apk');
+      final dir = await _updateStorageDir();
+      final safeVer = remoteVer.replaceAll(RegExp(r'[^0-9A-Za-z._-]'), '_');
+      file = File('${dir.path}/jetvpn_${safeVer}_${apkChannel}.apk');
+
+      // فایل‌های قدیمی آپدیت را پاک کن (نه در صورت انصراف ناقص همین فایل)
+      try {
+        await for (final entity in dir.list()) {
+          if (entity is File && entity.path.endsWith('.apk') && entity.path != file.path) {
+            try {
+              await entity.delete();
+            } catch (_) {}
+          }
+        }
+      } catch (_) {}
+
       if (await file.exists()) {
         try {
           await file.delete();
@@ -4157,25 +4756,33 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
         return;
       }
 
-      if (!await file.exists() || await file.length() < 1000) {
+      final finalSize = await file.length();
+      if (!await file.exists() || finalSize < 1000) {
         throw Exception('فایل دانلود ناقص است');
       }
 
+      await _savePendingUpdate(
+        path: file.path,
+        version: remoteVer,
+        versionCode: remoteCode,
+        channel: apkChannel,
+        size: finalSize,
+        url: apkUrl,
+      );
+
       progress.value = 1;
-      status.value = 'دانلود کامل شد — در حال باز کردن نصب…';
+      status.value = 'دانلود کامل شد';
 
       if (mounted) {
-        // بستن دیالوگ پیشرفت
         final nav = Navigator.of(context, rootNavigator: true);
         if (nav.canPop()) nav.pop();
       }
 
       if (!mounted) return;
 
-      // راهنما + دکمه نصب
       final goInstall = await showDialog<bool>(
         context: context,
-        barrierDismissible: false,
+        barrierDismissible: true,
         builder: (ctx) => Directionality(
           textDirection: TextDirection.rtl,
           child: AlertDialog(
@@ -4185,13 +4792,14 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
               'آماده نصب',
               style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold),
             ),
-            content: const Text(
-              'فایل بروزرسانی دانلود شد.\n\n'
-              'با زدن «نصب» صفحه نصب اندروید باز می‌شود.\n\n'
-              'اگر پیام منبع ناشناس / برنامه مضر آمد:\n'
+            content: Text(
+              'نسخه v$remoteVer دانلود و ذخیره شد.\n\n'
+              'با «نصب» صفحه نصب اندروید باز می‌شود.\n'
+              'اگر الان نخواهید، بعداً از «بررسی بروزرسانی» بدون دانلود مجدد نصب کنید.\n\n'
+              'اگر پیام منبع ناشناس آمد:\n'
               '۱) جزئیات بیشتر\n'
               '۲) نصب در هر حال',
-              style: TextStyle(color: Colors.white70, fontSize: 13, height: 1.45),
+              style: const TextStyle(color: Colors.white70, fontSize: 13, height: 1.45),
             ),
             actions: [
               TextButton(
@@ -4217,11 +4825,22 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
         if (result.type != ResultType.done && mounted) {
           _showToast('باز کردن نصب‌کننده ممکن نشد: ${result.message}');
         }
+      } else if (mounted) {
+        _showToast('فایل ذخیره شد — از بررسی بروزرسانی دوباره نصب کنید');
       }
     } catch (e) {
       debugPrint('in-app update error: $e');
       try {
         client?.close();
+      } catch (_) {}
+      // فایل ناقص را پاک کن؛ prefs را فقط اگر کامل ذخیره نشده بود
+      try {
+        if (file != null && await file.exists()) {
+          final pending = await _loadPendingUpdate();
+          if (pending == null || pending['path'] != file.path) {
+            await file.delete();
+          }
+        }
       } catch (_) {}
       if (mounted) {
         final nav = Navigator.of(context, rootNavigator: true);

@@ -18,7 +18,7 @@ void main() {
 }
 
 // مشخصات نسخه (نمایش داخل اپ) — با هر ریلیز دستی بالا ببر
-const String appVersion = 'v1.9.12';
+const String appVersion = 'v1.9.13';
 const int appVersionCode = 43;
 /// کانال بسته‌بندی: با --dart-define=APK_CHANNEL=arm64|universal|arm32 در بیلد ست می‌شود
 const String apkChannel = String.fromEnvironment('APK_CHANNEL', defaultValue: 'arm64');
@@ -665,8 +665,8 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     'com.sec.android.app.wfctrl',
     'com.samsung.android.oneconnect',
     'com.samsung.android.networkstack',
-    'com.google.android.gms',
-    'com.google.android.gsf',
+    // gms/gsf نباید از تونل خارج شوند — یوتیوب و سرویس‌های گوگل به آن‌ها وابسته‌اند
+    // (خروجشان باعث پخش‌نشدن اپ یوتیوب می‌شد؛ مرورگر مشکلی نداشت)
     'com.google.android.apps.chromecast.app',
     'com.google.android.apps.nbu.files',
     'com.android.companiondevicemanager',

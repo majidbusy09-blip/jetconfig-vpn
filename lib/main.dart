@@ -18,7 +18,7 @@ void main() {
 }
 
 // مشخصات نسخه (نمایش داخل اپ) — با هر ریلیز دستی بالا ببر
-const String appVersion = 'v1.9.11';
+const String appVersion = 'v1.9.13';
 const int appVersionCode = 43;
 /// کانال بسته‌بندی: با --dart-define=APK_CHANNEL=arm64|universal|arm32 در بیلد ست می‌شود
 const String apkChannel = String.fromEnvironment('APK_CHANNEL', defaultValue: 'arm64');
@@ -402,6 +402,11 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
             'timeout': 0,
             'allowTransparent': false,
           },
+          'sniffing': {
+            'enabled': true,
+            'destOverride': ['http', 'tls', 'quic'],
+            'routeOnly': false,
+          },
         });
       }
       // SOCKS کمکی
@@ -424,7 +429,27 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
             'auth': 'noauth',
             'udp': true,
           },
+          'sniffing': {
+            'enabled': true,
+            'destOverride': ['http', 'tls', 'quic'],
+            'routeOnly': false,
+          },
         });
+      }
+      // sniffing روی inboundهای موجود (کمک به روتینگ دامنه‌ای)
+      for (var i = 0; i < inbounds.length; i++) {
+        final ib = inbounds[i];
+        if (ib is! Map) continue;
+        final m = Map<String, dynamic>.from(ib);
+        final sniff = m['sniffing'];
+        if (sniff is! Map || sniff['enabled'] != true) {
+          m['sniffing'] = {
+            'enabled': true,
+            'destOverride': ['http', 'tls', 'quic'],
+            'routeOnly': false,
+          };
+          inbounds[i] = m;
+        }
       }
       map['inbounds'] = inbounds;
       return jsonEncode(map);
@@ -478,33 +503,62 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
   void _injectIranDomainDirectRules(Map<String, dynamic> cfg) {
     // همیشه شبکهٔ محلی (LAN) مستقیم — لازم برای Smart View / Miracast / Cast محلی
     // دامنه‌های .ir فقط وقتی تونل «کل گوشی» نیست
+    // + پایداری استریم (یوتیوب و …): بلاک QUIC/UDP:443 تا روی TCP بیفتد
     String directTag = 'direct';
+    String blockTag = 'block';
     final outs = cfg['outbounds'];
     if (outs is List) {
-      var found = false;
+      var foundDirect = false;
+      var foundBlock = false;
       for (final o in outs) {
         if (o is! Map) continue;
         final tag = '${o['tag'] ?? ''}'.toLowerCase();
         final proto = '${o['protocol'] ?? ''}'.toLowerCase();
         if (tag == 'direct' || tag == 'freedom' || tag == 'direct-out') {
           directTag = '${o['tag']}';
-          found = true;
-          break;
-        }
-        if (proto == 'freedom') {
+          foundDirect = true;
+        } else if (!foundDirect && proto == 'freedom') {
           directTag = '${o['tag'] ?? 'direct'}';
-          found = true;
+          foundDirect = true;
+        }
+        if (tag == 'block' || tag == 'blocked' || tag == 'blackhole') {
+          blockTag = '${o['tag']}';
+          foundBlock = true;
+        } else if (!foundBlock && proto == 'blackhole') {
+          blockTag = '${o['tag'] ?? 'block'}';
+          foundBlock = true;
         }
       }
-      if (!found) {
+      if (!foundDirect) {
         outs.add({'protocol': 'freedom', 'tag': 'direct'});
         directTag = 'direct';
       }
+      if (!foundBlock) {
+        outs.add({'protocol': 'blackhole', 'tag': 'block'});
+        blockTag = 'block';
+      }
     } else {
       cfg['outbounds'] = [
-        {'protocol': 'freedom', 'tag': 'direct'}
+        {'protocol': 'freedom', 'tag': 'direct'},
+        {'protocol': 'blackhole', 'tag': 'block'},
       ];
       directTag = 'direct';
+      blockTag = 'block';
+    }
+
+    // DNS پایدار + ترجیح IPv4 (کاهش گیر یوتیوب روی IPv6 نیمه‌کاره)
+    if (cfg['dns'] is! Map) {
+      cfg['dns'] = {
+        'servers': ['1.1.1.1', '8.8.8.8'],
+        'queryStrategy': 'UseIPv4',
+      };
+    } else {
+      final dns = Map<String, dynamic>.from(cfg['dns'] as Map);
+      if (dns['servers'] is! List || (dns['servers'] as List).isEmpty) {
+        dns['servers'] = ['1.1.1.1', '8.8.8.8'];
+      }
+      dns['queryStrategy'] = dns['queryStrategy'] ?? 'UseIPv4';
+      cfg['dns'] = dns;
     }
 
     final privateRule = {
@@ -525,6 +579,14 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
       'type': 'field',
       'domain': List<String>.from(_iranDomains),
       'outboundTag': directTag,
+    };
+
+    // QUIC = UDP/443 — بلاک تا کلاینت‌ها (یوتیوب و …) به TCP برگردند
+    final quicBlockRule = {
+      'type': 'field',
+      'network': 'udp',
+      'port': '443',
+      'outboundTag': blockTag,
     };
 
     Map<String, dynamic> routing = cfg['routing'] is Map
@@ -551,6 +613,27 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
       if (!hasIran) {
         rules.insert(0, iranRule);
       }
+    }
+
+    final hasQuicBlock = rules.any((r) =>
+        r is Map &&
+        '${r['network'] ?? ''}'.toLowerCase() == 'udp' &&
+        '${r['port'] ?? ''}'.contains('443') &&
+        ('${r['outboundTag'] ?? ''}'.toLowerCase().contains('block') ||
+            '${r['outboundTag'] ?? ''}'.toLowerCase().contains('blackhole')));
+    if (!hasQuicBlock) {
+      // بعد از private/iran — قبل از قوانین عمومی پنل
+      var insertAt = 0;
+      if (hasPrivate) insertAt++;
+      if (tunnelMode != 'full') {
+        final hasIranNow = rules.any((r) =>
+            r is Map &&
+            r['domain'] is List &&
+            (r['domain'] as List).any((d) => '$d'.contains('.ir')));
+        if (hasIranNow) insertAt++;
+      }
+      if (insertAt > rules.length) insertAt = rules.length;
+      rules.insert(insertAt, quicBlockRule);
     }
 
     routing['rules'] = rules;
@@ -582,8 +665,8 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     'com.sec.android.app.wfctrl',
     'com.samsung.android.oneconnect',
     'com.samsung.android.networkstack',
-    'com.google.android.gms',
-    'com.google.android.gsf',
+    // gms/gsf نباید از تونل خارج شوند — یوتیوب و سرویس‌های گوگل به آن‌ها وابسته‌اند
+    // (خروجشان باعث پخش‌نشدن اپ یوتیوب می‌شد؛ مرورگر مشکلی نداشت)
     'com.google.android.apps.chromecast.app',
     'com.google.android.apps.nbu.files',
     'com.android.companiondevicemanager',

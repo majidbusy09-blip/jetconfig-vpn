@@ -18,8 +18,8 @@ void main() {
 }
 
 // مشخصات نسخه (نمایش داخل اپ) — با هر ریلیز دستی بالا ببر
-const String appVersion = 'v1.9.19';
-const int appVersionCode = 49;
+const String appVersion = 'v1.2.0';
+const int appVersionCode = 50;
 /// کانال بسته‌بندی: با --dart-define=APK_CHANNEL=arm64|universal|arm32 در بیلد ست می‌شود
 const String apkChannel = String.fromEnvironment('APK_CHANNEL', defaultValue: 'arm64');
 const String appUpdateMetaUrl = 'https://majid6064.ir/app_version.json';
@@ -84,15 +84,15 @@ class JetUiTheme {
   static const JetUiTheme jet = JetUiTheme(
     id: 'jet',
     label: 'جت',
-    bg: Color(0xFF05071A),
-    card: Color(0xFF0F1530),
-    cardBorder: Color(0xAA8B5CF6),
-    accent: Color(0xFFC4B5FD),
+    bg: Color(0xFF070B18),
+    card: Color(0xFF121A32),
+    cardBorder: Color(0xBB8B5CF6),
+    accent: Color(0xFFD8B4FE),
     accentSoft: Color(0xFF22D3EE),
     success: Color(0xFF2DD4BF),
-    successDeep: Color(0xFF0F766E),
+    successDeep: Color(0xFF0D9488),
     connectIdleA: Color(0xFFA78BFA),
-    connectIdleB: Color(0xFF4F46E5),
+    connectIdleB: Color(0xFF6366F1),
     text: Colors.white,
     muted: Color(0xFF94A3B8),
     sheet: Color(0xFF0B1024),
@@ -104,6 +104,36 @@ class JetUiTheme {
   }
 }
 
+
+
+/// قوس نئون برای دکمه اتصال تم جت
+class _NeonArcPainter extends CustomPainter {
+  final Color color;
+  final double sweep;
+  final double stroke;
+  _NeonArcPainter({required this.color, this.sweep = 0.3, this.stroke = 2.5});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rect = Rect.fromLTWH(4, 4, size.width - 8, size.height - 8);
+    final paint = Paint()
+      ..color = color.withOpacity(0.9)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = stroke
+      ..strokeCap = StrokeCap.round;
+    canvas.drawArc(rect, -1.2, sweep * 2 * math.pi, false, paint);
+    final paint2 = Paint()
+      ..color = color.withOpacity(0.35)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = stroke * 0.6
+      ..strokeCap = StrokeCap.round;
+    canvas.drawArc(rect, 2.0, sweep * 1.2 * math.pi, false, paint2);
+  }
+
+  @override
+  bool shouldRepaint(covariant _NeonArcPainter old) =>
+      old.color != color || old.sweep != sweep || old.stroke != stroke;
+}
 
 // برنامه‌های داخلی — خارج از تونل (حالت بجز برنامه‌های داخلی)
 // مرورگرها اینجا نیستند؛ دامنه .ir با routing مستقیم می‌شود
@@ -4068,7 +4098,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     final t = ui;
     final jet = isJetTheme;
 
-    // تم جت: دکمه ارگانیک تمیز + انیمیشن اتصال بدون هاله مات
+    // تم جت: دکمه دایره‌ای نئون + انیمیشن سریع موقع اتصال، آهسته وقتی وصل
     if (jet) {
       return GestureDetector(
         onTap: isConnecting ? null : _toggleConnect,
@@ -4077,62 +4107,84 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
           builder: (context, _) {
             final primary = isConnected
                 ? t.success
-                : (isConnecting ? t.accentSoft : t.connectIdleA);
-            final secondary = isConnected
-                ? t.successDeep
-                : (isConnecting ? t.connectIdleB : t.connectIdleB);
+                : (isConnecting ? t.accentSoft : t.accent);
+            final secondary = isConnected ? t.successDeep : t.connectIdleB;
+            // اتصال: سریع | وصل: آهسته | قطع: ثابت
+            final spin = isConnecting
+                ? 1.0
+                : (isConnected ? 0.22 : 0.0);
             final pulse = isConnected ? _pulseAnimation.value : 1.0;
+            final angle = _rotateController.value * 2 * math.pi * spin;
+
             return Transform.scale(
               scale: pulse,
               child: SizedBox(
-                width: 168,
-                height: 168,
+                width: 170,
+                height: 170,
                 child: Stack(
                   alignment: Alignment.center,
                   children: [
-                    // لایه‌های نرم شبیه blob (فقط حاشیه، بدون blur سنگین)
-                    for (final s in <double>[1.0, 0.88, 0.76])
+                    // حلقه‌های نئون دایره‌ای (حاشیه روشن، بدون blur سنگین)
+                    for (final entry in <List<double>>[
+                      [1.0, 1.0],
+                      [0.86, -0.7],
+                      [0.72, 0.45],
+                    ])
                       Transform.rotate(
-                        angle: isConnecting
-                            ? _rotateController.value * 2 * math.pi * (s == 1.0 ? 1 : -0.6)
-                            : (s == 1.0 ? 0.04 : -0.03),
+                        angle: angle * entry[1].abs() * (entry[1] < 0 ? -1 : 1) + (entry[1] < 0 ? 0.2 : 0),
                         child: Container(
-                          width: 150 * s,
-                          height: 150 * s,
+                          width: 158 * entry[0],
+                          height: 158 * entry[0],
                           decoration: BoxDecoration(
-                            borderRadius: BorderRadius.only(
-                              topLeft: Radius.circular(48 * s),
-                              topRight: Radius.circular(56 * s),
-                              bottomLeft: Radius.circular(52 * s),
-                              bottomRight: Radius.circular(44 * s),
-                            ),
+                            shape: BoxShape.circle,
                             border: Border.all(
-                              color: primary.withOpacity(isConnecting ? 0.35 : 0.2),
-                              width: 1.5,
+                              color: primary.withOpacity(
+                                isConnecting ? 0.55 : (isConnected ? 0.4 : 0.28),
+                              ),
+                              width: entry[0] == 1.0 ? 2.2 : 1.4,
                             ),
-                            color: primary.withOpacity(isConnecting ? 0.06 : 0.04),
                           ),
                         ),
                       ),
-                    // هسته اصلی
+                    // قوس چرخان موقع اتصال / وصل
+                    if (isConnecting || isConnected)
+                      Transform.rotate(
+                        angle: angle,
+                        child: CustomPaint(
+                          size: const Size(158, 158),
+                          painter: _NeonArcPainter(
+                            color: primary,
+                            sweep: isConnecting ? 0.35 : 0.2,
+                            stroke: isConnecting ? 3.0 : 2.2,
+                          ),
+                        ),
+                      ),
+                    // هسته دایره‌ای
                     Container(
-                      width: 112,
-                      height: 112,
+                      width: 118,
+                      height: 118,
                       decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(36),
+                        shape: BoxShape.circle,
                         gradient: LinearGradient(
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                           colors: isConnected
                               ? [t.success, t.successDeep]
                               : isConnecting
-                                  ? [t.accentSoft, t.connectIdleB]
-                                  : [const Color(0xFF3B4A7A), const Color(0xFF1E293B)],
+                                  ? [t.accentSoft, secondary]
+                                  : [const Color(0xFF2A3558), const Color(0xFF151B2E)],
                         ),
                         border: Border.all(
-                          color: Colors.white.withOpacity(0.18),
-                          width: 1.2,
+                          color: primary.withOpacity(0.65),
+                          width: 1.6,
                         ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: primary.withOpacity(isConnecting ? 0.35 : (isConnected ? 0.28 : 0.12)),
+                            blurRadius: isConnecting ? 16 : 10,
+                            spreadRadius: 0,
+                          ),
+                        ],
                       ),
                       child: Center(
                         child: isConnecting
@@ -4140,18 +4192,18 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
                                   SizedBox(
-                                    width: 28,
-                                    height: 28,
+                                    width: 26,
+                                    height: 26,
                                     child: CircularProgressIndicator(
-                                      strokeWidth: 2.6,
-                                      color: Colors.white.withOpacity(0.9),
+                                      strokeWidth: 2.4,
+                                      color: Colors.white.withOpacity(0.95),
                                     ),
                                   ),
                                   const SizedBox(height: 8),
                                   Text(
                                     'در حال اتصال…',
                                     style: TextStyle(
-                                      color: Colors.white.withOpacity(0.9),
+                                      color: Colors.white.withOpacity(0.92),
                                       fontSize: 10,
                                       fontWeight: FontWeight.w700,
                                     ),
@@ -4163,7 +4215,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
                                 children: [
                                   Icon(
                                     Icons.power_settings_new_rounded,
-                                    size: 36,
+                                    size: 38,
                                     color: isConnected ? Colors.black87 : Colors.white,
                                   ),
                                   const SizedBox(height: 4),
@@ -5802,7 +5854,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     return BoxDecoration(
       color: t.card,
       borderRadius: BorderRadius.circular(radius),
-      border: Border.all(color: bc.withOpacity(0.35), width: 1),
+      border: Border.all(color: bc.withOpacity(0.45), width: 1.15),
     );
   }
 

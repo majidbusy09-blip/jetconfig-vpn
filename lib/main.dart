@@ -18,8 +18,8 @@ void main() {
 }
 
 // مشخصات نسخه (نمایش داخل اپ) — با هر ریلیز دستی بالا ببر
-const String appVersion = 'v1.9.18';
-const int appVersionCode = 48;
+const String appVersion = 'v1.9.19';
+const int appVersionCode = 49;
 /// کانال بسته‌بندی: با --dart-define=APK_CHANNEL=arm64|universal|arm32 در بیلد ست می‌شود
 const String apkChannel = String.fromEnvironment('APK_CHANNEL', defaultValue: 'arm64');
 const String appUpdateMetaUrl = 'https://majid6064.ir/app_version.json';
@@ -3857,9 +3857,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
                 color: selected ? color : Colors.transparent,
                 width: selected && isJetTheme ? 1.6 : 1.2,
               ),
-              boxShadow: selected && isJetTheme
-                  ? [BoxShadow(color: color.withOpacity(0.4), blurRadius: 12)]
-                  : null,
+              // بدون سایه نئون — چشم‌نوازتر
             ),
             child: Center(
               child: Row(
@@ -3956,7 +3954,6 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
               color: on ? (isJetTheme ? null : color.withOpacity(0.2)) : Colors.transparent,
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: on ? color : Colors.transparent, width: on && isJetTheme ? 1.6 : 1.2),
-              boxShadow: on && isJetTheme ? [BoxShadow(color: color.withOpacity(0.35), blurRadius: 10)] : null,
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -4071,6 +4068,127 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     final t = ui;
     final jet = isJetTheme;
 
+    // تم جت: دکمه ارگانیک تمیز + انیمیشن اتصال بدون هاله مات
+    if (jet) {
+      return GestureDetector(
+        onTap: isConnecting ? null : _toggleConnect,
+        child: AnimatedBuilder(
+          animation: Listenable.merge([_pulseAnimation, _rotateController]),
+          builder: (context, _) {
+            final primary = isConnected
+                ? t.success
+                : (isConnecting ? t.accentSoft : t.connectIdleA);
+            final secondary = isConnected
+                ? t.successDeep
+                : (isConnecting ? t.connectIdleB : t.connectIdleB);
+            final pulse = isConnected ? _pulseAnimation.value : 1.0;
+            return Transform.scale(
+              scale: pulse,
+              child: SizedBox(
+                width: 168,
+                height: 168,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    // لایه‌های نرم شبیه blob (فقط حاشیه، بدون blur سنگین)
+                    for (final s in <double>[1.0, 0.88, 0.76])
+                      Transform.rotate(
+                        angle: isConnecting
+                            ? _rotateController.value * 2 * math.pi * (s == 1.0 ? 1 : -0.6)
+                            : (s == 1.0 ? 0.04 : -0.03),
+                        child: Container(
+                          width: 150 * s,
+                          height: 150 * s,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.only(
+                              topLeft: Radius.circular(48 * s),
+                              topRight: Radius.circular(56 * s),
+                              bottomLeft: Radius.circular(52 * s),
+                              bottomRight: Radius.circular(44 * s),
+                            ),
+                            border: Border.all(
+                              color: primary.withOpacity(isConnecting ? 0.35 : 0.2),
+                              width: 1.5,
+                            ),
+                            color: primary.withOpacity(isConnecting ? 0.06 : 0.04),
+                          ),
+                        ),
+                      ),
+                    // هسته اصلی
+                    Container(
+                      width: 112,
+                      height: 112,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(36),
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: isConnected
+                              ? [t.success, t.successDeep]
+                              : isConnecting
+                                  ? [t.accentSoft, t.connectIdleB]
+                                  : [const Color(0xFF3B4A7A), const Color(0xFF1E293B)],
+                        ),
+                        border: Border.all(
+                          color: Colors.white.withOpacity(0.18),
+                          width: 1.2,
+                        ),
+                      ),
+                      child: Center(
+                        child: isConnecting
+                            ? Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  SizedBox(
+                                    width: 28,
+                                    height: 28,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2.6,
+                                      color: Colors.white.withOpacity(0.9),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    'در حال اتصال…',
+                                    style: TextStyle(
+                                      color: Colors.white.withOpacity(0.9),
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ],
+                              )
+                            : Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.power_settings_new_rounded,
+                                    size: 36,
+                                    color: isConnected ? Colors.black87 : Colors.white,
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    isConnected ? 'متصل' : 'اتصال',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w800,
+                                      color: isConnected ? Colors.black87 : Colors.white70,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
+      );
+    }
+
+    // تم کلاسیک — همان دکمه قبلی
     return GestureDetector(
       onTap: isConnecting ? null : _toggleConnect,
       child: AnimatedBuilder(
@@ -4083,42 +4201,17 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
           return Transform.scale(
             scale: scale,
             child: SizedBox(
-              width: jet ? 142 : 165,
-              height: jet ? 142 : 165,
+              width: 165,
+              height: 165,
               child: Stack(
                 alignment: Alignment.center,
                 children: [
-                  // حلقه نئون بیرونی (تم جت)
-                  if (jet)
-                    Container(
-                      width: 138,
-                      height: 138,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: primaryColor.withOpacity(isConnected ? 0.55 : 0.35),
-                          width: 2.5,
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: primaryColor.withOpacity(0.45),
-                            blurRadius: 28,
-                            spreadRadius: 2,
-                          ),
-                          BoxShadow(
-                            color: secondaryColor.withOpacity(0.25),
-                            blurRadius: 40,
-                            spreadRadius: 4,
-                          ),
-                        ],
-                      ),
-                    ),
                   if (isConnected || isConnecting)
                     Transform.rotate(
                       angle: _rotateController.value * 2 * math.pi,
                       child: Container(
-                        width: jet ? 132 : 160,
-                        height: jet ? 132 : 160,
+                        width: 160,
+                        height: 160,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           border: Border.all(
@@ -4138,22 +4231,22 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
                       ),
                     ),
                   Container(
-                    width: jet ? 128 : 135,
-                    height: jet ? 128 : 135,
+                    width: 135,
+                    height: 135,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       boxShadow: [
                         BoxShadow(
-                          color: primaryColor.withOpacity(isConnected ? 0.55 : 0.3),
-                          blurRadius: isConnected ? (jet ? 22 : 40) : 24,
-                          spreadRadius: isConnected ? (jet ? 3 : 8) : 2,
+                          color: primaryColor.withOpacity(isConnected ? 0.4 : 0.25),
+                          blurRadius: isConnected ? 28 : 18,
+                          spreadRadius: isConnected ? 4 : 1,
                         ),
                       ],
                     ),
                   ),
                   Container(
-                    width: jet ? 100 : 105,
-                    height: jet ? 100 : 105,
+                    width: 105,
+                    height: 105,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       gradient: LinearGradient(
@@ -4165,9 +4258,9 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.white.withOpacity(jet ? 0.45 : 0.35),
+                          color: Colors.white.withOpacity(0.35),
                           offset: const Offset(-2, -2),
-                          blurRadius: jet ? 8 : 5,
+                          blurRadius: 5,
                         ),
                         BoxShadow(
                           color: Colors.black.withOpacity(0.5),
@@ -4190,10 +4283,8 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
                                 Icon(
-                                  isConnected
-                                      ? (jet ? Icons.bolt_rounded : Icons.power_settings_new_rounded)
-                                      : Icons.power_settings_new_rounded,
-                                  size: jet ? 34 : 40,
+                                  Icons.power_settings_new_rounded,
+                                  size: 40,
                                   color: isConnected ? Colors.black87 : Colors.white,
                                   shadows: [
                                     Shadow(
@@ -4205,12 +4296,10 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
-                                  isConnected
-                                      ? (jet ? 'متصل' : 'PROTECTED')
-                                      : (jet ? 'آماده' : 'READY'),
+                                  isConnected ? 'PROTECTED' : 'READY',
                                   style: TextStyle(
-                                    fontSize: jet ? 10 : 8,
-                                    letterSpacing: jet ? 0.5 : 1.2,
+                                    fontSize: 8,
+                                    letterSpacing: 1.2,
                                     fontWeight: FontWeight.w900,
                                     color: isConnected ? Colors.black87 : Colors.white70,
                                   ),
@@ -4307,68 +4396,17 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
           fit: StackFit.expand,
           children: [
             if (isJetTheme) ...[
-              DecoratedBox(
-                decoration: const BoxDecoration(
+              // پس‌زمینه ملایم بدون هاله مات چشم‌گیر
+              const DecoratedBox(
+                decoration: BoxDecoration(
                   gradient: LinearGradient(
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
                     colors: [
-                      Color(0xFF2E1065),
-                      Color(0xFF0F172A),
-                      Color(0xFF020617),
+                      Color(0xFF151B2E),
+                      Color(0xFF0B1020),
+                      Color(0xFF070A14),
                     ],
-                    stops: [0.0, 0.45, 1.0],
-                  ),
-                ),
-              ),
-              Positioned(
-                top: -80,
-                left: -30,
-                child: IgnorePointer(
-                  child: Container(
-                    width: 260,
-                    height: 260,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: RadialGradient(colors: [
-                        const Color(0xFF8B5CF6).withOpacity(0.55),
-                        Colors.transparent,
-                      ]),
-                    ),
-                  ),
-                ),
-              ),
-              Positioned(
-                top: 120,
-                right: -70,
-                child: IgnorePointer(
-                  child: Container(
-                    width: 220,
-                    height: 220,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: RadialGradient(colors: [
-                        const Color(0xFF06B6D4).withOpacity(0.35),
-                        Colors.transparent,
-                      ]),
-                    ),
-                  ),
-                ),
-              ),
-              Positioned(
-                bottom: -20,
-                left: -40,
-                child: IgnorePointer(
-                  child: Container(
-                    width: 280,
-                    height: 180,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(100),
-                      gradient: RadialGradient(colors: [
-                        const Color(0xFF7C3AED).withOpacity(0.4),
-                        Colors.transparent,
-                      ]),
-                    ),
                   ),
                 ),
               ),
@@ -5762,20 +5800,9 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     }
     final bc = borderColor ?? t.accent;
     return BoxDecoration(
+      color: t.card,
       borderRadius: BorderRadius.circular(radius),
-      border: Border.all(color: bc.withOpacity(0.55), width: 1.3),
-      boxShadow: [
-        BoxShadow(color: bc.withOpacity(0.18), blurRadius: 10, spreadRadius: 0),
-        BoxShadow(color: Colors.black.withOpacity(0.25), blurRadius: 4, offset: const Offset(0, 2)),
-      ],
-      gradient: LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [
-          t.card.withOpacity(0.98),
-          const Color(0xFF1E1B4B).withOpacity(0.88),
-        ],
-      ),
+      border: Border.all(color: bc.withOpacity(0.35), width: 1),
     );
   }
 
@@ -5806,15 +5833,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
                   decoration: BoxDecoration(
                     color: t.card,
                     borderRadius: BorderRadius.circular(jet ? 16 : 12),
-                    border: Border.all(color: t.accent.withOpacity(jet ? 0.55 : 0.35)),
-                    boxShadow: jet
-                        ? [
-                            BoxShadow(
-                              color: t.accent.withOpacity(0.2),
-                              blurRadius: 12,
-                            ),
-                          ]
-                        : null,
+                    border: Border.all(color: t.accent.withOpacity(jet ? 0.4 : 0.35)),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -5860,6 +5879,21 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
               ),
             ],
           ),
+          if (jet) ...[
+            const SizedBox(height: 4),
+            Center(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(14),
+                child: Image.network(
+                  appLogoUrl,
+                  width: 40,
+                  height: 40,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => Icon(Icons.rocket_launch_rounded, size: 36, color: t.accent),
+                ),
+              ),
+            ),
+          ],
           SizedBox(height: jet ? 6 : 10),
           Container(
             padding: EdgeInsets.symmetric(horizontal: 14, vertical: jet ? 8 : 12),

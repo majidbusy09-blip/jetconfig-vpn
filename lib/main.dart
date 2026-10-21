@@ -18,8 +18,8 @@ void main() {
 }
 
 // مشخصات نسخه (نمایش داخل اپ) — با هر ریلیز دستی بالا ببر
-const String appVersion = 'v1.9.17';
-const int appVersionCode = 47;
+const String appVersion = 'v1.9.18';
+const int appVersionCode = 48;
 /// کانال بسته‌بندی: با --dart-define=APK_CHANNEL=arm64|universal|arm32 در بیلد ست می‌شود
 const String apkChannel = String.fromEnvironment('APK_CHANNEL', defaultValue: 'arm64');
 const String appUpdateMetaUrl = 'https://majid6064.ir/app_version.json';
@@ -3816,14 +3816,14 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
 
   Widget _sectionLabel(String text) {
     return Padding(
-      padding: const EdgeInsets.only(right: 4, bottom: 6, top: 2),
+      padding: EdgeInsets.only(right: 4, bottom: isJetTheme ? 3 : 6, top: isJetTheme ? 0 : 2),
       child: Align(
         alignment: Alignment.centerRight,
         child: Text(
           text,
-          style: const TextStyle(
+          style: TextStyle(
             color: Colors.white54,
-            fontSize: 11.5,
+            fontSize: isJetTheme ? 10.5 : 11.5,
             fontWeight: FontWeight.w600,
           ),
         ),
@@ -3844,7 +3844,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
           onTap: onTap,
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 200),
-            padding: const EdgeInsets.symmetric(vertical: 9),
+            padding: EdgeInsets.symmetric(vertical: isJetTheme ? 7 : 9),
             decoration: BoxDecoration(
               gradient: selected && isJetTheme
                   ? LinearGradient(colors: [color.withOpacity(0.6), color.withOpacity(0.22)])
@@ -3888,8 +3888,8 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
       children: [
         _sectionLabel('نحوه اتصال'),
         Container(
-          padding: const EdgeInsets.all(4),
-          decoration: _dashCardDeco(borderColor: ui.accent, radius: 16),
+          padding: const EdgeInsets.all(3),
+          decoration: _dashCardDeco(borderColor: ui.accent, radius: 14),
           child: Row(
             children: [
               side(
@@ -3948,7 +3948,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
           onLongPress: mode == 'selected' ? () => _showSelectedAppsSheet() : null,
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 200),
-            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 2),
+            padding: EdgeInsets.symmetric(vertical: isJetTheme ? 6 : 8, horizontal: 2),
             decoration: BoxDecoration(
               gradient: on && isJetTheme
                   ? LinearGradient(colors: [color.withOpacity(0.55), color.withOpacity(0.2)])
@@ -4019,7 +4019,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
 
     final t = ui;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      padding: EdgeInsets.symmetric(horizontal: 14, vertical: isJetTheme ? 7 : 10),
       decoration: _dashCardDeco(borderColor: t.accent, radius: 16),
       child: Row(
         children: [
@@ -4083,16 +4083,16 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
           return Transform.scale(
             scale: scale,
             child: SizedBox(
-              width: jet ? 180 : 165,
-              height: jet ? 180 : 165,
+              width: jet ? 142 : 165,
+              height: jet ? 142 : 165,
               child: Stack(
                 alignment: Alignment.center,
                 children: [
                   // حلقه نئون بیرونی (تم جت)
                   if (jet)
                     Container(
-                      width: 175,
-                      height: 175,
+                      width: 138,
+                      height: 138,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         border: Border.all(
@@ -4117,8 +4117,8 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
                     Transform.rotate(
                       angle: _rotateController.value * 2 * math.pi,
                       child: Container(
-                        width: jet ? 168 : 160,
-                        height: jet ? 168 : 160,
+                        width: jet ? 132 : 160,
+                        height: jet ? 132 : 160,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           border: Border.all(
@@ -4138,22 +4138,22 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
                       ),
                     ),
                   Container(
-                    width: jet ? 145 : 135,
-                    height: jet ? 145 : 135,
+                    width: jet ? 128 : 135,
+                    height: jet ? 128 : 135,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       boxShadow: [
                         BoxShadow(
                           color: primaryColor.withOpacity(isConnected ? 0.55 : 0.3),
-                          blurRadius: isConnected ? 40 : 24,
-                          spreadRadius: isConnected ? 8 : 2,
+                          blurRadius: isConnected ? (jet ? 22 : 40) : 24,
+                          spreadRadius: isConnected ? (jet ? 3 : 8) : 2,
                         ),
                       ],
                     ),
                   ),
                   Container(
-                    width: jet ? 118 : 105,
-                    height: jet ? 118 : 105,
+                    width: jet ? 100 : 105,
+                    height: jet ? 100 : 105,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       gradient: LinearGradient(
@@ -4193,7 +4193,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
                                   isConnected
                                       ? (jet ? Icons.bolt_rounded : Icons.power_settings_new_rounded)
                                       : Icons.power_settings_new_rounded,
-                                  size: jet ? 42 : 40,
+                                  size: jet ? 34 : 40,
                                   color: isConnected ? Colors.black87 : Colors.white,
                                   shadows: [
                                     Shadow(
@@ -5765,8 +5765,8 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
       borderRadius: BorderRadius.circular(radius),
       border: Border.all(color: bc.withOpacity(0.55), width: 1.3),
       boxShadow: [
-        BoxShadow(color: bc.withOpacity(0.25), blurRadius: 18, spreadRadius: 0),
-        BoxShadow(color: Colors.black.withOpacity(0.35), blurRadius: 8, offset: const Offset(0, 4)),
+        BoxShadow(color: bc.withOpacity(0.18), blurRadius: 10, spreadRadius: 0),
+        BoxShadow(color: Colors.black.withOpacity(0.25), blurRadius: 4, offset: const Offset(0, 2)),
       ],
       gradient: LinearGradient(
         begin: Alignment.topLeft,
@@ -5793,45 +5793,9 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
 
     final jet = isJetTheme;
     return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      padding: EdgeInsets.symmetric(horizontal: 14, vertical: jet ? 2 : 4),
       child: Column(
         children: [
-          if (jet) ...[
-            // مسکات برند — فقط تم جت
-            Padding(
-              padding: const EdgeInsets.only(bottom: 6, top: 2),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Container(
-                    width: 72,
-                    height: 72,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: t.accent.withOpacity(0.45),
-                          blurRadius: 24,
-                          spreadRadius: 2,
-                        ),
-                      ],
-                    ),
-                    child: ClipOval(
-                      child: Image.network(
-                        appLogoUrl,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => Icon(
-                          Icons.rocket_launch_rounded,
-                          size: 40,
-                          color: t.accent,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -5896,24 +5860,9 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
               ),
             ],
           ),
-          const SizedBox(height: 10),
-          if (jet) ...[
-            Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(18),
-                child: Image.network(
-                  appLogoUrl,
-                  width: 56,
-                  height: 56,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => Icon(Icons.rocket_launch_rounded, size: 52, color: t.accent),
-                ),
-              ),
-            ),
-          ],
+          SizedBox(height: jet ? 6 : 10),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            padding: EdgeInsets.symmetric(horizontal: 14, vertical: jet ? 8 : 12),
             decoration: _dashCardDeco(borderColor: t.accentSoft),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -5926,13 +5875,13 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
               ],
             ),
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: jet ? 5 : 8),
           _buildTrafficCard(),
-          const SizedBox(height: 8),
+          SizedBox(height: jet ? 5 : 8),
           _buildConnectionModeSwitch(),
-          const SizedBox(height: 8),
+          SizedBox(height: jet ? 5 : 8),
           _buildTunnelModeSwitch(),
-          const SizedBox(height: 8),
+          SizedBox(height: jet ? 5 : 8),
           if (!connectionModeSmart)
             Row(
               children: [

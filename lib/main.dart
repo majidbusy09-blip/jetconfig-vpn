@@ -18,8 +18,8 @@ void main() {
 }
 
 // مشخصات نسخه (نمایش داخل اپ) — با هر ریلیز دستی بالا ببر
-const String appVersion = 'v1.9.13';
-const int appVersionCode = 43;
+const String appVersion = 'v1.9.16';
+const int appVersionCode = 46;
 /// کانال بسته‌بندی: با --dart-define=APK_CHANNEL=arm64|universal|arm32 در بیلد ست می‌شود
 const String apkChannel = String.fromEnvironment('APK_CHANNEL', defaultValue: 'arm64');
 const String appUpdateMetaUrl = 'https://majid6064.ir/app_version.json';
@@ -28,6 +28,82 @@ const int tunnelBypassRefreshHours = 72; // هر ۷۲ ساعت یک‌بار ا�
 const String appLogoUrl = 'https://majid6064.ir/logo.png';
 const String telegramBotUrl = 'https://t.me/JetConfig1bot';
 const String telegramChannelUrl = 'https://t.me/jetconfig11';
+
+
+/// تم ظاهری اپ — classic = ظاهر فعلی | jet = برند جت
+class JetUiTheme {
+  final String id;
+  final String label;
+  final Color bg;
+  final Color card;
+  final Color cardBorder;
+  final Color accent;
+  final Color accentSoft;
+  final Color success;
+  final Color successDeep;
+  final Color connectIdleA;
+  final Color connectIdleB;
+  final Color text;
+  final Color muted;
+  final Color sheet;
+
+  const JetUiTheme({
+    required this.id,
+    required this.label,
+    required this.bg,
+    required this.card,
+    required this.cardBorder,
+    required this.accent,
+    required this.accentSoft,
+    required this.success,
+    required this.successDeep,
+    required this.connectIdleA,
+    required this.connectIdleB,
+    required this.text,
+    required this.muted,
+    required this.sheet,
+  });
+
+  static const JetUiTheme classic = JetUiTheme(
+    id: 'classic',
+    label: 'کلاسیک',
+    bg: Color(0xFF0A0E1A),
+    card: Color(0xFF131B2E),
+    cardBorder: Color(0x14FFFFFF),
+    accent: Color(0xFF00E5FF),
+    accentSoft: Color(0xFF00D2FF),
+    success: Color(0xFF00FFA3),
+    successDeep: Color(0xFF008B74),
+    connectIdleA: Color(0xFF00D2FF),
+    connectIdleB: Color(0xFF0052D4),
+    text: Colors.white,
+    muted: Colors.white54,
+    sheet: Color(0xFF131B2E),
+  );
+
+  static const JetUiTheme jet = JetUiTheme(
+    id: 'jet',
+    label: 'جت',
+    bg: Color(0xFF060914),
+    card: Color(0xFF111827),
+    cardBorder: Color(0x887C5CFF),
+    accent: Color(0xFFA78BFA),
+    accentSoft: Color(0xFF38BDF8),
+    success: Color(0xFF34D399),
+    successDeep: Color(0xFF047857),
+    connectIdleA: Color(0xFFC4B5FD),
+    connectIdleB: Color(0xFF6D28D9),
+    text: Colors.white,
+    muted: Color(0xFF94A3B8),
+    sheet: Color(0xFF0A0F1C),
+  );
+
+  static JetUiTheme byId(String? id) {
+    if (id == jet.id) return jet;
+    return classic;
+  }
+}
+
 
 // برنامه‌های داخلی — خارج از تونل (حالت بجز برنامه‌های داخلی)
 // مرورگرها اینجا نیستند؛ دامنه .ir با routing مستقیم می‌شود
@@ -295,6 +371,9 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
   String _selectedAppsFilter = '';
   bool _obscurePassword = true;
   // تنظیمات کاربر
+  /// ظاهر: classic | jet
+  String uiThemeId = 'classic';
+  JetUiTheme get ui => JetUiTheme.byId(uiThemeId);
   bool autoRefreshOnStart = true; // بروزرسانی اشتراک هنگام باز شدن
   /// جلوگیری از تکرار دیالوگ انقضا در یک نشست
   bool _subAlertShownThisSession = false;
@@ -1921,6 +2000,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
         }
       } catch (_) {}
     }
+    final prefTheme = prefs.getString('pref_ui_theme') ?? 'classic';
     final prefAutoRefresh = prefs.getBool('pref_auto_refresh_on_start') ?? true;
     final prefAutoPing = prefs.getBool('pref_auto_ping_on_start') ?? false;
     final prefKeepServer = prefs.getBool('pref_prefer_last_server') ?? true;
@@ -1965,7 +2045,8 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
         // ignore: discarded_futures
         _loadCachedTunnelBypass().then((_) => _refreshTunnelBypassIfNeeded());
         selectedVpnPackages = savedSelected;
-        autoRefreshOnStart = prefAutoRefresh;
+        uiThemeId = (prefTheme == 'jet') ? 'jet' : 'classic';
+      autoRefreshOnStart = prefAutoRefresh;
         autoPingOnStart = prefAutoPing;
         preferLastServer = prefKeepServer;
         connectionModeSmart = prefSmart;
@@ -2002,6 +2083,13 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
         _pingAllServers(allowFallbackSwitch: false);
       }
     }
+  }
+
+  Future<void> _saveUiTheme(String id) async {
+    final v = (id == 'jet') ? 'jet' : 'classic';
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('pref_ui_theme', v);
+    if (mounted) setState(() => uiThemeId = v);
   }
 
   Future<void> _savePrefBool(String key, bool value) async {
@@ -3474,12 +3562,13 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
 
   Widget _buildNeonIpPill() {
     final isConnected = _isVpnConnected;
-    final glowColor = isConnected ? const Color(0xFF00FFA3) : const Color(0xFF00E5FF);
+    final t = ui;
+    final glowColor = isConnected ? t.success : t.accent;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
       decoration: BoxDecoration(
-        color: const Color(0xFF131B2E),
+        color: t.card,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: glowColor.withOpacity(0.4), width: 1.2),
         boxShadow: [
@@ -3792,9 +3881,9 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
         Container(
           padding: const EdgeInsets.all(4),
           decoration: BoxDecoration(
-            color: const Color(0xFF131B2E),
+            color: ui.card,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Colors.white.withOpacity(0.06)),
+            border: Border.all(color: ui.cardBorder.withOpacity(0.35)),
           ),
           child: Row(
             children: [
@@ -3802,7 +3891,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
                 label: 'هوشمند',
                 icon: Icons.auto_awesome_rounded,
                 selected: connectionModeSmart,
-                color: const Color(0xFF00E5FF),
+                color: ui.accent,
                 onTap: () async {
                   if (connectionModeSmart) return;
                   await _saveConnectionMode(smart: true);
@@ -3891,15 +3980,15 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
         Container(
           padding: const EdgeInsets.all(4),
           decoration: BoxDecoration(
-            color: const Color(0xFF131B2E),
+            color: ui.card,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Colors.white.withOpacity(0.06)),
+            border: Border.all(color: ui.cardBorder.withOpacity(0.35)),
           ),
           child: Row(
             children: [
-              chip(mode: 'full', label: 'کل گوشی', icon: Icons.public, color: const Color(0xFF00E5FF)),
+              chip(mode: 'full', label: 'کل گوشی', icon: Icons.public, color: ui.accent),
               const SizedBox(width: 3),
-              chip(mode: 'bypass_local', label: 'هوشمند', icon: Icons.home_work_outlined, color: const Color(0xFF00FFA3)),
+              chip(mode: 'bypass_local', label: 'هوشمند', icon: Icons.home_work_outlined, color: ui.success),
               const SizedBox(width: 3),
               chip(mode: 'selected', label: 'انتخاب من', icon: Icons.checklist_rtl, color: const Color(0xFFFFD54F)),
             ],
@@ -3923,19 +4012,20 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     final downloadBytes = isConnected ? v2rayStatus.download : 0;
     final uploadBytes = isConnected ? v2rayStatus.upload : 0;
 
+    final t = ui;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: const Color(0xFF131B2E),
+        color: t.card,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withOpacity(0.05)),
+        border: Border.all(color: t.cardBorder.withOpacity(0.35)),
       ),
       child: Row(
         children: [
           Expanded(
             child: Row(
               children: [
-                const Icon(Icons.arrow_downward_rounded, size: 18, color: Color(0xFF00FFA3)),
+                Icon(Icons.arrow_downward_rounded, size: 18, color: t.success),
                 const SizedBox(width: 8),
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -3955,7 +4045,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
           Expanded(
             child: Row(
               children: [
-                const Icon(Icons.arrow_upward_rounded, size: 18, color: Color(0xFF00E5FF)),
+                Icon(Icons.arrow_upward_rounded, size: 18, color: t.accent),
                 const SizedBox(width: 8),
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -3984,7 +4074,8 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
         animation: Listenable.merge([_pulseAnimation, _rotateController]),
         builder: (context, child) {
           final scale = isConnected ? _pulseAnimation.value : 1.0;
-          final primaryColor = isConnected ? const Color(0xFF00FFA3) : const Color(0xFF00D2FF);
+          final t = ui;
+          final primaryColor = isConnected ? t.success : t.connectIdleA;
 
           return Transform.scale(
             scale: scale,
@@ -4062,8 +4153,8 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                         colors: isConnected
-                            ? [const Color(0xFF00FFA3), const Color(0xFF008B74)]
-                            : [const Color(0xFF00D2FF), const Color(0xFF0052D4)],
+                            ? [t.success, t.successDeep]
+                            : [t.connectIdleA, t.connectIdleB],
                       ),
                       boxShadow: [
                         BoxShadow(
@@ -4128,9 +4219,11 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
 
   @override
   Widget build(BuildContext context) {
+    final t = ui;
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
+        backgroundColor: t.bg,
         appBar: AppBar(
           title: Row(
             mainAxisSize: MainAxisSize.min,
@@ -4142,7 +4235,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
                   width: 28,
                   height: 28,
                   fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => const Icon(Icons.rocket_launch_rounded, color: Color(0xFF00E5FF)),
+                  errorBuilder: (_, __, ___) => Icon(Icons.rocket_launch_rounded, color: t.accent),
                 ),
               ),
               const SizedBox(width: 8),
@@ -4153,31 +4246,31 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
           backgroundColor: Colors.transparent,
           elevation: 0,
           leading: IconButton(
-            icon: const Icon(Icons.send_rounded, color: Color(0xFF00E5FF), size: 19),
+            icon: Icon(Icons.send_rounded, color: t.accent, size: 19),
             tooltip: 'کانال تلگرام',
             onPressed: () => _openTelegram(telegramChannelUrl),
           ),
           actions: [
             IconButton(
-              icon: const Icon(Icons.settings_rounded, color: Color(0xFF00E5FF), size: 21),
+              icon: Icon(Icons.settings_rounded, color: t.accent, size: 21),
               tooltip: 'تنظیمات',
               onPressed: _openSettings,
             ),
             if (savedUser != null || profiles.isNotEmpty)
               IconButton(
-                icon: const Icon(Icons.people_alt_rounded, color: Color(0xFF00E5FF), size: 21),
+                icon: Icon(Icons.people_alt_rounded, color: t.accent, size: 21),
                 tooltip: 'اشتراک‌ها',
                 onPressed: _showProfilesSheet,
               ),
             if (savedUser != null)
               IconButton(
                 icon: isRefreshingServers
-                    ? const SizedBox(
+                    ? SizedBox(
                         width: 18,
                         height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF00E5FF)),
+                        child: CircularProgressIndicator(strokeWidth: 2, color: t.accent),
                       )
-                    : const Icon(Icons.sync_rounded, color: Color(0xFF00E5FF), size: 21),
+                    : Icon(Icons.sync_rounded, color: t.accent, size: 21),
                 tooltip: 'بروزرسانی سرورها',
                 onPressed: isRefreshingServers
                     ? null
@@ -4200,7 +4293,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
           ],
         ),
         body: isLoading
-            ? const Center(child: CircularProgressIndicator(color: Color(0xFF00E5FF)))
+            ? Center(child: CircularProgressIndicator(color: t.accent))
             : (savedUser == null || userData == null)
                 ? _buildLoginView()
                 : _buildDashboardView(),
@@ -5128,10 +5221,56 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     return '';
   }
 
+
+  Widget _themeChoiceChip({
+    required String id,
+    required String title,
+    required String subtitle,
+    required bool selected,
+    required VoidCallback onTap,
+  }) {
+    final t = JetUiTheme.byId(id);
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 10),
+          decoration: BoxDecoration(
+            color: selected ? t.accent.withOpacity(0.18) : t.card.withOpacity(0.9),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: selected ? t.accent : Colors.white12,
+              width: selected ? 1.6 : 1,
+            ),
+          ),
+          child: Column(
+            children: [
+              Container(
+                width: 28,
+                height: 10,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(8),
+                  gradient: LinearGradient(colors: [t.connectIdleA, t.connectIdleB]),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(title, style: TextStyle(color: selected ? t.accent : Colors.white, fontWeight: FontWeight.bold, fontSize: 13.5)),
+              const SizedBox(height: 2),
+              Text(subtitle, style: const TextStyle(color: Colors.white38, fontSize: 10.5)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   void _openSettings() {
     showModalBottomSheet(
       context: context,
-      backgroundColor: const Color(0xFF131B2E),
+      backgroundColor: ui.sheet,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
@@ -5153,7 +5292,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
             }) {
               return SwitchListTile(
                 contentPadding: const EdgeInsets.symmetric(horizontal: 8),
-                activeColor: const Color(0xFF00E5FF),
+                activeColor: ui.accent,
                 title: Text(title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13.5)),
                 subtitle: Text(subtitle, style: const TextStyle(color: Colors.white54, fontSize: 11)),
                 value: value,
@@ -5199,6 +5338,41 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
                         'JET VPN • $appVersion',
                         textAlign: TextAlign.center,
                         style: const TextStyle(color: Colors.white38, fontSize: 11),
+                      ),
+                      const Divider(color: Colors.white12, height: 24),
+                      const Text(
+                        'ظاهر برنامه',
+                        style: TextStyle(color: Colors.white70, fontWeight: FontWeight.bold, fontSize: 12.5),
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _themeChoiceChip(
+                              id: 'classic',
+                              title: 'کلاسیک',
+                              subtitle: 'ظاهر فعلی',
+                              selected: uiThemeId == 'classic',
+                              onTap: () async {
+                                await _saveUiTheme('classic');
+                                setSheet(() {});
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: _themeChoiceChip(
+                              id: 'jet',
+                              title: 'جت',
+                              subtitle: 'برند موشکی',
+                              selected: uiThemeId == 'jet',
+                              onTap: () async {
+                                await _saveUiTheme('jet');
+                                setSheet(() {});
+                              },
+                            ),
+                          ),
+                        ],
                       ),
                       const Divider(color: Colors.white12, height: 24),
                       const Text(
@@ -5342,6 +5516,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
   }
 
   Widget _buildLoginView() {
+    final t = ui;
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 28.0, vertical: 20.0),
       child: Column(
@@ -5353,7 +5528,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
               borderRadius: BorderRadius.circular(28),
               boxShadow: [
                 BoxShadow(
-                  color: const Color(0xFF00E5FF).withOpacity(0.35),
+                  color: t.accent.withOpacity(0.35),
                   blurRadius: 28,
                   spreadRadius: 3,
                 ),
@@ -5365,31 +5540,31 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
                 appLogoUrl,
                 fit: BoxFit.cover,
                 errorBuilder: (_, __, ___) => Container(
-                  color: const Color(0xFF131B2E),
-                  child: const Icon(Icons.rocket_launch_rounded, size: 50, color: Color(0xFF00E5FF)),
+                  color: t.card,
+                  child: Icon(Icons.rocket_launch_rounded, size: 50, color: t.accent),
                 ),
               ),
             ),
           ),
           const SizedBox(height: 16),
-          const Text('JET VPN', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: Colors.white)),
+          Text('JET VPN', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: t.text)),
           const SizedBox(height: 4),
-          const Text('ورود هوشمند به اشتراک پرسرعت', style: TextStyle(color: Colors.grey, fontSize: 12)),
+          Text('ورود هوشمند به اشتراک پرسرعت', style: TextStyle(color: t.muted, fontSize: 12)),
           const SizedBox(height: 22),
           TextField(
             controller: _userController,
             textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.bold, color: Colors.white),
+            style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.bold, color: t.text),
             decoration: InputDecoration(
               hintText: 'نام کاربری (مثال: jet_user10)',
-              hintStyle: const TextStyle(color: Colors.white30, fontSize: 12.5),
-              prefixIcon: const Icon(Icons.fingerprint_rounded, color: Color(0xFF00E5FF)),
+              hintStyle: TextStyle(color: t.muted.withOpacity(0.6), fontSize: 12.5),
+              prefixIcon: Icon(Icons.fingerprint_rounded, color: t.accent),
               filled: true,
-              fillColor: const Color(0xFF131B2E),
+              fillColor: t.card,
               contentPadding: const EdgeInsets.symmetric(vertical: 14),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: Colors.white.withOpacity(0.08))),
-              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: Colors.white.withOpacity(0.08))),
-              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: Color(0xFF00E5FF), width: 1.8)),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: t.cardBorder)),
+              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: t.cardBorder)),
+              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: t.accent, width: 1.8)),
             ),
           ),
           const SizedBox(height: 12),
@@ -5397,15 +5572,15 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
             controller: _passController,
             obscureText: _obscurePassword,
             textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.bold, color: Colors.white),
+            style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.bold, color: t.text),
             decoration: InputDecoration(
               hintText: 'رمز عبور اشتراک',
-              hintStyle: const TextStyle(color: Colors.white30, fontSize: 12.5),
-              prefixIcon: const Icon(Icons.lock_outline_rounded, color: Color(0xFF00E5FF)),
+              hintStyle: TextStyle(color: t.muted.withOpacity(0.6), fontSize: 12.5),
+              prefixIcon: Icon(Icons.lock_outline_rounded, color: t.accent),
               suffixIcon: IconButton(
                 icon: Icon(
                   _obscurePassword ? Icons.visibility_off_rounded : Icons.visibility_rounded,
-                  color: Colors.grey,
+                  color: t.muted,
                   size: 20,
                 ),
                 onPressed: () {
@@ -5415,17 +5590,17 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
                 },
               ),
               filled: true,
-              fillColor: const Color(0xFF131B2E),
+              fillColor: t.card,
               contentPadding: const EdgeInsets.symmetric(vertical: 14),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: Colors.white.withOpacity(0.08))),
-              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: Colors.white.withOpacity(0.08))),
-              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: Color(0xFF00E5FF), width: 1.8)),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: t.cardBorder)),
+              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: t.cardBorder)),
+              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: t.accent, width: 1.8)),
             ),
           ),
           const SizedBox(height: 18),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF00E5FF),
+              backgroundColor: t.accent,
               foregroundColor: Colors.black,
               minimumSize: const Size(double.infinity, 48),
               elevation: 8,
@@ -5492,6 +5667,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
   }
 
   Widget _buildDashboardView() {
+    final t = ui;
     final isConnected = _isVpnConnected;
     final currentServerName = serverList.isNotEmpty
         ? serverList[selectedServerIndex.clamp(0, serverList.length - 1)].name
@@ -5514,9 +5690,9 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF131B2E),
+                    color: t.card,
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: const Color(0xFF00E5FF).withOpacity(0.35)),
+                    border: Border.all(color: t.accent.withOpacity(0.35)),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -5545,17 +5721,17 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF131B2E),
+                  color: t.card,
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(color: Colors.white.withOpacity(0.05)),
                 ),
                 child: Row(
                   children: [
-                    Icon(Icons.bolt_rounded, size: 15, color: activePing > 0 ? const Color(0xFF00FFA3) : Colors.grey),
+                    Icon(Icons.bolt_rounded, size: 15, color: activePing > 0 ? t.success : Colors.grey),
                     const SizedBox(width: 4),
                     Text(
                       activePing > 0 ? '$activePing ms' : (isConnected ? 'پینگ...' : 'آفلاین'),
-                      style: TextStyle(color: activePing > 0 ? const Color(0xFF00FFA3) : Colors.grey, fontWeight: FontWeight.bold, fontSize: 11),
+                      style: TextStyle(color: activePing > 0 ? t.success : Colors.grey, fontWeight: FontWeight.bold, fontSize: 11),
                     ),
                   ],
                 ),
@@ -5566,16 +5742,16 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             decoration: BoxDecoration(
-              color: const Color(0xFF131B2E),
+              color: t.card,
               borderRadius: BorderRadius.circular(18),
               border: Border.all(color: Colors.white.withOpacity(0.06)),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                _buildCompactBadge('باقیمانده', _getDisplayRemaining(), Icons.pie_chart_rounded, const Color(0xFF00FFA3)),
+                _buildCompactBadge('باقیمانده', _getDisplayRemaining(), Icons.pie_chart_rounded, t.success),
                 Container(width: 1, height: 32, color: Colors.white10),
-                _buildCompactBadge('کل ترافیک', _getDisplayTotal(), Icons.data_usage_rounded, const Color(0xFF00E5FF)),
+                _buildCompactBadge('کل ترافیک', _getDisplayTotal(), Icons.data_usage_rounded, t.accent),
                 Container(width: 1, height: 32, color: Colors.white10),
                 _buildCompactBadge('مدت اعتبار', _getDisplayExpire(), Icons.timer_outlined, Colors.amberAccent),
               ],
@@ -5598,9 +5774,9 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF131B2E),
+                        color: t.card,
                         borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: const Color(0xFF00E5FF).withOpacity(0.2)),
+                        border: Border.all(color: t.accent.withOpacity(0.2)),
                       ),
                       child: Row(
                         children: [
@@ -5632,9 +5808,9 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF131B2E),
+                      color: t.card,
                       borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: const Color(0xFF00FFA3).withOpacity(0.3)),
+                      border: Border.all(color: t.success.withOpacity(0.3)),
                     ),
                     child: const Row(
                       children: [
@@ -5655,9 +5831,9 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
               width: double.infinity,
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               decoration: BoxDecoration(
-                color: const Color(0xFF131B2E),
+                color: t.card,
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: const Color(0xFF00E5FF).withOpacity(0.15)),
+                border: Border.all(color: t.accent.withOpacity(0.15)),
               ),
               child: Row(
                 children: [
@@ -5684,7 +5860,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
                 ? 'تونل: $tunnelModeLabel'
                 : 'جهت اتصال لمس کنید',
             style: TextStyle(
-              color: isConnected ? const Color(0xFF00FFA3) : Colors.grey,
+              color: isConnected ? t.success : Colors.grey,
               fontWeight: FontWeight.bold,
               fontSize: 11.5,
             ),
@@ -5694,7 +5870,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
             Text(
               _smartStatusLine,
               textAlign: TextAlign.center,
-              style: const TextStyle(color: Color(0xFF00E5FF), fontSize: 12, fontWeight: FontWeight.w600),
+              style: TextStyle(color: t.accent, fontSize: 12, fontWeight: FontWeight.w600),
             ),
           ],
           if (_shouldShowRenewInBot()) ...[
@@ -5707,12 +5883,12 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: [
-                      const Color(0xFF00E5FF).withOpacity(0.15),
-                      const Color(0xFF00FFA3).withOpacity(0.15),
+                      t.accent.withOpacity(0.15),
+                      t.success.withOpacity(0.15),
                     ],
                   ),
                   borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: const Color(0xFF00E5FF).withOpacity(0.3)),
+                  border: Border.all(color: t.accent.withOpacity(0.3)),
                 ),
                 child: const Row(
                   mainAxisAlignment: MainAxisAlignment.center,

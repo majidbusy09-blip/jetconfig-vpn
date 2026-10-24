@@ -409,6 +409,9 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
           isConnecting = false;
           _connectionVerified = false;
           _uiForceDisconnected = true;
+          // قطع از نوتیفیکیشن Native: جلوگیری از بازیابی خودکار
+          _userWantsConnected = false;
+          _isRecovering = false;
         }
 
         // CONNECTED خام هسته ≠ اتصال واقعی؛ تا verify نشود سبز نشو

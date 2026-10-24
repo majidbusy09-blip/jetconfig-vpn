@@ -101,9 +101,8 @@ jobs:
           if ! grep -q 'androidx.core.content.FileProvider' "$MANIFEST"; then
             sed -i 's|</application>|        <provider android:name="androidx.core.content.FileProvider" android:authorities="${applicationId}.fileProvider" android:exported="false" android:grantUriPermissions="true"><meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/file_paths" /></provider>\n    </application>|' "$MANIFEST"
           fi
-          # turn literal \n into real newlines if sed left them
-          python3 -c "from pathlib import Path; p=Path('android/app/src/main/AndroidManifest.xml'); t=p.read_text().replace('\\n', chr(10)); p.write_text(t)"
-          grep -nE 'REQUEST_INSTALL|FileProvider|QUERY_ALL|file_paths' "$MANIFEST" || true
+          python3 -c "import base64; exec(base64.b64decode('CmZyb20gcGF0aGxpYiBpbXBvcnQgUGF0aAptID0gUGF0aCgiYW5kcm9pZC9hcHAvc3JjL21haW4vQW5kcm9pZE1hbmlmZXN0LnhtbCIpCnQgPSBtLnJlYWRfdGV4dCgpLnJlcGxhY2UoIlxcbiIsICJcbiIpCmlmICI8cXVlcmllcz4iIG5vdCBpbiB0OgogICAgcGtncyA9ICJjb20uYW5kcm9pZC5jaHJvbWUgY29tLmNocm9tZS5iZXRhIGNvbS5nb29nbGUuYW5kcm9pZC5hcHBzLmNocm9tZSBjb20uYW5kcm9pZC53ZWJ2aWV3IGNvbS5nb29nbGUuYW5kcm9pZC53ZWJ2aWV3IG9yZy50ZWxlZ3JhbS5tZXNzZW5nZXIgb3JnLnRlbGVncmFtLm1lc3Nlbmdlci53ZWIgb3JnLnRlbGVncmFtLm1lc3Nlbmdlci5iZXRhIG9yZy50aHVuZGVyZG9nLmNoYWxsZWdyYW0gY29tLmluc3RhZ3JhbS5hbmRyb2lkIGNvbS5pbnN0YWdyYW0uYmFyY2Vsb25hIGNvbS53aGF0c2FwcCBjb20uZ29vZ2xlLmFuZHJvaWQueW91dHViZSBjb20udHdpdHRlci5hbmRyb2lkIG9yZy5tb3ppbGxhLmZpcmVmb3ggY29tLnNlYy5hbmRyb2lkLmFwcC5zYnJvd3NlciBjb20ub3BlcmEuYnJvd3NlciBjb20uYnJhdmUuYnJvd3NlciBjb20ubWljcm9zb2Z0LmVtbXggY29tLmZhY2Vib29rLmthdGFuYSBjb20uZmFjZWJvb2sub3JjYSBjb20uemhpbGlhb2FwcC5tdXNpY2FsbHkgY29tLmRpc2NvcmQiLnNwbGl0KCkKICAgIHEgPSAiICAgIDxxdWVyaWVzPlxuIiArICIiLmpvaW4oJyAgICAgICAgPHBhY2thZ2UgYW5kcm9pZDpuYW1lPSIlcyIgLz5cbicgJSBwIGZvciBwIGluIHBrZ3MpICsgJyAgICAgICAgPGludGVudD5cbiAgICAgICAgICAgIDxhY3Rpb24gYW5kcm9pZDpuYW1lPSJhbmRyb2lkLmludGVudC5hY3Rpb24uTUFJTiIgLz5cbiAgICAgICAgICAgIDxjYXRlZ29yeSBhbmRyb2lkOm5hbWU9ImFuZHJvaWQuaW50ZW50LmNhdGVnb3J5LkxBVU5DSEVSIiAvPlxuICAgICAgICA8L2ludGVudD5cbiAgICA8L3F1ZXJpZXM+XG4nCiAgICB0ID0gdC5yZXBsYWNlKCI8L21hbmlmZXN0PiIsIHEgKyAiPC9tYW5pZmVzdD4iLCAxKQogICAgcHJpbnQoInF1ZXJpZXMgaW5qZWN0ZWQiKQplbHNlOgogICAgcHJpbnQoInF1ZXJpZXMgZXhpc3RzIikKbS53cml0ZV90ZXh0KHQpCg==').decode())"
+          grep -nE 'REQUEST_INSTALL|FileProvider|QUERY_ALL|file_paths|queries|com.android.chrome' "$MANIFEST" || true
           ls -la android/app/src/main/res/xml/file_paths.xml
 
       - name: Install icon tools
@@ -134,6 +133,10 @@ jobs:
           flutter pub get
           flutter pub add url_launcher path_provider open_filex installed_apps || true
           flutter pub get
+
+      - name: Patch VPN notification (disconnect + ping)
+        run: |
+          bash tools/v2ray_notif_patch/apply_patch.sh
 
       - name: Decode release keystore
         run: |

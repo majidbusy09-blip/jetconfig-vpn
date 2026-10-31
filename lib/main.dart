@@ -18,8 +18,8 @@ void main() {
 }
 
 // مشخصات نسخه (نمایش داخل اپ) — با هر ریلیز دستی بالا ببر
-const String appVersion = 'v2.0.2';
-const int appVersionCode = 202;
+const String appVersion = 'v2.0.3';
+const int appVersionCode = 203;
 /// کانال بسته‌بندی: با --dart-define=APK_CHANNEL=arm64|universal|arm32 در بیلد ست می‌شود
 const String apkChannel = String.fromEnvironment('APK_CHANNEL', defaultValue: 'arm64');
 const String appUpdateMetaUrl = 'https://majid6064.ir/app_version.json';
@@ -2858,7 +2858,61 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     }
   }
 
-  Future<void> _fetchUserData(
+  Future<void> _registerAppAccount(String username, String password) async {
+    if (mounted) {
+      setState(() => isLoading = true);
+    }
+    try {
+      final uri = Uri.parse(
+        'https://majid6064.ir/api.php?action=register&username=${Uri.encodeComponent(username)}&password=${Uri.encodeComponent(password)}',
+      );
+      final res = await http.post(uri).timeout(const Duration(seconds: 15));
+      Map<String, dynamic> data = {};
+      try {
+        data = Map<String, dynamic>.from(json.decode(res.body) as Map);
+      } catch (_) {}
+      if (res.statusCode >= 200 && res.statusCode < 300 && data['ok'] == true) {
+        await _upsertProfile(username, password);
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('saved_username', username);
+        await prefs.setString('saved_password', password);
+        if (mounted) {
+          setState(() {
+            userData = data;
+            savedUser = username;
+            savedPass = password;
+            serverList = [];
+            selectedServerIndex = 0;
+          });
+        }
+        _showToast(data['msg']?.toString() ?? 'حساب ساخته شد', isError: false);
+      } else {
+        _showToast(data['msg']?.toString() ?? 'ثبت‌نام ناموفق بود', isError: true);
+      }
+    } catch (e) {
+      _showToast('خطا در ارتباط با سرور', isError: true);
+    } finally {
+      if (mounted) setState(() => isLoading = false);
+    }
+  }
+
+  bool _hasActiveSubscription([Map? data]) {
+    final d = data ?? userData;
+    if (d == null) return false;
+    if (d['has_subscription'] == false) return false;
+    final st = '${d['status'] ?? d['panel_status'] ?? ''}'.toLowerCase();
+    if (st == 'no_subscription') return false;
+    if (serverList.isNotEmpty) return true;
+    final rem = d['remaining_gb'];
+    final total = d['total_gb'];
+    if (rem is num && rem > 0) return true;
+    if (total is num && total > 0) return true;
+    final exp = '${d['expire_days'] ?? ''}';
+    if (exp.contains('بدون اشتراک')) return false;
+    return serverList.isNotEmpty;
+  }
+
+    Future<void> _fetchUserData(
     String username,
     String password, {
     bool isManualRefresh = false,
@@ -2913,12 +2967,18 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
             await _saveSelectedServer(parsed[idx], index: idx);
           }
 
-          if (isManualRefresh) {
+          if (data['has_subscription'] == false || '${data['status']}' == 'no_subscription') {
+            if (!silentBackground) {
+              _showToast(data['msg']?.toString() ?? 'اشتراک فعالی روی این حساب نیست', isError: false);
+            }
+          } else if (isManualRefresh) {
             _showToast('سرورها بروزرسانی شدند', isError: false);
           }
 
-          // ثبت کلاینت در پنل پاسارگاد/مرزبان با UA واقعی گوشی
-          unawaited(_registerClientOnPanel(Map<String, dynamic>.from(data as Map)));
+          // ثبت کلاینت فقط وقتی اشتراک/پنل واقعی وجود دارد
+          if (data['has_subscription'] != false && '${data['status']}' != 'no_subscription') {
+            unawaited(_registerClientOnPanel(Map<String, dynamic>.from(data as Map)));
+          }
 
           // پیام انقضا / اخطار نزدیک اتمام (ورود یا بروزرسانی)
           try {
@@ -6000,6 +6060,39 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
             },
             child: const Text('ورود و دریافت کانفیگ‌ها', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
           ),
+          const SizedBox(height: 10),
+          OutlinedButton(
+            style: OutlinedButton.styleFrom(
+              foregroundColor: t.accent,
+              minimumSize: const Size(double.infinity, 46),
+              side: BorderSide(color: t.accent.withOpacity(0.55)),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            ),
+            onPressed: () {
+              final user = _userController.text.trim();
+              final pass = _passController.text.trim();
+              if (user.isEmpty || pass.isEmpty) {
+                _showToast('برای ثبت‌نام نام کاربری و رمز را وارد کنید');
+                return;
+              }
+              if (user.length < 4 || user.length > 32) {
+                _showToast('نام کاربری ۴ تا ۳۲ کاراکتر');
+                return;
+              }
+              if (pass.length < 5 || pass.length > 8) {
+                _showToast('رمز باید ۵ تا ۸ کاراکتر باشد');
+                return;
+              }
+              _registerAppAccount(user, pass);
+            },
+            child: const Text('ثبت‌نام (بدون تلگرام)', style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold)),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'اگر از ربات خرید کرده‌اید همان نام و رمز را وارد و «ورود» بزنید.\nاگر تلگرام ندارید، نام دلخواه بسازید و ثبت‌نام کنید.',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: t.muted, fontSize: 11, height: 1.35),
+          ),
           if (profiles.isNotEmpty) ...[
             const SizedBox(height: 18),
             const Align(
@@ -6285,6 +6378,23 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
               _smartStatusLine,
               textAlign: TextAlign.center,
               style: TextStyle(color: t.accent, fontSize: 12, fontWeight: FontWeight.w600),
+            ),
+          ],
+          if (userData != null && !_hasActiveSubscription()) ...[
+            const SizedBox(height: 12),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 14),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFA726).withOpacity(0.12),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: const Color(0xFFFFA726).withOpacity(0.35)),
+              ),
+              child: const Text(
+                'هنوز اشتراک فعالی ندارید.\nفاز بعد: خرید از داخل اپ — فعلاً از ربات تلگرام می‌توانید بخرید.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.white70, fontSize: 12, height: 1.4),
+              ),
             ),
           ],
           if (_shouldShowSosHelp()) ...[

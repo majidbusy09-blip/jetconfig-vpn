@@ -18,8 +18,8 @@ void main() {
 }
 
 // مشخصات نسخه (نمایش داخل اپ) — با هر ریلیز دستی بالا ببر
-const String appVersion = 'v2.0.5';
-const int appVersionCode = 205;
+const String appVersion = 'v2.0.6';
+const int appVersionCode = 206;
 /// کانال بسته‌بندی: با --dart-define=APK_CHANNEL=arm64|universal|arm32 در بیلد ست می‌شود
 const String apkChannel = String.fromEnvironment('APK_CHANNEL', defaultValue: 'arm64');
 const String appUpdateMetaUrl = 'https://majid6064.ir/app_version.json';
@@ -2940,12 +2940,18 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
         _showToast(data['msg']?.toString() ?? 'دریافت پلن‌ها ناموفق');
         return;
       }
-      final plans = (data['plans'] as List?) ?? [];
-      if (plans.isEmpty) {
+      final groups = (data['groups'] as List?) ?? [];
+      final plansFlat = (data['plans'] as List?) ?? [];
+      if (groups.isEmpty && plansFlat.isEmpty) {
         _showToast('پلنی برای خرید موجود نیست');
         return;
       }
       if (!mounted) return;
+      final displayGroups = groups.isNotEmpty
+          ? groups
+          : [
+              {'title': 'پلن‌ها', 'plans': plansFlat},
+            ];
       await showModalBottomSheet<void>(
         context: context,
         backgroundColor: const Color(0xFF131B2E),
@@ -2959,78 +2965,53 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
             child: SafeArea(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      width: 40,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: Colors.white24,
-                        borderRadius: BorderRadius.circular(4),
+                child: SizedBox(
+                  height: MediaQuery.of(ctx).size.height * 0.72,
+                  child: Column(
+                    children: [
+                      Container(
+                        width: 40,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: Colors.white24,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 12),
-                    const Text(
-                      'انتخاب پلن',
-                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
-                    ),
-                    const SizedBox(height: 6),
-                    const Text(
-                      'پس از انتخاب، صفحه پرداخت امن باز می‌شود',
-                      style: TextStyle(color: Colors.white54, fontSize: 12),
-                    ),
-                    const SizedBox(height: 12),
-                    Flexible(
-                      child: ListView.separated(
-                        shrinkWrap: true,
-                        itemCount: plans.length,
-                        separatorBuilder: (_, __) => const SizedBox(height: 8),
-                        itemBuilder: (_, i) {
-                          final pl = plans[i] as Map;
-                          final title = '${pl['title'] ?? pl['plan_key']}';
-                          final price = '${pl['price_fmt'] ?? pl['price']} تومان';
-                          final vol = pl['vol'];
-                          final days = pl['days'];
-                          final sub = [
-                            if (vol != null) '${vol} GB',
-                            if (days != null && days != 0) '$days روز',
-                          ].join(' · ');
-                          return Material(
-                            color: const Color(0xFF0A0E1A),
-                            borderRadius: BorderRadius.circular(14),
-                            child: InkWell(
-                              borderRadius: BorderRadius.circular(14),
-                              onTap: () {
-                                Navigator.pop(ctx);
-                                _createInvoiceAndPay('${pl['plan_key']}');
-                              },
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                                child: Row(
-                                  children: [
-                                    const Icon(Icons.shopping_bag_outlined, color: Color(0xFF00E5FF), size: 22),
-                                    const SizedBox(width: 10),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Text(title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13.5)),
-                                          if (sub.isNotEmpty)
-                                            Text(sub, style: const TextStyle(color: Colors.white54, fontSize: 11.5)),
-                                        ],
-                                      ),
-                                    ),
-                                    Text(price, style: const TextStyle(color: Color(0xFF00FFA3), fontWeight: FontWeight.bold, fontSize: 12.5)),
-                                  ],
+                      const SizedBox(height: 12),
+                      const Text(
+                        'انتخاب پلن',
+                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                      ),
+                      const SizedBox(height: 6),
+                      const Text(
+                        'پس از انتخاب، صفحه پرداخت امن باز می‌شود',
+                        style: TextStyle(color: Colors.white54, fontSize: 12),
+                      ),
+                      const SizedBox(height: 12),
+                      Expanded(
+                        child: ListView(
+                          children: [
+                            for (final g in displayGroups) ...[
+                              Padding(
+                                padding: const EdgeInsets.fromLTRB(4, 12, 4, 6),
+                                child: Text(
+                                  '${(g as Map)['title'] ?? ''}',
+                                  style: const TextStyle(
+                                    color: Color(0xFF00E5FF),
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 13,
+                                  ),
                                 ),
                               ),
-                            ),
-                          );
-                        },
+                              for (final plRaw in (((g as Map)['plans'] as List?) ?? const [])) ...[
+                                _planTile(ctx, plRaw as Map),
+                              ],
+                            ],
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -3042,6 +3023,58 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     } finally {
       if (mounted) setState(() => isLoading = false);
     }
+  }
+
+  Widget _planTile(BuildContext ctx, Map pl) {
+    final title = '${pl['title'] ?? pl['plan_key']}';
+    final price = '${pl['price_fmt'] ?? pl['price']} تومان';
+    final vol = pl['vol'];
+    final days = pl['days'];
+    var sub = '';
+    if (vol is num && vol > 0) {
+      sub = '$vol GB';
+    } else if (vol is num && vol <= 0) {
+      sub = 'حجم نامحدود';
+    }
+    if (days is num && days > 0) {
+      sub = sub.isEmpty ? '$days روز' : '$sub · $days روز';
+    } else if (days is num && days <= 0) {
+      sub = sub.isEmpty ? 'بدون انقضا' : '$sub · بدون انقضا';
+    }
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Material(
+        color: const Color(0xFF0A0E1A),
+        borderRadius: BorderRadius.circular(14),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(14),
+          onTap: () {
+            Navigator.pop(ctx);
+            _createInvoiceAndPay('${pl['plan_key']}');
+          },
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            child: Row(
+              children: [
+                const Icon(Icons.shopping_bag_outlined, color: Color(0xFF00E5FF), size: 22),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13.5)),
+                      if (sub.isNotEmpty)
+                        Text(sub, style: const TextStyle(color: Colors.white54, fontSize: 11.5)),
+                    ],
+                  ),
+                ),
+                Text(price, style: const TextStyle(color: Color(0xFF00FFA3), fontWeight: FontWeight.bold, fontSize: 12.5)),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   Future<void> _createInvoiceAndPay(String planKey) async {
@@ -3069,6 +3102,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
       }
       final payUrl = '${data['pay_url'] ?? ''}';
       final price = '${data['price_fmt'] ?? data['price']}';
+      final discNote = '${data['discount_note'] ?? ''}';
       if (!mounted) return;
       await showDialog<void>(
         context: context,
@@ -3080,9 +3114,10 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
               title: const Text('فاکتور آماده است', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
               content: Text(
-                'مبلغ قابل پرداخت: $price تومان\n\n'
+                'مبلغ قابل پرداخت: $price تومان\n'
+                '${discNote.isNotEmpty ? "$discNote\n\n" : "\n"}'
                 'در صفحه بعد کارت و مبلغ نمایش داده می‌شود.\n'
-                'مبلغ را دقیق واریز کنید تا معمولاً به‌صورت خودکار تأیید شود.',
+                'مبلغ را دقیق واریز کنید تا پرداخت به‌صورت خودکار تأیید شود.',
                 style: const TextStyle(color: Colors.white70, height: 1.45, fontSize: 13.5),
               ),
               actions: [

@@ -18,8 +18,8 @@ void main() {
 }
 
 // مشخصات نسخه (نمایش داخل اپ) — با هر ریلیز دستی بالا ببر
-const String appVersion = 'v2.0.1';
-const int appVersionCode = 201;
+const String appVersion = 'v2.0.2';
+const int appVersionCode = 202;
 /// کانال بسته‌بندی: با --dart-define=APK_CHANNEL=arm64|universal|arm32 در بیلد ست می‌شود
 const String apkChannel = String.fromEnvironment('APK_CHANNEL', defaultValue: 'arm64');
 const String appUpdateMetaUrl = 'https://majid6064.ir/app_version.json';
@@ -27,6 +27,7 @@ const String tunnelBypassMetaUrl = 'https://majid6064.ir/tunnel_bypass.json';
 const int tunnelBypassRefreshHours = 72; // هر ۷۲ ساعت یک‌بار از سرور
 const String appLogoUrl = 'https://majid6064.ir/logo.png';
 const String telegramBotUrl = 'https://t.me/JetConfig1bot';
+const String sosApiUrl = 'https://majid6064.ir/sos_api.php';
 const String telegramChannelUrl = 'https://t.me/jetconfig11';
 
 
@@ -1577,6 +1578,140 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     return '${remaining ?? 0} GB';
   }
 
+
+  bool _shouldShowSosHelp([Map? data]) {
+    final d = data ?? userData;
+    if (d == null) return false;
+    if (_isTestUsername(d)) return false;
+    return _isSubscriptionExpired(d);
+  }
+
+  Future<void> _confirmAndRequestSos() async {
+    if (!mounted) return;
+    final d = userData;
+    if (d == null || !_shouldShowSosHelp(d)) {
+      _showToast('کمک اضطراری فقط وقتی اشتراک کاملاً تمام شده فعال است');
+      return;
+    }
+    final go = await showDialog<bool>(
+      context: context,
+      builder: (ctx) {
+        return Directionality(
+          textDirection: TextDirection.rtl,
+          child: AlertDialog(
+            backgroundColor: const Color(0xFF131B2E),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            title: const Row(
+              children: [
+                Icon(Icons.health_and_safety_outlined, color: Color(0xFF00E5FF)),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'کمک اضطراری',
+                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                  ),
+                ),
+              ],
+            ),
+            content: const Text(
+              'اشتراک‌ت تمام شده.\n\n'
+              'با این دکمه فقط یک‌بار در ماه می‌تونی کمک بگیری:\n'
+              '• اگر حجم تمام شده: حدود ۱۰۰ مگابایت\n'
+              '• اگر زمان تمام شده: ۱ روز اعتبار\n\n'
+              'هدف فقط اینه که بتونی بری ربات و تمدید یا خرید کنی — تکرار نمی‌شه.',
+              style: TextStyle(color: Colors.white70, height: 1.45, fontSize: 13.5),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(false),
+                child: const Text('انصراف', style: TextStyle(color: Colors.grey)),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF00E5FF),
+                  foregroundColor: Colors.black,
+                ),
+                onPressed: () => Navigator.of(ctx).pop(true),
+                child: const Text('درخواست کمک'),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+    if (go == true) {
+      await _requestSosEmergency();
+    }
+  }
+
+  Future<void> _requestSosEmergency() async {
+    final u = savedUser;
+    final pw = savedPass;
+    if (u == null || pw == null || u.isEmpty || pw.isEmpty) {
+      _showToast('ابتدا وارد حساب شو');
+      return;
+    }
+    if (mounted) {
+      setState(() => isLoading = true);
+    }
+    try {
+      final uri = Uri.parse(
+        '$sosApiUrl?username=${Uri.encodeComponent(u)}&password=${Uri.encodeComponent(pw)}',
+      );
+      final res = await http.post(uri).timeout(const Duration(seconds: 20));
+      Map<String, dynamic> data = {};
+      try {
+        data = Map<String, dynamic>.from(json.decode(res.body) as Map);
+      } catch (_) {}
+      if (res.statusCode >= 200 && res.statusCode < 300 && data['ok'] == true) {
+        final msg = '${data['msg'] ?? 'کمک اضطراری اعمال شد'}';
+        if (mounted) {
+          await showDialog<void>(
+            context: context,
+            builder: (ctx) {
+              return Directionality(
+                textDirection: TextDirection.rtl,
+                child: AlertDialog(
+                  backgroundColor: const Color(0xFF131B2E),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                  title: const Text('انجام شد', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                  content: Text(msg, style: const TextStyle(color: Colors.white70, height: 1.45)),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.of(ctx).pop(),
+                      child: const Text('باشه', style: TextStyle(color: Colors.grey)),
+                    ),
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF00FFA3),
+                        foregroundColor: Colors.black,
+                      ),
+                      onPressed: () {
+                        Navigator.of(ctx).pop();
+                        _openTelegram(telegramBotUrl);
+                      },
+                      child: const Text('باز کردن ربات'),
+                    ),
+                  ],
+                ),
+              );
+            },
+          );
+        }
+        await _fetchUserData(u, pw, isManualRefresh: true, doPingOnLoad: false);
+      } else {
+        final m = '${data['msg'] ?? 'درخواست کمک اضطراری ناموفق بود'}';
+        _showToast(m, isError: true);
+      }
+    } catch (e) {
+      _showToast('خطا در ارتباط با سرور کمک اضطراری', isError: true);
+    } finally {
+      if (mounted) {
+        setState(() => isLoading = false);
+      }
+    }
+  }
+
   /// دکمه «تمدید در ربات» فقط وقتی حجم/زمان رو به اتمام است
   /// حجم ≤۲۰٪ مانده یا صفر | زمان ≤۳ روز / ساعت / دقیقه / منقضی
   bool _shouldShowRenewInBot() {
@@ -1746,7 +1881,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
         body =
             'حجم یا اعتبار زمانی این اکانت تمام شده و اتصال پایدار نخواهد بود.\n\n'
             'باقیمانده: $rem\nاعتبار: $exp\n\n'
-            'از ربات تمدید کن یا بستهٔ جدید بخر تا دوباره وصل شی.';
+            'از ربات تمدید کن یا بستهٔ جدید بخر تا دوباره وصل شی.\n\nاگر به ربات دسترسی نداری، از دکمه «کمک اضطراری» یک‌بار در ماه ۱۰۰ مگ یا ۱ روز بگیر.';
       }
     } else {
       body =
@@ -6150,6 +6285,32 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
               _smartStatusLine,
               textAlign: TextAlign.center,
               style: TextStyle(color: t.accent, fontSize: 12, fontWeight: FontWeight.w600),
+            ),
+          ],
+          if (_shouldShowSosHelp()) ...[
+            const SizedBox(height: 12),
+            InkWell(
+              onTap: _confirmAndRequestSos,
+              borderRadius: BorderRadius.circular(14),
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 14),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFF5252).withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: const Color(0xFFFF5252).withOpacity(0.35)),
+                ),
+                child: const Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.health_and_safety_outlined, color: Color(0xFFFF8A80), size: 17),
+                    SizedBox(width: 6),
+                    Text(
+                      'کمک اضطراری (۱ بار در ماه)',
+                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                    ),
+                  ],
+                ),
+              ),
             ),
           ],
           if (_shouldShowRenewInBot()) ...[

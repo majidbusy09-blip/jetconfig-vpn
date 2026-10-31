@@ -18,8 +18,8 @@ void main() {
 }
 
 // مشخصات نسخه (نمایش داخل اپ) — با هر ریلیز دستی بالا ببر
-const String appVersion = 'v2.0.4';
-const int appVersionCode = 204;
+const String appVersion = 'v2.0.5';
+const int appVersionCode = 205;
 /// کانال بسته‌بندی: با --dart-define=APK_CHANNEL=arm64|universal|arm32 در بیلد ست می‌شود
 const String apkChannel = String.fromEnvironment('APK_CHANNEL', defaultValue: 'arm64');
 const String appUpdateMetaUrl = 'https://majid6064.ir/app_version.json';
@@ -1569,7 +1569,8 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
   }
 
   String _getDisplayRemaining() {
-    if (userData == null) return 'نامحدود';
+    if (userData == null) return '—';
+    if (!_hasActiveSubscription()) return '—';
     final total = userData!['total_gb'];
     final remaining = userData!['remaining_gb'];
     if (total == null || total == 0 || total == 0.0 || total == '0') {
@@ -1955,7 +1956,10 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
   }
 
   String _getDisplayExpire() {
-    if (userData == null) return 'نامحدود';
+    if (userData == null) return '—';
+    if (!_hasActiveSubscription()) {
+      return '${userData!['expire_days'] ?? 'بدون اشتراک'}';
+    }
     final total = userData!['total_gb'];
     final expire = userData!['expire_days'];
     final expireStr = '$expire'.trim();
@@ -2920,7 +2924,205 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     return serverList.isNotEmpty;
   }
 
-    Future<void> _fetchUserData(
+  
+  Future<void> _openPurchasePlans() async {
+    if (savedUser == null || savedPass == null) {
+      _showToast('ابتدا وارد حساب شوید');
+      return;
+    }
+    if (mounted) setState(() => isLoading = true);
+    try {
+      final res = await http
+          .get(Uri.parse('https://majid6064.ir/api.php?action=list_plans'))
+          .timeout(const Duration(seconds: 15));
+      final data = json.decode(res.body);
+      if (data['ok'] != true) {
+        _showToast(data['msg']?.toString() ?? 'دریافت پلن‌ها ناموفق');
+        return;
+      }
+      final plans = (data['plans'] as List?) ?? [];
+      if (plans.isEmpty) {
+        _showToast('پلنی برای خرید موجود نیست');
+        return;
+      }
+      if (!mounted) return;
+      await showModalBottomSheet<void>(
+        context: context,
+        backgroundColor: const Color(0xFF131B2E),
+        isScrollControlled: true,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        builder: (ctx) {
+          return Directionality(
+            textDirection: TextDirection.rtl,
+            child: SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: Colors.white24,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    const Text(
+                      'انتخاب پلن',
+                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                    ),
+                    const SizedBox(height: 6),
+                    const Text(
+                      'پس از انتخاب، صفحه پرداخت امن باز می‌شود',
+                      style: TextStyle(color: Colors.white54, fontSize: 12),
+                    ),
+                    const SizedBox(height: 12),
+                    Flexible(
+                      child: ListView.separated(
+                        shrinkWrap: true,
+                        itemCount: plans.length,
+                        separatorBuilder: (_, __) => const SizedBox(height: 8),
+                        itemBuilder: (_, i) {
+                          final pl = plans[i] as Map;
+                          final title = '${pl['title'] ?? pl['plan_key']}';
+                          final price = '${pl['price_fmt'] ?? pl['price']} تومان';
+                          final vol = pl['vol'];
+                          final days = pl['days'];
+                          final sub = [
+                            if (vol != null) '${vol} GB',
+                            if (days != null && days != 0) '$days روز',
+                          ].join(' · ');
+                          return Material(
+                            color: const Color(0xFF0A0E1A),
+                            borderRadius: BorderRadius.circular(14),
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(14),
+                              onTap: () {
+                                Navigator.pop(ctx);
+                                _createInvoiceAndPay('${pl['plan_key']}');
+                              },
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                                child: Row(
+                                  children: [
+                                    const Icon(Icons.shopping_bag_outlined, color: Color(0xFF00E5FF), size: 22),
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13.5)),
+                                          if (sub.isNotEmpty)
+                                            Text(sub, style: const TextStyle(color: Colors.white54, fontSize: 11.5)),
+                                        ],
+                                      ),
+                                    ),
+                                    Text(price, style: const TextStyle(color: Color(0xFF00FFA3), fontWeight: FontWeight.bold, fontSize: 12.5)),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
+      );
+    } catch (e) {
+      _showToast('خطا در دریافت پلن‌ها', isError: true);
+    } finally {
+      if (mounted) setState(() => isLoading = false);
+    }
+  }
+
+  Future<void> _createInvoiceAndPay(String planKey) async {
+    final u = savedUser;
+    final pw = savedPass;
+    if (u == null || pw == null) return;
+    if (mounted) setState(() => isLoading = true);
+    try {
+      final res = await http
+          .post(
+            Uri.parse('https://majid6064.ir/api.php'),
+            headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+            body: {
+              'action': 'create_invoice',
+              'username': u,
+              'password': pw,
+              'plan_key': planKey,
+            },
+          )
+          .timeout(const Duration(seconds: 20));
+      final data = json.decode(res.body);
+      if (data['ok'] != true) {
+        _showToast(data['msg']?.toString() ?? 'ساخت فاکتور ناموفق', isError: true);
+        return;
+      }
+      final payUrl = '${data['pay_url'] ?? ''}';
+      final price = '${data['price_fmt'] ?? data['price']}';
+      if (!mounted) return;
+      await showDialog<void>(
+        context: context,
+        builder: (ctx) {
+          return Directionality(
+            textDirection: TextDirection.rtl,
+            child: AlertDialog(
+              backgroundColor: const Color(0xFF131B2E),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              title: const Text('فاکتور آماده است', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              content: Text(
+                'مبلغ قابل پرداخت: $price تومان\n\n'
+                'در صفحه بعد کارت و مبلغ نمایش داده می‌شود.\n'
+                'مبلغ را دقیق واریز کنید تا معمولاً به‌صورت خودکار تأیید شود.',
+                style: const TextStyle(color: Colors.white70, height: 1.45, fontSize: 13.5),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text('بعداً', style: TextStyle(color: Colors.grey)),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF00E5FF),
+                    foregroundColor: Colors.black,
+                  ),
+                  onPressed: () async {
+                    Navigator.pop(ctx);
+                    if (payUrl.isNotEmpty) {
+                      final uri = Uri.parse(payUrl);
+                      if (await canLaunchUrl(uri)) {
+                        await launchUrl(uri, mode: LaunchMode.externalApplication);
+                      } else {
+                        _showToast('نتوانست صفحه پرداخت را باز کند', isError: true);
+                      }
+                    } else {
+                      _showToast('لینک پرداخت ساخته نشد', isError: true);
+                    }
+                  },
+                  child: const Text('رفتن به پرداخت'),
+                ),
+              ],
+            ),
+          );
+        },
+      );
+    } catch (e) {
+      _showToast('خطا در ساخت فاکتور', isError: true);
+    } finally {
+      if (mounted) setState(() => isLoading = false);
+    }
+  }
+
+  Future<void> _fetchUserData(
     String username,
     String password, {
     bool isManualRefresh = false,
@@ -6389,19 +6591,34 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
             ),
           ],
           if (userData != null && !_hasActiveSubscription()) ...[
-            const SizedBox(height: 12),
+            const SizedBox(height: 10),
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 14),
+              padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
               decoration: BoxDecoration(
                 color: const Color(0xFFFFA726).withOpacity(0.12),
                 borderRadius: BorderRadius.circular(14),
                 border: Border.all(color: const Color(0xFFFFA726).withOpacity(0.35)),
               ),
-              child: const Text(
-                'هنوز اشتراک فعالی ندارید.\nفاز بعد: خرید از داخل اپ — فعلاً از ربات تلگرام می‌توانید بخرید.',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.white70, fontSize: 12, height: 1.4),
+              child: Column(
+                children: [
+                  const Text(
+                    'هنوز اشتراک فعالی ندارید',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12.5),
+                  ),
+                  const SizedBox(height: 8),
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF00E5FF),
+                      foregroundColor: Colors.black,
+                      minimumSize: const Size(double.infinity, 42),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    onPressed: _openPurchasePlans,
+                    child: const Text('خرید اشتراک', style: TextStyle(fontWeight: FontWeight.bold)),
+                  ),
+                ],
               ),
             ),
           ],

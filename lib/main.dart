@@ -18,8 +18,8 @@ void main() {
 }
 
 // مشخصات نسخه (نمایش داخل اپ) — با هر ریلیز دستی بالا ببر
-const String appVersion = 'v2.0.7';
-const int appVersionCode = 207;
+const String appVersion = 'v2.0.9';
+const int appVersionCode = 209;
 /// کانال بسته‌بندی: با --dart-define=APK_CHANNEL=arm64|universal|arm32 در بیلد ست می‌شود
 const String apkChannel = String.fromEnvironment('APK_CHANNEL', defaultValue: 'arm64');
 const String appUpdateMetaUrl = 'https://majid6064.ir/app_version.json';
@@ -3002,8 +3002,48 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
             final st = '${data['status'] ?? ''}'.toLowerCase();
             if (st == 'approved') {
               await _savePendingPayToken(null);
-              _showToast(data['msg']?.toString() ?? 'اشتراک فعال شد ✅', isError: false);
-              await _fetchUserData(u, pw, isManualRefresh: true, doPingOnLoad: false);
+              final panelUser = '${data['panel_username'] ?? ''}';
+              final isAddSvc = data['is_additional_service'] == true;
+              final msg = data['msg']?.toString() ?? 'اشتراک فعال شد ✅';
+              if (isAddSvc && panelUser.isNotEmpty && panelUser != u) {
+                await _upsertProfile(panelUser, pw, label: 'سرویس · $panelUser');
+                await _activateProfile(panelUser, pw, fetch: true);
+                if (mounted) {
+                  await showDialog<void>(
+                    context: context,
+                    builder: (ctx) => Directionality(
+                      textDirection: TextDirection.rtl,
+                      child: AlertDialog(
+                        backgroundColor: const Color(0xFF131B2E),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                        title: const Text('سرویس جدید اضافه شد', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                        content: Text(
+                          '$msg
+
+'
+                          'نام سرویس جدید: $panelUser
+'
+                          'اشتراک قبلی در لیست حساب‌ها باقی است؛ از مدیریت پروفایل می‌توانید بین سرویس‌ها جابه‌جا شوید.',
+                          style: const TextStyle(color: Colors.white70, height: 1.45, fontSize: 13.5),
+                        ),
+                        actions: [
+                          ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF00E5FF),
+                              foregroundColor: Colors.black,
+                            ),
+                            onPressed: () => Navigator.pop(ctx),
+                            child: const Text('متوجه شدم'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }
+              } else {
+                _showToast(msg, isError: false);
+                await _fetchUserData(u, pw, isManualRefresh: true, doPingOnLoad: false);
+              }
               break;
             }
             if (st == 'expired' || st == 'cancelled' || st == 'rejected') {
@@ -3030,6 +3070,153 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
       }
     } finally {
       _paymentWatchRunning = false;
+    }
+  }
+
+
+  Future<void> _claimFreeTest() async {
+    final u = savedUser;
+    final pw = savedPass;
+    if (u == null || pw == null) {
+      _showToast('ابتدا وارد حساب شوید');
+      return;
+    }
+    if (mounted) setState(() => isLoading = true);
+    try {
+      final res = await http
+          .post(
+            Uri.parse('https://majid6064.ir/api.php'),
+            headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+            body: {
+              'action': 'claim_free_test',
+              'username': u,
+              'password': pw,
+            },
+          )
+          .timeout(const Duration(seconds: 25));
+      final data = json.decode(res.body);
+      if (data is Map && data['ok'] == true) {
+        _showToast(data['msg']?.toString() ?? 'تست فعال شد ✅', isError: false);
+        await _fetchUserData(u, pw, isManualRefresh: true, doPingOnLoad: false);
+      } else {
+        _showToast((data is Map ? data['msg'] : null)?.toString() ?? 'دریافت تست ناموفق', isError: true);
+      }
+    } catch (_) {
+      _showToast('خطا در ارتباط با سرور', isError: true);
+    } finally {
+      if (mounted) setState(() => isLoading = false);
+    }
+  }
+
+  Future<void> _openRenewPlans() async {
+    final u = savedUser;
+    final pw = savedPass;
+    if (u == null || pw == null) {
+      _showToast('ابتدا وارد حساب شوید');
+      return;
+    }
+    if (mounted) setState(() => isLoading = true);
+    try {
+      final res = await http
+          .post(
+            Uri.parse('https://majid6064.ir/api.php'),
+            headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+            body: {
+              'action': 'list_renew_plans',
+              'username': u,
+              'password': pw,
+            },
+          )
+          .timeout(const Duration(seconds: 20));
+      final data = json.decode(res.body);
+      if (data is! Map || data['ok'] != true) {
+        _showToast((data is Map ? data['msg'] : null)?.toString() ?? 'دریافت بسته‌های تمدید ناموفق', isError: true);
+        return;
+      }
+      final plans = (data['plans'] as List?) ?? [];
+      final hint = '${data['hint'] ?? ''}';
+      if (plans.isEmpty) {
+        _showToast(data['msg']?.toString() ?? 'بسته‌ای برای تمدید نیست');
+        return;
+      }
+      if (!mounted) return;
+      await showModalBottomSheet<void>(
+        context: context,
+        backgroundColor: const Color(0xFF131B2E),
+        isScrollControlled: true,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        builder: (ctx) {
+          return Directionality(
+            textDirection: TextDirection.rtl,
+            child: SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
+                child: SizedBox(
+                  height: MediaQuery.of(ctx).size.height * 0.55,
+                  child: Column(
+                    children: [
+                      const Text('تمدید اشتراک', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+                      const SizedBox(height: 6),
+                      Text(
+                        hint.isNotEmpty ? hint : 'فقط بسته‌های هم‌نوع با اشتراک فعلی',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(color: Colors.white54, fontSize: 12),
+                      ),
+                      const SizedBox(height: 12),
+                      Expanded(
+                        child: ListView(
+                          children: [
+                            for (final raw in plans)
+                              Builder(builder: (_) {
+                                final p = raw as Map;
+                                final title = '${p['title'] ?? ''}';
+                                final price = '${p['price_fmt'] ?? p['price']} تومان';
+                                final key = '${p['plan_key'] ?? ''}';
+                                return Padding(
+                                  padding: const EdgeInsets.only(bottom: 8),
+                                  child: Material(
+                                    color: const Color(0xFF1A2338),
+                                    borderRadius: BorderRadius.circular(14),
+                                    child: InkWell(
+                                      borderRadius: BorderRadius.circular(14),
+                                      onTap: () {
+                                        Navigator.pop(ctx);
+                                        _createInvoiceAndPay(key, actionType: 'renew');
+                                      },
+                                      child: Padding(
+                                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                                        child: Row(
+                                          children: [
+                                            const Icon(Icons.autorenew, color: Color(0xFF00FFA3), size: 20),
+                                            const SizedBox(width: 10),
+                                            Expanded(
+                                              child: Text(title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13.5)),
+                                            ),
+                                            Text(price, style: const TextStyle(color: Color(0xFF00FFA3), fontWeight: FontWeight.bold, fontSize: 12.5)),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              }),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          );
+        },
+      );
+    } catch (_) {
+      _showToast('خطا در دریافت تمدید', isError: true);
+    } finally {
+      if (mounted) setState(() => isLoading = false);
     }
   }
 
@@ -3185,7 +3372,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     );
   }
 
-  Future<void> _createInvoiceAndPay(String planKey) async {
+  Future<void> _createInvoiceAndPay(String planKey, {String actionType = 'new'}) async {
     final u = savedUser;
     final pw = savedPass;
     if (u == null || pw == null) return;
@@ -3200,6 +3387,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
               'username': u,
               'password': pw,
               'plan_key': planKey,
+              'action_type': actionType,
             },
           )
           .timeout(const Duration(seconds: 20));
@@ -3211,6 +3399,8 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
       final payUrl = '${data['pay_url'] ?? ''}';
       final price = '${data['price_fmt'] ?? data['price']}';
       final discNote = '${data['discount_note'] ?? ''}';
+      final addNote = '${data['additional_note'] ?? ''}';
+      final isAdd = data['is_additional_service'] == true;
       if (!mounted) return;
       await showDialog<void>(
         context: context,
@@ -6772,6 +6962,19 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
                     onPressed: _openPurchasePlans,
                     child: const Text('خرید اشتراک', style: TextStyle(fontWeight: FontWeight.bold)),
                   ),
+                  if (userData?['can_claim_test'] == true) ...[
+                    const SizedBox(height: 8),
+                    OutlinedButton(
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: const Color(0xFFFFC107),
+                        side: const BorderSide(color: Color(0xFFFFC107)),
+                        minimumSize: const Size(double.infinity, 40),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      onPressed: isLoading ? null : _claimFreeTest,
+                      child: const Text('🎁 تست رایگان ۱۰۰ مگ', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5)),
+                    ),
+                  ],
                   if (_pendingPayToken != null) ...[
                     const SizedBox(height: 8),
                     OutlinedButton(
@@ -6796,6 +6999,20 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
                   ],
                 ],
               ),
+            ),
+          ],
+
+          if (userData != null && _hasActiveSubscription() && userData?['is_test_service'] != true && userData?['can_renew'] != false) ...[
+            const SizedBox(height: 10),
+            OutlinedButton(
+              style: OutlinedButton.styleFrom(
+                foregroundColor: const Color(0xFF00FFA3),
+                side: const BorderSide(color: Color(0xFF00FFA3)),
+                minimumSize: const Size(double.infinity, 40),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              onPressed: isLoading ? null : _openRenewPlans,
+              child: const Text('🔄 تمدید همین اشتراک', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5)),
             ),
           ],
           if (_shouldShowSosHelp()) ...[

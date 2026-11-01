@@ -18,8 +18,8 @@ void main() {
 }
 
 // مشخصات نسخه (نمایش داخل اپ) — با هر ریلیز دستی بالا ببر
-const String appVersion = 'v2.1.0';
-const int appVersionCode = 210;
+const String appVersion = 'v2.1.1';
+const int appVersionCode = 211;
 /// کانال بسته‌بندی: با --dart-define=APK_CHANNEL=arm64|universal|arm32 در بیلد ست می‌شود
 const String apkChannel = String.fromEnvironment('APK_CHANNEL', defaultValue: 'arm64');
 const String appUpdateMetaUrl = 'https://majid6064.ir/app_version.json';
@@ -7002,20 +7002,26 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
             ),
           ],
 
-          // اشتراک فعال غیرتست: تمدید + امکان خرید نوع دیگر
-          if (userData != null && _hasActiveSubscription() && userData?['is_test_service'] != true) ...[
+          // تمدید فقط وقتی حجم/زمان رو به اتمام است (قانون قبلی) + غیرتست
+          if (userData != null &&
+              _hasActiveSubscription() &&
+              userData?['is_test_service'] != true &&
+              _shouldShowRenewInBot()) ...[
             const SizedBox(height: 10),
-            if (userData?['can_renew'] != false)
-              OutlinedButton(
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: const Color(0xFF00FFA3),
-                  side: const BorderSide(color: Color(0xFF00FFA3)),
-                  minimumSize: const Size(double.infinity, 40),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                ),
-                onPressed: isLoading ? null : _openRenewPlans,
-                child: const Text('🔄 تمدید همین اشتراک', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5)),
+            OutlinedButton(
+              style: OutlinedButton.styleFrom(
+                foregroundColor: const Color(0xFF00FFA3),
+                side: const BorderSide(color: Color(0xFF00FFA3)),
+                minimumSize: const Size(double.infinity, 40),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
+              onPressed: isLoading ? null : _openRenewPlans,
+              child: const Text('🔄 تمدید همین اشتراک', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5)),
+            ),
+          ],
+
+          // خرید همیشه (با اشتراک یا بدون اشتراک قبلاً پوشش داده شده؛ اینجا برای فعال‌ها)
+          if (userData != null && _hasActiveSubscription()) ...[
             const SizedBox(height: 8),
             OutlinedButton(
               style: OutlinedButton.styleFrom(
@@ -7025,22 +7031,12 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
               onPressed: isLoading ? null : _openPurchasePlans,
-              child: const Text('🛒 خرید اشتراک جدید / نوع دیگر', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5)),
-            ),
-          ],
-
-          // تست فعال: فقط خرید (تبدیل به اشتراک واقعی)
-          if (userData != null && _hasActiveSubscription() && userData?['is_test_service'] == true) ...[
-            const SizedBox(height: 10),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF00E5FF),
-                foregroundColor: Colors.black,
-                minimumSize: const Size(double.infinity, 42),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              child: Text(
+                userData?['is_test_service'] == true
+                    ? 'خرید اشتراک'
+                    : '🛒 خرید اشتراک جدید / نوع دیگر',
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5),
               ),
-              onPressed: isLoading ? null : _openPurchasePlans,
-              child: const Text('خرید اشتراک', style: TextStyle(fontWeight: FontWeight.bold)),
             ),
           ],
           if (_shouldShowSosHelp()) ...[

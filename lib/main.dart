@@ -18,8 +18,8 @@ void main() {
 }
 
 // مشخصات نسخه (نمایش داخل اپ) — با هر ریلیز دستی بالا ببر
-const String appVersion = 'v2.0.6';
-const int appVersionCode = 206;
+const String appVersion = 'v2.0.7';
+const int appVersionCode = 207;
 /// کانال بسته‌بندی: با --dart-define=APK_CHANNEL=arm64|universal|arm32 در بیلد ست می‌شود
 const String apkChannel = String.fromEnvironment('APK_CHANNEL', defaultValue: 'arm64');
 const String appUpdateMetaUrl = 'https://majid6064.ir/app_version.json';
@@ -395,7 +395,7 @@ class MainVpnScreen extends StatefulWidget {
   State<MainVpnScreen> createState() => _MainVpnScreenState();
 }
 
-class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateMixin {
+class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateMixin, WidgetsBindingObserver {
   late final V2ray flutterV2ray = V2ray(
     onStatusChanged: (status) {
       if (!mounted) return;
@@ -439,6 +439,9 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
   late AnimationController _rotateController;
 
   bool isLoading = false;
+  /// توکن فاکتور در انتظار تأیید (پولینگ بعد از پرداخت)
+  String? _pendingPayToken;
+  bool _paymentWatchRunning = false;
   bool isConnecting = false;
   bool isPingingAll = false;
   bool isRefreshingServers = false;
@@ -513,6 +516,9 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _restorePendingPayToken();
+
     _initCore();
 
     _pulseController = AnimationController(
@@ -1549,6 +1555,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     _rotateController.dispose();
     _userController.dispose();
     _passController.dispose();
+        WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
 
@@ -2925,6 +2932,107 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
   }
 
   
+
+  Future<void> _restorePendingPayToken() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final t = prefs.getString('pending_pay_token');
+      if (t != null && t.length >= 16 && mounted) {
+        setState(() => _pendingPayToken = t);
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _savePendingPayToken(String? token) async {
+    _pendingPayToken = (token != null && token.length >= 16) ? token : null;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (_pendingPayToken != null) {
+        await prefs.setString('pending_pay_token', _pendingPayToken!);
+      } else {
+        await prefs.remove('pending_pay_token');
+      }
+    } catch (_) {}
+    if (mounted) setState(() {});
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    if (state == AppLifecycleState.resumed &&
+        _pendingPayToken != null &&
+        !_paymentWatchRunning) {
+      _watchPaymentStatus(auto: true);
+    }
+  }
+
+  /// پولینگ وضعیت فاکتور — auto بعد از برگشت از مرورگر، یا دستی با دکمه
+  Future<void> _watchPaymentStatus({bool auto = false}) async {
+    final token = _pendingPayToken;
+    final u = savedUser;
+    final pw = savedPass;
+    if (token == null || u == null || pw == null) {
+      if (!auto) _showToast('فاکتور در انتظاری نیست');
+      return;
+    }
+    if (_paymentWatchRunning) return;
+    _paymentWatchRunning = true;
+    if (!auto && mounted) {
+      _showToast('در حال بررسی وضعیت پرداخت…');
+    }
+    try {
+      final rounds = auto ? 10 : 1; // خودکار ~۳۰ثانیه؛ دستی یک‌بار
+      for (var i = 0; i < rounds; i++) {
+        if (!mounted) break;
+        try {
+          final res = await http
+              .post(
+                Uri.parse('https://majid6064.ir/api.php'),
+                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                body: {
+                  'action': 'invoice_status',
+                  'username': u,
+                  'password': pw,
+                  'pay_token': token,
+                },
+              )
+              .timeout(const Duration(seconds: 12));
+          final data = json.decode(res.body);
+          if (data is Map && data['ok'] == true) {
+            final st = '${data['status'] ?? ''}'.toLowerCase();
+            if (st == 'approved') {
+              await _savePendingPayToken(null);
+              _showToast(data['msg']?.toString() ?? 'اشتراک فعال شد ✅', isError: false);
+              await _fetchUserData(u, pw, isManualRefresh: true, doPingOnLoad: false);
+              break;
+            }
+            if (st == 'expired' || st == 'cancelled' || st == 'rejected') {
+              await _savePendingPayToken(null);
+              _showToast(data['msg']?.toString() ?? 'فاکتور منقضی یا لغو شد', isError: true);
+              break;
+            }
+            // pending
+            if (!auto && i == rounds - 1) {
+              _showToast(data['msg']?.toString() ?? 'هنوز در انتظار تأیید پرداخت');
+            }
+          } else if (!auto) {
+            _showToast((data is Map ? data['msg'] : null)?.toString() ?? 'بررسی ناموفق', isError: true);
+            break;
+          }
+        } catch (_) {
+          if (!auto && i == rounds - 1) {
+            _showToast('خطا در بررسی وضعیت', isError: true);
+          }
+        }
+        if (i < rounds - 1) {
+          await Future.delayed(const Duration(seconds: 3));
+        }
+      }
+    } finally {
+      _paymentWatchRunning = false;
+    }
+  }
+
   Future<void> _openPurchasePlans() async {
     if (savedUser == null || savedPass == null) {
       _showToast('ابتدا وارد حساب شوید');
@@ -3132,10 +3240,21 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
                   ),
                   onPressed: () async {
                     Navigator.pop(ctx);
+                    final tok = '${data['pay_token'] ?? ''}';
+                    if (tok.length >= 16) {
+                      await _savePendingPayToken(tok);
+                    }
                     if (payUrl.isNotEmpty) {
                       final uri = Uri.parse(payUrl);
                       if (await canLaunchUrl(uri)) {
                         await launchUrl(uri, mode: LaunchMode.externalApplication);
+                        // بعد از برگشت از مرورگر، lifecycle پولینگ را شروع می‌کند؛
+                        // اینجا هم یک دور کوتاه در پس‌زمینه می‌گذاریم.
+                        Future.delayed(const Duration(seconds: 2), () {
+                          if (mounted && _pendingPayToken != null) {
+                            _watchPaymentStatus(auto: true);
+                          }
+                        });
                       } else {
                         _showToast('نتوانست صفحه پرداخت را باز کند', isError: true);
                       }
@@ -6653,6 +6772,28 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
                     onPressed: _openPurchasePlans,
                     child: const Text('خرید اشتراک', style: TextStyle(fontWeight: FontWeight.bold)),
                   ),
+                  if (_pendingPayToken != null) ...[
+                    const SizedBox(height: 8),
+                    OutlinedButton(
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: const Color(0xFF00FFA3),
+                        side: const BorderSide(color: Color(0xFF00FFA3)),
+                        minimumSize: const Size(double.infinity, 40),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      onPressed: _paymentWatchRunning ? null : () => _watchPaymentStatus(auto: false),
+                      child: Text(
+                        _paymentWatchRunning ? 'در حال بررسی…' : 'بررسی وضعیت پرداخت',
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    const Text(
+                      'اگر واریز کردید و برگشتید، چند لحظه صبر کنید یا این دکمه را بزنید',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: Colors.white54, fontSize: 10.5, height: 1.3),
+                    ),
+                  ],
                 ],
               ),
             ),

@@ -475,6 +475,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
   final TextEditingController _ticketBodyCtrl = TextEditingController();
   List<Map<String, dynamic>> _tickets = [];
   bool _ticketsLoading = false;
+  Timer? _ticketPollTimer;
   // تنظیمات کاربر
   /// ظاهر: classic | jet
   String uiThemeId = 'classic';
@@ -2915,28 +2916,38 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
   }
 
   Future<void> _createTicket(String subject, String body, {String? username, String? email}) async {
-    final deviceId = await _getOrCreateDeviceId();
-    final uri = Uri.parse('https://majid6064.ir/api.php');
-    final res = await http
-        .post(
-          uri,
-          headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-          body: {
-            'action': 'ticket_create',
-            'device_id': deviceId,
-            'subject': subject,
-            'body': body,
-            if (username != null && username.isNotEmpty) 'username': username,
-            if (email != null && email.isNotEmpty) 'email': email,
-          },
-        )
-        .timeout(const Duration(seconds: 15));
-    final data = Map<String, dynamic>.from(json.decode(res.body) as Map);
-    if (data['ok'] == true) {
-      _showToast(data['msg']?.toString() ?? 'تیکت ثبت شد', isError: false);
-      await _loadTickets();
-    } else {
-      _showToast(data['msg']?.toString() ?? 'ثبت تیکت ناموفق', isError: true);
+    try {
+      final deviceId = await _getOrCreateDeviceId();
+      final uri = Uri.parse('https://majid6064.ir/api.php');
+      final res = await http
+          .post(
+            uri,
+            headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+            body: {
+              'action': 'ticket_create',
+              'device_id': deviceId,
+              'subject': subject,
+              'body': body,
+              if (username != null && username.isNotEmpty) 'username': username,
+              if (email != null && email.isNotEmpty) 'email': email,
+            },
+          )
+          .timeout(const Duration(seconds: 20));
+      Map<String, dynamic> data = {};
+      try {
+        data = Map<String, dynamic>.from(json.decode(res.body) as Map);
+      } catch (_) {
+        _showToast('پاسخ سرور نامعتبر بود (کد ${res.statusCode})', isError: true);
+        return;
+      }
+      if (res.statusCode >= 200 && res.statusCode < 300 && data['ok'] == true) {
+        _showToast(data['msg']?.toString() ?? 'تیکت ثبت شد', isError: false);
+        await _loadTickets();
+      } else {
+        _showToast(data['msg']?.toString() ?? 'ثبت تیکت ناموفق', isError: true);
+      }
+    } catch (e) {
+      _showToast('خطا در ارسال تیکت — اتصال یا سرور را بررسی کنید', isError: true);
     }
   }
 
@@ -2965,6 +2976,27 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
         .toList();
     if (!mounted) return;
     final replyCtrl = TextEditingController();
+    var liveMsgs = List<Map<String, dynamic>>.from(msgs);
+    _ticketPollTimer?.cancel();
+    _ticketPollTimer = Timer.periodic(const Duration(seconds: 5), (timer) async {
+      if (!mounted) { timer.cancel(); return; }
+      try {
+        final resP = await http.post(uri, headers: {'Content-Type': 'application/x-www-form-urlencoded'}, body: {
+          'action': 'ticket_thread', 'device_id': deviceId, 'ticket_id': '${ticketId}',
+        }).timeout(const Duration(seconds: 10));
+        final dP = Map<String, dynamic>.from(json.decode(resP.body) as Map);
+        if (dP['ok'] == true) {
+          final newMsgs = (dP['messages'] as List? ?? []).map((e) => Map<String, dynamic>.from(e as Map)).toList();
+          if (newMsgs.length != liveMsgs.length) {
+            timer.cancel();
+            if (mounted && Navigator.canPop(context)) {
+              Navigator.pop(context);
+              await _openTicketThread(ticketId);
+            }
+          }
+        }
+      } catch (_) {}
+    });
     await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -3084,11 +3116,14 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
         );
       },
     );
+      _ticketPollTimer?.cancel();
   }
-
   Future<void> _openSupportTicketsSheet() async {
     await _loadTickets();
     if (!mounted) return;
+    String statusMsg = '';
+    bool statusErr = false;
+    bool sending = false;
     await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -3117,6 +3152,26 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
                       'بدون نیاز به ورود می‌توانید تیکت بگذارید و پاسخ ادمین را اینجا ببینید.',
                       style: TextStyle(color: Colors.white.withOpacity(0.55), fontSize: 12, height: 1.35),
                     ),
+                    if (statusMsg.isNotEmpty) ...[
+                      const SizedBox(height: 10),
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: statusErr ? const Color(0x33FF5252) : const Color(0x3300FFA3),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: statusErr ? const Color(0xFFFF5252) : const Color(0xFF00FFA3)),
+                        ),
+                        child: Text(
+                          statusMsg,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: statusErr ? const Color(0xFFFF8A80) : const Color(0xFF69F0AE),
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 12),
                     TextField(
                       controller: _ticketSubjectCtrl,
@@ -3144,23 +3199,75 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
                     ),
                     const SizedBox(height: 8),
                     ElevatedButton(
-                      onPressed: () async {
-                        final s = _ticketSubjectCtrl.text.trim();
-                        final b = _ticketBodyCtrl.text.trim();
-                        if (s.length < 3 || b.length < 5) {
-                          _showToast('موضوع و متن را کامل‌تر بنویسید', isError: true);
-                          return;
-                        }
-                        await _createTicket(
-                          s,
-                          b,
-                          username: _userController.text.trim().isEmpty ? savedUser : _userController.text.trim(),
-                        );
-                        _ticketSubjectCtrl.clear();
-                        _ticketBodyCtrl.clear();
-                        setLocal(() {});
-                      },
-                      child: const Text('ارسال تیکت'),
+                      onPressed: sending
+                          ? null
+                          : () async {
+                              final s = _ticketSubjectCtrl.text.trim();
+                              final b = _ticketBodyCtrl.text.trim();
+                              if (s.length < 2 || b.length < 2) {
+                                setLocal(() {
+                                  statusMsg = 'موضوع و متن را بنویسید (حداقل ۲ کاراکتر).';
+                                  statusErr = true;
+                                });
+                                return;
+                              }
+                              setLocal(() {
+                                sending = true;
+                                statusMsg = 'در حال ارسال...';
+                                statusErr = false;
+                              });
+                              try {
+                                final deviceId = await _getOrCreateDeviceId();
+                                final uri = Uri.parse('https://majid6064.ir/api.php');
+                                final res = await http
+                                    .post(
+                                      uri,
+                                      headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                                      body: {
+                                        'action': 'ticket_create',
+                                        'device_id': deviceId,
+                                        'subject': s,
+                                        'body': b,
+                                        if ((_userController.text.trim().isNotEmpty
+                                                ? _userController.text.trim()
+                                                : (savedUser ?? ''))
+                                            .isNotEmpty)
+                                          'username': _userController.text.trim().isNotEmpty
+                                              ? _userController.text.trim()
+                                              : (savedUser ?? ''),
+                                      },
+                                    )
+                                    .timeout(const Duration(seconds: 20));
+                                Map<String, dynamic> data = {};
+                                try {
+                                  data = Map<String, dynamic>.from(json.decode(res.body) as Map);
+                                } catch (_) {}
+                                if (res.statusCode >= 200 && res.statusCode < 300 && data['ok'] == true) {
+                                  _ticketSubjectCtrl.clear();
+                                  _ticketBodyCtrl.clear();
+                                  await _loadTickets();
+                                  setLocal(() {
+                                    sending = false;
+                                    statusMsg = data['msg']?.toString() ?? 'تیکت ثبت شد.';
+                                    statusErr = false;
+                                  });
+                                } else {
+                                  setLocal(() {
+                                    sending = false;
+                                    statusMsg = data['msg']?.toString() ??
+                                        'ثبت ناموفق (کد ${res.statusCode}). api.php را روی سرور چک کنید.';
+                                    statusErr = true;
+                                  });
+                                }
+                              } catch (e) {
+                                setLocal(() {
+                                  sending = false;
+                                  statusMsg = 'خطای ارتباط با سرور. اینترنت یا api.php را بررسی کنید.';
+                                  statusErr = true;
+                                });
+                              }
+                            },
+                      child: Text(sending ? 'صبر کنید...' : 'ارسال تیکت'),
                     ),
                     const SizedBox(height: 8),
                     OutlinedButton.icon(
@@ -3212,6 +3319,35 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     );
   }
 
+
+
+  Future<void> _syncAppServicesFromApi(String loginUser, String password) async {
+    try {
+      final res = await http
+          .post(
+            Uri.parse('https://majid6064.ir/api.php'),
+            headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+            body: {
+              'action': 'list_services',
+              'username': loginUser,
+              'password': password,
+            },
+          )
+          .timeout(const Duration(seconds: 12));
+      final data = json.decode(res.body);
+      if (data is! Map || data['ok'] != true) return;
+      final list = (data['services'] as List? ?? []);
+      for (final raw in list) {
+        if (raw is! Map) continue;
+        final cn = '${raw['config_username'] ?? ''}'.trim();
+        if (cn.isEmpty) continue;
+        if (raw['is_test'] == true) continue;
+        final label = '${raw['label'] ?? cn}';
+        await _upsertProfile(cn, password, label: label);
+      }
+      if (mounted) setState(() {});
+    } catch (_) {}
+  }
 
   Future<void> _registerAppAccount(String username, String password, {String? email}) async {
     if (mounted) {
@@ -3839,6 +3975,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
           await prefs.setString('saved_username', username);
           await prefs.setString('saved_password', password);
           await _upsertProfile(username, password);
+        await _syncAppServicesFromApi(username, password);
 
           final List<dynamic> rawServers = data['servers'] ?? [];
           final parsed = rawServers.map((s) => ServerModel.fromJson(s)).toList();

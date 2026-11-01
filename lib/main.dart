@@ -7497,6 +7497,24 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     );
   }
 
+
+  BoxDecoration _dashCardDeco({Color? borderColor, double radius = 18}) {
+    final t = ui;
+    if (!isJetTheme) {
+      return BoxDecoration(
+        color: t.card,
+        borderRadius: BorderRadius.circular(radius),
+        border: Border.all(color: Colors.white.withOpacity(0.06)),
+      );
+    }
+    final bc = borderColor ?? t.accent;
+    return BoxDecoration(
+      color: t.card,
+      borderRadius: BorderRadius.circular(radius),
+      border: Border.all(color: bc.withOpacity(0.45), width: 1.15),
+    );
+  }
+
   Widget _buildCompactBadge(String label, String value, IconData icon, Color color) {
     return Column(
       children: [

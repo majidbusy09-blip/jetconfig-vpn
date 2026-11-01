@@ -468,6 +468,13 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
   bool get onlyFilteredApps => tunnelMode != 'full';
   String _selectedAppsFilter = '';
   bool _obscurePassword = true;
+  /// choose | login | register
+  String _authGate = 'choose';
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _ticketSubjectCtrl = TextEditingController();
+  final TextEditingController _ticketBodyCtrl = TextEditingController();
+  List<Map<String, dynamic>> _tickets = [];
+  bool _ticketsLoading = false;
   // تنظیمات کاربر
   /// ظاهر: classic | jet
   String uiThemeId = 'classic';
@@ -2869,7 +2876,344 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     }
   }
 
-  Future<void> _registerAppAccount(String username, String password) async {
+
+  Future<String> _getOrCreateDeviceId() async {
+    final prefs = await SharedPreferences.getInstance();
+    var id = prefs.getString('app_device_id') ?? '';
+    if (id.length < 12) {
+      final rnd = DateTime.now().millisecondsSinceEpoch.toRadixString(16);
+      final r2 = (DateTime.now().microsecondsSinceEpoch % 0xFFFFFF).toRadixString(16);
+      id = 'd_${rnd}_$r2';
+      await prefs.setString('app_device_id', id);
+    }
+    return id;
+  }
+
+  Future<void> _loadTickets() async {
+    if (mounted) setState(() => _ticketsLoading = true);
+    try {
+      final deviceId = await _getOrCreateDeviceId();
+      final uri = Uri.parse('https://majid6064.ir/api.php');
+      final res = await http
+          .post(
+            uri,
+            headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+            body: {'action': 'ticket_list', 'device_id': deviceId},
+          )
+          .timeout(const Duration(seconds: 15));
+      final data = Map<String, dynamic>.from(json.decode(res.body) as Map);
+      if (data['ok'] == true) {
+        final list = (data['tickets'] as List? ?? [])
+            .map((e) => Map<String, dynamic>.from(e as Map))
+            .toList();
+        if (mounted) setState(() => _tickets = list);
+      }
+    } catch (_) {
+    } finally {
+      if (mounted) setState(() => _ticketsLoading = false);
+    }
+  }
+
+  Future<void> _createTicket(String subject, String body, {String? username, String? email}) async {
+    final deviceId = await _getOrCreateDeviceId();
+    final uri = Uri.parse('https://majid6064.ir/api.php');
+    final res = await http
+        .post(
+          uri,
+          headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+          body: {
+            'action': 'ticket_create',
+            'device_id': deviceId,
+            'subject': subject,
+            'body': body,
+            if (username != null && username.isNotEmpty) 'username': username,
+            if (email != null && email.isNotEmpty) 'email': email,
+          },
+        )
+        .timeout(const Duration(seconds: 15));
+    final data = Map<String, dynamic>.from(json.decode(res.body) as Map);
+    if (data['ok'] == true) {
+      _showToast(data['msg']?.toString() ?? 'تیکت ثبت شد', isError: false);
+      await _loadTickets();
+    } else {
+      _showToast(data['msg']?.toString() ?? 'ثبت تیکت ناموفق', isError: true);
+    }
+  }
+
+  Future<void> _openTicketThread(int ticketId) async {
+    final deviceId = await _getOrCreateDeviceId();
+    final uri = Uri.parse('https://majid6064.ir/api.php');
+    final res = await http
+        .post(
+          uri,
+          headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+          body: {
+            'action': 'ticket_thread',
+            'device_id': deviceId,
+            'ticket_id': '$ticketId',
+          },
+        )
+        .timeout(const Duration(seconds: 15));
+    final data = Map<String, dynamic>.from(json.decode(res.body) as Map);
+    if (data['ok'] != true) {
+      _showToast(data['msg']?.toString() ?? 'خطا در دریافت تیکت', isError: true);
+      return;
+    }
+    final ticket = Map<String, dynamic>.from(data['ticket'] as Map);
+    final msgs = (data['messages'] as List? ?? [])
+        .map((e) => Map<String, dynamic>.from(e as Map))
+        .toList();
+    if (!mounted) return;
+    final replyCtrl = TextEditingController();
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: const Color(0xFF121A2A),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+      ),
+      builder: (ctx) {
+        return Padding(
+          padding: EdgeInsets.only(
+            left: 16,
+            right: 16,
+            top: 16,
+            bottom: MediaQuery.of(ctx).viewInsets.bottom + 16,
+          ),
+          child: SizedBox(
+            height: MediaQuery.of(ctx).size.height * 0.72,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  ticket['subject']?.toString() ?? 'تیکت',
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'وضعیت: ${ticket['status'] ?? ''}',
+                  style: const TextStyle(color: Colors.white54, fontSize: 12),
+                ),
+                const SizedBox(height: 10),
+                Expanded(
+                  child: ListView.builder(
+                    itemCount: msgs.length,
+                    itemBuilder: (_, i) {
+                      final m = msgs[i];
+                      final isAdmin = (m['sender']?.toString() ?? '') == 'admin';
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: 8),
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: isAdmin ? const Color(0xFF0F2920) : const Color(0xFF132033),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: isAdmin ? const Color(0xFF14532D) : const Color(0xFF1E3A5F),
+                          ),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              isAdmin ? 'پشتیبانی' : 'شما',
+                              style: TextStyle(
+                                color: isAdmin ? const Color(0xFF86EFAC) : const Color(0xFF93C5FD),
+                                fontSize: 11,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              m['body']?.toString() ?? '',
+                              style: const TextStyle(color: Colors.white, fontSize: 13.5, height: 1.4),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                if ((ticket['status']?.toString() ?? '') != 'closed') ...[
+                  TextField(
+                    controller: replyCtrl,
+                    maxLines: 3,
+                    style: const TextStyle(color: Colors.white, fontSize: 13),
+                    decoration: InputDecoration(
+                      hintText: 'پاسخ شما...',
+                      hintStyle: TextStyle(color: Colors.white.withOpacity(0.35)),
+                      filled: true,
+                      fillColor: const Color(0xFF0B1220),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  ElevatedButton(
+                    onPressed: () async {
+                      final body = replyCtrl.text.trim();
+                      if (body.length < 2) return;
+                      try {
+                        final res2 = await http
+                            .post(
+                              uri,
+                              headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                              body: {
+                                'action': 'ticket_reply',
+                                'device_id': deviceId,
+                                'ticket_id': '$ticketId',
+                                'body': body,
+                              },
+                            )
+                            .timeout(const Duration(seconds: 15));
+                        final d2 = Map<String, dynamic>.from(json.decode(res2.body) as Map);
+                        if (d2['ok'] == true) {
+                          if (ctx.mounted) Navigator.pop(ctx);
+                          _showToast('پاسخ ارسال شد', isError: false);
+                          await _openTicketThread(ticketId);
+                        } else {
+                          _showToast(d2['msg']?.toString() ?? 'خطا', isError: true);
+                        }
+                      } catch (_) {
+                        _showToast('خطای ارتباط', isError: true);
+                      }
+                    },
+                    child: const Text('ارسال پاسخ'),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _openSupportTicketsSheet() async {
+    await _loadTickets();
+    if (!mounted) return;
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: const Color(0xFF121A2A),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+      ),
+      builder: (ctx) {
+        return Padding(
+          padding: EdgeInsets.only(
+            left: 16,
+            right: 16,
+            top: 16,
+            bottom: MediaQuery.of(ctx).viewInsets.bottom + 16,
+          ),
+          child: SizedBox(
+            height: MediaQuery.of(ctx).size.height * 0.78,
+            child: StatefulBuilder(
+              builder: (ctx, setLocal) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const Text('پشتیبانی', style: TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 6),
+                    Text(
+                      'بدون نیاز به ورود می‌توانید تیکت بگذارید و پاسخ ادمین را اینجا ببینید.',
+                      style: TextStyle(color: Colors.white.withOpacity(0.55), fontSize: 12, height: 1.35),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: _ticketSubjectCtrl,
+                      style: const TextStyle(color: Colors.white, fontSize: 13),
+                      decoration: InputDecoration(
+                        labelText: 'موضوع',
+                        labelStyle: const TextStyle(color: Colors.white54),
+                        filled: true,
+                        fillColor: const Color(0xFF0B1220),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: _ticketBodyCtrl,
+                      maxLines: 4,
+                      style: const TextStyle(color: Colors.white, fontSize: 13),
+                      decoration: InputDecoration(
+                        labelText: 'متن پیام',
+                        labelStyle: const TextStyle(color: Colors.white54),
+                        filled: true,
+                        fillColor: const Color(0xFF0B1220),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    ElevatedButton(
+                      onPressed: () async {
+                        final s = _ticketSubjectCtrl.text.trim();
+                        final b = _ticketBodyCtrl.text.trim();
+                        if (s.length < 3 || b.length < 5) {
+                          _showToast('موضوع و متن را کامل‌تر بنویسید', isError: true);
+                          return;
+                        }
+                        await _createTicket(
+                          s,
+                          b,
+                          username: _userController.text.trim().isEmpty ? savedUser : _userController.text.trim(),
+                        );
+                        _ticketSubjectCtrl.clear();
+                        _ticketBodyCtrl.clear();
+                        setLocal(() {});
+                      },
+                      child: const Text('ارسال تیکت'),
+                    ),
+                    const SizedBox(height: 8),
+                    OutlinedButton.icon(
+                      onPressed: () => _openTelegram(telegramBotUrl),
+                      icon: const Icon(Icons.telegram, color: Color(0xFF00FFA3)),
+                      label: const Text('ربات تلگرام (اختیاری)', style: TextStyle(color: Color(0xFF00FFA3))),
+                    ),
+                    const SizedBox(height: 12),
+                    const Align(
+                      alignment: Alignment.centerRight,
+                      child: Text('تیکت‌های من', style: TextStyle(color: Colors.white70, fontSize: 13)),
+                    ),
+                    const SizedBox(height: 6),
+                    Expanded(
+                      child: _ticketsLoading
+                          ? const Center(child: CircularProgressIndicator())
+                          : (_tickets.isEmpty
+                              ? const Center(child: Text('تیکتی نیست', style: TextStyle(color: Colors.white38)))
+                              : ListView.builder(
+                                  itemCount: _tickets.length,
+                                  itemBuilder: (_, i) {
+                                    final tk = _tickets[i];
+                                    return ListTile(
+                                      contentPadding: EdgeInsets.zero,
+                                      title: Text(
+                                        '#${tk['id']} ${tk['subject'] ?? ''}',
+                                        style: const TextStyle(color: Colors.white, fontSize: 13),
+                                      ),
+                                      subtitle: Text(
+                                        '${tk['status'] ?? ''} · ${tk['updated_at'] ?? ''}',
+                                        style: const TextStyle(color: Colors.white38, fontSize: 11),
+                                      ),
+                                      trailing: const Icon(Icons.chevron_left, color: Colors.white38),
+                                      onTap: () {
+                                        final id = int.tryParse('${tk['id']}') ?? 0;
+                                        if (id > 0) _openTicketThread(id);
+                                      },
+                                    );
+                                  },
+                                )),
+                    ),
+                  ],
+                );
+              },
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+
+  Future<void> _registerAppAccount(String username, String password, {String? email}) async {
     if (mounted) {
       setState(() => isLoading = true);
     }
@@ -2883,6 +3227,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
               'action': 'register',
               'username': username,
               'password': password,
+              if (email != null && email.isNotEmpty) 'email': email,
             },
           )
           .timeout(const Duration(seconds: 15));
@@ -6486,10 +6831,10 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
                       OutlinedButton.icon(
                         onPressed: () {
                           Navigator.pop(ctx);
-                          _openTelegram(telegramBotUrl);
+                          _openSupportTicketsSheet();
                         },
                         icon: const Icon(Icons.support_agent_rounded, color: Color(0xFF00FFA3)),
-                        label: const Text('پشتیبانی / ربات تلگرام', style: TextStyle(color: Color(0xFF00FFA3))),
+                        label: const Text('پشتیبانی / تیکت', style: TextStyle(color: Color(0xFF00FFA3))),
                         style: OutlinedButton.styleFrom(
                           side: const BorderSide(color: Color(0xFF00FFA3), width: 1),
                           padding: const EdgeInsets.symmetric(vertical: 12),
@@ -6514,40 +6859,128 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
 
   Widget _buildLoginView() {
     final t = ui;
+    if (_authGate == 'choose') {
+      return SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 28.0, vertical: 24.0),
+        child: Column(
+          children: [
+            Container(
+              width: 100,
+              height: 100,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(28),
+                boxShadow: [
+                  BoxShadow(color: t.accent.withOpacity(0.35), blurRadius: 28, spreadRadius: 3),
+                ],
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(28),
+                child: Image.network(
+                  appLogoUrl,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => Container(
+                    color: t.card,
+                    child: Icon(Icons.rocket_launch_rounded, size: 50, color: t.accent),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text('JET VPN', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: t.text)),
+            const SizedBox(height: 6),
+            Text('اتصال سریع و پایدار', style: TextStyle(color: t.muted, fontSize: 12.5)),
+            const SizedBox(height: 28),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: t.accent,
+                foregroundColor: Colors.black,
+                minimumSize: const Size(double.infinity, 50),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              ),
+              onPressed: () => setState(() => _authGate = 'login'),
+              child: const Text('نام کاربری و رمز دارم — ورود', style: TextStyle(fontWeight: FontWeight.bold)),
+            ),
+            const SizedBox(height: 12),
+            OutlinedButton(
+              style: OutlinedButton.styleFrom(
+                foregroundColor: t.accent,
+                minimumSize: const Size(double.infinity, 50),
+                side: BorderSide(color: t.accent.withOpacity(0.6)),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              ),
+              onPressed: () => setState(() => _authGate = 'register'),
+              child: const Text('حساب ندارم — ثبت‌نام', style: TextStyle(fontWeight: FontWeight.bold)),
+            ),
+            const SizedBox(height: 16),
+            TextButton.icon(
+              onPressed: _openSupportTicketsSheet,
+              icon: Icon(Icons.support_agent_rounded, color: t.accent, size: 20),
+              label: Text('پشتیبانی / تیکت', style: TextStyle(color: t.accent, fontWeight: FontWeight.w600)),
+            ),
+            if (profiles.isNotEmpty) ...[
+              const SizedBox(height: 18),
+              const Align(
+                alignment: Alignment.centerRight,
+                child: Text('اشتراک‌های ذخیره‌شده', style: TextStyle(color: Colors.white54, fontSize: 12)),
+              ),
+              const SizedBox(height: 8),
+              ...profiles.map((pr) {
+                final u = pr['username'] ?? '';
+                final label = pr['label'] ?? u;
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Material(
+                    color: const Color(0xFF131B2E),
+                    borderRadius: BorderRadius.circular(14),
+                    child: ListTile(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        side: BorderSide(color: Colors.white.withOpacity(0.06)),
+                      ),
+                      title: Text(label, style: const TextStyle(color: Colors.white, fontSize: 13.5)),
+                      subtitle: Text(u, style: const TextStyle(color: Colors.white38, fontSize: 11)),
+                      trailing: const Icon(Icons.login_rounded, color: Colors.cyanAccent, size: 20),
+                      onTap: () {
+                        final pw = pr['password']?.toString() ?? '';
+                        if (u.isNotEmpty && pw.isNotEmpty) {
+                          _userController.text = u;
+                          _passController.text = pw;
+                          _fetchUserData(u, pw);
+                        }
+                      },
+                    ),
+                  ),
+                );
+              }),
+            ],
+          ],
+        ),
+      );
+    }
+
+    final isReg = _authGate == 'register';
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 28.0, vertical: 20.0),
       child: Column(
         children: [
-          Container(
-            width: 100,
-            height: 100,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(28),
-              boxShadow: [
-                BoxShadow(
-                  color: t.accent.withOpacity(0.35),
-                  blurRadius: 28,
-                  spreadRadius: 3,
-                ),
-              ],
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(28),
-              child: Image.network(
-                appLogoUrl,
-                fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => Container(
-                  color: t.card,
-                  child: Icon(Icons.rocket_launch_rounded, size: 50, color: t.accent),
-                ),
-              ),
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton.icon(
+              onPressed: () => setState(() => _authGate = 'choose'),
+              icon: Icon(Icons.arrow_forward_ios_rounded, size: 14, color: t.muted),
+              label: Text('بازگشت', style: TextStyle(color: t.muted)),
             ),
           ),
-          const SizedBox(height: 16),
-          Text('JET VPN', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: t.text)),
-          const SizedBox(height: 4),
-          Text('ورود هوشمند به اشتراک پرسرعت', style: TextStyle(color: t.muted, fontSize: 12)),
-          const SizedBox(height: 22),
+          Text(
+            isReg ? 'ثبت‌نام' : 'ورود',
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: t.text),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            isReg ? 'نام کاربری و رمز دلخواه بسازید' : 'نام کاربری و رمز خود را وارد کنید',
+            style: TextStyle(color: t.muted, fontSize: 12.5),
+          ),
+          const SizedBox(height: 18),
           TextField(
             controller: _userController,
             textAlign: TextAlign.center,
@@ -6571,7 +7004,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
             textAlign: TextAlign.center,
             style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.bold, color: t.text),
             decoration: InputDecoration(
-              hintText: 'رمز عبور اشتراک',
+              hintText: isReg ? 'رمز (۵ تا ۸ کاراکتر انگلیسی)' : 'رمز عبور',
               hintStyle: TextStyle(color: t.muted.withOpacity(0.6), fontSize: 12.5),
               prefixIcon: Icon(Icons.lock_outline_rounded, color: t.accent),
               suffixIcon: IconButton(
@@ -6580,11 +7013,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
                   color: t.muted,
                   size: 20,
                 ),
-                onPressed: () {
-                  setState(() {
-                    _obscurePassword = !_obscurePassword;
-                  });
-                },
+                onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
               ),
               filled: true,
               fillColor: t.card,
@@ -6594,6 +7023,32 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
               focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: t.accent, width: 1.8)),
             ),
           ),
+          if (isReg) ...[
+            const SizedBox(height: 12),
+            TextField(
+              controller: _emailController,
+              keyboardType: TextInputType.emailAddress,
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 14, color: t.text),
+              decoration: InputDecoration(
+                hintText: 'ایمیل (اختیاری)',
+                hintStyle: TextStyle(color: t.muted.withOpacity(0.6), fontSize: 12.5),
+                prefixIcon: Icon(Icons.email_outlined, color: t.accent),
+                filled: true,
+                fillColor: t.card,
+                contentPadding: const EdgeInsets.symmetric(vertical: 14),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: t.cardBorder)),
+                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: t.cardBorder)),
+                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: t.accent, width: 1.8)),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'ایمیل فقط برای بازیابی رمز است. اگر وارد نکنید، بازیابی خودکار ندارید و باید از پشتیبانی تیکت بزنید.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: t.muted, fontSize: 11, height: 1.4),
+            ),
+          ],
           const SizedBox(height: 18),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -6606,114 +7061,47 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
             onPressed: () {
               final user = _userController.text.trim();
               final pass = _passController.text.trim();
-              if (user.isNotEmpty && pass.isNotEmpty) {
-                _fetchUserData(user, pass);
+              if (user.isEmpty || pass.isEmpty) {
+                _showToast('نام کاربری و رمز را وارد کنید');
+                return;
+              }
+              if (isReg) {
+                if (user.length < 4 || user.length > 32) {
+                  _showToast('نام کاربری ۴ تا ۳۲ کاراکتر');
+                  return;
+                }
+                if (pass.length < 5 || pass.length > 8) {
+                  _showToast('رمز باید ۵ تا ۸ کاراکتر باشد');
+                  return;
+                }
+                final email = _emailController.text.trim();
+                _registerAppAccount(user, pass, email: email.isEmpty ? null : email);
               } else {
-                _showToast('لطفاً نام کاربری و رمز عبور را وارد کنید');
+                _fetchUserData(user, pass);
               }
             },
-            child: const Text('ورود و دریافت کانفیگ‌ها', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+            child: Text(
+              isReg ? 'ثبت‌نام و ادامه' : 'ورود و دریافت کانفیگ‌ها',
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+            ),
           ),
           const SizedBox(height: 10),
-          OutlinedButton(
-            style: OutlinedButton.styleFrom(
-              foregroundColor: t.accent,
-              minimumSize: const Size(double.infinity, 46),
-              side: BorderSide(color: t.accent.withOpacity(0.55)),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            ),
-            onPressed: () {
-              final user = _userController.text.trim();
-              final pass = _passController.text.trim();
-              if (user.isEmpty || pass.isEmpty) {
-                _showToast('برای ثبت‌نام نام کاربری و رمز را وارد کنید');
-                return;
-              }
-              if (user.length < 4 || user.length > 32) {
-                _showToast('نام کاربری ۴ تا ۳۲ کاراکتر');
-                return;
-              }
-              if (pass.length < 5 || pass.length > 8) {
-                _showToast('رمز باید ۵ تا ۸ کاراکتر باشد');
-                return;
-              }
-              _registerAppAccount(user, pass);
-            },
-            child: const Text('ثبت‌نام (بدون تلگرام)', style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold)),
+          TextButton.icon(
+            onPressed: _openSupportTicketsSheet,
+            icon: Icon(Icons.support_agent_rounded, color: t.accent, size: 18),
+            label: Text('رمز را فراموش کردم / پشتیبانی', style: TextStyle(color: t.accent, fontSize: 12.5)),
           ),
-          const SizedBox(height: 8),
-          Text(
-            'اگر از ربات خرید کرده‌اید همان نام و رمز را وارد و «ورود» بزنید.\nاگر تلگرام ندارید، نام دلخواه بسازید و ثبت‌نام کنید.',
-            textAlign: TextAlign.center,
-            style: TextStyle(color: t.muted, fontSize: 11, height: 1.35),
-          ),
-          if (profiles.isNotEmpty) ...[
-            const SizedBox(height: 18),
-            const Align(
-              alignment: Alignment.centerRight,
-              child: Text('اشتراک‌های ذخیره‌شده', style: TextStyle(color: Colors.white54, fontSize: 12)),
+          if (!isReg)
+            Text(
+              'اگر از ربات خرید کرده‌اید همان نام و رمز را وارد کنید.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: t.muted, fontSize: 11, height: 1.35),
             ),
-            const SizedBox(height: 8),
-            ...profiles.map((pr) {
-              final u = pr['username'] ?? '';
-              final label = pr['label'] ?? u;
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: Material(
-                  color: const Color(0xFF131B2E),
-                  borderRadius: BorderRadius.circular(14),
-                  child: ListTile(
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                      side: BorderSide(color: Colors.white.withOpacity(0.06)),
-                    ),
-                    dense: true,
-                    leading: const Icon(Icons.person_rounded, color: Color(0xFF00E5FF), size: 20),
-                    title: Text(label, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
-                    subtitle: Text(u, style: const TextStyle(color: Colors.white38, fontSize: 11)),
-                    trailing: const Icon(Icons.login_rounded, color: Color(0xFF00E5FF), size: 20),
-                    onTap: () => _activateProfile(u, pr['password'] ?? '', fetch: true),
-                  ),
-                ),
-              );
-            }),
-          ],
-          const SizedBox(height: 24),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.03),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: Colors.white.withOpacity(0.05)),
-            ),
-            child: const Text(
-              'Version $appVersion',
-              style: TextStyle(fontSize: 11, color: Colors.white38, letterSpacing: 0.8),
-            ),
-          ),
         ],
       ),
     );
   }
 
-
-  /// استایل کارت تم جت (نئون) — کلاسیک بدون تغییر
-  BoxDecoration _dashCardDeco({Color? borderColor, double radius = 18}) {
-    final t = ui;
-    if (!isJetTheme) {
-      return BoxDecoration(
-        color: t.card,
-        borderRadius: BorderRadius.circular(radius),
-        border: Border.all(color: Colors.white.withOpacity(0.06)),
-      );
-    }
-    final bc = borderColor ?? t.accent;
-    return BoxDecoration(
-      color: t.card,
-      borderRadius: BorderRadius.circular(radius),
-      border: Border.all(color: bc.withOpacity(0.45), width: 1.15),
-    );
-  }
 
   Widget _buildDashboardView() {
     final t = ui;

@@ -3018,11 +3018,8 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
                         title: const Text('سرویس جدید اضافه شد', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                         content: Text(
-                          '$msg
-
-'
-                          'نام سرویس جدید: $panelUser
-'
+                          '$msg\n\n'
+                          'نام سرویس جدید: $panelUser\n'
                           'اشتراک قبلی در لیست حساب‌ها باقی است؛ از مدیریت پروفایل می‌توانید بین سرویس‌ها جابه‌جا شوید.',
                           style: const TextStyle(color: Colors.white70, height: 1.45, fontSize: 13.5),
                         ),

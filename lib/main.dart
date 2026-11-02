@@ -18,7 +18,7 @@ void main() {
 }
 
 // مشخصات نسخه (نمایش داخل اپ) — با هر ریلیز دستی بالا ببر
-const String appVersion = 'v2.1.1';
+const String appVersion = 'v2.1.2';
 const int appVersionCode = 211;
 /// کانال بسته‌بندی: با --dart-define=APK_CHANNEL=arm64|universal|arm32 در بیلد ست می‌شود
 const String apkChannel = String.fromEnvironment('APK_CHANNEL', defaultValue: 'arm64');
@@ -1732,6 +1732,10 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
   /// حجم ≤۲۰٪ مانده یا صفر | زمان ≤۳ روز / ساعت / دقیقه / منقضی
   bool _shouldShowRenewInBot() {
     if (userData == null) return false;
+    // اشتراک تست تمدید ندارد و نباید دکمه/اخطار تمدید بیاید
+    if (_isTestUsername(userData) || userData!['is_test_service'] == true) {
+      return false;
+    }
 
     final totalRaw = userData!['total_gb'];
     final remRaw = userData!['remaining_gb'];
@@ -1768,8 +1772,16 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
   bool _isTestUsername([Map? data]) {
     final d = data ?? userData;
     if (d == null) return false;
+    if (d['is_test_service'] == true || d['is_test'] == true) return true;
     final u = '${d['username'] ?? savedUser ?? ''}'.toLowerCase();
-    return u.startsWith('test_') || u.contains('_test') || (d['is_test'] == true);
+    if (u.startsWith('test_') || u.contains('_test')) return true;
+    final pk = '${d['plan_key'] ?? ''}'.toLowerCase();
+    if (pk.contains('test') || pk == 'test_free') return true;
+    // حجم تست‌مانند (حدود ۱۰۰ مگ)
+    final totalRaw = d['total_gb'];
+    final total = totalRaw is num ? totalRaw.toDouble() : double.tryParse('$totalRaw');
+    if (total != null && total > 0 && total <= 0.15) return true;
+    return false;
   }
 
   /// انقضای کامل: حجم صفر (وقتی سقف حجم دارد) یا زمان منقضی
@@ -1853,7 +1865,9 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
   Future<void> _maybeShowSubscriptionAlert(Map data, {bool fromManualRefresh = false}) async {
     if (!mounted) return;
     final expired = _isSubscriptionExpired(data);
-    final near = !expired && _isSubscriptionNearEnd(data);
+    final isTest = _isTestUsername(data) || data['is_test_service'] == true;
+    // تست: فقط پیام اتمام؛ اخطار «رو به اتمام» نشان داده نشود
+    final near = !expired && !isTest && _isSubscriptionNearEnd(data);
     if (!expired && !near) return;
 
     final prefs = await SharedPreferences.getInstance();
@@ -1897,15 +1911,15 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
         body =
             'حجم یا اعتبار زمانی این اکانت تمام شده و اتصال پایدار نخواهد بود.\n\n'
             'باقیمانده: $rem\nاعتبار: $exp\n\n'
-            'از ربات تمدید کن یا بستهٔ جدید بخر تا دوباره وصل شی.\n\nاگر به ربات دسترسی نداری، از دکمه «کمک اضطراری» یک‌بار در ماه ۱۰۰ مگ یا ۱ روز بگیر.';
+            'از داخل اپ یا ربات تلگرام تمدید کن یا بستهٔ جدید بخر تا دوباره وصل شی.\n\nاگر دسترسی نداشتی، از دکمه «کمک اضطراری» یک‌بار در ماه ۱۰۰ مگ یا ۱ روز بگیر.';
       }
     } else {
       body =
-          'اشتراک‌ت به‌زودی تموم می‌شه — بهتره قبل از قطع شدن تمدید کنی.\n\n'
+          'اشتراک‌ت به‌زودی تموم می‌شه — بهتره قبل از قطع شدن از اپ یا ربات تمدید کنی.\n\n'
           'باقیمانده: $rem\nاعتبار: $exp';
     }
 
-    final primaryLabel = isTest ? 'خرید در ربات' : (expired ? 'تمدید / خرید در ربات' : 'تمدید در ربات');
+    final primaryLabel = isTest ? 'خرید اشتراک' : (expired ? 'تمدید / خرید' : 'تمدید اشتراک');
 
     await showDialog<void>(
       context: context,
@@ -4037,13 +4051,25 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
           }
         } else {
           if (!silentBackground) {
-            _showToast(data['msg'] ?? 'نام کاربری یا رمز عبور اشتباه است');
+            _showToast(data['msg']?.toString() ?? 'نام کاربری یا رمز عبور اشتباه است', isError: true);
           }
+        }
+      } else {
+        // 403/404 و ... قبلاً ساکت می‌ماند
+        if (!silentBackground) {
+          String msg = 'خطا در ورود (کد ${res.statusCode})';
+          try {
+            final data = json.decode(res.body);
+            if (data is Map && data['msg'] != null) {
+              msg = data['msg'].toString();
+            }
+          } catch (_) {}
+          _showToast(msg, isError: true);
         }
       }
     } catch (e) {
       if (!silentBackground) {
-        _showToast('خطا در اتصال به سرور');
+        _showToast('خطا در اتصال به سرور', isError: true);
       }
     } finally {
       if (mounted) {
@@ -7613,7 +7639,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
                     Icon(Icons.diamond_rounded, color: Color(0xFF00FFA3), size: 17),
                     SizedBox(width: 6),
                     Text(
-                      'تمدید اشتراک در ربات تلگرام',
+                      'تمدید اشتراک (اپ یا ربات)',
                       style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
                     ),
                     SizedBox(width: 4),

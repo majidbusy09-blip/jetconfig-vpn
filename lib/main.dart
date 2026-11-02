@@ -18,8 +18,8 @@ void main() {
 }
 
 // مشخصات نسخه (نمایش داخل اپ) — با هر ریلیز دستی بالا ببر
-const String appVersion = 'v2.1.3';
-const int appVersionCode = 213;
+const String appVersion = 'v2.1.4';
+const int appVersionCode = 214;
 /// کانال بسته‌بندی: با --dart-define=APK_CHANNEL=arm64|universal|arm32 در بیلد ست می‌شود
 const String apkChannel = String.fromEnvironment('APK_CHANNEL', defaultValue: 'arm64');
 const String appUpdateMetaUrl = 'https://majid6064.ir/app_version.json';
@@ -5467,18 +5467,23 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
                 ? 0.45
                 : (isConnected ? 0.28 + (_pulseAnimation.value - 0.96) * 0.8 : 0.14);
 
+            // Phase 3: ابعاد فشرده‌تر + لیبل وضعیت داخل هسته
+            const double outer = 180;
+            final String stateLabel = isConnecting
+                ? 'CONNECTING'
+                : (isConnected ? 'PROTECTED' : 'READY');
             return Transform.scale(
               scale: pulse.clamp(0.92, 1.12),
               child: SizedBox(
-                width: 196,
-                height: 196,
+                width: outer,
+                height: outer,
                 child: Stack(
                   alignment: Alignment.center,
                   children: [
                     // هاله پالسی
                     Container(
-                      width: 196,
-                      height: 196,
+                      width: outer,
+                      height: outer,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         gradient: RadialGradient(
@@ -5495,7 +5500,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
                     Transform.rotate(
                       angle: angle,
                       child: CustomPaint(
-                        size: const Size(184, 184),
+                        size: const Size(168, 168),
                         painter: _OrbitDotsPainter(
                           color: neon.withOpacity(0.95),
                           color2: neon2.withOpacity(0.75),
@@ -5507,7 +5512,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
                       Transform.rotate(
                         angle: angleRev,
                         child: CustomPaint(
-                          size: const Size(172, 172),
+                          size: const Size(158, 158),
                           painter: _NeonArcsPainter(
                             color: neon,
                             color2: neon2,
@@ -5517,8 +5522,8 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
                       ),
                     // حلقه نازک ثابت
                     Container(
-                      width: 148,
-                      height: 148,
+                      width: 136,
+                      height: 136,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         border: Border.all(
@@ -5529,8 +5534,8 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
                     ),
                     // هسته
                     Container(
-                      width: 118,
-                      height: 118,
+                      width: 108,
+                      height: 108,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         gradient: LinearGradient(
@@ -5567,14 +5572,33 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
                               ),
                             ),
                           ),
-                          Icon(
-                            isConnecting
-                                ? Icons.bolt_rounded
-                                : Icons.power_settings_new_rounded,
-                            size: isConnecting ? 48 : 52,
-                            color: Colors.white.withOpacity(0.96),
-                            shadows: [
-                              Shadow(color: neon.withOpacity(0.85), blurRadius: 16),
+                          Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              AnimatedSwitcher(
+                                duration: const Duration(milliseconds: 220),
+                                child: Icon(
+                                  isConnecting
+                                      ? Icons.bolt_rounded
+                                      : Icons.power_settings_new_rounded,
+                                  key: ValueKey<String>(stateLabel),
+                                  size: isConnecting ? 40 : 44,
+                                  color: Colors.white.withOpacity(0.96),
+                                  shadows: [
+                                    Shadow(color: neon.withOpacity(0.85), blurRadius: 16),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                stateLabel,
+                                style: TextStyle(
+                                  fontSize: 8,
+                                  letterSpacing: 1.1,
+                                  fontWeight: FontWeight.w900,
+                                  color: Colors.white.withOpacity(0.88),
+                                ),
+                              ),
                             ],
                           ),
                         ],
@@ -7394,81 +7418,99 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
           SizedBox(height: jet ? 5 : 8),
           _buildTunnelModeSwitch(),
           SizedBox(height: jet ? 5 : 8),
+          // Phase 4: کارت سرور مدرن (نام + پینگ + رفرش) — منطق قبلی حفظ شده
           if (!connectionModeSmart)
-            Row(
-              children: [
-                Expanded(
-                  child: InkWell(
-                    onTap: _openServerPicker,
-                    borderRadius: BorderRadius.circular(16),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-                      decoration: BoxDecoration(
-                        color: t.card,
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: t.accent.withOpacity(0.2)),
-                      ),
-                      child: Row(
+            Container(
+              padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
+              decoration: BoxDecoration(
+                color: t.card,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: t.accent.withOpacity(0.22)),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 34,
+                    height: 34,
+                    decoration: BoxDecoration(
+                      color: t.accent.withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(Icons.public_rounded, color: Color(0xFF00E5FF), size: 18),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: InkWell(
+                      onTap: _openServerPicker,
+                      borderRadius: BorderRadius.circular(10),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Icon(Icons.public_rounded, color: Color(0xFF00E5FF), size: 18),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text('موقعیت سرور (لمس جهت تغییر)', style: TextStyle(fontSize: 9.5, color: Colors.grey)),
-                                Text(currentServerName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.white), overflow: TextOverflow.ellipsis),
-                              ],
-                            ),
+                          const Text('سرور انتخاب‌شده', style: TextStyle(fontSize: 9.5, color: Colors.grey)),
+                          const SizedBox(height: 2),
+                          Text(
+                            currentServerName.isEmpty ? 'انتخاب سرور' : currentServerName,
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: Colors.white),
+                            overflow: TextOverflow.ellipsis,
                           ),
-                          const Icon(Icons.arrow_forward_ios_rounded, size: 11, color: Colors.grey),
+                          const SizedBox(height: 2),
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.speed_rounded,
+                                size: 12,
+                                color: activePing > 0 ? t.success : Colors.white38,
+                              ),
+                              const SizedBox(width: 3),
+                              Text(
+                                activePing > 0 ? '$activePing ms' : 'پینگ ثبت نشده',
+                                style: TextStyle(
+                                  fontSize: 10.5,
+                                  fontWeight: FontWeight.w600,
+                                  color: activePing > 0 ? t.success : Colors.white38,
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              const Text('· لمس برای تغییر', style: TextStyle(fontSize: 9.5, color: Colors.white30)),
+                            ],
+                          ),
                         ],
                       ),
                     ),
                   ),
-                ),
-                const SizedBox(width: 6),
-                InkWell(
-                  onTap: () {
-                    if (savedUser != null && savedPass != null) {
-                      _fetchUserData(savedUser!, savedPass!, isManualRefresh: true);
-                    }
-                  },
-                  borderRadius: BorderRadius.circular(16),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-                    decoration: BoxDecoration(
-                      color: t.card,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: t.success.withOpacity(0.3)),
-                    ),
-                    child: const Row(
-                      children: [
-                        Icon(Icons.sync_rounded, color: Color(0xFF00FFA3), size: 16),
-                        SizedBox(width: 4),
-                        Text(
-                          'بروزرسانی',
-                          style: TextStyle(color: Color(0xFF00FFA3), fontSize: 10.5, fontWeight: FontWeight.bold),
-                        ),
-                      ],
-                    ),
+                  IconButton(
+                    tooltip: 'بروزرسانی اشتراک',
+                    onPressed: () {
+                      if (savedUser != null && savedPass != null) {
+                        _fetchUserData(savedUser!, savedPass!, isManualRefresh: true);
+                      }
+                    },
+                    icon: Icon(Icons.sync_rounded, color: t.success, size: 20),
                   ),
-                ),
-              ],
+                ],
+              ),
             )
           else
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
               decoration: BoxDecoration(
                 color: t.card,
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: t.accent.withOpacity(0.15)),
+                border: Border.all(color: t.accent.withOpacity(0.18)),
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.auto_awesome_rounded, color: Color(0xFF00E5FF), size: 18),
-                  const SizedBox(width: 8),
+                  Container(
+                    width: 34,
+                    height: 34,
+                    decoration: BoxDecoration(
+                      color: t.accent.withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(Icons.auto_awesome_rounded, color: Color(0xFF00E5FF), size: 18),
+                  ),
+                  const SizedBox(width: 10),
                   Expanded(
                     child: Text(
                       isConnecting || isPingingAll || isRefreshingServers
@@ -7585,7 +7627,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
               onPressed: isLoading ? null : _openRenewPlans,
-              child: const Text('🔄 تمدید همین اشتراک', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5)),
+              child: const Text('🔄 تمدید داخل برنامه', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5)),
             ),
           ],
 
@@ -7603,7 +7645,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
               child: Text(
                 userData?['is_test_service'] == true
                     ? 'خرید اشتراک'
-                    : '🛒 خرید اشتراک جدید / نوع دیگر',
+                    : '🛒 خرید اشتراک جدید',
                 style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5),
               ),
             ),
@@ -7654,10 +7696,10 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
                 child: const Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.diamond_rounded, color: Color(0xFF00FFA3), size: 17),
+                    Icon(Icons.telegram, color: Color(0xFF00FFA3), size: 17),
                     SizedBox(width: 6),
                     Text(
-                      'تمدید اشتراک (اپ یا ربات)',
+                      'تمدید با ربات تلگرام',
                       style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
                     ),
                     SizedBox(width: 4),

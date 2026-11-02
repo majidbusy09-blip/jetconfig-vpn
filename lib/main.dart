@@ -18,8 +18,8 @@ void main() {
 }
 
 // مشخصات نسخه (نمایش داخل اپ) — با هر ریلیز دستی بالا ببر
-const String appVersion = 'v2.1.4';
-const int appVersionCode = 214;
+const String appVersion = 'v2.1.5';
+const int appVersionCode = 215;
 /// کانال بسته‌بندی: با --dart-define=APK_CHANNEL=arm64|universal|arm32 در بیلد ست می‌شود
 const String apkChannel = String.fromEnvironment('APK_CHANNEL', defaultValue: 'arm64');
 const String appUpdateMetaUrl = 'https://majid6064.ir/app_version.json';
@@ -4931,30 +4931,241 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     final isConnected = _isVpnConnected;
     final t = ui;
     final glowColor = isConnected ? t.success : t.accent;
+    final statusText = isConnecting
+        ? 'در حال اتصال'
+        : (isConnected ? 'محافظت‌شده' : 'قطع');
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
         color: t.card,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: glowColor.withOpacity(0.4), width: 1.2),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: glowColor.withOpacity(0.38), width: 1.15),
         boxShadow: [
           BoxShadow(
-            color: glowColor.withOpacity(isConnected ? 0.25 : 0.12),
+            color: glowColor.withOpacity(isConnected ? 0.22 : 0.10),
             blurRadius: 10,
-            spreadRadius: 1,
+            spreadRadius: 0.5,
           ),
         ],
       ),
-      child: Text(
-        currentIpAddress,
-        overflow: TextOverflow.ellipsis,
-        style: const TextStyle(
-          color: Colors.white,
-          fontWeight: FontWeight.w900,
-          fontSize: 12,
-          letterSpacing: 0.5,
-          fontFamily: 'monospace',
+      child: Row(
+        children: [
+          Container(
+            width: 30,
+            height: 30,
+            decoration: BoxDecoration(
+              color: glowColor.withOpacity(0.14),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(
+              isConnected ? Icons.shield_rounded : Icons.shield_outlined,
+              size: 16,
+              color: glowColor,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'وضعیت VPN · $statusText',
+                  style: TextStyle(
+                    color: glowColor,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 11,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  isConnected ? 'IP خروجی: $currentIpAddress' : 'IP فعلی: $currentIpAddress',
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Colors.white70,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 11.5,
+                    letterSpacing: 0.3,
+                    fontFamily: 'monospace',
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// کارت وضعیت اشتراک + نوار مصرف + ترافیک فشرده جلسه
+  Widget _buildSubscriptionOverviewCard() {
+    final t = ui;
+    final jet = isJetTheme;
+    final data = userData;
+    final totalRaw = data?['total_gb'];
+    final remainingRaw = data?['remaining_gb'];
+    final total = totalRaw is num ? totalRaw.toDouble() : double.tryParse('$totalRaw');
+    final remaining = remainingRaw is num ? remainingRaw.toDouble() : double.tryParse('$remainingRaw');
+    final canShowProgress = _hasActiveSubscription() && total != null && total > 0 && remaining != null;
+    final progress = canShowProgress ? (remaining! / total!).clamp(0.0, 1.0) : 0.0;
+    final connected = _isVpnConnected;
+    final downloadBytes = connected ? v2rayStatus.download : 0;
+    final uploadBytes = connected ? v2rayStatus.upload : 0;
+
+    Widget detail(String label, String value, IconData icon, Color color) {
+      return Expanded(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, color: color, size: 16),
+            const SizedBox(height: 3),
+            Text(
+              value,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(color: Colors.white, fontSize: 11.5, fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: 2),
+            Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: t.muted, fontSize: 9)),
+          ],
+        ),
+      );
+    }
+
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.symmetric(horizontal: 12, vertical: jet ? 9 : 11),
+      decoration: BoxDecoration(
+        color: t.card,
+        borderRadius: BorderRadius.circular(jet ? 18 : 14),
+        border: Border.all(color: t.accent.withOpacity(jet ? 0.32 : 0.2)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.shield_outlined, size: 15, color: t.accent),
+              const SizedBox(width: 6),
+              Text('وضعیت اشتراک', style: TextStyle(color: t.text, fontSize: 11.5, fontWeight: FontWeight.bold)),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: (_hasActiveSubscription() ? t.success : Colors.orangeAccent).withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  _hasActiveSubscription() ? 'فعال' : 'نیازمند تمدید',
+                  style: TextStyle(
+                    color: _hasActiveSubscription() ? t.success : Colors.orangeAccent,
+                    fontSize: 9,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 9),
+          Row(
+            children: [
+              detail('باقی‌مانده', _getDisplayRemaining(), Icons.pie_chart_outline_rounded, t.success),
+              Container(width: 1, height: 32, color: Colors.white12),
+              detail('کل حجم', _getDisplayTotal(), Icons.data_usage_rounded, t.accent),
+              Container(width: 1, height: 32, color: Colors.white12),
+              detail('اعتبار', _getDisplayExpire(), Icons.schedule_rounded, Colors.amberAccent),
+            ],
+          ),
+          if (canShowProgress) ...[
+            const SizedBox(height: 9),
+            Row(
+              children: [
+                Text('مصرف‌شده', style: TextStyle(color: t.muted, fontSize: 9)),
+                const Spacer(),
+                Text(
+                  '${((1 - progress) * 100).round()}٪',
+                  style: TextStyle(color: t.accent, fontSize: 9.5, fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(20),
+              child: LinearProgressIndicator(
+                value: (1 - progress).clamp(0.0, 1.0),
+                minHeight: 5,
+                backgroundColor: Colors.white.withOpacity(0.08),
+                valueColor: AlwaysStoppedAnimation<Color>(t.accent),
+              ),
+            ),
+          ],
+          const SizedBox(height: 8),
+          Container(height: 1, color: Colors.white.withOpacity(0.06)),
+          const SizedBox(height: 7),
+          Row(
+            children: [
+              Icon(Icons.south_rounded, size: 13, color: t.success),
+              const SizedBox(width: 4),
+              Text('دانلود ', style: TextStyle(color: t.muted, fontSize: 9.5)),
+              Text(_formatBytes(downloadBytes), style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w700)),
+              const Spacer(),
+              Icon(Icons.north_rounded, size: 13, color: t.accent),
+              const SizedBox(width: 4),
+              Text('آپلود ', style: TextStyle(color: t.muted, fontSize: 9.5)),
+              Text(_formatBytes(uploadBytes), style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w700)),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDashboardActionTile({
+    required String title,
+    required String subtitle,
+    required IconData icon,
+    required Color color,
+    VoidCallback? onTap,
+  }) {
+    final t = ui;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+          decoration: BoxDecoration(
+            color: t.card,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: color.withOpacity(0.35)),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.14),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(icon, color: color, size: 17),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title, style: TextStyle(color: t.text, fontSize: 11.5, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 1),
+                    Text(subtitle, style: TextStyle(color: t.muted, fontSize: 9.5)),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -5467,8 +5678,8 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
                 ? 0.45
                 : (isConnected ? 0.28 + (_pulseAnimation.value - 0.96) * 0.8 : 0.14);
 
-            // Phase 3: ابعاد فشرده‌تر + لیبل وضعیت داخل هسته
-            const double outer = 180;
+            // دکمه فشرده‌تر برای کاهش اسکرول + لیبل وضعیت
+            const double outer = 156;
             final String stateLabel = isConnecting
                 ? 'CONNECTING'
                 : (isConnected ? 'PROTECTED' : 'READY');
@@ -7321,10 +7532,16 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     }
 
     final jet = isJetTheme;
-    return SingleChildScrollView(
-      padding: EdgeInsets.symmetric(horizontal: 14, vertical: jet ? 2 : 4),
-      child: Column(
-        children: [
+    // برای صفحه‌های کوتاه: scaleDown تا اسکرول کمتر شود
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return SingleChildScrollView(
+          padding: EdgeInsets.symmetric(horizontal: 14, vertical: jet ? 2 : 4),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: constraints.maxHeight),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -7381,43 +7598,13 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
               ),
             ],
           ),
-          if (jet) ...[
-            const SizedBox(height: 4),
-            Center(
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(14),
-                child: Image.network(
-                  appLogoUrl,
-                  width: 40,
-                  height: 40,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => Icon(Icons.rocket_launch_rounded, size: 36, color: t.accent),
-                ),
-              ),
-            ),
-          ],
-          SizedBox(height: jet ? 6 : 10),
-          Container(
-            padding: EdgeInsets.symmetric(horizontal: 14, vertical: jet ? 8 : 12),
-            decoration: _dashCardDeco(borderColor: t.accentSoft),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _buildCompactBadge('باقیمانده', _getDisplayRemaining(), Icons.pie_chart_rounded, t.success),
-                Container(width: 1, height: 32, color: Colors.white10),
-                _buildCompactBadge('کل ترافیک', _getDisplayTotal(), Icons.data_usage_rounded, t.accent),
-                Container(width: 1, height: 32, color: Colors.white10),
-                _buildCompactBadge('مدت اعتبار', _getDisplayExpire(), Icons.timer_outlined, Colors.amberAccent),
-              ],
-            ),
-          ),
-          SizedBox(height: jet ? 5 : 8),
-          _buildTrafficCard(),
-          SizedBox(height: jet ? 5 : 8),
+          SizedBox(height: jet ? 6 : 8),
+          _buildSubscriptionOverviewCard(),
+          SizedBox(height: jet ? 5 : 7),
           _buildConnectionModeSwitch(),
-          SizedBox(height: jet ? 5 : 8),
+          SizedBox(height: jet ? 5 : 7),
           _buildTunnelModeSwitch(),
-          SizedBox(height: jet ? 5 : 8),
+          SizedBox(height: jet ? 5 : 7),
           // Phase 4: کارت سرور مدرن (نام + پینگ + رفرش) — منطق قبلی حفظ شده
           if (!connectionModeSmart)
             Container(
@@ -7613,50 +7800,59 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
             ),
           ],
 
-          // تمدید فقط وقتی حجم/زمان رو به اتمام است (قانون قبلی) + غیرتست
-          if (userData != null &&
-              _hasActiveSubscription() &&
-              userData?['is_test_service'] != true &&
-              _shouldShowRenewInBot()) ...[
-            const SizedBox(height: 10),
-            OutlinedButton(
-              style: OutlinedButton.styleFrom(
-                foregroundColor: const Color(0xFF00FFA3),
-                side: const BorderSide(color: Color(0xFF00FFA3)),
-                minimumSize: const Size(double.infinity, 40),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              ),
-              onPressed: isLoading ? null : _openRenewPlans,
-              child: const Text('🔄 تمدید داخل برنامه', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5)),
-            ),
-          ],
-
-          // خرید همیشه (با اشتراک یا بدون اشتراک قبلاً پوشش داده شده؛ اینجا برای فعال‌ها)
+          // کاشی‌های خرید / تمدید — جمع‌وجور و واضح
           if (userData != null && _hasActiveSubscription()) ...[
             const SizedBox(height: 8),
-            OutlinedButton(
-              style: OutlinedButton.styleFrom(
-                foregroundColor: const Color(0xFF00E5FF),
-                side: const BorderSide(color: Color(0xFF00E5FF)),
-                minimumSize: const Size(double.infinity, 40),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            if (userData?['is_test_service'] != true && _shouldShowRenewInBot())
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildDashboardActionTile(
+                      title: 'تمدید داخل برنامه',
+                      subtitle: 'ادامه همین سرویس',
+                      icon: Icons.autorenew_rounded,
+                      color: const Color(0xFF00FFA3),
+                      onTap: isLoading ? null : _openRenewPlans,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _buildDashboardActionTile(
+                      title: 'خرید جدید',
+                      subtitle: 'بسته یا نوع دیگر',
+                      icon: Icons.shopping_bag_outlined,
+                      color: const Color(0xFF00E5FF),
+                      onTap: isLoading ? null : _openPurchasePlans,
+                    ),
+                  ),
+                ],
+              )
+            else
+              _buildDashboardActionTile(
+                title: userData?['is_test_service'] == true ? 'خرید اشتراک' : 'خرید اشتراک جدید',
+                subtitle: 'انتخاب بسته و سرویس',
+                icon: Icons.shopping_bag_outlined,
+                color: const Color(0xFF00E5FF),
+                onTap: isLoading ? null : _openPurchasePlans,
               ),
-              onPressed: isLoading ? null : _openPurchasePlans,
-              child: Text(
-                userData?['is_test_service'] == true
-                    ? 'خرید اشتراک'
-                    : '🛒 خرید اشتراک جدید',
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5),
+            if (_shouldShowRenewInBot()) ...[
+              const SizedBox(height: 8),
+              _buildDashboardActionTile(
+                title: 'تمدید با ربات تلگرام',
+                subtitle: 'ادامه در ربات',
+                icon: Icons.telegram,
+                color: t.accent,
+                onTap: () => _openTelegram(telegramBotUrl),
               ),
-            ),
+            ],
           ],
           if (_shouldShowSosHelp()) ...[
-            const SizedBox(height: 12),
+            const SizedBox(height: 8),
             InkWell(
               onTap: _confirmAndRequestSos,
               borderRadius: BorderRadius.circular(14),
               child: Container(
-                padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 14),
+                padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 14),
                 decoration: BoxDecoration(
                   color: const Color(0xFFFF5252).withOpacity(0.12),
                   borderRadius: BorderRadius.circular(14),
@@ -7665,58 +7861,28 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
                 child: const Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.health_and_safety_outlined, color: Color(0xFFFF8A80), size: 17),
+                    Icon(Icons.health_and_safety_outlined, color: Color(0xFFFF8A80), size: 16),
                     SizedBox(width: 6),
                     Text(
                       'کمک اضطراری (۱ بار در ماه)',
-                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11.5),
                     ),
                   ],
                 ),
               ),
             ),
           ],
-          if (_shouldShowRenewInBot()) ...[
-            const SizedBox(height: 12),
-            InkWell(
-              onTap: () => _openTelegram(telegramBotUrl),
-              borderRadius: BorderRadius.circular(14),
-              child: Container(
-                padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 14),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      t.accent.withOpacity(0.15),
-                      t.success.withOpacity(0.15),
-                    ],
-                  ),
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: t.accent.withOpacity(0.3)),
-                ),
-                child: const Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.telegram, color: Color(0xFF00FFA3), size: 17),
-                    SizedBox(width: 6),
-                    Text(
-                      'تمدید با ربات تلگرام',
-                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
-                    ),
-                    SizedBox(width: 4),
-                    Icon(Icons.arrow_forward_rounded, color: Color(0xFF00E5FF), size: 14),
-                  ],
-                ),
-              ),
-            ),
-          ],
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
           Text(
             'JET VPN • $appVersion',
             style: const TextStyle(fontSize: 10.5, color: Colors.white24),
           ),
           const SizedBox(height: 4),
-        ],
-      ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 

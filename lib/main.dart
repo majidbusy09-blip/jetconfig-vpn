@@ -18,8 +18,8 @@ void main() {
 }
 
 // مشخصات نسخه (نمایش داخل اپ) — با هر ریلیز دستی بالا ببر
-const String appVersion = 'v2.1.2';
-const int appVersionCode = 211;
+const String appVersion = 'v2.1.3';
+const int appVersionCode = 213;
 /// کانال بسته‌بندی: با --dart-define=APK_CHANNEL=arm64|universal|arm32 در بیلد ست می‌شود
 const String apkChannel = String.fromEnvironment('APK_CHANNEL', defaultValue: 'arm64');
 const String appUpdateMetaUrl = 'https://majid6064.ir/app_version.json';
@@ -1911,20 +1911,52 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
         body =
             'حجم یا اعتبار زمانی این اکانت تمام شده و اتصال پایدار نخواهد بود.\n\n'
             'باقیمانده: $rem\nاعتبار: $exp\n\n'
-            'از داخل اپ یا ربات تلگرام تمدید کن یا بستهٔ جدید بخر تا دوباره وصل شی.\n\nاگر دسترسی نداشتی، از دکمه «کمک اضطراری» یک‌بار در ماه ۱۰۰ مگ یا ۱ روز بگیر.';
+            'می‌تونی از داخل همین اپ یا از ربات تلگرام تمدید کنی یا بستهٔ جدید بخری.\n\n'
+            'اگر دسترسی نداشتی، از دکمه «کمک اضطراری» یک‌بار در ماه ۱۰۰ مگ یا ۱ روز بگیر.';
       }
     } else {
+      // فقط پیام اطلاع‌رسانی — بدون دکمه تمدید (کاربر از دکمه‌های پایین صفحه تمدید می‌کند)
       body =
-          'اشتراک‌ت به‌زودی تموم می‌شه — بهتره قبل از قطع شدن از اپ یا ربات تمدید کنی.\n\n'
-          'باقیمانده: $rem\nاعتبار: $exp';
+          'اشتراک‌ت به‌زودی تموم می‌شه.\n\n'
+          'باقیمانده: $rem\nاعتبار: $exp\n\n'
+          'هر وقت خواستی از داخل اپ یا از ربات تلگرام تمدید کن.';
     }
-
-    final primaryLabel = isTest ? 'خرید اشتراک' : (expired ? 'تمدید / خرید' : 'تمدید اشتراک');
 
     await showDialog<void>(
       context: context,
       barrierDismissible: true,
       builder: (ctx) {
+        // نزدیک اتمام: فقط بستن — بدون دکمه اقدام
+        final List<Widget> actions = [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: Text(
+              expired ? 'بعداً' : 'متوجه شدم',
+              style: const TextStyle(color: Colors.grey),
+            ),
+          ),
+        ];
+        if (expired) {
+          final primaryLabel = isTest ? 'خرید اشتراک' : 'تمدید / خرید';
+          actions.add(
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFFF5252),
+                foregroundColor: Colors.black,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              onPressed: () {
+                Navigator.of(ctx).pop();
+                if (isTest) {
+                  _openPurchasePlans();
+                } else {
+                  _openRenewPlans();
+                }
+              },
+              child: Text(primaryLabel),
+            ),
+          );
+        }
         return Directionality(
           textDirection: TextDirection.rtl,
           child: AlertDialog(
@@ -1950,24 +1982,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
               style: const TextStyle(color: Colors.white70, height: 1.45, fontSize: 13.5),
             ),
             actionsAlignment: MainAxisAlignment.spaceBetween,
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(ctx).pop(),
-                child: const Text('بعداً', style: TextStyle(color: Colors.grey)),
-              ),
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: expired ? const Color(0xFFFF5252) : const Color(0xFF00E5FF),
-                  foregroundColor: Colors.black,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                ),
-                onPressed: () {
-                  Navigator.of(ctx).pop();
-                  _openTelegram(telegramBotUrl);
-                },
-                child: Text(primaryLabel),
-              ),
-            ],
+            actions: actions,
           ),
         );
       },
@@ -5366,51 +5381,54 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     final uploadBytes = isConnected ? v2rayStatus.upload : 0;
 
     final t = ui;
-    return Container(
-      padding: EdgeInsets.symmetric(horizontal: 14, vertical: isJetTheme ? 7 : 10),
-      decoration: _dashCardDeco(borderColor: t.accent, radius: 16),
-      child: Row(
-        children: [
-          Expanded(
-            child: Row(
-              children: [
-                Icon(Icons.arrow_downward_rounded, size: 18, color: t.success),
-                const SizedBox(width: 8),
-                Column(
+    // Phase 2 UI: دو کارت فشرده جدا برای دانلود / آپلود (فقط ظاهر)
+    Widget mini(String title, String value, IconData icon, Color color) {
+      return Expanded(
+        child: Container(
+          padding: EdgeInsets.symmetric(horizontal: 12, vertical: isJetTheme ? 8 : 10),
+          decoration: BoxDecoration(
+            color: t.card,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: color.withOpacity(0.35), width: 1),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 28,
+                height: 28,
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.14),
+                  borderRadius: BorderRadius.circular(9),
+                ),
+                child: Icon(icon, size: 16, color: color),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('دانلود', style: TextStyle(fontSize: 10, color: Colors.grey)),
+                    Text(title, style: const TextStyle(fontSize: 10, color: Colors.grey)),
                     Text(
-                      _formatBytes(downloadBytes),
+                      value,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.white),
                     ),
                   ],
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
-          Container(width: 1, height: 26, color: Colors.white10),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Row(
-              children: [
-                Icon(Icons.arrow_upward_rounded, size: 18, color: t.accent),
-                const SizedBox(width: 8),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('آپلود', style: TextStyle(fontSize: 10, color: Colors.grey)),
-                    Text(
-                      _formatBytes(uploadBytes),
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.white),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
+        ),
+      );
+    }
+
+    return Row(
+      children: [
+        mini('دانلود', _formatBytes(downloadBytes), Icons.arrow_downward_rounded, t.success),
+        const SizedBox(width: 8),
+        mini('آپلود', _formatBytes(uploadBytes), Icons.arrow_upward_rounded, t.accent),
+      ],
     );
   }
 
@@ -7679,13 +7697,28 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
   }
 
   Widget _buildCompactBadge(String label, String value, IconData icon, Color color) {
+    // Phase 1–2 UI: آیکون داخل کپسول رنگی کوچک — بدون تغییر منطق
     return Column(
       children: [
-        Icon(icon, color: color, size: 18),
-        const SizedBox(height: 2),
+        Container(
+          width: 30,
+          height: 30,
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.14),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: color.withOpacity(0.28)),
+          ),
+          child: Icon(icon, color: color, size: 16),
+        ),
+        const SizedBox(height: 4),
         Text(label, style: const TextStyle(color: Colors.grey, fontSize: 9.5)),
         const SizedBox(height: 1),
-        Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5, color: Colors.white)),
+        Text(
+          value,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5, color: Colors.white),
+        ),
       ],
     );
   }

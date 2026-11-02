@@ -18,8 +18,8 @@ void main() {
 }
 
 // مشخصات نسخه (نمایش داخل اپ) — با هر ریلیز دستی بالا ببر
-const String appVersion = 'v2.1.6';
-const int appVersionCode = 216;
+const String appVersion = 'v2.1.7';
+const int appVersionCode = 217;
 /// کانال بسته‌بندی: با --dart-define=APK_CHANNEL=arm64|universal|arm32 در بیلد ست می‌شود
 const String apkChannel = String.fromEnvironment('APK_CHANNEL', defaultValue: 'arm64');
 const String appUpdateMetaUrl = 'https://majid6064.ir/app_version.json';
@@ -5124,50 +5124,92 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     );
   }
 
+  /// کاشی CTA برجسته — گرادیان توپر برای دیده شدن بدون شلوغی
   Widget _buildDashboardActionTile({
     required String title,
     required String subtitle,
     required IconData icon,
     required Color color,
     VoidCallback? onTap,
+    bool filled = true,
   }) {
     final t = ui;
+    final Color fg = filled ? const Color(0xFF0A0E1A) : color;
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(14),
-        child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+        borderRadius: BorderRadius.circular(16),
+        child: Ink(
           decoration: BoxDecoration(
-            color: t.card,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: color.withOpacity(0.35)),
+            borderRadius: BorderRadius.circular(16),
+            gradient: filled
+                ? LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [color, Color.lerp(color, Colors.black, 0.18)!],
+                  )
+                : null,
+            color: filled ? null : t.card,
+            border: Border.all(
+              color: color.withOpacity(filled ? 0.85 : 0.45),
+              width: filled ? 0 : 1.2,
+            ),
+            boxShadow: filled
+                ? [
+                    BoxShadow(
+                      color: color.withOpacity(0.28),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
+                  ]
+                : null,
           ),
-          child: Row(
-            children: [
-              Container(
-                width: 32,
-                height: 32,
-                decoration: BoxDecoration(
-                  color: color.withOpacity(0.14),
-                  borderRadius: BorderRadius.circular(10),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+            child: Row(
+              children: [
+                Container(
+                  width: 34,
+                  height: 34,
+                  decoration: BoxDecoration(
+                    color: filled ? Colors.black.withOpacity(0.18) : color.withOpacity(0.14),
+                    borderRadius: BorderRadius.circular(11),
+                  ),
+                  child: Icon(icon, color: filled ? Colors.white : color, size: 18),
                 ),
-                child: Icon(icon, color: color, size: 17),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(title, style: TextStyle(color: t.text, fontSize: 11.5, fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 1),
-                    Text(subtitle, style: TextStyle(color: t.muted, fontSize: 9.5)),
-                  ],
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: TextStyle(
+                          color: filled ? Colors.white : t.text,
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        subtitle,
+                        style: TextStyle(
+                          color: filled ? Colors.white.withOpacity(0.82) : t.muted,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            ],
+                Icon(
+                  Icons.arrow_back_ios_new_rounded,
+                  size: 12,
+                  color: filled ? Colors.white70 : color.withOpacity(0.7),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -7867,51 +7909,103 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
             ),
           ],
 
-          // کاشی‌های خرید / تمدید — جمع‌وجور و واضح
+          // پنل برجسته خرید / تمدید — زیر دکمه اتصال، CTA توپر
           if (userData != null && _hasActiveSubscription()) ...[
-            const SizedBox(height: 8),
-            if (userData?['is_test_service'] != true && _shouldShowRenewInBot())
-              Row(
-                children: [
-                  Expanded(
-                    child: _buildDashboardActionTile(
-                      title: 'تمدید داخل برنامه',
-                      subtitle: 'ادامه همین سرویس',
-                      icon: Icons.autorenew_rounded,
-                      color: const Color(0xFF00FFA3),
-                      onTap: isLoading ? null : _openRenewPlans,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: _buildDashboardActionTile(
-                      title: 'خرید جدید',
-                      subtitle: 'بسته یا نوع دیگر',
-                      icon: Icons.shopping_bag_outlined,
-                      color: const Color(0xFF00E5FF),
-                      onTap: isLoading ? null : _openPurchasePlans,
-                    ),
+            const SizedBox(height: 12),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(18),
+                gradient: LinearGradient(
+                  begin: Alignment.topRight,
+                  end: Alignment.bottomLeft,
+                  colors: [
+                    t.accent.withOpacity(0.10),
+                    t.card,
+                    t.success.withOpacity(0.06),
+                  ],
+                ),
+                border: Border.all(color: t.accent.withOpacity(0.28)),
+                boxShadow: [
+                  BoxShadow(
+                    color: t.accent.withOpacity(0.08),
+                    blurRadius: 14,
+                    offset: const Offset(0, 4),
                   ),
                 ],
-              )
-            else
-              _buildDashboardActionTile(
-                title: userData?['is_test_service'] == true ? 'خرید اشتراک' : 'خرید اشتراک جدید',
-                subtitle: 'انتخاب بسته و سرویس',
-                icon: Icons.shopping_bag_outlined,
-                color: const Color(0xFF00E5FF),
-                onTap: isLoading ? null : _openPurchasePlans,
               ),
-            if (_shouldShowRenewInBot()) ...[
-              const SizedBox(height: 8),
-              _buildDashboardActionTile(
-                title: 'تمدید با ربات تلگرام',
-                subtitle: 'ادامه در ربات',
-                icon: Icons.telegram,
-                color: t.accent,
-                onTap: () => _openTelegram(telegramBotUrl),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.workspace_premium_rounded, size: 16, color: t.accent),
+                      const SizedBox(width: 6),
+                      Text(
+                        'مدیریت اشتراک',
+                        style: TextStyle(
+                          color: t.text,
+                          fontWeight: FontWeight.w800,
+                          fontSize: 12.5,
+                        ),
+                      ),
+                      const Spacer(),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: t.success.withOpacity(0.12),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          _shouldShowRenewInBot() ? 'زمان تمدید' : 'فعال',
+                          style: TextStyle(
+                            color: t.success,
+                            fontSize: 9.5,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  if (userData?['is_test_service'] != true && _shouldShowRenewInBot()) ...[
+                    _buildDashboardActionTile(
+                      title: 'تمدید داخل برنامه',
+                      subtitle: 'ادامه همین سرویس · سریع',
+                      icon: Icons.autorenew_rounded,
+                      color: const Color(0xFF00C853),
+                      onTap: isLoading ? null : _openRenewPlans,
+                    ),
+                    const SizedBox(height: 8),
+                    _buildDashboardActionTile(
+                      title: 'خرید اشتراک جدید',
+                      subtitle: 'بسته یا نوع دیگر',
+                      icon: Icons.shopping_bag_rounded,
+                      color: const Color(0xFF00B8D4),
+                      onTap: isLoading ? null : _openPurchasePlans,
+                    ),
+                    const SizedBox(height: 6),
+                    TextButton.icon(
+                      onPressed: () => _openTelegram(telegramBotUrl),
+                      icon: Icon(Icons.telegram, size: 16, color: t.muted),
+                      label: Text(
+                        'یا تمدید از ربات تلگرام',
+                        style: TextStyle(color: t.muted, fontSize: 11.5),
+                      ),
+                    ),
+                  ] else ...[
+                    _buildDashboardActionTile(
+                      title: userData?['is_test_service'] == true ? 'خرید اشتراک' : 'خرید اشتراک جدید',
+                      subtitle: 'انتخاب بسته و فعال‌سازی فوری',
+                      icon: Icons.shopping_bag_rounded,
+                      color: const Color(0xFF00B8D4),
+                      onTap: isLoading ? null : _openPurchasePlans,
+                    ),
+                  ],
+                ],
               ),
-            ],
+            ),
           ],
           if (_shouldShowSosHelp()) ...[
             const SizedBox(height: 8),

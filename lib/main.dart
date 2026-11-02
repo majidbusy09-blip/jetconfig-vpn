@@ -18,8 +18,8 @@ void main() {
 }
 
 // مشخصات نسخه (نمایش داخل اپ) — با هر ریلیز دستی بالا ببر
-const String appVersion = 'v2.1.5';
-const int appVersionCode = 215;
+const String appVersion = 'v2.1.6';
+const int appVersionCode = 216;
 /// کانال بسته‌بندی: با --dart-define=APK_CHANNEL=arm64|universal|arm32 در بیلد ست می‌شود
 const String apkChannel = String.fromEnvironment('APK_CHANNEL', defaultValue: 'arm64');
 const String appUpdateMetaUrl = 'https://majid6064.ir/app_version.json';
@@ -437,6 +437,9 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
   late AnimationController _pulseController;
   late Animation<double> _pulseAnimation;
   late AnimationController _rotateController;
+
+  /// استایل انیمیشن دکمه تم جت: 0 مدارنئون (پسند قبلی) | 1 حلقه‌پالس | 2 رادار | 3 دوحلقه
+  int _jetAnimStyle = 0;
 
   bool isLoading = false;
   /// توکن فاکتور در انتظار تأیید (پولینگ بعد از پرداخت)
@@ -5648,10 +5651,15 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     final t = ui;
     final jet = isJetTheme;
 
-    // تم جت: دکمه نئون مدرن — سریع موقع اتصال، آهسته وقتی وصل
+    // تم جت: ۴ استایل انیمیشن — لمس طولانی برای تعویض مدل (بدون تغییر هسته VPN)
     if (jet) {
       return GestureDetector(
         onTap: isConnecting ? null : _toggleConnect,
+        onLongPress: () {
+          setState(() => _jetAnimStyle = (_jetAnimStyle + 1) % 4);
+          const names = ['مدار نئون (پسند قبلی)', 'حلقه پالس', 'رادار چرخشی', 'دو حلقه مخالف'];
+          _showToast('انیمیشن: ${names[_jetAnimStyle]}');
+        },
         child: AnimatedBuilder(
           animation: Listenable.merge([_pulseAnimation, _rotateController]),
           builder: (context, _) {
@@ -5667,156 +5675,215 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
             final coreB = isConnected
                 ? t.successDeep
                 : (isConnecting ? t.connectIdleB : const Color(0xFF151B2E));
-            // سرعت چرخش: اتصال سریع | وصل آهسته | قطع خیلی ملایم
-            final speed = isConnecting ? 1.0 : (isConnected ? 0.18 : 0.06);
+            // سرعت: اتصال سریع | وصل آهسته (همان حس پسندیده‌شده) | قطع ملایم
+            final speed = isConnecting ? 1.15 : (isConnected ? 0.22 : 0.07);
             final angle = _rotateController.value * 2 * math.pi * speed;
-            final angleRev = -_rotateController.value * 2 * math.pi * (speed * 0.85);
+            final angleRev = -_rotateController.value * 2 * math.pi * (speed * 0.9);
             final pulse = isConnecting
-                ? (0.96 + (_pulseAnimation.value - 0.96) * 1.4)
+                ? (0.96 + (_pulseAnimation.value - 0.96) * 1.55)
                 : (isConnected ? _pulseAnimation.value : 1.0);
             final glowOp = isConnecting
-                ? 0.45
-                : (isConnected ? 0.28 + (_pulseAnimation.value - 0.96) * 0.8 : 0.14);
+                ? 0.52
+                : (isConnected ? 0.32 + (_pulseAnimation.value - 0.96) * 1.0 : 0.16);
 
-            // دکمه فشرده‌تر برای کاهش اسکرول + لیبل وضعیت
-            const double outer = 156;
+            const double outer = 168;
             final String stateLabel = isConnecting
                 ? 'CONNECTING'
                 : (isConnected ? 'PROTECTED' : 'READY');
+            final style = _jetAnimStyle;
+
+            final List<Widget> fx = [];
+            // هاله مشترک
+            fx.add(Container(
+              width: outer,
+              height: outer,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    neon.withOpacity(glowOp * 0.55),
+                    neon2.withOpacity(glowOp * 0.18),
+                    Colors.transparent,
+                  ],
+                  stops: const [0.0, 0.42, 1.0],
+                ),
+              ),
+            ));
+
+            if (style == 0) {
+              // مدل ۰: مدار نئون + قوس مخالف — همان انیمیشنی که پسندیده بودی
+              fx.add(Transform.rotate(
+                angle: angle,
+                child: CustomPaint(
+                  size: const Size(outer, outer),
+                  painter: _OrbitDotsPainter(
+                    color: neon.withOpacity(0.98),
+                    color2: neon2.withOpacity(0.85),
+                  ),
+                ),
+              ));
+              fx.add(Transform.rotate(
+                angle: angleRev,
+                child: CustomPaint(
+                  size: Size(outer - 10, outer - 10),
+                  painter: _NeonArcsPainter(
+                    color: neon,
+                    color2: neon2,
+                    active: isConnecting || isConnected,
+                  ),
+                ),
+              ));
+            } else if (style == 1) {
+              // مدل ۱: حلقه‌های پالسی گسترش‌یابنده
+              final p = _pulseAnimation.value;
+              for (final scale in [0.72, 0.86, 1.0]) {
+                final s = scale * (0.92 + (p - 0.96) * 0.35);
+                fx.add(Container(
+                  width: outer * s.clamp(0.7, 1.08),
+                  height: outer * s.clamp(0.7, 1.08),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: neon.withOpacity(isConnecting ? 0.55 : (isConnected ? 0.35 : 0.18)),
+                      width: isConnecting ? 2.4 : 1.6,
+                    ),
+                  ),
+                ));
+              }
+            } else if (style == 2) {
+              // مدل ۲: رادار / جاروب چرخشی
+              fx.add(Transform.rotate(
+                angle: angle,
+                child: Container(
+                  width: outer - 6,
+                  height: outer - 6,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: SweepGradient(
+                      colors: [
+                        Colors.transparent,
+                        neon.withOpacity(isConnecting ? 0.55 : 0.28),
+                        neon2.withOpacity(isConnecting ? 0.35 : 0.14),
+                        Colors.transparent,
+                      ],
+                      stops: const [0.0, 0.18, 0.42, 1.0],
+                    ),
+                  ),
+                ),
+              ));
+              fx.add(Container(
+                width: outer - 14,
+                height: outer - 14,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(color: neon.withOpacity(0.28), width: 1.2),
+                ),
+              ));
+            } else {
+              // مدل ۳: دو حلقه خلاف جهت
+              fx.add(Transform.rotate(
+                angle: angle,
+                child: Container(
+                  width: outer - 8,
+                  height: outer - 8,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(color: neon.withOpacity(0.55), width: 2.2),
+                  ),
+                ),
+              ));
+              fx.add(Transform.rotate(
+                angle: angleRev,
+                child: Container(
+                  width: outer - 28,
+                  height: outer - 28,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(color: neon2.withOpacity(0.5), width: 1.8),
+                  ),
+                ),
+              ));
+            }
+
+            fx.add(Container(
+              width: 122,
+              height: 122,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(color: neon.withOpacity(0.32), width: 1.3),
+              ),
+            ));
+            fx.add(Container(
+              width: 104,
+              height: 104,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [coreA.withOpacity(0.98), coreB, neon2.withOpacity(0.85)],
+                  stops: const [0.0, 0.55, 1.0],
+                ),
+                border: Border.all(
+                  color: Colors.white.withOpacity(isConnecting ? 0.55 : 0.28),
+                  width: isConnecting ? 2.2 : 1.4,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: neon.withOpacity(isConnecting ? 0.58 : 0.34),
+                    blurRadius: isConnecting ? 28 : 16,
+                    spreadRadius: isConnecting ? 2 : 0,
+                  ),
+                ],
+              ),
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  Container(
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: RadialGradient(
+                        colors: [Colors.white.withOpacity(0.28), Colors.transparent],
+                        center: const Alignment(-0.4, -0.5),
+                        radius: 0.9,
+                      ),
+                    ),
+                  ),
+                  Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 220),
+                        child: Icon(
+                          isConnecting ? Icons.bolt_rounded : Icons.power_settings_new_rounded,
+                          key: ValueKey<String>(stateLabel),
+                          size: isConnecting ? 40 : 44,
+                          color: Colors.white.withOpacity(0.96),
+                          shadows: [Shadow(color: neon.withOpacity(0.85), blurRadius: 16)],
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        stateLabel,
+                        style: TextStyle(
+                          fontSize: 8,
+                          letterSpacing: 1.1,
+                          fontWeight: FontWeight.w900,
+                          color: Colors.white.withOpacity(0.88),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ));
+
             return Transform.scale(
               scale: pulse.clamp(0.92, 1.12),
               child: SizedBox(
                 width: outer,
                 height: outer,
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    // هاله پالسی
-                    Container(
-                      width: outer,
-                      height: outer,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        gradient: RadialGradient(
-                          colors: [
-                            neon.withOpacity(glowOp * 0.55),
-                            neon2.withOpacity(glowOp * 0.18),
-                            Colors.transparent,
-                          ],
-                          stops: const [0.0, 0.42, 1.0],
-                        ),
-                      ),
-                    ),
-                    // مدار نقطه‌چین
-                    Transform.rotate(
-                      angle: angle,
-                      child: CustomPaint(
-                        size: const Size(168, 168),
-                        painter: _OrbitDotsPainter(
-                          color: neon.withOpacity(0.95),
-                          color2: neon2.withOpacity(0.75),
-                        ),
-                      ),
-                    ),
-                    // قوس‌های خلاف‌جهت
-                    if (isConnecting || isConnected)
-                      Transform.rotate(
-                        angle: angleRev,
-                        child: CustomPaint(
-                          size: const Size(158, 158),
-                          painter: _NeonArcsPainter(
-                            color: neon,
-                            color2: neon2,
-                            active: isConnecting || isConnected,
-                          ),
-                        ),
-                      ),
-                    // حلقه نازک ثابت
-                    Container(
-                      width: 136,
-                      height: 136,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: neon.withOpacity(0.35),
-                          width: 1.4,
-                        ),
-                      ),
-                    ),
-                    // هسته
-                    Container(
-                      width: 108,
-                      height: 108,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        gradient: LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [coreA.withOpacity(0.98), coreB, neon2.withOpacity(0.85)],
-                          stops: const [0.0, 0.55, 1.0],
-                        ),
-                        border: Border.all(
-                          color: Colors.white.withOpacity(isConnecting ? 0.55 : 0.28),
-                          width: isConnecting ? 2.2 : 1.4,
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: neon.withOpacity(isConnecting ? 0.55 : 0.32),
-                            blurRadius: isConnecting ? 26 : 16,
-                            spreadRadius: isConnecting ? 2 : 0,
-                          ),
-                        ],
-                      ),
-                      child: Stack(
-                        alignment: Alignment.center,
-                        children: [
-                          Container(
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              gradient: RadialGradient(
-                                colors: [
-                                  Colors.white.withOpacity(0.28),
-                                  Colors.transparent,
-                                ],
-                                center: const Alignment(-0.4, -0.5),
-                                radius: 0.9,
-                              ),
-                            ),
-                          ),
-                          Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              AnimatedSwitcher(
-                                duration: const Duration(milliseconds: 220),
-                                child: Icon(
-                                  isConnecting
-                                      ? Icons.bolt_rounded
-                                      : Icons.power_settings_new_rounded,
-                                  key: ValueKey<String>(stateLabel),
-                                  size: isConnecting ? 40 : 44,
-                                  color: Colors.white.withOpacity(0.96),
-                                  shadows: [
-                                    Shadow(color: neon.withOpacity(0.85), blurRadius: 16),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                stateLabel,
-                                style: TextStyle(
-                                  fontSize: 8,
-                                  letterSpacing: 1.1,
-                                  fontWeight: FontWeight.w900,
-                                  color: Colors.white.withOpacity(0.88),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
+                child: Stack(alignment: Alignment.center, children: fx),
               ),
             );
           },

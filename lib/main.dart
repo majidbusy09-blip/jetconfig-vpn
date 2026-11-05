@@ -18,7 +18,7 @@ void main() {
 }
 
 // مشخصات نسخه (نمایش داخل اپ) — با هر ریلیز دستی بالا ببر
-const String appVersion = 'v2.2.0';
+const String appVersion = 'v2.2.1';
 const int appVersionCode = 217;
 /// کانال بسته‌بندی: با --dart-define=APK_CHANNEL=arm64|universal|arm32 در بیلد ست می‌شود
 const String apkChannel = String.fromEnvironment('APK_CHANNEL', defaultValue: 'arm64');
@@ -5752,25 +5752,31 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Expanded(
-            child: Align(
-              alignment: Alignment.centerRight,
-              child: _buildSideTrafficChip(
-                label: 'آپلود',
-                value: _formatBytes(uploadBytes),
-                icon: Icons.arrow_upward_rounded,
-                color: t.accent,
+            child: Padding(
+              padding: const EdgeInsets.only(right: 18),
+              child: Align(
+                alignment: Alignment.center,
+                child: _buildSideTrafficChip(
+                  label: 'آپلود',
+                  value: _formatBytes(uploadBytes),
+                  icon: Icons.arrow_upward_rounded,
+                  color: t.accent,
+                ),
               ),
             ),
           ),
           _build3DAnimatedButton(),
           Expanded(
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: _buildSideTrafficChip(
-                label: 'دانلود',
-                value: _formatBytes(downloadBytes),
-                icon: Icons.arrow_downward_rounded,
-                color: t.success,
+            child: Padding(
+              padding: const EdgeInsets.only(left: 18),
+              child: Align(
+                alignment: Alignment.center,
+                child: _buildSideTrafficChip(
+                  label: 'دانلود',
+                  value: _formatBytes(downloadBytes),
+                  icon: Icons.arrow_downward_rounded,
+                  color: t.success,
+                ),
               ),
             ),
           ),
@@ -7911,7 +7917,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
           // وضعیت + IP فشرده زیر دکمه (کارت جدا حذف شد تا خرید بالاتر دیده شود)
           Text(
             isConnecting
-                ? 'در حال اتصال… دوباره بزن تا لغو شود'
+                ? 'در حال اتصال…'
                 : (isConnected
                     ? 'تونل: $tunnelModeLabel · IP: $currentIpAddress'
                     : 'جهت اتصال لمس کنید · IP: $currentIpAddress'),

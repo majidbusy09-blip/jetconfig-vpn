@@ -18,7 +18,7 @@ void main() {
 }
 
 // مشخصات نسخه (نمایش داخل اپ) — با هر ریلیز دستی بالا ببر
-const String appVersion = 'v2.1.8';
+const String appVersion = 'v2.1.9';
 const int appVersionCode = 217;
 /// کانال بسته‌بندی: با --dart-define=APK_CHANNEL=arm64|universal|arm32 در بیلد ست می‌شود
 const String apkChannel = String.fromEnvironment('APK_CHANNEL', defaultValue: 'arm64');
@@ -5792,7 +5792,8 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     // تم جت: ۴ استایل انیمیشن — لمس طولانی برای تعویض مدل (بدون تغییر هسته VPN)
     if (jet) {
       return GestureDetector(
-        onTap: isConnecting ? null : _toggleConnect,
+        // حتی وسط CONNECTING باید بشود قطع کرد (انصراف از اتصال)
+        onTap: _toggleConnect,
         onLongPress: () {
           setState(() => _jetAnimStyle = (_jetAnimStyle + 1) % 4);
           const names = ['مدار نئون (پسند قبلی)', 'حلقه پالس', 'رادار چرخشی', 'دو حلقه مخالف'];
@@ -6032,7 +6033,8 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
 
     // تم کلاسیک — همان دکمه قبلی
     return GestureDetector(
-      onTap: isConnecting ? null : _toggleConnect,
+      // حتی وسط CONNECTING باید بشود قطع کرد (انصراف از اتصال)
+      onTap: _toggleConnect,
       child: AnimatedBuilder(
         animation: Listenable.merge([_pulseAnimation, _rotateController]),
         builder: (context, child) {
@@ -7914,19 +7916,23 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
                 ],
               ),
             ),
-          const SizedBox(height: 10),
-          _buildNeonIpPill(),
-          const SizedBox(height: 10),
-          _build3DAnimatedButton(),
           const SizedBox(height: 8),
+          _build3DAnimatedButton(),
+          const SizedBox(height: 6),
+          // وضعیت + IP فشرده زیر دکمه (کارت جدا حذف شد تا خرید بالاتر دیده شود)
           Text(
-            isConnected
-                ? 'تونل: $tunnelModeLabel'
-                : 'جهت اتصال لمس کنید',
+            isConnecting
+                ? 'در حال اتصال… دوباره بزن تا لغو شود'
+                : (isConnected
+                    ? 'تونل: $tunnelModeLabel · IP: $currentIpAddress'
+                    : 'جهت اتصال لمس کنید · IP: $currentIpAddress'),
+            textAlign: TextAlign.center,
             style: TextStyle(
-              color: isConnected ? t.success : Colors.grey,
+              color: isConnecting
+                  ? t.accent
+                  : (isConnected ? t.success : Colors.grey),
               fontWeight: FontWeight.bold,
-              fontSize: 11.5,
+              fontSize: 11,
             ),
           ),
           if (connectionModeSmart && _smartStatusLine.isNotEmpty && (isConnecting || isPingingAll || isRefreshingServers || _isRecovering || _deviceNetworkDown || (_userWantsConnected && !_isVpnConnected))) ...[

@@ -18,7 +18,7 @@ void main() {
 }
 
 // مشخصات نسخه (نمایش داخل اپ) — با هر ریلیز دستی بالا ببر
-const String appVersion = 'v2.1.9';
+const String appVersion = 'v2.2.0';
 const int appVersionCode = 217;
 /// کانال بسته‌بندی: با --dart-define=APK_CHANNEL=arm64|universal|arm32 در بیلد ست می‌شود
 const String apkChannel = String.fromEnvironment('APK_CHANNEL', defaultValue: 'arm64');
@@ -5097,7 +5097,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     );
   }
 
-  /// کارت وضعیت اشتراک + نوار مصرف + ترافیک فشرده جلسه
+  /// کارت وضعیت اشتراک + نوار مصرف (ترافیک جلسه کنار دکمه اتصال است)
   Widget _buildSubscriptionOverviewCard() {
     final t = ui;
     final jet = isJetTheme;
@@ -5108,9 +5108,6 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     final remaining = remainingRaw is num ? remainingRaw.toDouble() : double.tryParse('$remainingRaw');
     final canShowProgress = _hasActiveSubscription() && total != null && total > 0 && remaining != null;
     final progress = canShowProgress ? (remaining! / total!).clamp(0.0, 1.0) : 0.0;
-    final connected = _isVpnConnected;
-    final downloadBytes = connected ? v2rayStatus.download : 0;
-    final uploadBytes = connected ? v2rayStatus.upload : 0;
 
     Widget detail(String label, String value, IconData icon, Color color) {
       return Expanded(
@@ -5199,22 +5196,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
               ),
             ),
           ],
-          const SizedBox(height: 8),
-          Container(height: 1, color: Colors.white.withOpacity(0.06)),
-          const SizedBox(height: 7),
-          Row(
-            children: [
-              Icon(Icons.south_rounded, size: 13, color: t.success),
-              const SizedBox(width: 4),
-              Text('دانلود ', style: TextStyle(color: t.muted, fontSize: 9.5)),
-              Text(_formatBytes(downloadBytes), style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w700)),
-              const Spacer(),
-              Icon(Icons.north_rounded, size: 13, color: t.accent),
-              const SizedBox(width: 4),
-              Text('آپلود ', style: TextStyle(color: t.muted, fontSize: 9.5)),
-              Text(_formatBytes(uploadBytes), style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w700)),
-            ],
-          ),
+          // ترافیک جلسه کنار دکمه اتصال نمایش داده می‌شود
         ],
       ),
     );
@@ -5727,60 +5709,73 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     );
   }
 
-  Widget _buildTrafficCard() {
+  /// ترافیک فشرده کنار دکمه اتصال (چپ=آپلود، راست=دانلود)
+  Widget _buildSideTrafficChip({
+    required String label,
+    required String value,
+    required IconData icon,
+    required Color color,
+  }) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 16, color: color.withOpacity(0.9)),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.w800,
+            fontSize: 12,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          label,
+          style: TextStyle(color: Colors.white54, fontSize: 9.5, fontWeight: FontWeight.w600),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildConnectWithTraffic() {
     final isConnected = _isVpnConnected;
     final downloadBytes = isConnected ? v2rayStatus.download : 0;
     final uploadBytes = isConnected ? v2rayStatus.upload : 0;
-
     final t = ui;
-    // Phase 2 UI: دو کارت فشرده جدا برای دانلود / آپلود (فقط ظاهر)
-    Widget mini(String title, String value, IconData icon, Color color) {
-      return Expanded(
-        child: Container(
-          padding: EdgeInsets.symmetric(horizontal: 12, vertical: isJetTheme ? 8 : 10),
-          decoration: BoxDecoration(
-            color: t.card,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: color.withOpacity(0.35), width: 1),
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 28,
-                height: 28,
-                decoration: BoxDecoration(
-                  color: color.withOpacity(0.14),
-                  borderRadius: BorderRadius.circular(9),
-                ),
-                child: Icon(icon, size: 16, color: color),
+    // LTR ثابت تا در RTL هم آپلود چپ و دانلود راست بماند
+    return Directionality(
+      textDirection: TextDirection.ltr,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Expanded(
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: _buildSideTrafficChip(
+                label: 'آپلود',
+                value: _formatBytes(uploadBytes),
+                icon: Icons.arrow_upward_rounded,
+                color: t.accent,
               ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(title, style: const TextStyle(fontSize: 10, color: Colors.grey)),
-                    Text(
-                      value,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.white),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+            ),
           ),
-        ),
-      );
-    }
-
-    return Row(
-      children: [
-        mini('دانلود', _formatBytes(downloadBytes), Icons.arrow_downward_rounded, t.success),
-        const SizedBox(width: 8),
-        mini('آپلود', _formatBytes(uploadBytes), Icons.arrow_upward_rounded, t.accent),
-      ],
+          _build3DAnimatedButton(),
+          Expanded(
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: _buildSideTrafficChip(
+                label: 'دانلود',
+                value: _formatBytes(downloadBytes),
+                icon: Icons.arrow_downward_rounded,
+                color: t.success,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -7887,37 +7882,31 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
           else
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               decoration: BoxDecoration(
                 color: t.card,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: t.accent.withOpacity(0.18)),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: t.accent.withOpacity(0.16)),
               ),
               child: Row(
                 children: [
-                  Container(
-                    width: 34,
-                    height: 34,
-                    decoration: BoxDecoration(
-                      color: t.accent.withOpacity(0.12),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: const Icon(Icons.auto_awesome_rounded, color: Color(0xFF00E5FF), size: 18),
-                  ),
-                  const SizedBox(width: 10),
+                  Icon(Icons.auto_awesome_rounded, color: Color(0xFF00E5FF), size: 15),
+                  const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       isConnecting || isPingingAll || isRefreshingServers
                           ? _smartStatusLine
-                          : (isConnected ? 'مود هوشمند · سرور به‌صورت خودکار مدیریت می‌شود' : 'مود هوشمند · فقط اتصال را بزن'),
-                      style: const TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.w600),
+                          : (isConnected ? 'مود هوشمند · سرور خودکار' : 'مود هوشمند · فقط اتصال را بزن'),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.w600),
                     ),
                   ),
                 ],
               ),
             ),
-          const SizedBox(height: 8),
-          _build3DAnimatedButton(),
+          const SizedBox(height: 6),
+          _buildConnectWithTraffic(),
           const SizedBox(height: 6),
           // وضعیت + IP فشرده زیر دکمه (کارت جدا حذف شد تا خرید بالاتر دیده شود)
           Text(

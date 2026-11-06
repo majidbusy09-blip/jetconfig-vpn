@@ -352,12 +352,16 @@ jobs:
       - name: Read app version
         id: ver
         run: |
+          # اولویت: pubspec.yaml (منبع رسمی) — بعد const واقعی در main.dart (نه کامنت)
           VER=""
-          if [ -f lib/main.dart ]; then
-            VER=$(grep -oP "appVersion\s*=\s*'\K[^']+" lib/main.dart | head -1 || true)
+          if [ -f pubspec.yaml ]; then
+            VER=$(grep -E '^version:' pubspec.yaml | head -1 | sed -E 's/^version:[[:space:]]*//; s/\+.*//; s/[[:space:]]//g' || true)
+          fi
+          if [ -z "$VER" ] && [ -f lib/main.dart ]; then
+            VER=$(grep -E "^const String appVersion[[:space:]]*=" lib/main.dart | head -1 | sed -n "s/.*'\\([^']*\\)'.*/\\1/p" || true)
           fi
           if [ -z "$VER" ]; then
-            VER="v0.0.0"
+            VER="0.0.0"
           fi
           case "$VER" in
             v*|V*) ;;

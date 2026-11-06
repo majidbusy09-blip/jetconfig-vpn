@@ -17,9 +17,10 @@ void main() {
   runApp(const JetConfigApp());
 }
 
-// مشخصات نسخه (نمایش داخل اپ) — با هر ریلیز دستی بالا ببر
-const String appVersion = 'v2.2.1';
-const int appVersionCode = 217;
+// مشخصات نسخه (نمایش داخل اپ) — با هر ریلیز هر دو را با pubspec هماهنگ کن
+// version: X.Y.Z+CODE  →  appVersion='vX.Y.Z'  و  appVersionCode=CODE
+const String appVersion = 'v2.2.2';
+const int appVersionCode = 222;
 /// کانال بسته‌بندی: با --dart-define=APK_CHANNEL=arm64|universal|arm32 در بیلد ست می‌شود
 const String apkChannel = String.fromEnvironment('APK_CHANNEL', defaultValue: 'arm64');
 const String appUpdateMetaUrl = 'https://majid6064.ir/app_version.json';
@@ -6474,6 +6475,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
       final remoteCode = int.tryParse('${data['version_code'] ?? 0}') ?? 0;
       final minCode = int.tryParse('${data['min_version_code'] ?? 0}') ?? 0;
       final force = data['force'] == true || (minCode > 0 && appVersionCode < minCode);
+      // معیار اصلی فقط version_code است (همان فیلد وب‌پنل). appVersion فقط نمایش است.
       if (remoteCode <= appVersionCode && !force) {
         if (!silent && mounted) {
           await _showUpToDateDialog();

@@ -17,8 +17,9 @@ void main() {
   runApp(const JetConfigApp());
 }
 
-// مشخصات نسخه (نمایش داخل اپ) — با هر ریلیز هر دو را با pubspec هماهنگ کن
-// version: X.Y.Z+CODE  →  appVersion='vX.Y.Z'  و  appVersionCode=CODE
+// مشخصات نسخه (نمایش داخل اپ) — با هر ریلیز با pubspec هماهنگ کن
+// مثال: pubspec 2.2.2+222 → همین دو مقدار را هم‌خوان نگه دار
+// در کامنت از شکل appVersion = '...' استفاده نکن (ورک‌فلو گیت‌هاب آن را اشتباه می‌خواند)
 const String appVersion = 'v2.2.2';
 const int appVersionCode = 222;
 /// کانال بسته‌بندی: با --dart-define=APK_CHANNEL=arm64|universal|arm32 در بیلد ست می‌شود

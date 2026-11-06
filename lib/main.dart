@@ -20,8 +20,8 @@ void main() {
 // مشخصات نسخه (نمایش داخل اپ) — با هر ریلیز با pubspec هماهنگ کن
 // مثال: pubspec 2.2.2+222 → همین دو مقدار را هم‌خوان نگه دار
 // در کامنت از شکل appVersion = '...' استفاده نکن (ورک‌فلو گیت‌هاب آن را اشتباه می‌خواند)
-const String appVersion = 'v2.2.2';
-const int appVersionCode = 222;
+const String appVersion = 'v2.2.3';
+const int appVersionCode = 223;
 /// کانال بسته‌بندی: با --dart-define=APK_CHANNEL=arm64|universal|arm32 در بیلد ست می‌شود
 const String apkChannel = String.fromEnvironment('APK_CHANNEL', defaultValue: 'arm64');
 const String appUpdateMetaUrl = 'https://majid6064.ir/app_version.json';
@@ -522,6 +522,15 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
   int _connectGen = 0;
   DateTime? _lastRecoveryAt;
   int _healthFailCount = 0;
+  /// آستانه شکست پشت‌سرهم delay قبل از قطع UI / بازیابی (فاز A)
+  static const int _healthFailThreshold = 3;
+  /// سقف تلاش بازیابی در یک پنجره زمانی (فاز B)
+  static const int _recoveryMaxPerWindow = 4;
+  static const int _recoveryWindowMinutes = 15;
+  int _recoveryAttemptsInWindow = 0;
+  DateTime? _recoveryWindowStart;
+  /// بعد از شکست بازیابی: پایش با فاصله بیشتر
+  bool _healthSlowMode = false;
   Timer? _healthTimer;
   /// جلوگیری از اجرای هم‌زمان چند health tick
   bool _healthTickRunning = false;
@@ -1367,7 +1376,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
       _fetchCurrentIp(force: true);
       // بعد از تأیید واقعی، پایش سلامت تونل را روشن کن (فقط مود هوشمند)
       if (connectionModeSmart && _userWantsConnected && !_isRecovering) {
-        _startHealthWatch();
+        _startHealthWatch(slow: false);
       }
       return;
     }
@@ -4338,16 +4347,20 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     _healthFailCount = 0;
   }
 
-  void _startHealthWatch() {
-    _stopHealthWatch();
+  void _startHealthWatch({bool? slow}) {
+    _healthTimer?.cancel();
+    _healthTimer = null;
+    _healthFailCount = 0;
     if (!connectionModeSmart || !_userWantsConnected) return;
-    // چک سریع‌تر: قطعی اینترنت دستگاه را زودتر بفهمیم
-    _healthTimer = Timer.periodic(const Duration(seconds: 8), (_) {
+    if (slow != null) _healthSlowMode = slow;
+    // عادی ۸ث — بعد از شکست بازیابی ۳۰ث (فاز B)
+    final period = _healthSlowMode ? 30 : 8;
+    final firstDelay = _healthSlowMode ? 8 : 3;
+    _healthTimer = Timer.periodic(Duration(seconds: period), (_) {
       _healthTick();
     });
-    // اولین چک زودتر از دورهٔ کامل
-    Future.delayed(const Duration(seconds: 3), () {
-      if (mounted) _healthTick();
+    Future.delayed(Duration(seconds: firstDelay), () {
+      if (mounted && _userWantsConnected && connectionModeSmart) _healthTick();
     });
   }
 
@@ -4367,13 +4380,33 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     return false;
   }
 
+  bool _canAttemptRecovery() {
+    final now = DateTime.now();
+    if (_recoveryWindowStart == null ||
+        now.difference(_recoveryWindowStart!).inMinutes >= _recoveryWindowMinutes) {
+      _recoveryWindowStart = now;
+      _recoveryAttemptsInWindow = 0;
+    }
+    return _recoveryAttemptsInWindow < _recoveryMaxPerWindow;
+  }
+
+  void _noteRecoveryAttempt() {
+    final now = DateTime.now();
+    if (_recoveryWindowStart == null ||
+        now.difference(_recoveryWindowStart!).inMinutes >= _recoveryWindowMinutes) {
+      _recoveryWindowStart = now;
+      _recoveryAttemptsInWindow = 0;
+    }
+    _recoveryAttemptsInWindow++;
+  }
+
   Future<void> _healthTick() async {
     if (!mounted || !connectionModeSmart || !_userWantsConnected) return;
     if (_isRecovering || isConnecting) return;
-    if (_healthTickRunning) return; // جلوگیری از همپوشانی تیک‌های async
+    if (_healthTickRunning) return;
     _healthTickRunning = true;
     try {
-      // هسته قطع شده
+      // هسته واقعاً قطع است → بازیابی (نیازی به ۳ بار delay نیست)
       if (!_statusMeansConnected(v2rayStatus.state)) {
         if (mounted && _connectionVerified) {
           setState(() {
@@ -4387,7 +4420,6 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
         return;
       }
 
-      // سلامت واقعی تونل (وقتی اینترنت گوشی قطع است معمولاً timeout می‌شود)
       int delay = -1;
       try {
         delay = await flutterV2ray
@@ -4396,13 +4428,13 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
       } catch (_) {
         delay = -1;
       }
-      // بعد از await وضعیت ممکن است عوض شده باشد
       if (!mounted || !_userWantsConnected || _isRecovering) return;
       if (!_statusMeansConnected(v2rayStatus.state)) {
         if (_userWantsConnected) _scheduleSmartRecovery('health_state_after');
         return;
       }
 
+      // delay سالم → شمارنده صفر، UI سبز بماند (فاز A)
       if (delay >= 0 && delay <= 15000) {
         _healthFailCount = 0;
         if (mounted) {
@@ -4414,16 +4446,34 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
             }
           });
         }
+        // اگر قبلاً slow بود و الان سالم شد، به پایش عادی برگرد
+        if (_healthSlowMode) {
+          _healthSlowMode = false;
+          _startHealthWatch(slow: false);
+        }
         return;
       }
 
-      // شکست: فوراً دکمه از سبز خارج شود (حتی قبل از بازیابی)
+      // شکست delay در حالی که هسته هنوز CONNECTED است (فاز A + C)
       _healthFailCount++;
+      debugPrint('health delay fail count=$_healthFailCount/$_healthFailThreshold');
+
+      // زیر از آستانه: فقط پینگ را خالی کن — دکمه سبز و بدون stop (فاز C)
+      if (_healthFailCount < _healthFailThreshold) {
+        if (mounted) {
+          setState(() {
+            activePing = -1;
+            // _connectionVerified را عمداً false نمی‌کنیم
+          });
+        }
+        return;
+      }
+
+      // از آستانه گذشت → UI قطع، بررسی شبکه، در صورت نیاز بازیابی
       if (mounted) {
         setState(() {
           _connectionVerified = false;
           activePing = -1;
-          _deviceNetworkDown = true; // موقت؛ پایین‌تر دقیق می‌شود
         });
       }
 
@@ -4434,11 +4484,12 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
       }
 
       if (!netOk) {
-        // شبکه دستگاه قطع — منتظر تیک بعدی؛ دکمه دیگر سبز نیست
+        // شبکه دستگاه قطع — بدون stop تونل؛ منتظر تیک بعدی
+        // شمارنده را نگه می‌داریم تا با برگشت شبکه زودتر وارد بازیابی شویم
         return;
       }
 
-      // شبکه هست ولی تونل مرده → بازیابی
+      // شبکه هست + چند بار delay مرده → بازیابی (stop فقط داخل recovery)
       _healthFailCount = 0;
       _scheduleSmartRecovery('health_delay');
     } finally {
@@ -4450,13 +4501,22 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     if (!connectionModeSmart || !_userWantsConnected) return;
     if (_isRecovering) return;
     final now = DateTime.now();
-    final minGap = reason == 'network_back' ? 3 : 10;
+    final minGap = reason == 'network_back' ? 3 : 12;
     if (_lastRecoveryAt != null &&
         now.difference(_lastRecoveryAt!).inSeconds < minGap) {
-      return; // ضد flapping
+      return;
+    }
+    if (!_canAttemptRecovery()) {
+      debugPrint('scheduleSmartRecovery blocked by window cap: $reason');
+      // قصد کاربر را خاموش نکن؛ فقط پایش آهسته
+      if (!_healthSlowMode) {
+        _startHealthWatch(slow: true);
+      }
+      return;
     }
     debugPrint('scheduleSmartRecovery: $reason');
     _lastRecoveryAt = now;
+    _noteRecoveryAttempt();
     Future.microtask(() => _runSmartRecovery(reason));
   }
 
@@ -4489,7 +4549,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
           });
         }
         // health watch را برگردان تا با برگشت شبکه دوباره تلاش کند
-        _startHealthWatch();
+        _startHealthWatch(slow: true);
         return;
       }
       if (mounted) setState(() => _deviceNetworkDown = false);
@@ -4559,17 +4619,25 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
         }
       }
 
+      // فاز B: قصد کاربر را خاموش نکن — پایش آهسته و تلاش بعدی در سقف پنجره
       if (!mounted || gen != _recoveryGen) return;
-      _userWantsConnected = false;
       if (mounted) {
         setState(() {
           _isRecovering = false;
           isConnecting = false;
           _connectionVerified = false;
           _uiForceDisconnected = true;
+          activePing = -1;
         });
       }
-      _showToast('اتصال پایدار نشد — بعداً دوباره امتحان کن');
+      if (_userWantsConnected) {
+        _startHealthWatch(slow: true);
+        if (_canAttemptRecovery()) {
+          _showToast('در حال تلاش مجدد برای اتصال پایدار…');
+        } else {
+          _showToast('اتصال پایدار نشد — کمی بعد دوباره خودکار تلاش می‌شود');
+        }
+      }
     } catch (e) {
       debugPrint('recovery error: $e');
       if (mounted && gen == _recoveryGen) {
@@ -4577,6 +4645,9 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
           _isRecovering = false;
           isConnecting = false;
         });
+        if (_userWantsConnected && connectionModeSmart) {
+          _startHealthWatch(slow: true);
+        }
       }
     } finally {
       if (gen == _recoveryGen && mounted && !_connectionVerified) {
@@ -4593,9 +4664,9 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
         if (mounted) {
           setState(() => _isRecovering = false);
         }
-        // بازیابی موفق → پایش سلامت دوباره روشن
+        // بازیابی موفق → پایش سلامت عادی دوباره روشن
         if (connectionModeSmart && _userWantsConnected) {
-          _startHealthWatch();
+          _startHealthWatch(slow: false);
         }
         return true;
       }
@@ -4649,6 +4720,8 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
       _recoveryGen++; // باطل کردن بازیابی
       _connectGen++; // باطل کردن اتصال در جریان (پینگ/استارت)
       _userWantsConnected = false;
+      _healthSlowMode = false;
+      _healthFailCount = 0;
       _stopHealthWatch();
       if (mounted) {
         setState(() {

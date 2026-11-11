@@ -20,7 +20,7 @@ void main() {
 // مشخصات نسخه (نمایش داخل اپ) — با هر ریلیز با pubspec هماهنگ کن
 // مثال: pubspec 2.2.2+222 → همین دو مقدار را هم‌خوان نگه دار
 // در کامنت از شکل appVersion = '...' استفاده نکن (ورک‌فلو گیت‌هاب آن را اشتباه می‌خواند)
-const String appVersion = 'v2.2.3';
+const String appVersion = 'v2.2.4';
 const int appVersionCode = 223;
 /// کانال بسته‌بندی: با --dart-define=APK_CHANNEL=arm64|universal|arm32 در بیلد ست می‌شود
 const String apkChannel = String.fromEnvironment('APK_CHANNEL', defaultValue: 'arm64');
@@ -3628,15 +3628,110 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     }
     if (mounted) setState(() => isLoading = true);
     try {
-      final res = await http
+      // 1) لیست پیشنهادهای تست (چنددسته‌ای مثل ربات)
+      final listRes = await http
           .post(
             Uri.parse('https://majid6064.ir/api.php'),
             headers: {'Content-Type': 'application/x-www-form-urlencoded'},
             body: {
-              'action': 'claim_free_test',
+              'action': 'list_test_offers',
               'username': u,
               'password': pw,
             },
+          )
+          .timeout(const Duration(seconds: 20));
+      final listData = json.decode(listRes.body);
+      if (listData is! Map || listData['ok'] != true) {
+        _showToast((listData is Map ? listData['msg'] : null)?.toString() ?? 'دریافت لیست تست ناموفق', isError: true);
+        return;
+      }
+      final rawOffers = (listData['offers'] is List) ? (listData['offers'] as List) : <dynamic>[];
+      final available = <Map>[];
+      for (final o in rawOffers) {
+        if (o is Map && (o['used'] == 0 || o['used'] == false || o['used'] == '0')) {
+          available.add(Map<String, dynamic>.from(o));
+        }
+      }
+      if (available.isEmpty) {
+        _showToast('تست رایگان قابل دریافت نداری (قبلاً استفاده شده یا غیرفعال است)', isError: true);
+        return;
+      }
+
+      int offerId = 0;
+      if (available.length == 1) {
+        offerId = int.tryParse('${available.first['id'] ?? 0}') ?? 0;
+      } else {
+        if (mounted) setState(() => isLoading = false);
+        final chosen = await showModalBottomSheet<Map>(
+          context: context,
+          backgroundColor: const Color(0xFF151A2E),
+          shape: const RoundedRectangleBorder(
+            borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+          ),
+          builder: (ctx) {
+            return SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 14, 16, 20),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const Text(
+                      'کدام نوع تست را می‌خواهی؟',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w700),
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'هر تست مربوط به یک دسته پلن است تا همان کیفیت مسیر را ببینی. از هر نوع فقط یک‌بار.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: Colors.white54, fontSize: 12, height: 1.5),
+                    ),
+                    const SizedBox(height: 12),
+                    for (final o in available)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF2A3358),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                          onPressed: () => Navigator.pop(ctx, o),
+                          child: Text(
+                            '${o['emoji'] ?? '🎁'} ${o['title'] ?? 'تست'}',
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      ),
+                    TextButton(
+                      onPressed: () => Navigator.pop(ctx),
+                      child: const Text('انصراف', style: TextStyle(color: Colors.redAccent)),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+        if (chosen == null) return;
+        offerId = int.tryParse('${chosen['id'] ?? 0}') ?? 0;
+        if (mounted) setState(() => isLoading = true);
+      }
+
+      final body = <String, String>{
+        'action': 'claim_free_test',
+        'username': u,
+        'password': pw,
+      };
+      if (offerId > 0) body['offer_id'] = '$offerId';
+
+      final res = await http
+          .post(
+            Uri.parse('https://majid6064.ir/api.php'),
+            headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+            body: body,
           )
           .timeout(const Duration(seconds: 25));
       final data = json.decode(res.body);

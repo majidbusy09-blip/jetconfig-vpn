@@ -18,9 +18,9 @@ void main() {
 }
 
 // مشخصات نسخه (نمایش داخل اپ) — با هر ریلیز با pubspec هماهنگ کن
-// مثال: pubspec 2.2.2+222 → همین دو مقدار را هم‌خوان نگه دار
+// مثال: pubspec 2.2.6+222 → همین دو مقدار را هم‌خوان نگه دار
 // در کامنت از شکل appVersion = '...' استفاده نکن (ورک‌فلو گیت‌هاب آن را اشتباه می‌خواند)
-const String appVersion = 'v2.2.5';
+const String appVersion = 'v2.2.6';
 const int appVersionCode = 223;
 /// کانال بسته‌بندی: با --dart-define=APK_CHANNEL=arm64|universal|arm32 در بیلد ست می‌شود
 const String apkChannel = String.fromEnvironment('APK_CHANNEL', defaultValue: 'arm64');
@@ -411,36 +411,41 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
 
         if (_statusMeansDisconnected(status.state)) {
           activePing = -1;
-          // وسط بازیابی: UI را «در حال اتصال» نگه می‌داریم
-          if (!_isRecovering) {
+          if (_isRecovering) {
+            // وسط تعویض سرور: UI را «در حال اتصال» نگه دار
+            isConnecting = true;
+            _connectionVerified = false;
+          } else if (_weInitiatedStop || !_userWantsConnected) {
+            // قطع عمدی از دکمه داخل اپ
+            _weInitiatedStop = false;
             isConnecting = false;
             _connectionVerified = false;
             _uiForceDisconnected = true;
-            if (!_userWantsConnected) {
-              // قطع عمدی کاربر (اپ یا نوتیف) — بازیابی نکن
-              _isRecovering = false;
-            } else if (connectionModeSmart) {
-              // قطع غیرمنتظره هسته در حالی که کاربر می‌خواهد وصل بماند
-              scheduleRecoverOnDrop = true;
-            } else {
-              // مود دستی: قطع غیرمنتظره → فقط UI قطع
-              _userWantsConnected = false;
-            }
+            _userWantsConnected = false;
+            _isRecovering = false;
+            scheduleRecoverOnDrop = false;
+          } else {
+            // قطع از بیرون (نوتیفیکیشن یا سیستم): عمدی — دوباره وصل نشو
+            // بازیابی واقعی فقط از health در حالی که هنوز CONNECTED بود انجام می‌شود
+            _weInitiatedStop = false;
+            isConnecting = false;
+            _connectionVerified = false;
+            _uiForceDisconnected = true;
+            _userWantsConnected = false;
+            _isRecovering = false;
+            scheduleRecoverOnDrop = false;
           }
         }
-
-        // CONNECTED خام هسته ≠ اتصال واقعی؛ تا verify نشود سبز نشو
-        // isConnecting را اینجا false نکن — بعد از _verifyLiveConnection
       });
 
       if (_statusMeansConnected(status.state) &&
           prev != 'CONNECTED' &&
           !_uiForceDisconnected &&
           _userWantsConnected) {
-        // تأیید واقعی مسیر پروکسی (مثل Happ / v2rayNG)
-        _verifyLiveConnection();
+        _verifyLiveConnection(silent: false);
       } else if (_statusMeansDisconnected(status.state) && prev == 'CONNECTED') {
         _fetchCurrentIp(force: true);
+        // scheduleRecoverOnDrop دیگر برای نوتیف روشن نمی‌شود
         if (scheduleRecoverOnDrop) {
           _scheduleSmartRecovery('core_drop');
         }
@@ -543,6 +548,10 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
   bool _ipFetchInFlight = false;
   /// بعد از stop، تا رسیدن status قطع از هسته، UI را فوری قطع نشان بده
   bool _uiForceDisconnected = false;
+  /// true وقتی خودمان stop زدیم (دکمه اپ) نه نوتیفیکیشن
+  bool _weInitiatedStop = false;
+  /// اپ در پیش‌زمینه است؟
+  bool _appInForeground = true;
   /// فقط بعد از تأیید واقعی (getConnectedServerDelay) دکمه سبز می‌شود
   bool _connectionVerified = false;
   int _verifyGen = 0; // برای باطل کردن verifyهای قدیمی
@@ -1315,6 +1324,19 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
   }
 
   /// وضعیت واقعی دکمه/UI — هسته CONNECTED + تأیید تأخیر واقعی
+
+  /// stop هسته با علامت «خودمان قطع کردیم» تا بازیابی هوشمند اشتباهی نزند
+  Future<void> _stopVpnCore({bool userIntent = true}) async {
+    if (userIntent) {
+      _weInitiatedStop = true;
+      _userWantsConnected = false;
+      _isRecovering = false;
+    }
+    try {
+      await flutterV2ray.stopV2Ray();
+    } catch (_) {}
+  }
+
   bool get _isVpnConnected {
     if (_uiForceDisconnected) return false;
     if (!_connectionVerified) return false;
@@ -1322,22 +1344,26 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
   }
 
   /// بعد از CONNECTED هسته: آیا اینترنت از داخل تونل واقعاً جواب می‌دهد؟
-  Future<void> _verifyLiveConnection() async {
+  /// [silent]: برگشت به اپ — UI را قرمز/درحال‌اتصال نکن و روی یک بار fail تونل را stop نکن.
+  Future<void> _verifyLiveConnection({bool silent = false}) async {
     final gen = ++_verifyGen;
-    if (mounted) {
+    if (!silent && mounted) {
       setState(() {
-        isConnecting = true; // اسپینر تا تأیید
+        isConnecting = true; // فقط وقتی اتصال تازه شروع شده
         _connectionVerified = false;
       });
     }
 
-    // کمی صبر تا تونل پایدار شود
-    await Future.delayed(const Duration(milliseconds: 800));
-    if (!mounted || gen != _verifyGen || _uiForceDisconnected) return;
+    // کمی صبر تا تونل پایدار شود (در silent کوتاه‌تر)
+    await Future.delayed(Duration(milliseconds: silent ? 200 : 800));
+    if (!mounted || gen != _verifyGen) return;
+    if (!silent && _uiForceDisconnected) return;
 
     int delay = -1;
-    for (var attempt = 0; attempt < 2; attempt++) {
-      if (!mounted || gen != _verifyGen || _uiForceDisconnected) return;
+    final attempts = silent ? 1 : 2;
+    for (var attempt = 0; attempt < attempts; attempt++) {
+      if (!mounted || gen != _verifyGen) return;
+      if (!silent && _uiForceDisconnected) return;
       try {
         delay = await flutterV2ray
             .getConnectedServerDelay()
@@ -1346,13 +1372,15 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
         delay = -1;
       }
       if (delay >= 0 && delay <= 15000) break;
-      await Future.delayed(const Duration(milliseconds: 400));
+      if (!silent) {
+        await Future.delayed(const Duration(milliseconds: 400));
+      }
     }
 
     if (!mounted || gen != _verifyGen) return;
 
-    if (_uiForceDisconnected || !_statusMeansConnected(v2rayStatus.state)) {
-      if (mounted) {
+    if (!_statusMeansConnected(v2rayStatus.state)) {
+      if (mounted && !silent) {
         setState(() {
           isConnecting = false;
           _connectionVerified = false;
@@ -1366,23 +1394,38 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
         setState(() {
           _connectionVerified = true;
           isConnecting = false;
-          // کمی صبر تا تونل پایدار شود، بعد IP خروجی
-          Future.delayed(const Duration(milliseconds: 1500), () {
-            if (mounted) _fetchCurrentIp(force: true);
-          });
+          _uiForceDisconnected = false;
           activePing = delay;
         });
       }
-      _fetchCurrentIp(force: true);
-      // بعد از تأیید واقعی، پایش سلامت تونل را روشن کن (فقط مود هوشمند)
+      if (!silent) {
+        Future.delayed(const Duration(milliseconds: 1500), () {
+          if (mounted) _fetchCurrentIp(force: true);
+        });
+        _fetchCurrentIp(force: true);
+      }
       if (connectionModeSmart && _userWantsConnected && !_isRecovering) {
         _startHealthWatch(slow: false);
       }
       return;
     }
 
-    // اتصال واقعی برقرار نشد — مثل Happ: برگرد به قطع
-    debugPrint('verifyLiveConnection failed delay=$delay');
+    // fail
+    debugPrint('verifyLiveConnection failed delay=$delay silent=$silent');
+
+    if (silent) {
+      // برگشت به اپ: تونل را نکش؛ فقط پینگ را خالی بگذار و به health بسپار
+      if (mounted && _connectionVerified) {
+        // قبلاً سبز بود — سبز بماند؛ health اگر لازم بود درست می‌کند
+        setState(() {
+          activePing = -1;
+        });
+      }
+      return;
+    }
+
+    // اتصال تازه: واقعاً برقرار نشد → stop و در صورت نیاز بازیابی
+    _weInitiatedStop = true;
     try {
       await flutterV2ray.stopV2Ray();
     } catch (_) {}
@@ -1397,6 +1440,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     if (connectionModeSmart && _userWantsConnected && !_isRecovering) {
       _scheduleSmartRecovery('verify_fail');
     } else {
+      _userWantsConnected = false;
       _showToast('اتصال برقرار نشد — سرور قطع یا ناموجود است');
     }
   }
@@ -2238,6 +2282,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     if (stopVpn) {
       try {
         if (_isVpnConnected || _statusMeansConnected(v2rayStatus.state)) {
+          _weInitiatedStop = true;
           await flutterV2ray.stopV2Ray();
         }
       } catch (_) {}
@@ -2264,6 +2309,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     _verifyGen++;
     _recoveryGen++;
     _userWantsConnected = false;
+    _weInitiatedStop = true;
     _stopHealthWatch();
     try {
       await flutterV2ray.stopV2Ray();
@@ -3519,50 +3565,66 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
     if (state == AppLifecycleState.resumed) {
+      _appInForeground = true;
       if (_pendingPayToken != null && !_paymentWatchRunning) {
         _watchPaymentStatus(auto: true);
       }
-      // همگام‌سازی وضعیت واقعی VPN بعد از برگشت به اپ
+      // فقط همگام‌سازی نرم — تونل وصل را قطع نکن
       _reconcileVpnStateOnResume();
+    } else if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.hidden) {
+      _appInForeground = false;
     }
   }
 
+  /// برگشت به اپ: اگر هسته واقعاً وصل است UI را خراب نکن و stop نزن.
   Future<void> _reconcileVpnStateOnResume() async {
     try {
       final st = v2rayStatus.state;
-      if (_statusMeansDisconnected(st)) {
-        if (!mounted) return;
-        setState(() {
-          isConnecting = false;
-          _connectionVerified = false;
-          _uiForceDisconnected = true;
-          activePing = -1;
-          if (!_userWantsConnected) {
-            _isRecovering = false;
-          }
-        });
-        _fetchCurrentIp(force: true);
-        return;
-      }
-      if (_statusMeansConnected(st)) {
-        // هسته می‌گوید وصل است — دوباره مسیر واقعی را چک کن
-        if (!_userWantsConnected) {
-          // کاربر قطع خواسته ولی هسته هنوز وصل: UI را قطع نگه دار
-          if (mounted) {
-            setState(() {
-              _connectionVerified = false;
-              _uiForceDisconnected = true;
-            });
-          }
-          return;
+
+      // کاربر عمداً قطع کرده
+      if (!_userWantsConnected) {
+        if (_statusMeansConnected(st)) {
+          _weInitiatedStop = true;
+          try {
+            await flutterV2ray.stopV2Ray();
+          } catch (_) {}
         }
         if (mounted) {
           setState(() {
-            _uiForceDisconnected = false;
-            _connectionVerified = false; // تا verify نشود سبز نشود
+            isConnecting = false;
+            _connectionVerified = false;
+            _uiForceDisconnected = true;
+            activePing = -1;
           });
         }
-        await _verifyLiveConnection();
+        return;
+      }
+
+      if (_statusMeansDisconnected(st)) {
+        // هسته قطع است ولی کاربر می‌خواهد وصل بماند
+        if (connectionModeSmart && !_isRecovering) {
+          _scheduleSmartRecovery('resume_disconnected');
+        } else if (mounted) {
+          setState(() {
+            isConnecting = false;
+            _connectionVerified = false;
+            _uiForceDisconnected = true;
+            activePing = -1;
+          });
+        }
+        return;
+      }
+
+      if (_statusMeansConnected(st)) {
+        // وصل است — سبز بماند؛ فقط پایش بی‌صدا (بدون اسپینر و بدون stop)
+        if (mounted) {
+          setState(() {
+            _uiForceDisconnected = false;
+          });
+        }
+        await _verifyLiveConnection(silent: true);
       }
     } catch (_) {}
   }
@@ -4880,6 +4942,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
       _recoveryGen++; // باطل کردن بازیابی
       _connectGen++; // باطل کردن اتصال در جریان (پینگ/استارت)
       _userWantsConnected = false;
+      _weInitiatedStop = true; // قطع از دکمه اپ — بازیابی نکن
       _healthSlowMode = false;
       _healthFailCount = 0;
       _stopHealthWatch();

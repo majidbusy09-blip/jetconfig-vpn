@@ -1873,11 +1873,22 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
 
     final totalRaw = d['total_gb'];
     final remRaw = d['remaining_gb'];
+    final planRaw = d['plan_volume_gb'];
     final total = totalRaw is num ? totalRaw.toDouble() : double.tryParse('$totalRaw');
     final rem = remRaw is num ? remRaw.toDouble() : double.tryParse('$remRaw');
-    if (total != null && total > 0) {
-      final left = rem ?? 0.0;
-      if (left > 0 && (left / total) <= 0.20) return true;
+    final planVol = planRaw is num ? planRaw.toDouble() : double.tryParse('$planRaw');
+    final left = rem ?? 0.0;
+    if (left > 0) {
+      // مبنای ۸۰٪ مصرف: حجم پلن/سفارش جاری، نه جمع تمدیدهای قبلی روی پنل
+      double? basis = total;
+      if (planVol != null && planVol > 0) {
+        if (total == null || total <= 0 || total > planVol * 1.15) {
+          basis = planVol;
+        }
+      }
+      if (basis != null && basis > 0 && (left / basis) <= 0.20) {
+        return true;
+      }
     }
 
     final expire = d['expire_days'];
@@ -3507,11 +3518,53 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
-    if (state == AppLifecycleState.resumed &&
-        _pendingPayToken != null &&
-        !_paymentWatchRunning) {
-      _watchPaymentStatus(auto: true);
+    if (state == AppLifecycleState.resumed) {
+      if (_pendingPayToken != null && !_paymentWatchRunning) {
+        _watchPaymentStatus(auto: true);
+      }
+      // همگام‌سازی وضعیت واقعی VPN بعد از برگشت به اپ
+      _reconcileVpnStateOnResume();
     }
+  }
+
+  Future<void> _reconcileVpnStateOnResume() async {
+    try {
+      final st = v2rayStatus.state;
+      if (_statusMeansDisconnected(st)) {
+        if (!mounted) return;
+        setState(() {
+          isConnecting = false;
+          _connectionVerified = false;
+          _uiForceDisconnected = true;
+          activePing = -1;
+          if (!_userWantsConnected) {
+            _isRecovering = false;
+          }
+        });
+        _fetchCurrentIp(force: true);
+        return;
+      }
+      if (_statusMeansConnected(st)) {
+        // هسته می‌گوید وصل است — دوباره مسیر واقعی را چک کن
+        if (!_userWantsConnected) {
+          // کاربر قطع خواسته ولی هسته هنوز وصل: UI را قطع نگه دار
+          if (mounted) {
+            setState(() {
+              _connectionVerified = false;
+              _uiForceDisconnected = true;
+            });
+          }
+          return;
+        }
+        if (mounted) {
+          setState(() {
+            _uiForceDisconnected = false;
+            _connectionVerified = false; // تا verify نشود سبز نشود
+          });
+        }
+        await _verifyLiveConnection();
+      }
+    } catch (_) {}
   }
 
   /// پولینگ وضعیت فاکتور — auto بعد از برگشت از مرورگر، یا دستی با دکمه
@@ -8107,6 +8160,19 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
               _smartStatusLine,
               textAlign: TextAlign.center,
               style: TextStyle(color: t.accent, fontSize: 12, fontWeight: FontWeight.w600),
+            ),
+          ],
+          if (userData != null && userData?['can_claim_test'] == true && _hasActiveSubscription()) ...[
+            const SizedBox(height: 10),
+            OutlinedButton(
+              style: OutlinedButton.styleFrom(
+                foregroundColor: const Color(0xFFFFC107),
+                side: const BorderSide(color: Color(0xFFFFC107)),
+                minimumSize: const Size(double.infinity, 42),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              onPressed: isLoading ? null : _claimFreeTest,
+              child: const Text('🎁 دریافت تست رایگان دیگر (دسته دیگر)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5)),
             ),
           ],
           if (userData != null && !_hasActiveSubscription()) ...[

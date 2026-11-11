@@ -18,7 +18,7 @@ void main() {
 }
 
 // مشخصات نسخه (نمایش داخل اپ) — با هر ریلیز با pubspec هماهنگ کن
-// مثال: pubspec 2.2.6+222 → همین دو مقدار را هم‌خوان نگه دار
+// مثال: pubspec 2.2.7+222 → همین دو مقدار را هم‌خوان نگه دار
 // در کامنت از شکل appVersion = '...' استفاده نکن (ورک‌فلو گیت‌هاب آن را اشتباه می‌خواند)
 const String appVersion = 'v2.2.6';
 const int appVersionCode = 223;
@@ -411,22 +411,16 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
 
         if (_statusMeansDisconnected(status.state)) {
           activePing = -1;
-          if (_isRecovering) {
-            // وسط تعویض سرور: UI را «در حال اتصال» نگه دار
+          if (_isRecovering && !_weInitiatedStop && _userWantsConnected) {
+            // فقط وسط تعویض سرور توسط recovery خودمان
             isConnecting = true;
             _connectionVerified = false;
-          } else if (_weInitiatedStop || !_userWantsConnected) {
-            // قطع عمدی از دکمه داخل اپ
-            _weInitiatedStop = false;
-            isConnecting = false;
-            _connectionVerified = false;
-            _uiForceDisconnected = true;
-            _userWantsConnected = false;
-            _isRecovering = false;
-            scheduleRecoverOnDrop = false;
           } else {
-            // قطع از بیرون (نوتیفیکیشن یا سیستم): عمدی — دوباره وصل نشو
-            // بازیابی واقعی فقط از health در حالی که هنوز CONNECTED بود انجام می‌شود
+            // قطع نهایی (دکمه اپ / نوتیفیکیشن / سیستم) — هر بازیابی را باطل کن
+            _stopHealthWatch();
+            _recoveryGen++; // کنسل recovery در صف
+            _connectGen++;
+            _verifyGen++;
             _weInitiatedStop = false;
             isConnecting = false;
             _connectionVerified = false;
@@ -445,10 +439,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
         _verifyLiveConnection(silent: false);
       } else if (_statusMeansDisconnected(status.state) && prev == 'CONNECTED') {
         _fetchCurrentIp(force: true);
-        // scheduleRecoverOnDrop دیگر برای نوتیف روشن نمی‌شود
-        if (scheduleRecoverOnDrop) {
-          _scheduleSmartRecovery('core_drop');
-        }
+        // هرگز از وضعیت DISCONNECTED بازیابی نکن (نوتیفیکیشن را دوباره وصل نکند)
       }
     },
   );
@@ -4628,16 +4619,23 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     if (_healthTickRunning) return;
     _healthTickRunning = true;
     try {
-      // هسته واقعاً قطع است → بازیابی (نیازی به ۳ بار delay نیست)
+      // هسته قطع است → UI را قطع کن؛ از اینجا بازیابی نکن
+      // (قطع نوتیفیکیشن/کاربر نباید دوباره وصل شود؛ بازیابی فقط وقتی CONNECTED ولی delay مرده)
       if (!_statusMeansConnected(v2rayStatus.state)) {
-        if (mounted && _connectionVerified) {
+        if (mounted) {
           setState(() {
             _connectionVerified = false;
+            _uiForceDisconnected = true;
+            isConnecting = false;
             activePing = -1;
+            // اگر کاربر قطع کرده یا نوتیف زده، قصد وصل را هم خاموش کن
+            if (!_isRecovering) {
+              _userWantsConnected = false;
+            }
           });
         }
-        if (_userWantsConnected && !_isRecovering) {
-          _scheduleSmartRecovery('health_state');
+        if (!_isRecovering) {
+          _stopHealthWatch();
         }
         return;
       }
@@ -4652,7 +4650,15 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
       }
       if (!mounted || !_userWantsConnected || _isRecovering) return;
       if (!_statusMeansConnected(v2rayStatus.state)) {
-        if (_userWantsConnected) _scheduleSmartRecovery('health_state_after');
+        // قطع شده — بازیابی نکن
+        if (mounted) {
+          setState(() {
+            _connectionVerified = false;
+            _uiForceDisconnected = true;
+            isConnecting = false;
+            if (!_isRecovering) _userWantsConnected = false;
+          });
+        }
         return;
       }
 
@@ -8235,19 +8241,6 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
               _smartStatusLine,
               textAlign: TextAlign.center,
               style: TextStyle(color: t.accent, fontSize: 12, fontWeight: FontWeight.w600),
-            ),
-          ],
-          if (userData != null && userData?['can_claim_test'] == true && _hasActiveSubscription()) ...[
-            const SizedBox(height: 10),
-            OutlinedButton(
-              style: OutlinedButton.styleFrom(
-                foregroundColor: const Color(0xFFFFC107),
-                side: const BorderSide(color: Color(0xFFFFC107)),
-                minimumSize: const Size(double.infinity, 42),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              ),
-              onPressed: isLoading ? null : _claimFreeTest,
-              child: const Text('🎁 دریافت تست رایگان دیگر (دسته دیگر)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5)),
             ),
           ],
           if (userData != null && !_hasActiveSubscription()) ...[

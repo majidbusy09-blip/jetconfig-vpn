@@ -57,6 +57,14 @@ public class V2rayProxyOnlyService extends Service implements V2rayServicesListe
                 return START_NOT_STICKY;
             }
         } else if (startCommand.equals(AppConfigs.V2RAY_SERVICE_COMMANDS.STOP_SERVICE)) {
+            try {
+                // به Flutter بگو قطع از نوتیفیکیشن/کاربر بوده تا auto-reconnect نزند
+                getSharedPreferences("FlutterSharedPreferences", MODE_PRIVATE)
+                    .edit()
+                    .putBoolean("flutter.v2ray_user_stop", true)
+                    .apply();
+            } catch (Exception ignored) {}
+
             V2rayCoreManager.getInstance().stopCore();
             AppConfigs.V2RAY_CONFIG = null;
                 } else if (startCommand.equals(AppConfigs.V2RAY_SERVICE_COMMANDS.MEASURE_DELAY)) {

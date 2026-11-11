@@ -20,7 +20,7 @@ void main() {
 // مشخصات نسخه (نمایش داخل اپ) — با هر ریلیز با pubspec هماهنگ کن
 // مثال: pubspec 2.2.2+222 → همین دو مقدار را هم‌خوان نگه دار
 // در کامنت از شکل appVersion = '...' استفاده نکن (ورک‌فلو گیت‌هاب آن را اشتباه می‌خواند)
-const String appVersion = 'v2.2.4';
+const String appVersion = 'v2.2.5';
 const int appVersionCode = 223;
 /// کانال بسته‌بندی: با --dart-define=APK_CHANNEL=arm64|universal|arm32 در بیلد ست می‌شود
 const String apkChannel = String.fromEnvironment('APK_CHANNEL', defaultValue: 'arm64');
@@ -3789,10 +3789,22 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
           .timeout(const Duration(seconds: 25));
       final data = json.decode(res.body);
       if (data is Map && data['ok'] == true) {
-        _showToast(data['msg']?.toString() ?? 'تست فعال شد ✅', isError: false);
-        await _fetchUserData(u, pw, isManualRefresh: true, doPingOnLoad: false);
-        if (mounted && serverList.isEmpty) {
-          _showToast('تست ساخته شد؛ اگر سرور ندیدی یک‌بار «بروزرسانی» را بزن', isError: false);
+        final additional = data['is_additional_service'] == true;
+        final panelUser = data['panel_username']?.toString();
+        final panelPass = data['password']?.toString();
+        if (additional && panelUser != null && panelUser.isNotEmpty && panelPass != null && panelPass.isNotEmpty) {
+          try {
+            await _upsertProfile(panelUser, panelPass);
+          } catch (_) {}
+          _showToast(data['msg']?.toString() ?? 'تست به‌صورت اشتراک جدا اضافه شد ✅', isError: false);
+          // روی اشتراک اصلی بمان؛ لیست را تازه کن
+          await _fetchUserData(u, pw, isManualRefresh: true, doPingOnLoad: false);
+        } else {
+          _showToast(data['msg']?.toString() ?? 'تست فعال شد ✅', isError: false);
+          await _fetchUserData(u, pw, isManualRefresh: true, doPingOnLoad: false);
+          if (mounted && serverList.isEmpty) {
+            _showToast('تست ساخته شد؛ اگر سرور ندیدی یک‌بار «بروزرسانی» را بزن', isError: false);
+          }
         }
       } else {
         _showToast((data is Map ? data['msg'] : null)?.toString() ?? 'دریافت تست ناموفق', isError: true);

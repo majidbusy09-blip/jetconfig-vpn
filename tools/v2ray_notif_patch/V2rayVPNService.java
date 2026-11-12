@@ -90,38 +90,31 @@ public class V2rayVPNService extends VpnService implements V2rayServicesListener
                 return START_NOT_STICKY;
             }
         } else if (startCommand.equals(AppConfigs.V2RAY_SERVICE_COMMANDS.STOP_SERVICE)) {
+            // JET VPN: پرچم قطع عمدی از نوتیفیکیشن برای Flutter
+            try {
+                getSharedPreferences("FlutterSharedPreferences", MODE_PRIVATE)
+                        .edit()
+                        .putBoolean("flutter.v2ray_user_stop", true)
+                        .commit();
+                Log.i("V2rayVPNService", "JET: flutter.v2ray_user_stop=true");
+            } catch (Exception e) {
+                Log.w("V2rayVPNService", "Failed to set user_stop flag", e);
+            }
             V2rayCoreManager.getInstance().stopCore();
             AppConfigs.V2RAY_CONFIG = null;
-                } else if (startCommand.equals(AppConfigs.V2RAY_SERVICE_COMMANDS.MEASURE_DELAY)) {
-            // JET VPN: update notification with connected-server delay (no tunnel restart)
+        } else if (startCommand.equals(AppConfigs.V2RAY_SERVICE_COMMANDS.MEASURE_DELAY)) {
             new Thread(() -> {
                 try {
-                    try {
-                        V2rayCoreManager.getInstance().updateNotificationText("در حال بررسی پینگ...");
-                    } catch (Exception ignored) {}
-                    long delay = V2rayCoreManager.getInstance().getConnectedV2rayServerDelay();
                     String packageName = getPackageName();
                     Intent sendB = new Intent(packageName + ".CONNECTED_V2RAY_SERVER_DELAY");
                     sendB.setPackage(packageName);
-                    sendB.putExtra("DELAY", String.valueOf(delay));
+                    sendB.putExtra("DELAY",
+                            String.valueOf(V2rayCoreManager.getInstance().getConnectedV2rayServerDelay()));
                     sendBroadcast(sendB);
-                    String text;
-                    if (delay < 0) {
-                        text = "پینگ ناموفق";
-                    } else {
-                        text = "پینگ سرور فعلی: " + delay + " ms";
-                    }
-                    try {
-                        V2rayCoreManager.getInstance().updateNotificationText(text);
-                    } catch (Exception ignored) {}
                 } catch (Exception e) {
-                    Log.w("V2rayService", "Failed to measure/update delay", e);
-                    try {
-                        V2rayCoreManager.getInstance().updateNotificationText("پینگ ناموفق");
-                    } catch (Exception ignored) {}
+                    Log.w("V2rayVPNService", "Failed to send delay broadcast", e);
                 }
             }, "MEASURE_CONNECTED_V2RAY_SERVER_DELAY").start();
-
         } else {
             Log.w("V2rayVPNService", "Unknown command received, stopping service");
             this.onDestroy();

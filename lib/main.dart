@@ -20,8 +20,8 @@ void main() {
 // مشخصات نسخه (نمایش داخل اپ) — با هر ریلیز با pubspec هماهنگ کن
 // مثال: pubspec 2.2.8+222 → همین دو مقدار را هم‌خوان نگه دار
 // در کامنت از شکل appVersion = '...' استفاده نکن (ورک‌فلو گیت‌هاب آن را اشتباه می‌خواند)
-const String appVersion = 'v2.4.0';
-const int appVersionCode = 280;
+const String appVersion = 'v2.4.1';
+const int appVersionCode = 281;
 /// کانال بسته‌بندی: با --dart-define=APK_CHANNEL=arm64|universal|arm32 در بیلد ست می‌شود
 const String apkChannel = String.fromEnvironment('APK_CHANNEL', defaultValue: 'arm64');
 const String appUpdateMetaUrl = 'https://majid6064.ir/app_version.json';
@@ -561,6 +561,8 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
   bool _userWantsConnected = false;
   /// لاگ اتصال داخل‌اپ (موقتی برای دیباگ؛ بعداً مخفی می‌شود)
   final List<String> _connLogs = <String>[];
+  /// تا این زمان بعد از resume، health با d=-1 بازیابی نکند
+  int _resumeGraceUntilMs = 0;
   static const int _connLogMax = 200;
   bool _isRecovering = false;
   int _recoveryGen = 0;
@@ -1397,13 +1399,20 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     debugPrint('CONN $line');
   }
 
-  /// خواندن پرچم قطع عمدی Native (نوتیف) — در صورت true پاک می‌شود
+  /// خواندن پرچم قطع عمدی Native (نوتیف) — حتماً reload تا کش Flutter دور زده شود
   Future<bool> _peekNativeUserStop() async {
     try {
       final p = await SharedPreferences.getInstance();
+      // بدون reload نوشتهٔ Native دیده نمی‌شود (علت اصلی بازیابی بعد از نوتیف)
+      try {
+        await p.reload();
+      } catch (_) {}
       final v = p.getBool('v2ray_user_stop') == true;
       if (v) {
         await p.remove('v2ray_user_stop');
+        try {
+          await p.reload();
+        } catch (_) {}
         _connLog('nativeFlag USER_STOP=true');
       }
       return v;
@@ -3752,6 +3761,8 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
   Future<void> _reconcileVpnStateOnResume() async {
     try {
       _connLog('resume');
+      _resumeGraceUntilMs =
+          DateTime.now().millisecondsSinceEpoch + 25000;
       final nativeStop = await _peekNativeUserStop();
       if (nativeStop) {
         await _disconnectSameAsMainButton(reason: 'resume_notif');
@@ -4888,13 +4899,35 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
         return;
       }
 
-      // پینگ بد/منفی — intent را باطل نکن
+      // پینگ بد/منفی — اول نوتیف را چک کن (با reload)
+      final nativeStop = await _peekNativeUserStop();
+      if (nativeStop) {
+        await _disconnectSameAsMainButton(reason: 'health_notif_flag');
+        return;
+      }
+
       _healthFailCount++;
       _connLog('health delay fail $_healthFailCount/$_healthFailThreshold d=$delay');
       if (mounted) setState(() => activePing = -1);
+
+      // بعد از resume چند ثانیه با d=-1 بازیابی نکن (پینگ هسته دیر جواب می‌دهد)
+      final nowMs = DateTime.now().millisecondsSinceEpoch;
+      if (delay < 0 && nowMs < _resumeGraceUntilMs) {
+        _connLog('health grace after resume — skip recovery');
+        if (_healthFailCount >= _healthFailThreshold) {
+          _healthFailCount = _healthFailThreshold - 1; // نگه دار ولی شلیک نکن
+        }
+        return;
+      }
+
       if (_healthFailCount < _healthFailThreshold) return;
 
       _healthFailCount = 0;
+      // دوباره پرچم نوتیف
+      if (await _peekNativeUserStop()) {
+        await _disconnectSameAsMainButton(reason: 'health_notif_before_recovery');
+        return;
+      }
       final netOk = await _hasDeviceNetwork();
       if (!mounted || !_userWantsConnected || _isRecovering) return;
       if (!netOk) {

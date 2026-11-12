@@ -20,8 +20,8 @@ void main() {
 // مشخصات نسخه (نمایش داخل اپ) — با هر ریلیز با pubspec هماهنگ کن
 // مثال: pubspec 2.2.8+222 → همین دو مقدار را هم‌خوان نگه دار
 // در کامنت از شکل appVersion = '...' استفاده نکن (ورک‌فلو گیت‌هاب آن را اشتباه می‌خواند)
-const String appVersion = 'v2.3.2';
-const int appVersionCode = 272;
+const String appVersion = 'v2.3.3';
+const int appVersionCode = 273;
 /// کانال بسته‌بندی: با --dart-define=APK_CHANNEL=arm64|universal|arm32 در بیلد ست می‌شود
 const String apkChannel = String.fromEnvironment('APK_CHANNEL', defaultValue: 'arm64');
 const String appUpdateMetaUrl = 'https://majid6064.ir/app_version.json';
@@ -401,61 +401,90 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
   late final V2ray flutterV2ray = V2ray(
     onStatusChanged: (status) {
       if (!mounted) return;
-      final prev = (_lastV2rayState ?? '').toUpperCase().trim();
+      final prevRaw = (_lastV2rayState ?? '').toUpperCase().trim();
+      final nextRaw = (status.state ?? '').toUpperCase().trim();
       _lastV2rayState = status.state;
+
+      final wasConnected = prevRaw == 'CONNECTED';
+      final nowConnected = nextRaw == 'CONNECTED';
 
       setState(() {
         v2rayStatus = status;
       });
 
-      if (_statusMeansConnected(status.state) &&
-          prev != 'CONNECTED' &&
-          !_uiForceDisconnected &&
-          _userWantsConnected) {
+      // تازه وصل شد
+      if (nowConnected && !wasConnected && !_uiForceDisconnected && _userWantsConnected) {
         _verifyLiveConnection(silent: false);
         return;
       }
 
-      if (!_statusMeansDisconnected(status.state)) return;
-
-      // ═══ مسیر واحد با دکمه قطع اصلی ═══
-      activePing = -1;
-
-      // از قبل قطع عمدی
-      if (!_userWantsConnected || _weInitiatedStop) {
+      // ترک CONNECTED = عین دکمه قطع اصلی (نوتیف / سیستم)
+      if (wasConnected && !nowConnected) {
+        final nowMs = DateTime.now().millisecondsSinceEpoch;
+        final recoveryOwns = _isRecovering && nowMs < _recoveryOwnsStopUntilMs;
+        if (recoveryOwns) {
+          debugPrint('left CONNECTED but recovery owns — ignore');
+          if (mounted) {
+            setState(() {
+              _connectionVerified = false;
+              isConnecting = true;
+            });
+          }
+          return;
+        }
+        if (!_userWantsConnected || _weInitiatedStop) {
+          if (mounted) {
+            setState(() {
+              isConnecting = false;
+              _connectionVerified = false;
+              _uiForceDisconnected = true;
+              _isRecovering = false;
+              activePing = -1;
+            });
+          }
+          _stopHealthWatch();
+          _stopNativeStopPoll();
+          return;
+        }
+        // هم‌زمان — بدون Future تأخیری
+        debugPrint('left CONNECTED → main disconnect path ($nextRaw)');
+        _applyUserDisconnect(reason: 'left_connected');
         if (mounted) {
           setState(() {
-            isConnecting = false;
-            _connectionVerified = false;
             _uiForceDisconnected = true;
+            _connectionVerified = false;
+            isConnecting = false;
             _isRecovering = false;
             activePing = -1;
           });
         }
-        _stopHealthWatch();
-        _stopNativeStopPoll();
+        Future(() async {
+          try { await flutterV2ray.stopV2Ray(); } catch (_) {}
+          try { await flutterV2ray.stopV2Ray(); } catch (_) {}
+          if (mounted) _fetchCurrentIp(force: true);
+        });
         return;
       }
 
-      // قطع موقت فقط وقتی خودمان برای تعویض سرور stop زدیم
-      final nowMs = DateTime.now().millisecondsSinceEpoch;
-      if (nowMs < _recoveryOwnsStopUntilMs && _isRecovering) {
-        debugPrint('DISCONNECTED owned by recovery switch — ignore');
-        if (mounted) {
-          setState(() {
-            _connectionVerified = false;
-            isConnecting = true;
-          });
+      // DISCONNECTED حتی اگر prev دقیق CONNECTED نبود
+      if (_statusMeansDisconnected(nextRaw) &&
+          _userWantsConnected &&
+          !_weInitiatedStop) {
+        final nowMs = DateTime.now().millisecondsSinceEpoch;
+        if (!(_isRecovering && nowMs < _recoveryOwnsStopUntilMs)) {
+          debugPrint('DISCONNECTED event → main disconnect path');
+          _applyUserDisconnect(reason: 'disconnected_event');
+          if (mounted) {
+            setState(() {
+              _uiForceDisconnected = true;
+              _connectionVerified = false;
+              isConnecting = false;
+              _isRecovering = false;
+              activePing = -1;
+            });
+          }
         }
-        return;
       }
-
-      // هر قطع دیگر = دقیقاً همان دکمه قطع اصلی
-      debugPrint('DISCONNECTED → _disconnectSameAsMainButton');
-      Future(() async {
-        await _disconnectSameAsMainButton(reason: 'status_disconnected');
-      });
-
     },
   );
 
@@ -4769,13 +4798,10 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
       }
       if (!mounted || !_userWantsConnected || _isRecovering) return;
       if (!_statusMeansConnected(v2rayStatus.state)) {
-        final nativeStop2 = await _peekNativeUserStop();
-        if (nativeStop2 || !_userWantsConnected || _weInitiatedStop) {
-          _applyUserDisconnect(reason: 'health_after');
-          if (mounted) setState(() {});
-          return;
-        }
-        _scheduleSmartRecovery('health_state_after');
+        // هسته دیگر CONNECTED نیست → مثل دکمه قطع؛ بازیابی نکن
+        debugPrint('health_after: not connected → end intent (no recovery)');
+        _applyUserDisconnect(reason: 'health_after_not_connected');
+        if (mounted) setState(() {});
         return;
       }
 
@@ -4845,6 +4871,18 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
   void _scheduleSmartRecovery(String reason) {
     if (!connectionModeSmart || !_userWantsConnected || _weInitiatedStop) return;
     if (_isRecovering) return;
+    // بازیابی فقط برای مشکل «سرور بد در حالی که هنوز CONNECTED بود»
+    // نه برای قطع کامل هسته / نوتیف
+    const allowed = {
+      'health_delay',
+      'network_restored',
+      'network_back',
+      'verify_fail',
+    };
+    if (!allowed.contains(reason)) {
+      debugPrint('scheduleSmartRecovery blocked reason=$reason');
+      return;
+    }
     final now = DateTime.now();
     final minGap = reason == 'network_back' ? 3 : 12;
     if (_lastRecoveryAt != null &&

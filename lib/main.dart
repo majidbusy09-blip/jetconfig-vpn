@@ -20,8 +20,8 @@ void main() {
 // مشخصات نسخه (نمایش داخل اپ) — با هر ریلیز با pubspec هماهنگ کن
 // مثال: pubspec 2.2.8+222 → همین دو مقدار را هم‌خوان نگه دار
 // در کامنت از شکل appVersion = '...' استفاده نکن (ورک‌فلو گیت‌هاب آن را اشتباه می‌خواند)
-const String appVersion = 'v2.3.3';
-const int appVersionCode = 273;
+const String appVersion = 'v2.3.4';
+const int appVersionCode = 274;
 /// کانال بسته‌بندی: با --dart-define=APK_CHANNEL=arm64|universal|arm32 در بیلد ست می‌شود
 const String apkChannel = String.fromEnvironment('APK_CHANNEL', defaultValue: 'arm64');
 const String appUpdateMetaUrl = 'https://majid6064.ir/app_version.json';
@@ -587,6 +587,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
   bool _weInitiatedStop = false;
   /// تا این زمان (epoch ms) قطع DISCONNECTED مال تعویض سرور است نه کاربر
   int _recoveryOwnsStopUntilMs = 0;
+  int _coreDeadCount = 0;
   Timer? _nativeStopPoll;
   AppLifecycleState _appLifecycleState = AppLifecycleState.resumed;
   /// اپ در پیش‌زمینه است؟
@@ -1402,6 +1403,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     _connectGen++;
     _verifyGen++;
     _healthFailCount = 0;
+    _coreDeadCount = 0;
     _healthSlowMode = false;
     _deviceNetworkDown = false;
     _stopHealthWatch();
@@ -1446,17 +1448,45 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
 
   void _startNativeStopPoll() {
     _nativeStopPoll?.cancel();
-    _nativeStopPoll = Timer.periodic(const Duration(milliseconds: 600), (_) async {
+    _nativeStopPoll = Timer.periodic(const Duration(milliseconds: 500), (_) async {
       if (!mounted) return;
-      if (!_userWantsConnected && !_isRecovering && !isConnecting) {
-        _stopNativeStopPoll();
+      if (!_userWantsConnected || _weInitiatedStop) {
+        if (!_userWantsConnected && !_isRecovering && !isConnecting) {
+          _stopNativeStopPoll();
+        }
         return;
       }
       try {
+        // ۱) پرچم Native (نوتیف)
         final stop = await _peekNativeUserStop();
         if (stop) {
-          debugPrint('native stop poll → same as main disconnect');
+          debugPrint('native stop poll → main disconnect');
           await _disconnectSameAsMainButton(reason: 'notification_poll');
+          return;
+        }
+        // ۲) status می‌گوید CONNECTED ولی هسته جواب نمی‌دهد (نوتیف بدون رویداد)
+        if (_statusMeansConnected(v2rayStatus.state) &&
+            _connectionVerified &&
+            !_isRecovering &&
+            !isConnecting) {
+          int d = -1;
+          try {
+            d = await flutterV2ray
+                .getConnectedServerDelay()
+                .timeout(const Duration(milliseconds: 1800));
+          } catch (_) {
+            d = -1;
+          }
+          if (!mounted || !_userWantsConnected || _weInitiatedStop) return;
+          if (d < 0) {
+            _coreDeadCount++;
+            if (_coreDeadCount >= 1) {
+              debugPrint('poll: core dead while CONNECTED → main disconnect');
+              await _disconnectSameAsMainButton(reason: 'poll_core_dead');
+            }
+          } else {
+            _coreDeadCount = 0;
+          }
         }
       } catch (_) {}
     });
@@ -4796,16 +4826,27 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
       } catch (_) {
         delay = -1;
       }
-      if (!mounted || !_userWantsConnected || _isRecovering) return;
+      if (!mounted || !_userWantsConnected || _isRecovering || _weInitiatedStop) return;
+
+      // delay<0: هسته جواب نمی‌دهد (نوتیف قطع / کرش) — عین دکمه اصلی
+      if (delay < 0) {
+        _coreDeadCount++;
+        debugPrint('health: core/no-reply count=$_coreDeadCount');
+        if (_coreDeadCount >= 1) {
+          await _disconnectSameAsMainButton(reason: 'core_dead');
+          return;
+        }
+        if (mounted) setState(() => activePing = -1);
+        return;
+      }
+      _coreDeadCount = 0;
+
       if (!_statusMeansConnected(v2rayStatus.state)) {
-        // هسته دیگر CONNECTED نیست → مثل دکمه قطع؛ بازیابی نکن
-        debugPrint('health_after: not connected → end intent (no recovery)');
-        _applyUserDisconnect(reason: 'health_after_not_connected');
-        if (mounted) setState(() {});
+        await _disconnectSameAsMainButton(reason: 'health_status_down');
         return;
       }
 
-      // delay سالم → شمارنده صفر، UI سبز بماند (فاز A)
+      // delay سالم → شمارنده صفر
       if (delay >= 0 && delay <= 15000) {
         _healthFailCount = 0;
         if (mounted) {
@@ -4904,7 +4945,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
   }
 
   Future<void> _runSmartRecovery(String reason) async {
-    if (!mounted || !connectionModeSmart || !_userWantsConnected) return;
+    if (!mounted || !connectionModeSmart || !_userWantsConnected || _weInitiatedStop) return;
     if (_isRecovering) return;
     final gen = ++_recoveryGen;
     _isRecovering = true;

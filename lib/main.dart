@@ -20,8 +20,8 @@ void main() {
 // مشخصات نسخه (نمایش داخل اپ) — با هر ریلیز با pubspec هماهنگ کن
 // مثال: pubspec 2.2.8+222 → همین دو مقدار را هم‌خوان نگه دار
 // در کامنت از شکل appVersion = '...' استفاده نکن (ورک‌فلو گیت‌هاب آن را اشتباه می‌خواند)
-const String appVersion = 'v2.3.1';
-const int appVersionCode = 271;
+const String appVersion = 'v2.3.2';
+const int appVersionCode = 272;
 /// کانال بسته‌بندی: با --dart-define=APK_CHANNEL=arm64|universal|arm32 در بیلد ست می‌شود
 const String apkChannel = String.fromEnvironment('APK_CHANNEL', defaultValue: 'arm64');
 const String appUpdateMetaUrl = 'https://majid6064.ir/app_version.json';
@@ -421,19 +421,6 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
       // ═══ مسیر واحد با دکمه قطع اصلی ═══
       activePing = -1;
 
-      // قطع موقت مال تعویض سرور (recovery) — نادیده بگیر
-      final nowMs = DateTime.now().millisecondsSinceEpoch;
-      if (nowMs < _recoveryOwnsStopUntilMs) {
-        debugPrint('DISCONNECTED owned by recovery switch — ignore');
-        if (mounted) {
-          setState(() {
-            _connectionVerified = false;
-            isConnecting = true;
-          });
-        }
-        return;
-      }
-
       // از قبل قطع عمدی
       if (!_userWantsConnected || _weInitiatedStop) {
         if (mounted) {
@@ -446,26 +433,27 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
           });
         }
         _stopHealthWatch();
+        _stopNativeStopPoll();
         return;
       }
 
-      // هر قطع پایدار دیگر = همان دکمه قطع اصلی (هم‌زمان، بدون microtask)
-      debugPrint('DISCONNECTED → same path as main disconnect button');
-      _applyUserDisconnect(reason: 'notification_or_system');
-      if (mounted) {
-        setState(() {
-          _uiForceDisconnected = true;
-          _connectionVerified = false;
-          activePing = -1;
-          isConnecting = false;
-          _isRecovering = false;
-        });
+      // قطع موقت فقط وقتی خودمان برای تعویض سرور stop زدیم
+      final nowMs = DateTime.now().millisecondsSinceEpoch;
+      if (nowMs < _recoveryOwnsStopUntilMs && _isRecovering) {
+        debugPrint('DISCONNECTED owned by recovery switch — ignore');
+        if (mounted) {
+          setState(() {
+            _connectionVerified = false;
+            isConnecting = true;
+          });
+        }
+        return;
       }
-      // stop اضافی در پس‌زمینه (هسته ممکن است از نوتیف قبلاً ایستاده باشد)
+
+      // هر قطع دیگر = دقیقاً همان دکمه قطع اصلی
+      debugPrint('DISCONNECTED → _disconnectSameAsMainButton');
       Future(() async {
-        try { await flutterV2ray.stopV2Ray(); } catch (_) {}
-        try { await flutterV2ray.stopV2Ray(); } catch (_) {}
-        if (mounted) _fetchCurrentIp(force: true);
+        await _disconnectSameAsMainButton(reason: 'status_disconnected');
       });
 
     },
@@ -570,6 +558,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
   bool _weInitiatedStop = false;
   /// تا این زمان (epoch ms) قطع DISCONNECTED مال تعویض سرور است نه کاربر
   int _recoveryOwnsStopUntilMs = 0;
+  Timer? _nativeStopPoll;
   AppLifecycleState _appLifecycleState = AppLifecycleState.resumed;
   /// اپ در پیش‌زمینه است؟
   bool _appInForeground = true;
@@ -1387,6 +1376,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     _healthSlowMode = false;
     _deviceNetworkDown = false;
     _stopHealthWatch();
+    _stopNativeStopPoll();
     isConnecting = false;
     _connectionVerified = false;
     _uiForceDisconnected = true;
@@ -1424,6 +1414,30 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
       if (mounted) _fetchCurrentIp(force: true);
     });
   }
+
+  void _startNativeStopPoll() {
+    _nativeStopPoll?.cancel();
+    _nativeStopPoll = Timer.periodic(const Duration(milliseconds: 600), (_) async {
+      if (!mounted) return;
+      if (!_userWantsConnected && !_isRecovering && !isConnecting) {
+        _stopNativeStopPoll();
+        return;
+      }
+      try {
+        final stop = await _peekNativeUserStop();
+        if (stop) {
+          debugPrint('native stop poll → same as main disconnect');
+          await _disconnectSameAsMainButton(reason: 'notification_poll');
+        }
+      } catch (_) {}
+    });
+  }
+
+  void _stopNativeStopPoll() {
+    _nativeStopPoll?.cancel();
+    _nativeStopPoll = null;
+  }
+
 
   bool get _isVpnConnected {
     if (_uiForceDisconnected) return false;
@@ -1729,6 +1743,8 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
 
   @override
   void dispose() {
+    _stopNativeStopPoll();
+    _stopHealthWatch();
     _pulseController.dispose();
     _rotateController.dispose();
     _userController.dispose();
@@ -5079,6 +5095,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     _userWantsConnected = true;
     _weInitiatedStop = false;
     _isRecovering = false;
+    _startNativeStopPoll();
     // پرچم نوتیف قدیمی را پاک کن تا اتصال جدید را خراب نکند
     try {
       final p = await SharedPreferences.getInstance();

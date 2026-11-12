@@ -20,8 +20,8 @@ void main() {
 // مشخصات نسخه (نمایش داخل اپ) — با هر ریلیز با pubspec هماهنگ کن
 // مثال: pubspec 2.2.8+222 → همین دو مقدار را هم‌خوان نگه دار
 // در کامنت از شکل appVersion = '...' استفاده نکن (ورک‌فلو گیت‌هاب آن را اشتباه می‌خواند)
-const String appVersion = 'v2.3.4';
-const int appVersionCode = 274;
+const String appVersion = 'v2.3.5';
+const int appVersionCode = 275;
 /// کانال بسته‌بندی: با --dart-define=APK_CHANNEL=arm64|universal|arm32 در بیلد ست می‌شود
 const String apkChannel = String.fromEnvironment('APK_CHANNEL', defaultValue: 'arm64');
 const String appUpdateMetaUrl = 'https://majid6064.ir/app_version.json';
@@ -418,7 +418,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
         return;
       }
 
-      // ترک CONNECTED = عین دکمه قطع اصلی (نوتیف / سیستم)
+      // ترک CONNECTED: نوتیف (پرچم native) = قطع دائم؛ وگرنه بازیابی هوشمند
       if (wasConnected && !nowConnected) {
         final nowMs = DateTime.now().millisecondsSinceEpoch;
         final recoveryOwns = _isRecovering && nowMs < _recoveryOwnsStopUntilMs;
@@ -446,44 +446,80 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
           _stopNativeStopPoll();
           return;
         }
-        // هم‌زمان — بدون Future تأخیری
-        debugPrint('left CONNECTED → main disconnect path ($nextRaw)');
-        _applyUserDisconnect(reason: 'left_connected');
         if (mounted) {
           setState(() {
-            _uiForceDisconnected = true;
             _connectionVerified = false;
-            isConnecting = false;
-            _isRecovering = false;
+            isConnecting = true;
             activePing = -1;
           });
         }
         Future(() async {
-          try { await flutterV2ray.stopV2Ray(); } catch (_) {}
-          try { await flutterV2ray.stopV2Ray(); } catch (_) {}
-          if (mounted) _fetchCurrentIp(force: true);
+          try {
+            final nativeStop = await _peekNativeUserStop();
+            if (!mounted) return;
+            if (nativeStop || _weInitiatedStop || !_userWantsConnected) {
+              await _disconnectSameAsMainButton(reason: 'left_connected_native');
+              return;
+            }
+            final netOk = await _hasDeviceNetwork();
+            if (!mounted || !_userWantsConnected || _weInitiatedStop) return;
+            if (!netOk) {
+              if (mounted) {
+                setState(() {
+                  _deviceNetworkDown = true;
+                  isConnecting = false;
+                  _connectionVerified = false;
+                });
+              }
+              _startHealthWatch(slow: true);
+              return;
+            }
+            debugPrint('left CONNECTED → smart recovery');
+            _scheduleSmartRecovery('status_drop');
+          } catch (e) {
+            debugPrint('left CONNECTED error: $e');
+          }
         });
         return;
       }
 
-      // DISCONNECTED حتی اگر prev دقیق CONNECTED نبود
+      // DISCONNECTED: فقط با پرچم نوتیف دائم؛ وگرنه بازیابی هوشمند
       if (_statusMeansDisconnected(nextRaw) &&
           _userWantsConnected &&
           !_weInitiatedStop) {
         final nowMs = DateTime.now().millisecondsSinceEpoch;
-        if (!(_isRecovering && nowMs < _recoveryOwnsStopUntilMs)) {
-          debugPrint('DISCONNECTED event → main disconnect path');
-          _applyUserDisconnect(reason: 'disconnected_event');
-          if (mounted) {
-            setState(() {
-              _uiForceDisconnected = true;
-              _connectionVerified = false;
-              isConnecting = false;
-              _isRecovering = false;
-              activePing = -1;
-            });
-          }
+        if (_isRecovering && nowMs < _recoveryOwnsStopUntilMs) {
+          return;
         }
+        if (mounted) {
+          setState(() {
+            _connectionVerified = false;
+            isConnecting = true;
+            activePing = -1;
+          });
+        }
+        Future(() async {
+          final nativeStop = await _peekNativeUserStop();
+          if (!mounted) return;
+          if (nativeStop || _weInitiatedStop || !_userWantsConnected) {
+            await _disconnectSameAsMainButton(reason: 'disconnected_native');
+            return;
+          }
+          final netOk = await _hasDeviceNetwork();
+          if (!mounted || !_userWantsConnected) return;
+          if (!netOk) {
+            if (mounted) {
+              setState(() {
+                _deviceNetworkDown = true;
+                isConnecting = false;
+              });
+            }
+            _startHealthWatch(slow: true);
+            return;
+          }
+          _scheduleSmartRecovery('status_drop');
+        });
+        return;
       }
     },
   );
@@ -1448,7 +1484,8 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
 
   void _startNativeStopPoll() {
     _nativeStopPoll?.cancel();
-    _nativeStopPoll = Timer.periodic(const Duration(milliseconds: 500), (_) async {
+    // فقط پرچم نوتیف = قطع دائم کاربر. delay منفی اینجا قطع دائم نمی‌کند.
+    _nativeStopPoll = Timer.periodic(const Duration(milliseconds: 700), (_) async {
       if (!mounted) return;
       if (!_userWantsConnected || _weInitiatedStop) {
         if (!_userWantsConnected && !_isRecovering && !isConnecting) {
@@ -1457,36 +1494,10 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
         return;
       }
       try {
-        // ۱) پرچم Native (نوتیف)
         final stop = await _peekNativeUserStop();
         if (stop) {
           debugPrint('native stop poll → main disconnect');
           await _disconnectSameAsMainButton(reason: 'notification_poll');
-          return;
-        }
-        // ۲) status می‌گوید CONNECTED ولی هسته جواب نمی‌دهد (نوتیف بدون رویداد)
-        if (_statusMeansConnected(v2rayStatus.state) &&
-            _connectionVerified &&
-            !_isRecovering &&
-            !isConnecting) {
-          int d = -1;
-          try {
-            d = await flutterV2ray
-                .getConnectedServerDelay()
-                .timeout(const Duration(milliseconds: 1800));
-          } catch (_) {
-            d = -1;
-          }
-          if (!mounted || !_userWantsConnected || _weInitiatedStop) return;
-          if (d < 0) {
-            _coreDeadCount++;
-            if (_coreDeadCount >= 1) {
-              debugPrint('poll: core dead while CONNECTED → main disconnect');
-              await _disconnectSameAsMainButton(reason: 'poll_core_dead');
-            }
-          } else {
-            _coreDeadCount = 0;
-          }
         }
       } catch (_) {}
     });
@@ -3770,19 +3781,44 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
       }
 
       if (_statusMeansDisconnected(st)) {
-        // معماری: resume به‌تنهایی بازیابی نمی‌کند
+        // نوتیف قبلاً چک شده. در مود هوشمند قصد حفظ و بازیابی
+        if (!connectionModeSmart) {
+          if (mounted) {
+            setState(() {
+              isConnecting = false;
+              _connectionVerified = false;
+              _uiForceDisconnected = true;
+              _isRecovering = false;
+              activePing = -1;
+              _userWantsConnected = false;
+              _weInitiatedStop = true;
+            });
+          }
+          _stopHealthWatch();
+          return;
+        }
         if (mounted) {
           setState(() {
-            isConnecting = false;
+            isConnecting = true;
             _connectionVerified = false;
-            _uiForceDisconnected = true;
-            _isRecovering = false;
+            _uiForceDisconnected = false;
             activePing = -1;
-            _userWantsConnected = false;
-            _weInitiatedStop = true;
           });
         }
-        _stopHealthWatch();
+        final netOk = await _hasDeviceNetwork();
+        if (!mounted || !_userWantsConnected) return;
+        if (!netOk) {
+          if (mounted) {
+            setState(() {
+              _deviceNetworkDown = true;
+              isConnecting = false;
+            });
+          }
+          _startHealthWatch(slow: true);
+          return;
+        }
+        debugPrint('resume disconnected → smart recovery');
+        _scheduleSmartRecovery('status_drop');
         return;
       }
 
@@ -4800,7 +4836,13 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
       // هسته قطع است
       if (!_statusMeansConnected(v2rayStatus.state)) {
         if (_isRecovering) return;
-        // برگشت شبکه بعد از قطع بودن دستگاه
+        // فقط نوتیف = قطع دائم
+        final nativeStop = await _peekNativeUserStop();
+        if (nativeStop) {
+          await _disconnectSameAsMainButton(reason: 'health_native_stop');
+          return;
+        }
+        // برگشت شبکه
         if (_userWantsConnected && _deviceNetworkDown) {
           final netOk = await _hasDeviceNetwork();
           if (netOk) {
@@ -4810,10 +4852,24 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
           }
           return;
         }
-        // قطع پایدار → پایان قصد (نوتیف)، بازیابی نکن
+        // قطع موقت: قصد هوشمند حفظ شود
         if (_userWantsConnected) {
-          debugPrint('health: stable disconnect → end intent');
-          _applyUserDisconnect(reason: 'health_stable_disconnect');
+          final netOk = await _hasDeviceNetwork();
+          if (!mounted || !_userWantsConnected) return;
+          if (!netOk) {
+            if (mounted) {
+              setState(() {
+                _deviceNetworkDown = true;
+                _connectionVerified = false;
+                isConnecting = false;
+                activePing = -1;
+              });
+            }
+            if (!_healthSlowMode) _startHealthWatch(slow: true);
+            return;
+          }
+          debugPrint('health: core down network ok → recovery');
+          _scheduleSmartRecovery('status_drop');
         }
         return;
       }
@@ -4828,23 +4884,27 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
       }
       if (!mounted || !_userWantsConnected || _isRecovering || _weInitiatedStop) return;
 
-      // delay<0: هسته جواب نمی‌دهد (نوتیف قطع / کرش) — عین دکمه اصلی
+      // delay<0 مثل پینگ بد → fail count و در نهایت بازیابی (نه قطع دائم)
       if (delay < 0) {
         _coreDeadCount++;
-        debugPrint('health: core/no-reply count=$_coreDeadCount');
-        if (_coreDeadCount >= 1) {
-          await _disconnectSameAsMainButton(reason: 'core_dead');
-          return;
-        }
+        _healthFailCount++;
+        debugPrint('health: no-reply fail=$_healthFailCount');
         if (mounted) setState(() => activePing = -1);
+        if (_healthFailCount >= _healthFailThreshold) {
+          _healthFailCount = 0;
+          _coreDeadCount = 0;
+          final netOk = await _hasDeviceNetwork();
+          if (!mounted || !_userWantsConnected) return;
+          if (!netOk) {
+            if (mounted) setState(() => _deviceNetworkDown = true);
+            if (!_healthSlowMode) _startHealthWatch(slow: true);
+            return;
+          }
+          _scheduleSmartRecovery('health_delay');
+        }
         return;
       }
       _coreDeadCount = 0;
-
-      if (!_statusMeansConnected(v2rayStatus.state)) {
-        await _disconnectSameAsMainButton(reason: 'health_status_down');
-        return;
-      }
 
       // delay سالم → شمارنده صفر
       if (delay >= 0 && delay <= 15000) {
@@ -4919,6 +4979,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
       'network_restored',
       'network_back',
       'verify_fail',
+      'status_drop',
     };
     if (!allowed.contains(reason)) {
       debugPrint('scheduleSmartRecovery blocked reason=$reason');

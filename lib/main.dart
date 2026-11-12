@@ -20,8 +20,8 @@ void main() {
 // مشخصات نسخه (نمایش داخل اپ) — با هر ریلیز با pubspec هماهنگ کن
 // مثال: pubspec 2.2.8+222 → همین دو مقدار را هم‌خوان نگه دار
 // در کامنت از شکل appVersion = '...' استفاده نکن (ورک‌فلو گیت‌هاب آن را اشتباه می‌خواند)
-const String appVersion = 'v2.2.9';
-const int appVersionCode = 268;
+const String appVersion = 'v2.3.0';
+const int appVersionCode = 270;
 /// کانال بسته‌بندی: با --dart-define=APK_CHANNEL=arm64|universal|arm32 در بیلد ست می‌شود
 const String apkChannel = String.fromEnvironment('APK_CHANNEL', defaultValue: 'arm64');
 const String appUpdateMetaUrl = 'https://majid6064.ir/app_version.json';
@@ -418,16 +418,16 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
 
       if (!_statusMeansDisconnected(status.state)) return;
 
-// —— هسته قطع شد ——
+      // ═══ معماری قصد کاربر ═══
+      // قطع پایدار بدون _isRecovering → پایان قصد (نوتیف/دکمه/سیستم)
+      // بازیابی جدید فقط از health (delay بد) یا برگشت شبکه
       activePing = -1;
       _fetchCurrentIp(force: true);
 
       final wasRecovering = _isRecovering;
       final wants = _userWantsConnected;
       final weStop = _weInitiatedStop;
-      final inBg = _appLifecycleState != AppLifecycleState.resumed;
 
-      // از قبل عمدی یا کاربر نمی‌خواهد
       if (!wants || weStop) {
         if (mounted) {
           setState(() {
@@ -442,8 +442,8 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
         return;
       }
 
-      // وسط بازیابی/تعویض سرور: قطع موقت طبیعی است — بازیابی ادامه دهد
-      if (wasRecovering || isConnecting) {
+      // وسط تعویض سرور خودمان
+      if (wasRecovering) {
         if (mounted) {
           setState(() {
             _connectionVerified = false;
@@ -453,54 +453,15 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
         return;
       }
 
-      // UI موقت
-      if (mounted) {
-        setState(() {
-          _connectionVerified = false;
-        });
-      }
-
+      // قطع پایدار → عمدی (وابسته به پچ Native نیست)
       Future.microtask(() async {
         if (!mounted) return;
-        final nativeStop = await _peekNativeUserStop();
+        try { await _peekNativeUserStop(); } catch (_) {}
         if (!mounted) return;
-
-        // ۱) پرچم Native از نوتیفیکیشن
-        if (nativeStop || !_userWantsConnected || _weInitiatedStop) {
-          _applyUserDisconnect(reason: nativeStop ? 'notification' : 'intent');
-          if (mounted) setState(() {});
-          try { await flutterV2ray.stopV2Ray(); } catch (_) {}
-          try { await flutterV2ray.stopV2Ray(); } catch (_) {}
-          return;
-        }
-
-        // ۲) قطع در پس‌زمینه (تقریباً همیشه = دکمه نوتیف) → عمدی
-        //    بدون پچ Java هم کار می‌کند
-        final stillBg = _appLifecycleState != AppLifecycleState.resumed;
-        if (stillBg || inBg) {
-          debugPrint('DISCONNECTED in background → treat as user stop');
-          _applyUserDisconnect(reason: 'background_disconnect');
-          if (mounted) setState(() {});
-          try { await flutterV2ray.stopV2Ray(); } catch (_) {}
-          try { await flutterV2ray.stopV2Ray(); } catch (_) {}
-          return;
-        }
-
-        // ۳) مود دستی: فقط UI
-        if (!connectionModeSmart) {
-          _applyUserDisconnect(reason: 'manual_drop');
-          if (mounted) setState(() {});
-          return;
-        }
-
-        // ۴) پیش‌زمینه + هوشمند + کاربر هنوز می‌خواهد → بازیابی واقعی
-        if (_userWantsConnected && !_weInitiatedStop) {
-          debugPrint('unexpected core drop in foreground → recovery');
-          _scheduleSmartRecovery('core_drop');
-        } else {
-          _applyUserDisconnect(reason: 'drop_no_want');
-          if (mounted) setState(() {});
-        }
+        _applyUserDisconnect(reason: 'stable_disconnect');
+        if (mounted) setState(() {});
+        try { await flutterV2ray.stopV2Ray(); } catch (_) {}
+        try { await flutterV2ray.stopV2Ray(); } catch (_) {}
       });
 
     },
@@ -1396,15 +1357,9 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     Future<bool> _peekNativeUserStop() async {
     try {
       final p = await SharedPreferences.getInstance();
-      // کلیدهای مختلف (پچ Native + نسخه‌های قدیمی)
-      final v = p.getBool('flutter.v2ray_user_stop') == true ||
-          p.getBool('v2ray_user_stop') == true ||
-          p.getString('flutter.v2ray_user_stop') == 'true' ||
-          p.getString('v2ray_user_stop') == 'true';
-      if (v) {
-        await p.remove('flutter.v2ray_user_stop');
-        await p.remove('v2ray_user_stop');
-      }
+      // Flutter خودش prefix «flutter.» می‌زند → فقط v2ray_user_stop
+      final v = p.getBool('v2ray_user_stop') == true;
+      if (v) await p.remove('v2ray_user_stop');
       return v;
     } catch (_) {
       return false;
@@ -3706,17 +3661,19 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
       }
 
       if (_statusMeansDisconnected(st)) {
-        // هسته قطع است ولی کاربر می‌خواهد وصل بماند → بازیابی هوشمند
-        if (connectionModeSmart && !_isRecovering) {
-          _scheduleSmartRecovery('resume_disconnected');
-        } else if (mounted) {
+        // معماری: resume به‌تنهایی بازیابی نمی‌کند
+        if (mounted) {
           setState(() {
             isConnecting = false;
             _connectionVerified = false;
             _uiForceDisconnected = true;
+            _isRecovering = false;
             activePing = -1;
+            _userWantsConnected = false;
+            _weInitiatedStop = true;
           });
         }
+        _stopHealthWatch();
         return;
       }
 
@@ -4733,31 +4690,22 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     try {
       // هسته قطع است
       if (!_statusMeansConnected(v2rayStatus.state)) {
-        final nativeStop = await _peekNativeUserStop();
-        if (!mounted || !_userWantsConnected || nativeStop || _weInitiatedStop) {
-          // قطع عمدی یا قصد وصل نیست
-          if (nativeStop || _weInitiatedStop || !_userWantsConnected) {
-            _applyUserDisconnect(reason: nativeStop ? 'health_native' : 'health_intent');
-            if (mounted) setState(() {});
+        if (_isRecovering) return;
+        // برگشت شبکه بعد از قطع بودن دستگاه
+        if (_userWantsConnected && _deviceNetworkDown) {
+          final netOk = await _hasDeviceNetwork();
+          if (netOk) {
+            _deviceNetworkDown = false;
+            debugPrint('health: network restored → recovery');
+            _scheduleSmartRecovery('network_restored');
           }
           return;
         }
-        // قطع ناخواسته + کاربر هنوز می‌خواهد وصل باشد → بازیابی هوشمند
-        if (mounted) {
-          setState(() {
-            _connectionVerified = false;
-            isConnecting = true;
-            activePing = -1;
-          });
+        // قطع پایدار → پایان قصد (نوتیف)، بازیابی نکن
+        if (_userWantsConnected) {
+          debugPrint('health: stable disconnect → end intent');
+          _applyUserDisconnect(reason: 'health_stable_disconnect');
         }
-        // پس‌زمینه + قطع هسته = نوتیف؛ بازیابی نکن
-        if (_appLifecycleState != AppLifecycleState.resumed) {
-          debugPrint('health: disconnected in background → user stop');
-          _applyUserDisconnect(reason: 'health_bg_disconnect');
-          try { await flutterV2ray.stopV2Ray(); } catch (_) {}
-          return;
-        }
-        _scheduleSmartRecovery('health_core_down');
         return;
       }
 
@@ -4845,7 +4793,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
   }
 
   void _scheduleSmartRecovery(String reason) {
-    if (!connectionModeSmart || !_userWantsConnected) return;
+    if (!connectionModeSmart || !_userWantsConnected || _weInitiatedStop) return;
     if (_isRecovering) return;
     final now = DateTime.now();
     final minGap = reason == 'network_back' ? 3 : 12;

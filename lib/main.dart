@@ -21,7 +21,7 @@ void main() {
 // مشخصات نسخه (نمایش داخل اپ) — با هر ریلیز با pubspec هماهنگ کن
 // مثال: pubspec 2.2.8+222 → همین دو مقدار را هم‌خوان نگه دار
 // در کامنت از شکل appVersion = '...' استفاده نکن (ورک‌فلو گیت‌هاب آن را اشتباه می‌خواند)
-const String appVersion = 'v2.4.2';
+const String appVersion = 'v2.4.3';
 const int appVersionCode = 282;
 /// کانال بسته‌بندی: با --dart-define=APK_CHANNEL=arm64|universal|arm32 در بیلد ست می‌شود
 const String apkChannel = String.fromEnvironment('APK_CHANNEL', defaultValue: 'arm64');
@@ -1533,7 +1533,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
       try {
         final stop = await _peekNativeUserStop();
         if (stop) {
-          _connLog('poll → USER notif');
+          _connLog('poll → USER_INITIATED notif flag');
           await _disconnectSameAsMainButton(reason: 'notification_poll');
         }
       } catch (_) {}

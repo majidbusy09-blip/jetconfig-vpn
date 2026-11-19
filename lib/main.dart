@@ -21,7 +21,7 @@ void main() {
 // مشخصات نسخه (نمایش داخل اپ) — با هر ریلیز با pubspec هماهنگ کن
 // مثال: pubspec 2.2.8+222 → همین دو مقدار را هم‌خوان نگه دار
 // در کامنت از شکل appVersion = '...' استفاده نکن (ورک‌فلو گیت‌هاب آن را اشتباه می‌خواند)
-const String appVersion = 'v2.4.3';
+const String appVersion = 'v2.4.4';
 const int appVersionCode = 282;
 /// کانال بسته‌بندی: با --dart-define=APK_CHANNEL=arm64|universal|arm32 در بیلد ست می‌شود
 const String apkChannel = String.fromEnvironment('APK_CHANNEL', defaultValue: 'arm64');
@@ -457,6 +457,20 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
       }
 
       // هنوز intent=true → قطع موقت یا نوتیف؟
+      final nowBg = DateTime.now().millisecondsSinceEpoch;
+      if (nowBg < _backgroundGraceUntilMs || nowBg < _resumeGraceUntilMs) {
+        _connLog('status drop ignored (bg/resume grace) $nextRaw');
+        // UI را به «قطع کامل» نبر — فقط verify را موقتاً کم‌رنگ نگه دار
+        if (mounted && !_isRecovering) {
+          setState(() {
+            // متصل بمان از نظر intent؛ verified را false نکن اگر قبلاً true بود مگر واقعاً disc
+            if (_statusMeansDisconnected(nextRaw)) {
+              isConnecting = true;
+            }
+          });
+        }
+        return;
+      }
       if (mounted) {
         setState(() {
           _connectionVerified = false;
@@ -564,6 +578,8 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
   final List<String> _connLogs = <String>[];
   /// تا این زمان بعد از resume، health با d=-1 بازیابی نکند
   int _resumeGraceUntilMs = 0;
+  /// هنگام background/back — dropهای لحظه‌ای status را جدی نگیر
+  int _backgroundGraceUntilMs = 0;
   int _debugTapCount = 0;
   bool _debugLogUnlocked = false;
   static const int _connLogMax = 200;
@@ -574,7 +590,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
   DateTime? _lastRecoveryAt;
   int _healthFailCount = 0;
   /// آستانه شکست پشت‌سرهم delay قبل از قطع UI / بازیابی (فاز A)
-  static const int _healthFailThreshold = 3;
+  static const int _healthFailThreshold = 5;
   /// سقف تلاش بازیابی در یک پنجره زمانی (فاز B)
   static const int _recoveryMaxPerWindow = 4;
   static const int _recoveryWindowMinutes = 15;
@@ -637,7 +653,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
       duration: const Duration(seconds: 8),
     )..repeat();
 
-    _loadSavedPreferences();
+    _loadSavedPreferences().then((_) => _restoreWantConnectedAfterLoad());
     _fetchCurrentIp();
     // بررسی نامحسوس نسخه (فقط اگر ادمین enabled کرده باشد)
     Future.delayed(const Duration(seconds: 2), () async {
@@ -1402,6 +1418,37 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     debugPrint('CONN $line');
   }
 
+
+  static const String _kWantConnectedPref = 'vpn_user_wants_connected';
+
+  Future<void> _persistWantConnected(bool want) async {
+    try {
+      final p = await SharedPreferences.getInstance();
+      if (want) {
+        await p.setBool(_kWantConnectedPref, true);
+      } else {
+        await p.setBool(_kWantConnectedPref, false);
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _clearStaleNativeStopFlags() async {
+    try {
+      final p = await SharedPreferences.getInstance();
+      await p.reload();
+      await p.remove('v2ray_user_stop');
+      await p.remove('flutter.v2ray_user_stop');
+    } catch (_) {}
+    try {
+      final dir = await getApplicationDocumentsDirectory();
+      final f = File('${dir.path}/jet_vpn_user_stop');
+      if (await f.exists()) await f.delete();
+    } catch (_) {}
+    try {
+      // filesDir marker if plugin uses it via path_provider support
+    } catch (_) {}
+  }
+
   Future<bool> _peekNativeUserStop() async {
     var found = false;
     // ۱) فایل مارکر (قابل‌اطمینان‌تر از prefs بین Native و Flutter)
@@ -1446,6 +1493,8 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
   void _applyUserDisconnect({String reason = 'user'}) {
     _connLog('USER_DISCONNECT intent=false ($reason)');
     _userWantsConnected = false;
+    // ignore: unawaited_futures
+    _persistWantConnected(false);
     _weInitiatedStop = true;
     _isRecovering = false;
     _recoveryOwnsStopUntilMs = 0;
@@ -3777,21 +3826,99 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
     _appLifecycleState = state;
+    if (state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.paused) {
+      // بک / سوئیچ اپ — VPN سیستم را قطع نکن؛ فقط grace بگذار
+      _backgroundGraceUntilMs =
+          DateTime.now().millisecondsSinceEpoch + 45000;
+      _connLog('lifecycle ${state.name} — bg grace');
+      return;
+    }
     if (state == AppLifecycleState.resumed) {
       _reconcileVpnStateOnResume();
     }
   }
 
   /// برگشت به اپ: اگر هسته واقعاً وصل است UI را خراب نکن و stop نزن.
+
+  /// بعد از لود پروفایل: اگر کاربر قبلاً وصل کرده و قطع صریح نکرده، intent را برگردان
+  Future<void> _restoreWantConnectedAfterLoad() async {
+    try {
+      final p = await SharedPreferences.getInstance();
+      final want = p.getBool(_kWantConnectedPref) == true;
+      if (!want) return;
+      if (!mounted) return;
+      _userWantsConnected = true;
+      _weInitiatedStop = false;
+      _uiForceDisconnected = false;
+      _connLog('restored wantConnected from prefs');
+      await Future.delayed(const Duration(milliseconds: 800));
+      if (!mounted || !_userWantsConnected) return;
+      if (_statusMeansConnected(v2rayStatus.state)) {
+        if (mounted) {
+          setState(() {
+            isConnecting = false;
+            _connectionVerified = true;
+            _uiForceDisconnected = false;
+          });
+        }
+        if (connectionModeSmart) _startHealthWatch(slow: false);
+        _startNativeStopPoll();
+      } else if (connectionModeSmart) {
+        if (mounted) {
+          setState(() {
+            isConnecting = true;
+            _connectionVerified = false;
+          });
+        }
+        _startNativeStopPoll();
+        final netOk = await _hasDeviceNetwork();
+        if (!mounted || !_userWantsConnected) return;
+        if (netOk) {
+          _requestSmartRecovery('cold_restore');
+        } else {
+          _startHealthWatch(slow: true);
+        }
+      }
+    } catch (e) {
+      _connLog('restore want err: $e');
+    }
+  }
+
   Future<void> _reconcileVpnStateOnResume() async {
     try {
       _connLog('resume');
       _resumeGraceUntilMs =
-          DateTime.now().millisecondsSinceEpoch + 25000;
+          DateTime.now().millisecondsSinceEpoch + 45000;
+      _backgroundGraceUntilMs =
+          DateTime.now().millisecondsSinceEpoch + 20000;
+      _healthFailCount = 0; // بعد از برگشت، شمارش fail قبلی را صفر کن
+
+      // اگر intent از prefs true است و state حافظه از دست رفته، بازیابی کن
+      if (!_userWantsConnected && !_weInitiatedStop) {
+        try {
+          final p = await SharedPreferences.getInstance();
+          if (p.getBool(_kWantConnectedPref) == true) {
+            _userWantsConnected = true;
+            _connLog('resume restored intent from prefs');
+          }
+        } catch (_) {}
+      }
+
       final nativeStop = await _peekNativeUserStop();
       if (nativeStop) {
-        await _disconnectSameAsMainButton(reason: 'resume_notif');
-        return;
+        // اگر هسته هنوز CONNECTED است، پرچم را کهنه فرض کن و پاک کن
+        if (_userWantsConnected && _statusMeansConnected(v2rayStatus.state)) {
+          _connLog('resume: native stop flag ignored (core still CONNECTED)');
+          await _clearStaleNativeStopFlags();
+        } else if (_userWantsConnected) {
+          // ممکن است قطع واقعی از نوتیف باشد
+          await _disconnectSameAsMainButton(reason: 'resume_notif');
+          return;
+        } else {
+          await _disconnectSameAsMainButton(reason: 'resume_notif');
+          return;
+        }
       }
 
       final st = v2rayStatus.state;
@@ -4977,6 +5104,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     // بازیابی فقط برای مشکل «سرور بد در حالی که هنوز CONNECTED بود»
     // نه برای قطع کامل هسته / نوتیف
     const allowed = {
+      'cold_restore',
       'health_delay',
       'network_restored',
       'network_back',
@@ -5235,6 +5363,8 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
 
     final myConnectGen = ++_connectGen;
     _userWantsConnected = true;
+    // ignore: unawaited_futures
+    _persistWantConnected(true);
       _connLog('intent=true');
     _weInitiatedStop = false;
     _isRecovering = false;

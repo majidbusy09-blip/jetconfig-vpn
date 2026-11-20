@@ -21,8 +21,8 @@ void main() {
 // مشخصات نسخه (نمایش داخل اپ) — با هر ریلیز با pubspec هماهنگ کن
 // مثال: pubspec 2.2.8+222 → همین دو مقدار را هم‌خوان نگه دار
 // در کامنت از شکل appVersion = '...' استفاده نکن (ورک‌فلو گیت‌هاب آن را اشتباه می‌خواند)
-const String appVersion = 'v2.4.4';
-const int appVersionCode = 282;
+const String appVersion = 'v2.4.5';
+const int appVersionCode = 284;
 /// کانال بسته‌بندی: با --dart-define=APK_CHANNEL=arm64|universal|arm32 در بیلد ست می‌شود
 const String apkChannel = String.fromEnvironment('APK_CHANNEL', defaultValue: 'arm64');
 const String appUpdateMetaUrl = 'https://majid6064.ir/app_version.json';
@@ -1939,10 +1939,8 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
 
 
   bool _shouldShowSosHelp([Map? data]) {
-    final d = data ?? userData;
-    if (d == null) return false;
-    if (_isTestUsername(d)) return false;
-    return _isSubscriptionExpired(d);
+    // دکمه اضطراری حذف شد — خرید/تمدید داخل اپ جایگزین است
+    return false;
   }
 
   Future<void> _confirmAndRequestSos() async {
@@ -2266,7 +2264,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
             'حجم یا اعتبار زمانی این اکانت تمام شده و اتصال پایدار نخواهد بود.\n\n'
             'باقیمانده: $rem\nاعتبار: $exp\n\n'
             'می‌تونی از داخل همین اپ یا از ربات تلگرام تمدید کنی یا بستهٔ جدید بخری.\n\n'
-            'اگر دسترسی نداشتی، از دکمه «کمک اضطراری» یک‌بار در ماه ۱۰۰ مگ یا ۱ روز بگیر.';
+            'از داخل اپ یا ربات تلگرام می‌تونی تمدید یا خرید کنی.';
       }
     } else {
       // فقط پیام اطلاع‌رسانی — بدون دکمه تمدید (کاربر از دکمه‌های پایین صفحه تمدید می‌کند)
@@ -3889,7 +3887,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     try {
       _connLog('resume');
       _resumeGraceUntilMs =
-          DateTime.now().millisecondsSinceEpoch + 45000;
+          DateTime.now().millisecondsSinceEpoch + 90000;
       _backgroundGraceUntilMs =
           DateTime.now().millisecondsSinceEpoch + 20000;
       _healthFailCount = 0; // بعد از برگشت، شمارش fail قبلی را صفر کن
@@ -5058,21 +5056,36 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
         return;
       }
 
-      _healthFailCount++;
-      _connLog('health delay fail $_healthFailCount/$_healthFailThreshold d=$delay');
-      if (mounted) setState(() => activePing = -1);
-
-      // بعد از resume چند ثانیه با d=-1 بازیابی نکن (پینگ هسته دیر جواب می‌دهد)
       final nowMs = DateTime.now().millisecondsSinceEpoch;
-      if (delay < 0 && nowMs < _resumeGraceUntilMs) {
-        _connLog('health grace after resume — skip recovery');
-        if (_healthFailCount >= _healthFailThreshold) {
-          _healthFailCount = _healthFailThreshold - 1; // نگه دار ولی شلیک نکن
+      final coreStillUp = _statusMeansConnected(v2rayStatus.state);
+      // اگر هسته هنوز CONNECTED است و فقط getConnectedServerDelay=-1 است (رایج بعد از resume)،
+      // این را قطع واقعی حساب نکن — فقط در grace یا با آستانه بالاتر بازیابی کن.
+      if (delay < 0 && coreStillUp) {
+        if (nowMs < _resumeGraceUntilMs || nowMs < _backgroundGraceUntilMs) {
+          _connLog('health d=-1 but CONNECTED — resume/bg grace');
+          return;
         }
-        return;
-      }
+        // خارج از grace: خیلی محافظه‌کار — فقط هر چند تیک یک‌بار بشمار
+        _healthFailCount++;
+        _connLog('health soft-fail CONNECTED d=-1 $_healthFailCount/${_healthFailThreshold + 3}');
+        if (_healthFailCount < _healthFailThreshold + 3) {
+          return;
+        }
+      } else {
+        _healthFailCount++;
+        _connLog('health delay fail $_healthFailCount/$_healthFailThreshold d=$delay coreUp=$coreStillUp');
+        if (mounted) setState(() => activePing = -1);
 
-      if (_healthFailCount < _healthFailThreshold) return;
+        if (delay < 0 && nowMs < _resumeGraceUntilMs) {
+          _connLog('health grace after resume — skip recovery');
+          if (_healthFailCount >= _healthFailThreshold) {
+            _healthFailCount = _healthFailThreshold - 1;
+          }
+          return;
+        }
+
+        if (_healthFailCount < _healthFailThreshold) return;
+      }
 
       _healthFailCount = 0;
       // دوباره پرچم نوتیف
@@ -8926,32 +8939,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
               ),
             ),
           ],
-          if (_shouldShowSosHelp()) ...[
-            const SizedBox(height: 8),
-            InkWell(
-              onTap: _confirmAndRequestSos,
-              borderRadius: BorderRadius.circular(14),
-              child: Container(
-                padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 14),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFF5252).withOpacity(0.12),
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: const Color(0xFFFF5252).withOpacity(0.35)),
-                ),
-                child: const Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.health_and_safety_outlined, color: Color(0xFFFF8A80), size: 16),
-                    SizedBox(width: 6),
-                    Text(
-                      'کمک اضطراری (۱ بار در ماه)',
-                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11.5),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
+
           const SizedBox(height: 10),
           Text(
             'JET VPN • $appVersion',

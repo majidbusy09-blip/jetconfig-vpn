@@ -24,7 +24,7 @@ Priority is measured against the goal of a reliable programming collaborator wit
 ## P2 — Close critical source-level risks (separate code PRs)
 
 1. **PR #11 implementation and full CI completed:** fix `connect_timeout` recovery allowlist mismatch. Runtime/device verification remains outstanding.
-2. **Implemented in PR #12 branch; CI pending:** apply one live-verification invariant to UI, cold restore, and app resume. Device validation remains required.
+2. **Implemented and full CI passed in PR #12:** apply one live-verification invariant to UI, cold restore, and app resume. Device validation remains required.
 3. Bind pending payment tokens to invoice owner/context and verify backend behavior.
 4. Design encrypted credential storage migration.
 5. Coordinate POST-body credential transport with backend owner.

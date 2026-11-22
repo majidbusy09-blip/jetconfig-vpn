@@ -8,6 +8,7 @@
 4. Re-fetch relevant source; do not rely on line numbers from an older snapshot.
 5. Trace callers, state, persistence, callbacks, network/API requests, native integration, and build workflow.
 6. Identify expected behavior, invariants, failure modes, and test plan before editing.
+7. For every non-trivial task, complete the applicable sections of `docs/TASK_TEMPLATE.md`; carry the record into the PR description or development log. Mark irrelevant sections as not applicable.
 
 ## Branching and approval
 

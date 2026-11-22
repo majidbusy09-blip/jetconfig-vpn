@@ -4,6 +4,7 @@ on:
   pull_request:
     branches:
       - main
+      - tools/dart-ast-memory-20261122
       - docs/agent-memory-foundation-20261122
     paths:
       - "lib/**"

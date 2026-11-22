@@ -1,15 +1,22 @@
 name: Build and Auto Release JetConfig VPN
 
+# Releases are intentionally manual. Ordinary pushes and PR merges must never
+# publish a product release.
 on:
-  push:
-    branches: [ main ]
   workflow_dispatch:
-
-permissions:
-  contents: write
+    inputs:
+      confirm_release:
+        description: "Confirm publishing a signed JET VPN release from main"
+        required: true
+        type: boolean
+        default: false
 
 jobs:
   build:
+    # Fail closed: require both the main branch and an explicit confirmation.
+    if: ${{ github.ref == 'refs/heads/main' && inputs.confirm_release == true }}
+    permissions:
+      contents: write
     runs-on: ubuntu-latest
 
     steps:

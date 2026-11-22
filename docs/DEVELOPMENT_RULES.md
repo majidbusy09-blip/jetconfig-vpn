@@ -3,17 +3,19 @@
 ## Before every task
 
 1. Apply `AGENTS.md` and load the relevant project-memory documents.
-2. Verify the target branch and latest commit SHA.
-3. Re-fetch relevant source; do not rely on line numbers from an older snapshot.
-4. Trace callers, state, persistence, callbacks, network/API requests, native integration, and build workflow.
-5. Identify expected behavior, invariants, failure modes, and test plan before editing.
+2. Ask the collaborator-priority question from `AGENTS.md`; defer work that does not improve the independent, accurate, project-memory-aware programming collaborator unless explicitly requested.
+3. Verify the target branch and latest commit SHA.
+4. Re-fetch relevant source; do not rely on line numbers from an older snapshot.
+5. Trace callers, state, persistence, callbacks, network/API requests, native integration, and build workflow.
+6. Identify expected behavior, invariants, failure modes, and test plan before editing.
 
 ## Branching and approval
 
 - Create one isolated branch per coherent task, based on the latest appropriate base.
 - Never commit directly to `main`.
 - Never merge, tag, publish a Release, or deploy without explicit user approval.
-- Remember that merging to `main` currently triggers the production build/release workflow.
+- The production release workflow is manual-only. It requires `workflow_dispatch`, ref `main`, and explicit `confirm_release=true`; ordinary main pushes and PR merges do not publish a Release.
+- Never trigger the production release workflow without separate explicit approval.
 
 ## Implementation discipline
 

@@ -243,3 +243,14 @@ Append-only record of meaningful project work. Each entry should include branch/
 - **Verification scope:** GitHub API metadata, tree, source blob IDs, version, PR states, ruleset and workflow run were re-fetched. Documentation-only changes; no Flutter source, bot, payment, backend, server, release workflow, version, signing or deployment changes.
 - **Checks:** project-memory audit will run on this PR; no local Flutter/Dart execution was performed through the GitHub connector.
 - **Approval boundary:** PR remains unmerged; no release or deployment.
+
+
+## 2026-11-23 — PR #19 merged; validation Android parity and required-check reliability
+
+- **Main commit:** `abdff3a59b89419e869c98d7dbb4ac91512fe950` (PR #19 squash merge).
+- **PR:** #19, `fix/validation-android-parity-20261122`; final head `3d47359c1ebaf6dcd6adfb19e886b9f148bbf030`.
+- **Scope:** Added `tools/validation/align_validation_android.py` and `tools/validation/test_align_validation_android.py`; updated `.github/workflows/pr-validation.yml` to align the temporary validation Android scaffold with production SDK/package-visibility configuration. Updated `.github/workflows/project-memory-audit.yml` so the required memory-audit check runs on every PR targeting main, avoiding path-filter-induced pending required checks.
+- **CI:** Project Memory Audit [#45065541236](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45065541236) and Non-production PR Validation [#45065541255](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45065541255) both completed successfully on the final PR head before merge.
+- **Application boundary:** No `lib/` files, native tunnel Java/Kotlin, DNS/routing implementation, app version, signing, production release workflow, bot, payment, backend, or server configuration changed. No release or deployment occurred.
+- **Device evidence:** User reported the Build 104 validation APK appeared to work in testing. This remains user-reported evidence; no broad Android/device/network compatibility claim is inferred.
+- **Memory maintenance:** This PR #18 refresh updates operational snapshots to main commit `abdff3a59b89419e869c98d7dbb4ac91512fe950` and records PR #19. Historical entries remain preserved; no older event is rewritten.

@@ -448,6 +448,8 @@ def command_verify(args: argparse.Namespace) -> None:
         exit_code, status, output = 127, "failed", str(exc)
     except subprocess.TimeoutExpired as exc:
         exit_code, status, output = 124, "failed", str(exc)
+    except OSError as exc:
+        exit_code, status, output = 126, "failed", str(exc)
     duration = round(time.monotonic() - started, 3)
     attempt = {
         "profile": profile,

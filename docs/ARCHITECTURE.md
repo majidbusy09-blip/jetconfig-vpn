@@ -1,6 +1,6 @@
 # JET VPN — Architecture
 
-> Verified against `main` commit `47949178016a6ef3e855a215550b06f4eae8378d`; `lib/main.dart` blob `df2914b2954d723869e4196d96f96b050618985a`.
+> Application-source baseline: `main` commit `47949178016a6ef3e855a215550b06f4eae8378d`; `lib/main.dart` blob `df2914b2954d723869e4196d96f96b050618985a`. The current main commit is `f396f57459c9863a325f27e7d438e9456d560e92`; the only change since the application-source baseline is the release-workflow safety gate in `.github/workflows/build.yml`.
 
 ## 1. Runtime composition
 
@@ -58,7 +58,14 @@ The repository stores patched Java source under `tools/v2ray_notif_patch/`. The 
 
 ## 6. Build/release boundary
 
-`.github/workflows/build.yml` triggers on pushes to `main` and manual dispatch, uses Java 17 / Flutter 3.27.4, signs release APKs using Actions secrets, and publishes a GitHub Release. This is a production-impacting workflow. Do not merge to `main` without explicit release approval.
+Current `.github/workflows/build.yml` at main commit `f396f57459c9863a325f27e7d438e9456d560e92` is manual-only:
+- Trigger: `workflow_dispatch`; no `push: main` release trigger.
+- Required input: Boolean `confirm_release`, default `false`.
+- Release job runs only when the selected ref is exactly `main` and `inputs.confirm_release == true`.
+- `contents: write` is scoped to the release job.
+- Signed APK build and GitHub Release publication steps are preserved.
+
+Therefore, ordinary pushes and PR merges do not publish releases. A manually dispatched run on main with explicit confirmation can publish a public GitHub Release. Do not run it without explicit user approval.
 
 ## 7. Known unknowns
 

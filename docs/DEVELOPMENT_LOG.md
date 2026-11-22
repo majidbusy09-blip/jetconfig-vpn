@@ -267,3 +267,19 @@ Append-only record of meaningful project work. Each entry should include branch/
 - **Scope:** documentation/design only. No Dart/Java/Kotlin application code, dependency, app version, signing, production release workflow, bot, payment, backend, or server behavior changed.
 - **Checks:** post-merge Project Memory Audit passed; this design branch's CI is pending/not yet run at the time of this entry. No implementation tests are claimed.
 - **Approval boundary:** branch only; no merge, release, or deployment.
+
+
+## 2026-11-23 — PR #20: local task orchestrator MVP (implementation in review)
+
+- **Base main:** `a09cdb0be35e3072be29973f7ae8df66ab44d07f`.
+- **Branch:** `design/task-execution-orchestrator-20261123`.
+- **Design-only checkpoint:** head `f7d9fa028d99e62e5d7c1ef453578440055e5cc9`; Project Memory Audit [#45070004438](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45070004438) and Non-production PR Validation [#45070004449](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45070004449) both succeeded. This checkpoint predates the implementation commits and does not validate them.
+- **Added:** `tools/task_orchestrator/task_orchestrator.py` (standard-library CLI), `tools/task_orchestrator/tests/test_task_orchestrator.py` (temporary-Git-repository integration tests), and `tools/task_orchestrator/README.md`.
+- **Implemented lifecycle:** `init → prepare → impact → begin → validate-scope → verify → finalize`; task JSON and handoff live under `.agent/tasks/<task-id>/`.
+- **Safety gates:** clean worktree at init; protected-branch and dirty-worktree rejection; mandatory context fingerprints; pinned base SHA; explicit allow/exclude patterns; full tracked/untracked/rename/delete path validation; content fingerprints bind approval to exact validated contents; fixed named verification profiles, subprocess `shell=False`, bounded timeouts, append-only check attempts, and explicit reviewed-diff confirmation.
+- **Impact limitation:** current MVP records presence/hash of existing semantic and critical-path artifacts and labels them `present_unverified`; it does not claim fresh or complete path-specific semantic analysis.
+- **CI:** extended only the non-production PR validation workflow to run the orchestrator test suite under Python 3.12. No new required branch-protection check was added.
+- **Explicit non-goals:** no GitHub write API, commit/push, PR creation, merge, tag, release, deploy, or production workflow dispatch capability.
+- **Scope:** developer tooling, its tests/docs, and non-production CI only. No Dart/Java/Kotlin app source, app version, signing, production release workflow, bot, payment, backend, or server behavior changed.
+- **Verification of implementation commits:** pending CI on the latest branch head; no implementation test result is claimed yet.
+- **Approval:** PR #20 remains Draft; no merge/release/deploy.

@@ -1,6 +1,6 @@
 # JET VPN — Verified Repository File Map
 
-> Current source snapshot: `main` at `66b1b0127b0fc2ae58602c5cf2a69be6536466b7`, 2026-11-22. Application source baseline `47949178016a6ef3e855a215550b06f4eae8378d` is unchanged; PR #5 modifies only the release workflow and PR #4 adds developer tooling/documentation.
+> Current source snapshot: `main` at `1f2519923cdd9f85ab280a3a4359d7ed5aed3949`, 2026-11-22. Application source baseline `47949178016a6ef3e855a215550b06f4eae8378d` is unchanged; PR #5 modifies only the release workflow and PR #4 adds developer tooling/documentation.
 
 | Path | Verified purpose |
 |---|---|
@@ -32,7 +32,7 @@ The recursive `main` tree at the application-source baseline did not contain `an
 
 ## Source identity
 
-- Current `main`: `66b1b0127b0fc2ae58602c5cf2a69be6536466b7`.
+- Current `main`: `1f2519923cdd9f85ab280a3a4359d7ed5aed3949`.
 - `lib/main.dart`: blob `df2914b2954d723869e4196d96f96b050618985a`, 9,001 lines, 352,404 UTF-8 bytes, 336,257 Unicode code points.
 - `pubspec.yaml`: blob `adc3b22a4538db4738bec789e3c3badf26e4f710`, version `2.4.5+284`.
 - `.github/workflows/build.yml`: blob `abdb595af8df6b2d02ab0ba1da665ac9de1d6461`; manual release gate.

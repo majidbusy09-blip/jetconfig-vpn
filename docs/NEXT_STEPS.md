@@ -1,62 +1,41 @@
 # JET VPN — Prioritized Next Steps
 
-Priority is measured against the goal of a reliable programming collaborator with durable project memory and safe execution. Every candidate task must pass the question in `AGENTS.md`; tasks that fail it are deferred unless explicitly requested.
+Priority is measured against the goal of a reliable, independent programming collaborator with durable project memory and safe execution. Every candidate task must pass the criterion in `AGENTS.md`.
 
-## Current integration state — PR #16
+## Current verified state — 2026-11-22
 
-- **Completed:** PRs #8–#13 have been consolidated on `integration/memory-and-recovery-20261122`; PR #16 remains draft and unmerged.
-- **Completed:** integration-head CI Run [#45018162238](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45018162238) passed application tests, semantic tooling tests/generation, deterministic generation, lexical freshness, and artifact uploads.
-- **Completed:** focused source review and durable evidence recorded in `docs/INTEGRATION_REVIEW.md`; latest status snapshot appended to `docs/CURRENT_STATUS.md`.
-- **Next P0:** obtain a debug APK through a non-production validation path and perform Android device tests for cold restore, resume with blocked tunnel traffic, explicit disconnect during in-flight verification, and profile switch during verification.
-- **Not yet verified:** APK build, Android lifecycle/native V2Ray behavior, and real tunnel traffic. Do not call the VPN recovery work production-validated until these pass.
-- **Deferred by user:** bot/payment/server work; do not resume unless the user changes priority or a concrete issue is reported.
-- **Approval boundary:** keep PR #16 draft/unmerged; no merge, release, deployment, or production workflow dispatch without explicit approval.
+- PR #16: open, draft, unmerged; inspected head `895124409f2c6a302e2ede3c73ccd3af54c747a0`.
+- PR validation [Run #45021900956](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45021900956): passed analysis, app tests, Debug smoke build, ARM64 split Release-mode comparison build, and artifact uploads.
+- Project-memory audit [Run #45021900965](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45021900965): passed application tests, AST/resolved-index tooling tests, deterministic generation, critical-path generation, lexical freshness, and artifact uploads.
+- Verified ARM64 comparison APK: 27,773,007 bytes (26.48 MiB); native libraries only in `arm64-v8a`. Artifact ID `14754511282`, expires 2026-11-29.
+- Production workflow generates application ID `com.jetconfig.vpn.jetconfig_vpn` and signs with the configured release keystore. The comparison APK uses the Android Debug certificate; signing compatibility is not established.
+- App source/version unchanged; main branch unchanged; no merge/release/deployment.
 
-## P0 — Activate and validate the memory/agent foundation
+## P0 — Safe device-validation path
 
-1. **Completed:** PR #4 was merged after a fresh successful audit on the final PR head; the generated index and source fingerprint matched.
-2. **Completed:** PR #7's disposable negative test proved that the audit workflow triggers on PRs and rejects a deliberately stale source fingerprint; the test PR was closed unmerged.
-3. Decide whether PR #1's initial documentation should be closed as superseded; do not merge it alongside PR #3.
-4. Decide separately whether PR #2's isolated PR-validation workflow should be merged; it is not a production release trigger, but still requires explicit approval.
-5. Ensure every task loads project memory, checks current source, works on an isolated branch, reports exact verification, and updates memory when needed.
+1. Add a distinct validation application ID (for example, `com.jetconfig.vpn.jetconfig_vpn.validation`) to the non-production CI build only, with a visible “JET VPN TEST” label. Keep the production release workflow and production application ID untouched.
+2. Verify the resulting APK package ID, signer identity, ABI contents, and installability in CI. Keep this artifact separate from production release artifacts.
+3. Only then offer the test APK for side-by-side installation. Device test cases: cold restore, resume with blocked tunnel traffic, explicit disconnect during in-flight verification, and profile switch during verification. Record exact device/Android version and results.
+4. Do not claim VPN recovery is production-validated until real device and tunnel-traffic checks pass.
 
-## P1 — Make the agent's knowledge executable
+## P1 — Review and safely activate the collaborator foundation
 
-1. **In progress in PR #8:** AST-based declaration and syntactic call-site extraction, with ambiguity/unresolved labels and focused tooling tests.
-2. **Completed for PR #8:** CI is green; the AST output remains explicitly syntactic and is not a semantic call graph. Side-by-side comparison with analyzer-resolved Elements is the current follow-up.
-3. **Implemented in PR #9; review pending:** analyzer Elements resolve invocation nodes using the app package context; same-name methods, dynamic calls, and app package URI classification have focused tests. Latest PR #9 CI Run #57 passed after enabling the next dependent PR audit trigger. Keep this graph labeled as a static call graph, not runtime reachability.
-4. **Implemented in PR #10; review pending:** discover and resolve all tracked Dart files under `lib/`, build cross-file Element edges, and generate source-linked reachability reports for curated VPN, lifecycle, payment, and profile entrypoints. CI Run #58 passed; all 16 configured entrypoints resolved. The current repository still has one tracked Dart file, while a two-file fixture verifies cross-file behavior. Java patch files are linked as boundaries, not analyzed as Dart.
-5. **PR #11 implemented and fully CI-verified:** recovery policy extraction and tests for `connect_timeout`, unknown reasons, intent gates, and cooldowns. Runtime/device behavior remains to be checked.
-6. Establish a repeatable baseline: format, analyze, test, debug build; preserve logs and artifact references.
-7. Extend source-fingerprint coverage to additional documented files and symbol-level evidence as the architecture is split across files.
-8. Add a task template requiring context loaded, priority test, scope, branch, diff, tests, PR, and memory update.
+1. Review the complete PR #16 diff against main, with special attention to `lib/main.dart` integration points and the test coverage for lifecycle/cancellation.
+2. Verify generated project-memory outputs and all docs against the exact PR head; stale snapshots block approval.
+3. After device evidence and final review, present a merge decision for explicit user approval. Do not merge autonomously.
 
-## P2 — Close critical source-level risks (separate code PRs)
+## P2 — Improve project memory and task execution
 
-1. **PR #11 implementation and full CI completed:** fix `connect_timeout` recovery allowlist mismatch. Runtime/device verification remains outstanding.
-2. **Implemented and full CI passed in PR #12:** apply one live-verification invariant to UI, cold restore, and app resume. Device validation remains required.
-3. **Implemented and CI-verified in PR #13:** isolate the async live-ping/retry sequence behind injected dependencies; all 15 app tests and full project-memory audit passed. Android lifecycle/device verification remains required.
-4. **Next:** bind pending payment tokens to invoice owner/context and verify backend behavior.
-4. Design encrypted credential storage migration.
-5. Coordinate POST-body credential transport with backend owner.
-6. Review `onRevoke` behavior with Android device tests.
+- **Completed in this branch:** added a mandatory task template and aligned the current status, next steps, and development log with the latest verified CI head.
+- Extend source-fingerprint coverage to documented architecture/API/storage decisions and symbol-level evidence as the app is split into files.
+- Keep the lexical index, semantic index, and critical-path report clearly distinguished; none alone proves runtime behavior.
+- Build a task-to-evidence trail: each task should record loaded context, source SHA, intended diff, exact tests, artifact/PR, and memory update.
 
-## P3 — Backend visibility
+## Deferred by user
 
-Obtain read-only access to authoritative backend source before making security/payment claims or changing API semantics. Map server-side authorization, invoice creation/approval, idempotency, and rate limits.
+- Telegram bot, payment, backend, and server work: currently working; do not prioritize absent a concrete issue or changed instruction.
+- New product features, marketing, and visual redesigns: lower priority than collaborator reliability and project verification.
 
-## Explicitly out of current priority
+## Approval boundary
 
-Do not prioritize new product features, visual redesigns, marketing, or unrelated refactors until the agent can reliably understand, verify, and maintain the existing project—unless the user explicitly changes the priority.
-
-
-## Updated validation status — 2026-11-22
-
-- **Completed:** non-production CI validation [Run #45021183386](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45021183386) passed Flutter analysis, application tests, debug APK build, and ARM64 split Release APK build.
-- **Completed:** project-memory audit [Run #45021183398](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45021183398) passed on the same integration head.
-- **Completed:** inspected the ARM64 artifact ZIP and APK. The APK is 27,773,007 bytes (about 26.48 MiB) and contains native libraries only in `lib/arm64-v8a/`. Artifact ID `14753468185`; expires 2026-11-29.
-- **Next P0:** establish the production app's authoritative application ID and signing-certificate identity. The CI-generated scaffold currently reports `com.jetconfig.vpn.jetconfig_vpn`, which is not yet proven to match production. Do not install over the existing app until package and signature compatibility are verified.
-- **Next P1:** compare the verified ARM64 APK size with the exact installed production APK size using the same units and packaging basis; document any remaining difference.
-- **Next P1:** once package identity is established, run device validation for cold restore, app resume with blocked tunnel traffic, explicit disconnect during an in-flight verification, and profile switch during verification.
-- **Still not verified:** production signing/package identity, installation over the production app, native V2Ray behavior, Android lifecycle end-to-end behavior, and real tunnel traffic.
-- **Approval boundary unchanged:** PR #16 remains draft/unmerged. No merge, release, deployment, or production workflow dispatch without explicit approval.
+PR #16 remains draft/unmerged. No merge, production release, deployment, production workflow dispatch, or installation over the production app without explicit approval and verified package/signature compatibility.

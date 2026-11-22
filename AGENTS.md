@@ -90,9 +90,14 @@ A successful build is not a runtime/device test. A CI workflow definition is not
 
 - Repository: `majidbusy09-blip/jetconfig-vpn`
 - Branch: `main`
-- Commit: `1f2519923cdd9f85ab280a3a4359d7ed5aed3949`
-- `.github/workflows/build.yml` blob: `abdb595af8df6b2d02ab0ba1da665ac9de1d6461`
-- `lib/main.dart` blob: `df2914b2954d723869e4196d96f96b050618985a`
-- `pubspec.yaml` blob: `adc3b22a4538db4738bec789e3c3badf26e4f710`
-- App version: `2.4.5+284`
-- Snapshot date: 2026-11-22
+- Current main commit (verified 2026-11-22): `eae477a89816a5cfd475c596e166d5cb2575884a`
+- Latest merged integration PR: #16 at `c4f7f4743b3c6ffc64d34a0efb0c19f41b236f1e`.
+- Latest merged CI automation PR: #17 at `eae477a89816a5cfd475c596e166d5cb2575884a`.
+- `lib/main.dart` blob: `3d28693b7be8bfe309a850923599830e1a65ab59` (9,008 lines / 352,770 UTF-8 bytes / 336,710 Unicode code points).
+- `pubspec.yaml` blob: `adc3b22a4538db4738bec789e3c3badf26e4f710`.
+- App version: `2.4.5+284`.
+- Active branch ruleset: `main-protection`, targets the default branch, requires PR + the project-memory status check, blocks deletion and force pushes, allows Squash only, and has no bypass actors.
+- Post-merge main audit: run [#45029689706](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45029689706), event `push`, completed successfully on `eae477a89816a5cfd475c596e166d5cb2575884a`.
+- Production release workflow remains manual-only and must never be dispatched without explicit user approval.
+
+Snapshot verification source: GitHub branch, commit, file, ruleset, PR, and Actions APIs checked on 2026-11-22.

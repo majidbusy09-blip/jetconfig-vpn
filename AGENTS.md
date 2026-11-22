@@ -89,7 +89,7 @@ A successful build is not a runtime/device test. A CI workflow definition is not
 
 - Repository: `majidbusy09-blip/jetconfig-vpn`
 - Branch: `main`
-- Commit: `477ff12fb5a82ba2b2bb3f68a268d27f679c40ab`
+- Commit: `1f2519923cdd9f85ab280a3a4359d7ed5aed3949`
 - `.github/workflows/build.yml` blob: `abdb595af8df6b2d02ab0ba1da665ac9de1d6461`
 - `lib/main.dart` blob: `df2914b2954d723869e4196d96f96b050618985a`
 - `pubspec.yaml` blob: `adc3b22a4538db4738bec789e3c3badf26e4f710`

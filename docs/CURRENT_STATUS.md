@@ -2,10 +2,10 @@
 
 > Snapshot date: 2026-11-22  
 > Repository: `majidbusy09-blip/jetconfig-vpn`  
-> Inspected branch: `tests/async-live-verifier-20261122`  
-> Inspected source-change commit: `f09b972f3a6ee2f466bcf9553f9f43672483c983`  
+> Inspected branch: `security/payment-token-owner-20261122`  
+> Inspected source-change commit: `40ebfb50c72c527a67bc8e56f9de1e58cac45f14`  
 > App version: `2.4.5+284`  
-> `lib/main.dart` blob: `3d28693b7be8bfe309a850923599830e1a65ab59` (9,008 lines / 352,770 UTF-8 bytes / 336,710 Unicode code points)  
+> `lib/main.dart` blob: `0411f4d6d82e9412147dfdd9dbb8211df2666d47` (9,105 lines / 356,159 UTF-8 bytes / 340,068 Unicode code points)  
 > `pubspec.yaml` blob: `adc3b22a4538db4738bec789e3c3badf26e4f710`  
 > `.github/workflows/build.yml` blob: `abdb595af8df6b2d02ab0ba1da665ac9de1d6461`
 
@@ -32,7 +32,8 @@
 - PR #10: multi-file Dart resolution and critical-path report; open, draft, unmerged; dependent on PR #9 and PR #8; CI Run #58 succeeded; workflow-trigger refresh Run #65 is being revalidated.
 - PR #11: recovery admission policy and first application regression tests; open, draft, unmerged; targets PR #10 branch; full CI Run [#45008026404](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45008026404) succeeded, including app `flutter test`, semantic tooling tests/generation, and lexical freshness audit.
 - PR #12: fresh live-connection verification on restore/resume; open, draft, unmerged, based on PR #11; full CI Run [#45008634023](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45008634023) and final audit Run [#45008853860](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45008853860) succeeded.
-- PR #13 (current branch): extracts the asynchronous live-ping sequence behind an injectable verifier; full audit CI Run [#45011976765](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45011976765) succeeded on head `e11598dfb3978e44e01aa52a3e3afa95f87307b1`, including 15 app tests, all semantic tooling tests/generation, deterministic regeneration, lexical freshness, and both artifact uploads. Open/draft/unmerged; review pending.
+- PR #13: extracts the asynchronous live-ping sequence behind an injectable verifier; source-change CI and final audit passed. Open/draft/unmerged; review pending.
+- PR #14 (current branch): binds pending invoice tokens to their originating account, adds stale-poll cancellation on account/credential changes, and adds focused model tests. CI/review pending; targets PR #13 branch.
 
 ## Build and test baseline
 
@@ -47,7 +48,7 @@
 See `KNOWN_ISSUES.md`. Highest priorities:
 1. `connect_timeout` is admitted by PR #11; full CI passed, while runtime/device recovery behavior remains unverified.
 2. PR #12 removes native-state-only verification on restore/resume; unit tests and full CI passed, but device reproduction remains required.
-3. Pending payment token is stored globally without an owner identity.
+3. PR #14 proposes an owner-bound pending-payment record and account-switch polling guards; backend authorization remains unverified.
 4. Account passwords are stored in SharedPreferences profile JSON/plain keys.
 5. Login/password-change credentials are sent in GET query strings.
 6. `main` still has no app regression suite; PR #11 and PR #12 introduce initial unit suites on dependent review branches.
@@ -57,4 +58,4 @@ The previous critical risk that an ordinary push/merge to main automatically pub
 
 ## Memory freshness
 
-This document preserves the authoritative `main` snapshot and separately records the review-branch source fingerprint above. `main` has one tracked Dart file under `lib/`; the PR #11 review branch has two (`lib/main.dart` and `lib/recovery_policy.dart`), and PR #12 adds `lib/live_connection_policy.dart`; the current PR #13 branch adds `lib/live_connection_verifier.dart` and its async test suite. The lexical index remains a navigation aid; PR #10 semantic tooling resolves every tracked Dart file and emits static critical-path reports. These outputs do not establish runtime behavior.
+This document preserves the authoritative `main` snapshot and separately records the PR #14 review-branch source fingerprint above. `main` has one tracked Dart file under `lib/`; the PR #11 review branch has two (`lib/main.dart` and `lib/recovery_policy.dart`), and PR #12 adds `lib/live_connection_policy.dart`; PR #13 adds `lib/live_connection_verifier.dart`; the current PR #14 branch adds `lib/pending_payment_record.dart` and its payment-owner tests. The lexical index remains a navigation aid; PR #10 semantic tooling resolves every tracked Dart file and emits static critical-path reports. These outputs do not establish runtime behavior.

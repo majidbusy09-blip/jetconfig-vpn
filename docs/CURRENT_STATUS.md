@@ -105,3 +105,17 @@ This section supersedes the earlier PR #13 branch snapshot above for the integra
 - Downloaded and inspected the APK archive: it contains native libraries only under `lib/arm64-v8a/`; no `armeabi-v7a`, `x86`, or `x86_64` ABI libraries were present. This confirms the split-per-ABI fix worked.
 - **Package identity limitation:** CI generated a temporary Android scaffold. Its reported application ID/namespace is `com.jetconfig.vpn.jetconfig_vpn`; this has not been confirmed as the production app ID. Signing compatibility is also unverified. Do not install this APK over the production JET VPN app or distribute it.
 - This is a valid ARM64 size comparison build, but not yet proof of production installability or runtime VPN behavior. Next: compare the exact APK size with the installed production package and verify the production application ID/signature from the authoritative Android project/build configuration before any installation.
+
+
+## Isolated device-validation APK — 2026-11-22 (latest verified)
+
+- **Source head:** `8571a10a8676bf114ca6eda07657da026e550085`; PR #16 remains open, draft, and unmerged.
+- **PR validation:** [Run #45023210674](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45023210674) succeeded end-to-end: validation-tool unit tests, Flutter analysis, app tests, debug smoke build, ARM64 split Release-mode APK build, package/label/signature/ABI verification, and artifact upload.
+- **Project-memory audit:** [Run #45023210902](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45023210902) succeeded on the validation-build change set.
+- **Artifact:** `JET-VPN-TEST-arm64-validation-42`, artifact ID `14754751347`, ZIP size 27,040,223 bytes, expires 2026-11-29 12:43:53 UTC. Contains `app-arm64-v8a-release.apk` (27,748,544 bytes; about 26.46 MiB).
+- **Verified APK identity:** package `com.jetconfig.vpn.jetconfig_vpn.validation`; label `JET VPN TEST`; versionName `2.4.5`; versionCode `2284`; native ABI set exactly `arm64-v8a`.
+- **Signature:** Android APK Signature Scheme v1 and v2 verification passed; one signer, `CN=Android Debug`; certificate SHA-256 `524cfda67adac575c959bdeaf99484cd5f0f1a260a87a275cd84f2f6d833fdf9`. This is a test certificate, not the production release key.
+- **Isolation safeguards:** validation-only build preparation changes the generated package ID and label and injects a compile-time updater guard in the ephemeral CI workspace. The tracked production `lib/main.dart`, production package configuration, and `.github/workflows/build.yml` are not modified by this validation-only preparation step. The validation app's update check is disabled.
+- **Local archive inspection:** ZIP contains exactly one APK; APK contains native libraries only in `lib/arm64-v8a/`.
+- **Device/runtime status:** not yet installed or exercised on a physical device. This artifact is suitable only for side-by-side validation, not production distribution or upgrading the production app. Do not test purchases/payments in this build.
+- **Next:** use `docs/DEVICE_VALIDATION.md` to install alongside production and record cold start/restore, background resume, disconnect during verification, and profile-switch during verification. Record device model and Android version. Do not merge or release before device evidence and explicit user approval.

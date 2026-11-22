@@ -4,10 +4,10 @@
 
 ## Current test baseline
 
-- Current `main` is `eae477a89816a5cfd475c596e166d5cb2575884a`; PR #16 and PR #17 are merged.
+- Current `main` is `abdff3a59b89419e869c98d7dbb4ac91512fe950`; PR #16, #17, and #19 are merged.
 - Application regression tests exist under `test/`; the project-memory workflow runs `flutter test` after resolving root Flutter dependencies.
 - The isolated semantic tooling package has tests for AST indexing, analyzer-resolved indexing, and critical-path reporting.
-- Project-memory audit run [#45029689706](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45029689706) passed on current main after PR #17.
+- Project-memory audit after PR #19 [#45065541236](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45065541236) passed; non-production PR validation [#45065541255](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45065541255) also passed.
 - User-reported device tests passed for cold restore, background resume, explicit disconnect during verification, and profile switch during verification. Device/build/log details were not supplied.
 - Unit tests and CI do not replace Android lifecycle, VPN-engine, network, payment, or backend integration tests.
 
@@ -64,6 +64,13 @@
 
 For each run record: date, device/Android version, branch and commit SHA, exact test case, steps, expected/actual result, logs (redacted), pass/fail, and follow-up issue. Do not record credentials or payment tokens.
 
+
+## Validation Android parity (PR #19)
+
+- `tools/validation/align_validation_android.py` aligns the disposable CI Android scaffold with production compileSdk 35, minSdk 24, targetSdk 35, `QUERY_ALL_PACKAGES`, and the production package-visibility query set.
+- `tools/validation/test_align_validation_android.py` covers Groovy/Kotlin Gradle configuration, manifest package declarations, and idempotency.
+- These tests validate build configuration parity; they do not prove live VPN routing, DNS, or tunnel traffic.
+- PR #19 final-head validation and memory-audit runs #45065541255 and #45065541236 both passed.
 
 ## Project memory automation
 

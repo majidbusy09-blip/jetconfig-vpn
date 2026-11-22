@@ -2,6 +2,16 @@
 
 Priority is measured against the goal of a reliable programming collaborator with durable project memory and safe execution. Every candidate task must pass the question in `AGENTS.md`; tasks that fail it are deferred unless explicitly requested.
 
+## Current integration state — PR #16
+
+- **Completed:** PRs #8–#13 have been consolidated on `integration/memory-and-recovery-20261122`; PR #16 remains draft and unmerged.
+- **Completed:** integration-head CI Run [#45018162238](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45018162238) passed application tests, semantic tooling tests/generation, deterministic generation, lexical freshness, and artifact uploads.
+- **Completed:** focused source review and durable evidence recorded in `docs/INTEGRATION_REVIEW.md`; latest status snapshot appended to `docs/CURRENT_STATUS.md`.
+- **Next P0:** obtain a debug APK through a non-production validation path and perform Android device tests for cold restore, resume with blocked tunnel traffic, explicit disconnect during in-flight verification, and profile switch during verification.
+- **Not yet verified:** APK build, Android lifecycle/native V2Ray behavior, and real tunnel traffic. Do not call the VPN recovery work production-validated until these pass.
+- **Deferred by user:** bot/payment/server work; do not resume unless the user changes priority or a concrete issue is reported.
+- **Approval boundary:** keep PR #16 draft/unmerged; no merge, release, deployment, or production workflow dispatch without explicit approval.
+
 ## P0 — Activate and validate the memory/agent foundation
 
 1. **Completed:** PR #4 was merged after a fresh successful audit on the final PR head; the generated index and source fingerprint matched.

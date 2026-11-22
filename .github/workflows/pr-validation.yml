@@ -48,8 +48,14 @@ jobs:
       - name: Static analysis
         run: flutter analyze --no-pub --no-fatal-infos --no-fatal-warnings
 
-      - name: Run tests
-        run: flutter test --no-pub
+      - name: Run tests when test suite exists
+        shell: bash
+        run: |
+          if [ -d test ]; then
+            flutter test --no-pub
+          else
+            echo "::notice::No test/ directory exists in this repository revision; Flutter tests were not run."
+          fi
 
       - name: Build debug APK
         run: flutter build apk --debug --no-pub

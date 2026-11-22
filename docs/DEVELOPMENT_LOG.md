@@ -220,3 +220,10 @@ Append-only record of meaningful project work. Each entry should include branch/
 - The Stage 14 record above was written at commit `eefde6baa1556e56c11ce4c872ca4cdd9cee3722`. Subsequent branch commits are documentation-only; the application/validation source remains `8571a10a8676bf114ca6eda07657da026e550085`.
 - CI runs #45024183497 (PR validation) and #45024183512 (project-memory audit) both passed at `eefde6baa1556e56c11ce4c872ca4cdd9cee3722`. A separate successful run on the newest documentation-only head has not yet been confirmed in this log.
 - The PR contains 38 changed files at the latest review snapshot. Final source/diff review and a current-head CI confirmation remain the gates before presenting a merge recommendation.
+
+
+## Follow-up — final project-memory audit on user-test documentation
+
+- Project-memory audit [Run #45026094298](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45026094298) completed successfully on commit `a6690d0d9efe310624946d47207ffd19016a6f25`. Application tests, semantic indexer tests, deterministic AST/resolved/critical-path generation, lexical freshness, and both index artifact uploads passed.
+- Non-production PR validation [Run #45026094310](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45026094310) was created for the same docs-only snapshot but remained queued at the time of this note. The exact application/validation source had already passed complete analysis/tests/ARM64 APK validation in Run #45024183497; no app code changed in the later documentation commits.
+- Final review spot-check confirmed `_applyUserDisconnect` increments `_verifyGen`, `_activateProfile` increments `_verifyGen`, and the verifier checks generation/currentness after async waits and ping completion. This matches the two race-condition device scenarios reported as passing by the user.

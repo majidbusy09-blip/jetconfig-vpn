@@ -1,6 +1,6 @@
 # JET VPN — Task Execution Orchestrator Design
 
-> Status: design proposal; no orchestrator implementation is included in this change.
+ > Status: design plus local MVP implementation; still under PR #20 review and not merged.
 > Design baseline: `main` `a09cdb0be35e3072be29973f7ae8df66ab44d07f` (2026-11-23).
 
 ## 1. Objective and boundary
@@ -20,17 +20,11 @@ The orchestrator is a workflow guard and evidence recorder, not an autonomous co
 
 Do not build a second Dart parser, call graph, or CI validation framework. Consume the existing reports and preserve their documented static-analysis limitations.
 
-## 3. Proposed MVP architecture
+## 3. MVP implementation
 
-Implement a Python 3.12, standard-library-only package under `tools/task_orchestrator/`:
+The first MVP is intentionally a single standard-library Python CLI to minimize duplicated abstractions and make its control flow auditable. It currently lives in `tools/task_orchestrator/task_orchestrator.py`, with integration tests in `tools/task_orchestrator/tests/` and usage documentation in `tools/task_orchestrator/README.md`. Split modules only when concrete complexity justifies it.
 
-- `task_orchestrator.py`: CLI entry point and command dispatch.
-- `task_record.py`: versioned task-record schema and validation.
-- `git_context.py`: read-only Git metadata, branch, commit, diff, and file fingerprint collection.
-- `policy.py`: fail-closed checks for branch, worktree, context, declared scope, and approval boundaries.
-- `checks.py`: named, repository-owned verification profiles; no arbitrary shell command strings.
-- `render.py`: Markdown task report and PR handoff summary.
-- `tests/`: unit tests using temporary Git repositories and synthetic fixtures.
+Implemented commands: `init`, `prepare`, `impact`, `begin`, `validate-scope`, `verify`, and `finalize`.
 
 Task records live under `.agent/tasks/<task-id>/` on the working branch. They contain metadata and hashes, not source contents, credentials, environment variables, or full command output.
 
@@ -120,7 +114,14 @@ The MVP is acceptable only when:
 7. Automated tests prove the safety gates and failure paths.
 8. No app source, app version, signing, production release workflow, backend, bot, payment, or server behavior is changed by the MVP.
 
-## 10. Open design decisions
+## 10. Current MVP limitations and open design decisions
+
+- The current `impact` command records availability and hashes of semantic/critical-path artifacts but does not independently verify their freshness or calculate path-specific impact; output is explicitly labeled unverified.
+- The initial fixed profiles are Python tooling tests, Flutter tests, Flutter analysis, and lexical memory audit. The validation APK build is not yet an orchestrator profile.
+- The first integration suite is being exercised in non-production PR CI; its latest implementation-head result must be checked before this MVP is considered validated.
+- The CLI does not create commits or interact with GitHub. PR creation remains a later, separately reviewed phase.
+
+## 11. Open design decisions
 
 - Whether task records should be committed with every PR or stored as CI artifacts for low-risk tasks; default proposal is committed records for material tasks and CI artifacts for transient diagnostics.
 - Whether impact analysis should initially require a fresh semantic artifact or allow a clearly marked unavailable state; default proposal is allow unavailable but block claims of complete impact analysis.

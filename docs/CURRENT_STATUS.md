@@ -119,3 +119,13 @@ This section supersedes the earlier PR #13 branch snapshot above for the integra
 - **Local archive inspection:** ZIP contains exactly one APK; APK contains native libraries only in `lib/arm64-v8a/`.
 - **Device/runtime status:** not yet installed or exercised on a physical device. This artifact is suitable only for side-by-side validation, not production distribution or upgrading the production app. Do not test purchases/payments in this build.
 - **Next:** use `docs/DEVICE_VALIDATION.md` to install alongside production and record cold start/restore, background resume, disconnect during verification, and profile-switch during verification. Record device model and Android version. Do not merge or release before device evidence and explicit user approval.
+
+
+## Physical-device validation — user-reported success (2026-11-22)
+
+- **Result:** user reports that all four scenarios in `docs/DEVICE_VALIDATION.md` were tested and everything worked: cold start/restore, background resume, explicit disconnect during verification, and profile switch during verification.
+- **Evidence type:** user-reported manual test result; no device logs or screen recording were supplied. Device model, Android build, network type, and test profile are not yet recorded. Do not infer these from the ChatGPT client metadata.
+- **Interpretation:** this is positive physical-device evidence for the tested environment, in addition to successful CI and APK identity/signature/ABI checks. It is not a broad compatibility claim across Android versions/devices or proof of every native tunnel edge case.
+- **PR #16 current head:** `eefde6baa1556e56c11ce4c872ca4cdd9cee3722`; open, draft, unmerged, reported mergeable. No submitted PR reviews or review threads were returned at this check.
+- **CI on the current documentation head:** PR validation [Run #45024183497](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45024183497) succeeded; project-memory audit [Run #45024183512](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45024183512) succeeded.
+- **Next:** complete a final source/diff review, verify docs/indexes against the latest head, then present the merge decision for explicit approval. Do not merge, release, or deploy automatically.

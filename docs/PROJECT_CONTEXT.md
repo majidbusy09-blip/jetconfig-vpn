@@ -1,11 +1,11 @@
 # JET VPN — Project Context
 
-> Current verified repository snapshot: `main` at `eae477a89816a5cfd475c596e166d5cb2575884a` (2026-11-22).  
-> PR #16 merged at `c4f7f4743b3c6ffc64d34a0efb0c19f41b236f1e`; PR #17 merged at `eae477a89816a5cfd475c596e166d5cb2575884a`.  
+> Current verified repository snapshot: `main` at `abdff3a59b89419e869c98d7dbb4ac91512fe950` (2026-11-23).  
+> PR #16 merged at `c4f7f4743b3c6ffc64d34a0efb0c19f41b236f1e`; PR #17 at `eae477a89816a5cfd475c596e166d5cb2575884a`; PR #19 at `abdff3a59b89419e869c98d7dbb4ac91512fe950`.  
 > Main source blob: `lib/main.dart` = `3d28693b7be8bfe309a850923599830e1a65ab59`.  
 > App version: `2.4.5+284` (`pubspec.yaml` blob `adc3b22a4538db4738bec789e3c3badf26e4f710`).  
-> Project-memory audit run #45029689706 passed on the current main commit.  
-> Active `main-protection` ruleset protects only the default branch and requires PR + memory-audit status check.
+> PR #19 aligns validation-only Android SDK and package visibility with production; its final-head CI runs #45065541236 and #45065541255 passed.  
+> Active `main-protection` ruleset protects the default branch and requires PR + memory-audit status check.
  
 ## Product and repository identity
 

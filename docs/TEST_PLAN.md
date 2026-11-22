@@ -69,3 +69,13 @@ For each run record: date, device/Android version, branch and commit SHA, exact 
 3. The `JET VPN - Project Memory Audit` workflow repeats both checks on relevant PRs and uploads the machine-readable index as a 30-day artifact.
 4. A changed source blob or changed byte/line/code-point metrics without matching `CURRENT_STATUS.md` is a stale-memory failure.
 5. The index is lexical only: symbol locations and token occurrence counts are not a semantic call graph and do not replace Dart analysis or tests.
+
+
+## Project-memory tooling regression tests (PR #10 proposal)
+
+- Resolve a call from one Dart file into a declaration in another file and assert the target Element source and repository classification.
+- Ensure every tracked `lib/**/*.dart` file is included in the generated source fingerprint list.
+- Traverse internal resolved edges from curated workflow anchors; count external and unresolved calls without following them.
+- Fail closed when a curated entrypoint is missing or ambiguous.
+- Generate the multi-file resolved index and critical-path report twice and compare byte-for-byte in CI.
+- Keep native Java patch references visible as cross-language boundaries; do not label them as Dart-analyzed edges.

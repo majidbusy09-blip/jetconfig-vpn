@@ -126,6 +126,21 @@ class OrchestratorIntegrationTests(unittest.TestCase):
         git(self.root, "commit", "-m", "unexpected base movement")
         self.cli("begin", "--task-id", self.task_id, expected=2)
 
+    def test_repository_wide_scope_requires_high_risk_reason(self) -> None:
+        self.cli(
+            "init", "--task-id", self.task_id, "--goal", "x", "--capability", "x",
+            "--risk", "low", "--allow", "**", "--check", "python-tooling-tests",
+            expected=2,
+        )
+        self.assertFalse(self.record.exists())
+        self.cli(
+            "init", "--task-id", self.task_id, "--goal", "x", "--capability", "x",
+            "--risk", "high", "--scope-reason", "repository-wide migration",
+            "--allow", "**", "--check", "python-tooling-tests",
+        )
+        record = json.loads(self.record.read_text(encoding="utf-8"))
+        self.assertEqual(record["scope"]["reason"], "repository-wide migration")
+
     def test_unknown_profile_is_rejected(self) -> None:
         self.cli(
             "init", "--task-id", self.task_id, "--goal", "x", "--capability", "x",

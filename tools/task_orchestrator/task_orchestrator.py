@@ -18,6 +18,7 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit
 
 SCHEMA_VERSION = 1
 REQUIRED_CONTEXT = (
@@ -149,9 +150,35 @@ def current_branch(root: Path) -> str:
     branch = run_git(root, "branch", "--show-current")
     if not branch:
         raise TaskError("Detached HEAD is not permitted for task preparation.")
-    if branch in PROTECTED_BRANCHES:
-        raise TaskError(f"Refusing to prepare work directly on protected branch '{branch}'.")
+    protected = set(PROTECTED_BRANCHES)
+    remote_head = run_git(
+        root, "symbolic-ref", "--quiet", "--short", "refs/remotes/origin/HEAD",
+        check=False,
+    )
+    if remote_head.startswith("origin/"):
+        protected.add(remote_head[len("origin/"):])
+    if branch in protected:
+        raise TaskError(f"Refusing to prepare work directly on protected/default branch '{branch}'.")
     return branch
+
+
+def safe_remote_identity(remote: str) -> str | None:
+    """Keep repository identity while stripping URL credentials and query tokens."""
+    if not remote:
+        return None
+    if "://" in remote:
+        parsed = urlsplit(remote)
+        host = parsed.hostname or ""
+        try:
+            if parsed.port:
+                host += f":{parsed.port}"
+        except ValueError:
+            pass
+        return f"{parsed.scheme}://{host}{parsed.path}"
+    # SCP-style SSH remotes commonly look like git@github.com:owner/repo.git.
+    if "@" in remote and ":" in remote.split("@", 1)[1]:
+        remote = remote.split("@", 1)[1]
+    return remote.split("?", 1)[0].split("#", 1)[0]
 
 
 def tracked_files(root: Path) -> list[str]:
@@ -250,7 +277,7 @@ def command_init(args: argparse.Namespace) -> None:
         "state": "draft",
         "created_at": now_iso(),
         "updated_at": now_iso(),
-        "repository": {"root_name": root.name, "origin": run_git(root, "remote", "get-url", "origin", check=False)},
+        "repository": {"root_name": root.name, "origin": safe_remote_identity(run_git(root, "remote", "get-url", "origin", check=False))},
         "scope": {"allowed": sorted(set(args.allow)), "excluded": sorted(set(args.exclude))},
         "planned_checks": list(dict.fromkeys(args.check)),
         "required_context": list(REQUIRED_CONTEXT),
@@ -397,7 +424,15 @@ def command_verify(args: argparse.Namespace) -> None:
     definition = PROFILES[profile]
     started = time.monotonic()
     timestamp = now_iso()
-    check_env = os.environ.copy()
+    allowed_env = {
+        "PATH", "HOME", "TMPDIR", "TEMP", "TMP", "LANG", "LC_ALL", "CI",
+        "JAVA_HOME", "JAVA_HOME_17_X64", "JAVA_HOME_21_X64",
+        "ANDROID_HOME", "ANDROID_SDK_ROOT", "ANDROID_USER_HOME",
+        "ANDROID_NDK_HOME", "ANDROID_NDK_ROOT", "FLUTTER_ROOT",
+        "PUB_CACHE", "PUB_HOSTED_URL", "GRADLE_USER_HOME",
+    }
+    # Do not forward API tokens or arbitrary local secrets into test processes.
+    check_env = {key: value for key, value in os.environ.items() if key in allowed_env}
     # Verification must not dirty the worktree with bytecode cache files.
     check_env["PYTHONDONTWRITEBYTECODE"] = "1"
     try:

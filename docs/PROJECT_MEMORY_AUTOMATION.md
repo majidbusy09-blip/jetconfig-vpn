@@ -25,7 +25,7 @@ Commit the regenerated JSON and updated `CURRENT_STATUS.md` in the same pull req
 ## Dart AST navigation layer (proposed in PR #8)
 
 - An isolated Dart tooling package lives under `tools/project_memory/semantic/`; it pins `analyzer: 6.11.0`, commits a package lockfile for reproducible transitive dependencies, and does not modify the application's `pubspec.yaml`.
-- It parses `lib/main.dart` into AST declarations and syntactic invocation sites, then emits caller-to-name-candidate edges, source locations, and ambiguous/unresolved counts.
+- It parses `lib/main.dart` into AST declarations and syntactic invocation sites, then emits caller-to-name-candidate edges, source locations, and ambiguous/unresolved counts. This candidate index remains a single-file comparison aid.
 - The project-memory workflow runs focused tests, regenerates the AST index twice to verify deterministic output, and uploads the detailed JSON plus the tooling lockfile as a 30-day artifact.
 - The detailed graph is generated in CI rather than committed: it is substantially larger than the lexical index and is reproducible from the tracked source and generator. Re-run the workflow to obtain a fresh artifact for the exact PR/source SHA.
 
@@ -39,7 +39,10 @@ This is an AST-derived **syntactic** call-site graph, not resolved analyzer elem
 - The visitor reads the resolved Element attached to each supported invocation node. Calls are labeled `resolved_element` only when the analyzer provides a target Element; unresolved dynamic/function-valued calls remain unresolved rather than being guessed by name.
 - Stable target identifiers are derived from the Element source URI, name, and name offset. The output records caller/target IDs, target source, repository-vs-external classification, source line, analyzer diagnostics, and unresolved counts.
 - CI first runs `flutter pub get` at the app root to provide the package configuration needed to resolve Flutter and application imports. It then runs the isolated tooling package with its enforced lockfile, focused resolver tests, and deterministic generation checks.
-- The resolved graph remains scoped to `lib/main.dart`; the AST candidate graph remains available for side-by-side comparison. The follow-up PR targets the AST-tooling branch and depends on PR #8; neither PR is merged by this work. The base branch's audit workflow explicitly includes this dependent PR target so GitHub evaluates the PR using the already-present read-only workflow.
+- The resolved index discovers every tracked `lib/**/*.dart` file with `git ls-files`, resolves each unit in the application package context, and records per-file blob fingerprints, diagnostics, declarations, and call sites. Cross-file internal calls are linked by analyzer Element IDs. The AST candidate graph remains a single-file comparison aid.
+- `docs/critical_paths.json` defines curated entrypoints for VPN connection/recovery, app lifecycle, purchase/payment, and profile/account workflows. `bin/critical_paths.dart` traverses only resolved internal edges from those anchors and emits a traceable report with source paths/lines, unresolved calls, external calls, and missing/ambiguous anchors.
+- The connection/recovery report also lists the repository's Java patch files and relevant symbols as explicit native integration boundaries. Those Java sources are referenced, not analyzed by the Dart analyzer.
+- The follow-up PR targets the AST-tooling branch and depends on PR #8; neither PR is merged by this work. The base branch's audit workflow explicitly includes the dependent PR target so GitHub evaluates the PR using the already-present read-only workflow.
 
 ### Semantic precision boundary
 
@@ -47,9 +50,10 @@ An analyzer Element is a statically resolved symbol, not proof of runtime execut
 
 ## What the audit guarantees
 
-- The generated index is byte-for-byte reproducible from the checked-out source using the committed generator.
-- The recorded `lib/main.dart` Git blob SHA matches the checked-out file.
-- The recorded line count, UTF-8 byte count, and Unicode code-point count match the source.
+- The lexical index is byte-for-byte reproducible from `lib/main.dart` using the committed generator.
+- The resolved index fingerprints every tracked Dart file under `lib/` with its Git blob SHA, line count, and UTF-8 byte count.
+- The critical-path report is reproducible from the resolved index plus the curated `docs/critical_paths.json` manifest.
+- CI regenerates the AST, resolved index, and critical-path report twice and compares the outputs byte-for-byte.
 - Relevant pull requests receive a CI result and a machine-readable JSON artifact.
 
 ## What it does not guarantee
@@ -59,5 +63,5 @@ An analyzer Element is a statically resolved symbol, not proof of runtime execut
 - It does not validate application behavior, VPN connectivity, payment correctness, Android lifecycle behavior, or test coverage.
 - It does not inspect backend code outside this repository.
 
-The next maturity step is to compare this lexical index with Dart analyzer data and, only then, add semantic caller/callee relationships.
+The next maturity step is to add focused application regression tests and deepen cross-language/runtime evidence for the native VPN boundary, without confusing static reachability with exercised behavior.
 

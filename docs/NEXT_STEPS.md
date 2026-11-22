@@ -48,3 +48,15 @@ Obtain read-only access to authoritative backend source before making security/p
 ## Explicitly out of current priority
 
 Do not prioritize new product features, visual redesigns, marketing, or unrelated refactors until the agent can reliably understand, verify, and maintain the existing project—unless the user explicitly changes the priority.
+
+
+## Updated validation status — 2026-11-22
+
+- **Completed:** non-production CI validation [Run #45021183386](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45021183386) passed Flutter analysis, application tests, debug APK build, and ARM64 split Release APK build.
+- **Completed:** project-memory audit [Run #45021183398](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45021183398) passed on the same integration head.
+- **Completed:** inspected the ARM64 artifact ZIP and APK. The APK is 27,773,007 bytes (about 26.48 MiB) and contains native libraries only in `lib/arm64-v8a/`. Artifact ID `14753468185`; expires 2026-11-29.
+- **Next P0:** establish the production app's authoritative application ID and signing-certificate identity. The CI-generated scaffold currently reports `com.jetconfig.vpn.jetconfig_vpn`, which is not yet proven to match production. Do not install over the existing app until package and signature compatibility are verified.
+- **Next P1:** compare the verified ARM64 APK size with the exact installed production APK size using the same units and packaging basis; document any remaining difference.
+- **Next P1:** once package identity is established, run device validation for cold restore, app resume with blocked tunnel traffic, explicit disconnect during an in-flight verification, and profile switch during verification.
+- **Still not verified:** production signing/package identity, installation over the production app, native V2Ray behavior, Android lifecycle end-to-end behavior, and real tunnel traffic.
+- **Approval boundary unchanged:** PR #16 remains draft/unmerged. No merge, release, deployment, or production workflow dispatch without explicit approval.

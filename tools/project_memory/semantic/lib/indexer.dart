@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:analyzer/dart/analysis/utilities.dart';
 import 'package:analyzer/dart/ast/ast.dart';
 import 'package:analyzer/dart/ast/visitor.dart';
+import 'package:analyzer/source/line_info.dart';
 
 Map<String, Object?> buildSemanticIndex({required String source, required String sourcePath, required String? gitBlobSha}) {
   final parsed = parseString(content: source, path: sourcePath);
@@ -109,11 +110,6 @@ class _IndexVisitor extends RecursiveAstVisitor<void> {
     super.visitMethodInvocation(node);
   }
   @override
-  void visitSuperMethodInvocation(SuperMethodInvocation node) {
-    _call('super_method', node.methodName.name, 'super.' + node.methodName.name, node);
-    super.visitSuperMethodInvocation(node);
-  }
-  @override
   void visitFunctionExpressionInvocation(FunctionExpressionInvocation node) {
     final expression = node.function.toSource();
     _call('function_expression', expression, expression, node);
@@ -122,7 +118,7 @@ class _IndexVisitor extends RecursiveAstVisitor<void> {
   @override
   void visitInstanceCreationExpression(InstanceCreationExpression node) {
     final expression = node.constructorName.toSource();
-    _call('constructor', node.constructorName.type.name.lexeme, expression, node);
+    _call('constructor', node.constructorName.type.toSource().split('<').first.split('.').last, expression, node);
     super.visitInstanceCreationExpression(node);
   }
 }

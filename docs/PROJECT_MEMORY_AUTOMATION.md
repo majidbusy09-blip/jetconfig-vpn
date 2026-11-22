@@ -39,7 +39,7 @@ This is an AST-derived **syntactic** call-site graph, not resolved analyzer elem
 - The visitor reads the resolved Element attached to each supported invocation node. Calls are labeled `resolved_element` only when the analyzer provides a target Element; unresolved dynamic/function-valued calls remain unresolved rather than being guessed by name.
 - Stable target identifiers are derived from the Element source URI, name, and name offset. The output records caller/target IDs, target source, repository-vs-external classification, source line, analyzer diagnostics, and unresolved counts.
 - CI first runs `flutter pub get` at the app root to provide the package configuration needed to resolve Flutter and application imports. It then runs the isolated tooling package with its enforced lockfile, focused resolver tests, and deterministic generation checks.
-- The resolved graph remains scoped to `lib/main.dart`; the AST candidate graph remains available for side-by-side comparison. The follow-up PR targets the AST-tooling branch and depends on PR #8; neither PR is merged by this work.
+- The resolved graph remains scoped to `lib/main.dart`; the AST candidate graph remains available for side-by-side comparison. The follow-up PR targets the AST-tooling branch and depends on PR #8; neither PR is merged by this work. The base branch's audit workflow explicitly includes this dependent PR target so GitHub evaluates the PR using the already-present read-only workflow.
 
 ### Semantic precision boundary
 

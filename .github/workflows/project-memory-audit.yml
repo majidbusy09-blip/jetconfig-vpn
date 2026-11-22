@@ -62,15 +62,22 @@ jobs:
         working-directory: tools/project_memory/semantic
         run: dart run bin/resolve.dart --write
 
+      - name: Generate critical-path reachability report
+        working-directory: tools/project_memory/semantic
+        run: dart run bin/critical_paths.dart --write
+
       - name: Verify deterministic semantic AST generation
         working-directory: tools/project_memory/semantic
         run: |
           cp ../../../docs/generated/jet_vpn_semantic_index.json "$RUNNER_TEMP/semantic-index-first.json"
           cp ../../../docs/generated/jet_vpn_resolved_index.json "$RUNNER_TEMP/resolved-index-first.json"
+          cp ../../../docs/generated/jet_vpn_critical_paths.json "$RUNNER_TEMP/critical-paths-first.json"
           dart run bin/index.dart --write
           dart run bin/resolve.dart --write
+          dart run bin/critical_paths.dart --write
           cmp "$RUNNER_TEMP/semantic-index-first.json" ../../../docs/generated/jet_vpn_semantic_index.json
           cmp "$RUNNER_TEMP/resolved-index-first.json" ../../../docs/generated/jet_vpn_resolved_index.json
+          cmp "$RUNNER_TEMP/critical-paths-first.json" ../../../docs/generated/jet_vpn_critical_paths.json
 
       - name: Upload semantic AST index
         if: always()
@@ -80,6 +87,8 @@ jobs:
           path: |
             docs/generated/jet_vpn_semantic_index.json
             docs/generated/jet_vpn_resolved_index.json
+            docs/generated/jet_vpn_critical_paths.json
+            docs/critical_paths.json
             tools/project_memory/semantic/pubspec.lock
           if-no-files-found: warn
           retention-days: 30

@@ -90,3 +90,17 @@ Do not repeatedly retry a failing sequence without recording the first failure. 
 ## Exit criteria
 
 A scenario passes only when both UI state and real network behavior match the expected result. A green CI run, successful APK install, or connected icon alone is insufficient. Even if all four scenarios pass, this validates only the tested device/Android/network combination; broader rollout requires additional devices and review of PR #16.
+
+
+## Recorded result — 2026-11-22
+
+The user reports that all four scenarios above were tested and everything worked. Record as **user-reported PASS** for:
+
+| Scenario | Reported result |
+|---|---|
+| Cold start / restore | PASS |
+| Background resume | PASS |
+| Explicit disconnect during verification | PASS |
+| Profile switch during verification | PASS |
+
+Device model, Android build, network type, test profile, logs, and screen recording were not supplied. These fields remain unknown; do not infer them. This is positive evidence for the tested device/session, not a universal compatibility guarantee.

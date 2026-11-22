@@ -4,10 +4,10 @@
   "analysis_mode": "lexical",
   "source": {
     "path": "lib/main.dart",
-    "git_blob_sha": "df2914b2954d723869e4196d96f96b050618985a",
-    "utf8_bytes": 352404,
-    "unicode_code_points": 336257,
-    "lines": 9001
+    "git_blob_sha": "dc1d0832d55c412d7a475cc596d6b20bd611cf38",
+    "utf8_bytes": 352351,
+    "unicode_code_points": 336225,
+    "lines": 8997
   },
   "imports": [
     {
@@ -79,1784 +79,1801 @@
       "directive": "import",
       "uri": "package:installed_apps/app_info.dart",
       "line": 14
+    },
+    {
+      "directive": "import",
+      "uri": "recovery_policy.dart",
+      "line": 15
     }
   ],
   "symbols": [
     {
       "kind": "callable",
       "name": "main",
-      "line": 16,
+      "line": 17,
       "reference_count": 1
     },
     {
       "kind": "class",
       "name": "JetUiTheme",
-      "line": 38,
+      "line": 39,
       "reference_count": 10
     },
     {
       "kind": "callable",
       "name": "JetUiTheme",
-      "line": 54,
+      "line": 55,
       "reference_count": 10
     },
     {
       "kind": "callable",
       "name": "byId",
-      "line": 105,
+      "line": 106,
       "reference_count": 6
     },
     {
       "kind": "class",
       "name": "_NeonArcPainter",
-      "line": 114,
+      "line": 115,
       "reference_count": 3
     },
     {
       "kind": "callable",
       "name": "paint",
-      "line": 121,
+      "line": 122,
       "reference_count": 7
     },
     {
       "kind": "callable",
       "name": "shouldRepaint",
-      "line": 138,
+      "line": 139,
       "reference_count": 3
     },
     {
       "kind": "class",
       "name": "_OrbitDotsPainter",
-      "line": 288,
+      "line": 289,
       "reference_count": 4
     },
     {
       "kind": "callable",
       "name": "paint",
-      "line": 294,
+      "line": 295,
       "reference_count": 7
     },
     {
       "kind": "callable",
       "name": "shouldRepaint",
-      "line": 309,
+      "line": 310,
       "reference_count": 3
     },
     {
       "kind": "class",
       "name": "_NeonArcsPainter",
-      "line": 314,
+      "line": 315,
       "reference_count": 4
     },
     {
       "kind": "callable",
       "name": "paint",
-      "line": 321,
+      "line": 322,
       "reference_count": 7
     },
     {
       "kind": "callable",
       "name": "shouldRepaint",
-      "line": 343,
+      "line": 344,
       "reference_count": 3
     },
     {
       "kind": "class",
       "name": "ServerModel",
-      "line": 348,
+      "line": 349,
       "reference_count": 12
     },
     {
       "kind": "callable",
       "name": "ServerModel",
-      "line": 366,
+      "line": 367,
       "reference_count": 12
     },
     {
       "kind": "class",
-      "name": "JetConfigApp",
-      "line": 376,
-      "reference_count": 3
-    },
-    {
-      "kind": "callable",
       "name": "JetConfigApp",
       "line": 377,
       "reference_count": 3
     },
     {
       "kind": "callable",
+      "name": "JetConfigApp",
+      "line": 378,
+      "reference_count": 3
+    },
+    {
+      "kind": "callable",
       "name": "build",
-      "line": 380,
+      "line": 381,
       "reference_count": 2
     },
     {
       "kind": "callable",
       "name": "MaterialApp",
-      "line": 381,
+      "line": 382,
       "reference_count": 1
     },
     {
       "kind": "class",
-      "name": "MainVpnScreen",
-      "line": 394,
-      "reference_count": 5
-    },
-    {
-      "kind": "callable",
       "name": "MainVpnScreen",
       "line": 395,
       "reference_count": 5
     },
     {
       "kind": "callable",
+      "name": "MainVpnScreen",
+      "line": 396,
+      "reference_count": 5
+    },
+    {
+      "kind": "callable",
       "name": "_MainVpnScreenState",
-      "line": 398,
+      "line": 399,
       "reference_count": 2
     },
     {
       "kind": "class",
       "name": "_MainVpnScreenState",
-      "line": 401,
+      "line": 402,
       "reference_count": 2
     },
     {
       "kind": "callable",
       "name": "_disconnectSameAsMainButton",
-      "line": 486,
+      "line": 487,
       "reference_count": 9
     },
     {
       "kind": "callable",
       "name": "initState",
-      "line": 635,
+      "line": 636,
       "reference_count": 2
     },
     {
       "kind": "callable",
       "name": "_cleanupInstalledUpdateIfNeeded",
-      "line": 661,
+      "line": 662,
       "reference_count": 2
     },
     {
       "kind": "callable",
       "name": "_initCore",
-      "line": 666,
+      "line": 667,
       "reference_count": 2
     },
     {
       "kind": "callable",
       "name": "_ensureLocalHttpInbound",
-      "line": 675,
+      "line": 676,
       "reference_count": 4
     },
     {
       "kind": "callable",
       "name": "jsonEncode",
-      "line": 754,
+      "line": 755,
       "reference_count": 3
     },
     {
       "kind": "callable",
       "name": "_prepareConfigForCore",
-      "line": 760,
+      "line": 761,
       "reference_count": 4
     },
     {
       "kind": "callable",
       "name": "_ensureLocalHttpInbound",
-      "line": 770,
+      "line": 771,
       "reference_count": 4
     },
     {
       "kind": "callable",
       "name": "_ensureLocalHttpInbound",
-      "line": 790,
+      "line": 791,
       "reference_count": 4
     },
     {
       "kind": "callable",
       "name": "_ensureLocalHttpInbound",
-      "line": 793,
+      "line": 794,
       "reference_count": 4
     },
     {
       "kind": "callable",
       "name": "_injectIranDomainDirectRules",
-      "line": 802,
+      "line": 803,
       "reference_count": 3
     },
     {
       "kind": "callable",
       "name": "_expandRelatedPackages",
-      "line": 1232,
+      "line": 1233,
       "reference_count": 3
     },
     {
       "kind": "callable",
       "name": "_familyOf",
-      "line": 1245,
+      "line": 1246,
       "reference_count": 2
     },
     {
       "kind": "callable",
       "name": "_loadCachedTunnelBypass",
-      "line": 1256,
+      "line": 1257,
       "reference_count": 2
     },
     {
       "kind": "callable",
       "name": "_applyTunnelBypassMap",
-      "line": 1269,
+      "line": 1270,
       "reference_count": 3
     },
     {
       "kind": "callable",
       "name": "_refreshTunnelBypassIfNeeded",
-      "line": 1297,
+      "line": 1298,
       "reference_count": 2
     },
     {
       "kind": "callable",
       "name": "_blockedAppsForConnect",
-      "line": 1321,
+      "line": 1322,
       "reference_count": 3
     },
     {
       "kind": "callable",
       "name": "_statusMeansConnected",
-      "line": 1378,
+      "line": 1379,
       "reference_count": 12
     },
     {
       "kind": "callable",
       "name": "_statusMeansDisconnected",
-      "line": 1383,
+      "line": 1384,
       "reference_count": 4
     },
     {
       "kind": "callable",
       "name": "_stopVpnCore",
-      "line": 1396,
+      "line": 1397,
       "reference_count": 1
     },
     {
       "kind": "callable",
       "name": "_connLog",
-      "line": 1408,
+      "line": 1409,
       "reference_count": 36
     },
     {
       "kind": "callable",
       "name": "_persistWantConnected",
-      "line": 1424,
+      "line": 1425,
       "reference_count": 3
     },
     {
       "kind": "callable",
       "name": "_clearStaleNativeStopFlags",
-      "line": 1435,
+      "line": 1436,
       "reference_count": 2
     },
     {
       "kind": "callable",
       "name": "_peekNativeUserStop",
-      "line": 1452,
+      "line": 1453,
       "reference_count": 8
     },
     {
       "kind": "callable",
       "name": "_applyUserDisconnect",
-      "line": 1493,
+      "line": 1494,
       "reference_count": 4
     },
     {
       "kind": "callable",
       "name": "_disconnectSameAsMainButton",
-      "line": 1528,
+      "line": 1529,
       "reference_count": 9
     },
     {
       "kind": "callable",
       "name": "_requestSmartRecovery",
-      "line": 1554,
+      "line": 1555,
       "reference_count": 8
     },
     {
       "kind": "callable",
       "name": "_startNativeStopPoll",
-      "line": 1571,
+      "line": 1572,
       "reference_count": 4
     },
     {
       "kind": "callable",
       "name": "_disconnectSameAsMainButton",
-      "line": 1586,
+      "line": 1587,
       "reference_count": 9
     },
     {
       "kind": "callable",
       "name": "_stopNativeStopPoll",
-      "line": 1592,
+      "line": 1593,
       "reference_count": 5
     },
     {
       "kind": "callable",
       "name": "_statusMeansConnected",
-      "line": 1601,
+      "line": 1602,
       "reference_count": 12
     },
     {
       "kind": "callable",
       "name": "_verifyLiveConnection",
-      "line": 1606,
+      "line": 1607,
       "reference_count": 4
     },
     {
       "kind": "callable",
       "name": "_httpGetIp",
-      "line": 1712,
+      "line": 1713,
       "reference_count": 3
     },
     {
       "kind": "callable",
       "name": "parseIp",
-      "line": 1722,
+      "line": 1723,
       "reference_count": 7
     },
     {
       "kind": "callable",
       "name": "_fetchCurrentIp",
-      "line": 1856,
+      "line": 1857,
       "reference_count": 6
     },
     {
       "kind": "callable",
       "name": "dispose",
-      "line": 1902,
+      "line": 1903,
       "reference_count": 8
     },
     {
       "kind": "callable",
       "name": "_formatBytes",
-      "line": 1913,
+      "line": 1914,
       "reference_count": 3
     },
     {
       "kind": "callable",
       "name": "_getDisplayRemaining",
-      "line": 1929,
+      "line": 1930,
       "reference_count": 3
     },
     {
       "kind": "callable",
       "name": "_shouldShowSosHelp",
-      "line": 1941,
+      "line": 1942,
       "reference_count": 2
     },
     {
       "kind": "callable",
       "name": "_confirmAndRequestSos",
-      "line": 1946,
+      "line": 1947,
       "reference_count": 1
     },
     {
       "kind": "callable",
       "name": "Directionality",
-      "line": 1956,
+      "line": 1957,
       "reference_count": 20
     },
     {
       "kind": "callable",
       "name": "_requestSosEmergency",
-      "line": 2000,
+      "line": 2001,
       "reference_count": 2
     },
     {
       "kind": "callable",
       "name": "_requestSosEmergency",
-      "line": 2004,
+      "line": 2005,
       "reference_count": 2
     },
     {
       "kind": "callable",
       "name": "_fetchUserData",
-      "line": 2058,
+      "line": 2059,
       "reference_count": 14
     },
     {
       "kind": "callable",
       "name": "_shouldShowRenewInBot",
-      "line": 2074,
+      "line": 2075,
       "reference_count": 3
     },
     {
       "kind": "callable",
       "name": "_isTestUsername",
-      "line": 2113,
+      "line": 2114,
       "reference_count": 4
     },
     {
       "kind": "callable",
       "name": "_isSubscriptionExpired",
-      "line": 2129,
+      "line": 2130,
       "reference_count": 3
     },
     {
       "kind": "callable",
       "name": "_isSubscriptionNearEnd",
-      "line": 2172,
+      "line": 2173,
       "reference_count": 2
     },
     {
       "kind": "callable",
       "name": "_maybeShowSubscriptionAlert",
-      "line": 2217,
+      "line": 2218,
       "reference_count": 2
     },
     {
       "kind": "callable",
       "name": "_showSubscriptionDialog",
-      "line": 2236,
+      "line": 2237,
       "reference_count": 3
     },
     {
       "kind": "callable",
       "name": "_showSubscriptionDialog",
-      "line": 2244,
+      "line": 2245,
       "reference_count": 3
     },
     {
       "kind": "callable",
       "name": "_showSubscriptionDialog",
-      "line": 2247,
+      "line": 2248,
       "reference_count": 3
     },
     {
       "kind": "callable",
       "name": "Directionality",
-      "line": 2312,
+      "line": 2313,
       "reference_count": 20
     },
     {
       "kind": "callable",
       "name": "_getDisplayTotal",
-      "line": 2345,
+      "line": 2346,
       "reference_count": 2
     },
     {
       "kind": "callable",
       "name": "_getDisplayExpire",
-      "line": 2354,
+      "line": 2355,
       "reference_count": 3
     },
     {
       "kind": "callable",
       "name": "_showToast",
-      "line": 2408,
+      "line": 2409,
       "reference_count": 97
     },
     {
       "kind": "callable",
       "name": "SizedBox",
-      "line": 2419,
+      "line": 2420,
       "reference_count": 131
     },
     {
       "kind": "callable",
       "name": "_persistProfiles",
-      "line": 2450,
+      "line": 2451,
       "reference_count": 3
     },
     {
       "kind": "callable",
       "name": "_loadProfilesFromPrefs",
-      "line": 2455,
+      "line": 2456,
       "reference_count": 2
     },
     {
       "kind": "callable",
       "name": "_upsertProfile",
-      "line": 2496,
+      "line": 2497,
       "reference_count": 8
     },
     {
       "kind": "callable",
       "name": "_persistProfiles",
-      "line": 2512,
+      "line": 2513,
       "reference_count": 3
     },
     {
       "kind": "callable",
       "name": "_deleteProfile",
-      "line": 2515,
+      "line": 2516,
       "reference_count": 2
     },
     {
       "kind": "callable",
       "name": "_persistProfiles",
-      "line": 2518,
+      "line": 2519,
       "reference_count": 3
     },
     {
       "kind": "callable",
       "name": "_clearActiveSession",
-      "line": 2522,
+      "line": 2523,
       "reference_count": 3
     },
     {
       "kind": "callable",
       "name": "_activateProfile",
-      "line": 2525,
+      "line": 2526,
       "reference_count": 5
     },
     {
       "kind": "callable",
       "name": "_clearActiveSession",
-      "line": 2530,
+      "line": 2531,
       "reference_count": 3
     },
     {
       "kind": "callable",
       "name": "_activateProfile",
-      "line": 2566,
+      "line": 2567,
       "reference_count": 5
     },
     {
       "kind": "callable",
       "name": "_upsertProfile",
-      "line": 2599,
+      "line": 2600,
       "reference_count": 8
     },
     {
       "kind": "callable",
       "name": "_fetchUserData",
-      "line": 2601,
+      "line": 2602,
       "reference_count": 14
     },
     {
       "kind": "callable",
       "name": "_loadSavedPreferences",
-      "line": 2605,
+      "line": 2606,
       "reference_count": 2
     },
     {
       "kind": "callable",
       "name": "_loadProfilesFromPrefs",
-      "line": 2607,
+      "line": 2608,
       "reference_count": 2
     },
     {
       "kind": "callable",
       "name": "_saveUiTheme",
-      "line": 2720,
+      "line": 2721,
       "reference_count": 3
     },
     {
       "kind": "callable",
       "name": "_savePrefBool",
-      "line": 2727,
+      "line": 2728,
       "reference_count": 5
     },
     {
       "kind": "callable",
       "name": "_stableServerId",
-      "line": 2735,
+      "line": 2736,
       "reference_count": 3
     },
     {
       "kind": "callable",
       "name": "_saveSelectedServer",
-      "line": 2755,
+      "line": 2756,
       "reference_count": 9
     },
     {
       "kind": "callable",
       "name": "_indexOfSavedServerFromPrefs",
-      "line": 2767,
+      "line": 2768,
       "reference_count": 4
     },
     {
       "kind": "callable",
       "name": "_saveTunnelMode",
-      "line": 2801,
+      "line": 2802,
       "reference_count": 2
     },
     {
       "kind": "callable",
       "name": "_toggleConnect",
-      "line": 2818,
+      "line": 2819,
       "reference_count": 9
     },
     {
       "kind": "callable",
       "name": "_toggleConnect",
-      "line": 2820,
+      "line": 2821,
       "reference_count": 9
     },
     {
       "kind": "callable",
       "name": "_saveSelectedVpnPackages",
-      "line": 2824,
+      "line": 2825,
       "reference_count": 2
     },
     {
       "kind": "callable",
       "name": "_toggleConnect",
-      "line": 2834,
+      "line": 2835,
       "reference_count": 9
     },
     {
       "kind": "callable",
       "name": "_toggleConnect",
-      "line": 2836,
+      "line": 2837,
       "reference_count": 9
     },
     {
       "kind": "callable",
       "name": "_showSelectedAppsSheet",
-      "line": 2840,
+      "line": 2841,
       "reference_count": 3
     },
     {
       "kind": "callable",
       "name": "addPkg",
-      "line": 2915,
+      "line": 2916,
       "reference_count": 6
     },
     {
       "kind": "callable",
       "name": "sortCatalog",
-      "line": 3002,
+      "line": 3003,
       "reference_count": 4
     },
     {
       "kind": "callable",
       "name": "score",
-      "line": 3008,
+      "line": 3009,
       "reference_count": 3
     },
     {
       "kind": "callable",
       "name": "Directionality",
-      "line": 3035,
+      "line": 3036,
       "reference_count": 20
     },
     {
       "kind": "callable",
       "name": "_openTelegram",
-      "line": 3204,
+      "line": 3205,
       "reference_count": 5
     },
     {
       "kind": "callable",
       "name": "launchUrl",
-      "line": 3217,
+      "line": 3218,
       "reference_count": 4
     },
     {
       "kind": "callable",
       "name": "_clientUserAgent",
-      "line": 3226,
+      "line": 3227,
       "reference_count": 2
     },
     {
       "kind": "callable",
       "name": "_registerClientOnPanel",
-      "line": 3243,
+      "line": 3244,
       "reference_count": 2
     },
     {
       "kind": "callable",
       "name": "_getOrCreateDeviceId",
-      "line": 3264,
+      "line": 3265,
       "reference_count": 5
     },
     {
       "kind": "callable",
       "name": "_loadTickets",
-      "line": 3276,
+      "line": 3277,
       "reference_count": 4
     },
     {
       "kind": "callable",
       "name": "_createTicket",
-      "line": 3301,
+      "line": 3302,
       "reference_count": 1
     },
     {
       "kind": "callable",
       "name": "_loadTickets",
-      "line": 3328,
+      "line": 3329,
       "reference_count": 4
     },
     {
       "kind": "callable",
       "name": "_openTicketThread",
-      "line": 3337,
+      "line": 3338,
       "reference_count": 4
     },
     {
       "kind": "callable",
       "name": "showModalBottomSheet",
-      "line": 3383,
+      "line": 3384,
       "reference_count": 10
     },
     {
       "kind": "callable",
       "name": "Padding",
-      "line": 3391,
+      "line": 3392,
       "reference_count": 26
     },
     {
       "kind": "callable",
       "name": "_openSupportTicketsSheet",
-      "line": 3504,
-      "reference_count": 4
-    },
-    {
-      "kind": "callable",
-      "name": "_loadTickets",
       "line": 3505,
       "reference_count": 4
     },
     {
       "kind": "callable",
+      "name": "_loadTickets",
+      "line": 3506,
+      "reference_count": 4
+    },
+    {
+      "kind": "callable",
       "name": "showModalBottomSheet",
-      "line": 3510,
+      "line": 3511,
       "reference_count": 10
     },
     {
       "kind": "callable",
       "name": "Padding",
-      "line": 3518,
+      "line": 3519,
       "reference_count": 26
     },
     {
       "kind": "callable",
       "name": "_syncAppServicesFromApi",
-      "line": 3707,
+      "line": 3708,
       "reference_count": 2
     },
     {
       "kind": "callable",
       "name": "_upsertProfile",
-      "line": 3729,
+      "line": 3730,
       "reference_count": 8
     },
     {
       "kind": "callable",
       "name": "_registerAppAccount",
-      "line": 3735,
+      "line": 3736,
       "reference_count": 2
     },
     {
       "kind": "callable",
       "name": "_upsertProfile",
-      "line": 3758,
+      "line": 3759,
       "reference_count": 8
     },
     {
       "kind": "callable",
       "name": "_hasActiveSubscription",
-      "line": 3782,
+      "line": 3783,
       "reference_count": 9
     },
     {
       "kind": "callable",
       "name": "_restorePendingPayToken",
-      "line": 3800,
+      "line": 3801,
       "reference_count": 2
     },
     {
       "kind": "callable",
       "name": "_savePendingPayToken",
-      "line": 3810,
+      "line": 3811,
       "reference_count": 4
     },
     {
       "kind": "callable",
       "name": "didChangeAppLifecycleState",
-      "line": 3824,
+      "line": 3825,
       "reference_count": 2
     },
     {
       "kind": "callable",
       "name": "_restoreWantConnectedAfterLoad",
-      "line": 3843,
+      "line": 3844,
       "reference_count": 2
     },
     {
       "kind": "callable",
       "name": "_reconcileVpnStateOnResume",
-      "line": 3886,
+      "line": 3887,
       "reference_count": 2
     },
     {
       "kind": "callable",
       "name": "_clearStaleNativeStopFlags",
-      "line": 3911,
+      "line": 3912,
       "reference_count": 2
     },
     {
       "kind": "callable",
       "name": "_disconnectSameAsMainButton",
-      "line": 3914,
+      "line": 3915,
       "reference_count": 9
     },
     {
       "kind": "callable",
       "name": "_disconnectSameAsMainButton",
-      "line": 3917,
+      "line": 3918,
       "reference_count": 9
     },
     {
       "kind": "callable",
       "name": "_verifyLiveConnection",
-      "line": 3980,
+      "line": 3981,
       "reference_count": 4
     },
     {
       "kind": "callable",
       "name": "_watchPaymentStatus",
-      "line": 3988,
+      "line": 3989,
       "reference_count": 3
     },
     {
       "kind": "callable",
       "name": "_claimFreeTest",
-      "line": 4092,
+      "line": 4093,
       "reference_count": 2
     },
     {
       "kind": "callable",
       "name": "SafeArea",
-      "line": 4142,
+      "line": 4143,
       "reference_count": 5
     },
     {
       "kind": "callable",
       "name": "_upsertProfile",
-      "line": 4214,
+      "line": 4215,
       "reference_count": 8
     },
     {
       "kind": "callable",
       "name": "_fetchUserData",
-      "line": 4218,
+      "line": 4219,
       "reference_count": 14
     },
     {
       "kind": "callable",
       "name": "_fetchUserData",
-      "line": 4221,
+      "line": 4222,
       "reference_count": 14
     },
     {
       "kind": "callable",
       "name": "_openRenewPlans",
-      "line": 4236,
+      "line": 4237,
       "reference_count": 3
     },
     {
       "kind": "callable",
       "name": "Directionality",
-      "line": 4276,
+      "line": 4277,
       "reference_count": 20
     },
     {
       "kind": "callable",
       "name": "_openPurchasePlans",
-      "line": 4348,
+      "line": 4349,
       "reference_count": 5
     },
     {
       "kind": "callable",
       "name": "Directionality",
-      "line": 4383,
+      "line": 4384,
       "reference_count": 20
     },
     {
       "kind": "callable",
       "name": "_planTile",
-      "line": 4448,
+      "line": 4449,
       "reference_count": 2
     },
     {
       "kind": "callable",
       "name": "Padding",
-      "line": 4464,
+      "line": 4465,
       "reference_count": 26
     },
     {
       "kind": "callable",
       "name": "_createInvoiceAndPay",
-      "line": 4500,
+      "line": 4501,
       "reference_count": 3
     },
     {
       "kind": "callable",
       "name": "Directionality",
-      "line": 4533,
+      "line": 4534,
       "reference_count": 20
     },
     {
       "kind": "callable",
       "name": "_fetchUserData",
-      "line": 4594,
+      "line": 4595,
       "reference_count": 14
     },
     {
       "kind": "callable",
       "name": "_upsertProfile",
-      "line": 4621,
+      "line": 4622,
       "reference_count": 8
     },
     {
       "kind": "callable",
       "name": "_syncAppServicesFromApi",
-      "line": 4622,
+      "line": 4623,
       "reference_count": 2
     },
     {
       "kind": "callable",
       "name": "_saveSelectedServer",
-      "line": 4647,
+      "line": 4648,
       "reference_count": 9
     },
     {
       "kind": "callable",
       "name": "_maybeShowSubscriptionAlert",
-      "line": 4665,
+      "line": 4666,
       "reference_count": 2
     },
     {
       "kind": "callable",
       "name": "_testTcpPing",
-      "line": 4715,
+      "line": 4716,
       "reference_count": 2
     },
     {
       "kind": "callable",
       "name": "_testRealDelay",
-      "line": 4734,
+      "line": 4735,
       "reference_count": 2
     },
     {
       "kind": "callable",
       "name": "Function",
-      "line": 4756,
+      "line": 4757,
       "reference_count": 1
     },
     {
       "kind": "callable",
       "name": "worker",
-      "line": 4761,
+      "line": 4762,
       "reference_count": 2
     },
     {
       "kind": "callable",
       "name": "fn",
-      "line": 4765,
+      "line": 4766,
       "reference_count": 2
     },
     {
       "kind": "callable",
       "name": "_sortServersByPing",
-      "line": 4772,
+      "line": 4773,
       "reference_count": 3
     },
     {
       "kind": "callable",
       "name": "_preferLastServerOrFallback",
-      "line": 4798,
+      "line": 4799,
       "reference_count": 4
     },
     {
       "kind": "callable",
       "name": "_saveSelectedServer",
-      "line": 4812,
+      "line": 4813,
       "reference_count": 9
     },
     {
       "kind": "callable",
       "name": "_saveSelectedServer",
-      "line": 4829,
+      "line": 4830,
       "reference_count": 9
     },
     {
       "kind": "callable",
       "name": "_saveSelectedServer",
-      "line": 4834,
+      "line": 4835,
       "reference_count": 9
     },
     {
       "kind": "callable",
       "name": "_pingAllServers",
-      "line": 4838,
+      "line": 4839,
       "reference_count": 8
     },
     {
       "kind": "callable",
       "name": "_mapConcurrent",
-      "line": 4856,
+      "line": 4857,
       "reference_count": 2
     },
     {
       "kind": "callable",
       "name": "_preferLastServerOrFallback",
-      "line": 4866,
+      "line": 4867,
       "reference_count": 4
     },
     {
       "kind": "callable",
       "name": "_checkActivePing",
-      "line": 4871,
+      "line": 4872,
       "reference_count": 1
     },
     {
       "kind": "callable",
       "name": "_selectSmartBestServer",
-      "line": 4884,
+      "line": 4885,
       "reference_count": 6
     },
     {
       "kind": "callable",
       "name": "_saveSelectedServer",
-      "line": 4917,
+      "line": 4918,
       "reference_count": 9
     },
     {
       "kind": "callable",
       "name": "_stopHealthWatch",
-      "line": 4921,
+      "line": 4922,
       "reference_count": 8
     },
     {
       "kind": "callable",
       "name": "_startHealthWatch",
-      "line": 4927,
+      "line": 4928,
       "reference_count": 14
     },
     {
       "kind": "callable",
       "name": "_hasDeviceNetwork",
-      "line": 4945,
+      "line": 4946,
       "reference_count": 8
     },
     {
       "kind": "callable",
       "name": "_canAttemptRecovery",
-      "line": 4960,
+      "line": 4961,
       "reference_count": 3
     },
     {
       "kind": "callable",
       "name": "_noteRecoveryAttempt",
-      "line": 4970,
+      "line": 4971,
       "reference_count": 2
     },
     {
       "kind": "callable",
       "name": "_healthTick",
-      "line": 4980,
+      "line": 4981,
       "reference_count": 3
     },
     {
       "kind": "callable",
       "name": "_disconnectSameAsMainButton",
-      "line": 4990,
+      "line": 4991,
       "reference_count": 9
     },
     {
       "kind": "callable",
       "name": "_disconnectSameAsMainButton",
-      "line": 5055,
+      "line": 5056,
       "reference_count": 9
     },
     {
       "kind": "callable",
       "name": "_disconnectSameAsMainButton",
-      "line": 5093,
+      "line": 5094,
       "reference_count": 9
     },
     {
       "kind": "callable",
       "name": "_scheduleSmartRecovery",
-      "line": 5114,
+      "line": 5115,
       "reference_count": 3
     },
     {
       "kind": "callable",
       "name": "_runSmartRecovery",
-      "line": 5151,
+      "line": 5147,
       "reference_count": 2
     },
     {
       "kind": "callable",
       "name": "_pingAllServers",
-      "line": 5207,
+      "line": 5203,
       "reference_count": 8
     },
     {
       "kind": "callable",
       "name": "_selectSmartBestServer",
-      "line": 5209,
+      "line": 5205,
       "reference_count": 6
     },
     {
       "kind": "callable",
       "name": "_selectSmartBestServer",
-      "line": 5212,
+      "line": 5208,
       "reference_count": 6
     },
     {
       "kind": "callable",
       "name": "_fetchUserData",
-      "line": 5231,
+      "line": 5227,
       "reference_count": 14
     },
     {
       "kind": "callable",
       "name": "_pingAllServers",
-      "line": 5238,
+      "line": 5234,
       "reference_count": 8
     },
     {
       "kind": "callable",
       "name": "_selectSmartBestServer",
-      "line": 5239,
+      "line": 5235,
       "reference_count": 6
     },
     {
       "kind": "callable",
       "name": "_waitUntilVerified",
-      "line": 5292,
+      "line": 5288,
       "reference_count": 4
     },
     {
       "kind": "callable",
       "name": "_startCoreOnIndex",
-      "line": 5312,
+      "line": 5308,
       "reference_count": 4
     },
     {
       "kind": "callable",
       "name": "_saveSelectedServer",
-      "line": 5360,
+      "line": 5356,
       "reference_count": 9
     },
     {
       "kind": "callable",
       "name": "_toggleConnect",
-      "line": 5368,
+      "line": 5364,
       "reference_count": 9
     },
     {
       "kind": "callable",
       "name": "_disconnectSameAsMainButton",
-      "line": 5373,
+      "line": 5369,
       "reference_count": 9
     },
     {
       "kind": "callable",
       "name": "_fetchUserData",
-      "line": 5405,
+      "line": 5401,
       "reference_count": 14
     },
     {
       "kind": "callable",
       "name": "_pingAllServers",
-      "line": 5418,
+      "line": 5414,
       "reference_count": 8
     },
     {
       "kind": "callable",
       "name": "_selectSmartBestServer",
-      "line": 5422,
+      "line": 5418,
       "reference_count": 6
     },
     {
       "kind": "callable",
       "name": "_fetchUserData",
-      "line": 5433,
+      "line": 5429,
       "reference_count": 14
     },
     {
       "kind": "callable",
       "name": "_pingAllServers",
-      "line": 5443,
+      "line": 5439,
       "reference_count": 8
     },
     {
       "kind": "callable",
       "name": "_selectSmartBestServer",
-      "line": 5447,
+      "line": 5443,
       "reference_count": 6
     },
     {
       "kind": "callable",
       "name": "_saveSelectedServer",
-      "line": 5561,
+      "line": 5557,
       "reference_count": 9
     },
     {
       "kind": "callable",
       "name": "_openServerPicker",
-      "line": 5602,
+      "line": 5598,
       "reference_count": 3
     },
     {
       "kind": "callable",
       "name": "StatefulBuilder",
-      "line": 5610,
+      "line": 5606,
       "reference_count": 5
     },
     {
       "kind": "callable",
       "name": "Directionality",
-      "line": 5612,
+      "line": 5608,
       "reference_count": 20
     },
     {
       "kind": "callable",
       "name": "_buildNeonIpPill",
-      "line": 5733,
+      "line": 5729,
       "reference_count": 1
     },
     {
       "kind": "callable",
       "name": "Container",
-      "line": 5741,
+      "line": 5737,
       "reference_count": 46
     },
     {
       "kind": "callable",
       "name": "SizedBox",
-      "line": 5771,
+      "line": 5767,
       "reference_count": 131
     },
     {
       "kind": "callable",
       "name": "_buildSubscriptionOverviewCard",
-      "line": 5805,
+      "line": 5801,
       "reference_count": 2
     },
     {
       "kind": "callable",
       "name": "detail",
-      "line": 5816,
+      "line": 5812,
       "reference_count": 4
     },
     {
       "kind": "callable",
       "name": "Expanded",
-      "line": 5817,
+      "line": 5813,
       "reference_count": 26
     },
     {
       "kind": "callable",
       "name": "SizedBox",
-      "line": 5822,
+      "line": 5818,
       "reference_count": 131
     },
     {
       "kind": "callable",
       "name": "SizedBox",
-      "line": 5829,
+      "line": 5825,
       "reference_count": 131
     },
     {
       "kind": "callable",
       "name": "Container",
-      "line": 5836,
+      "line": 5832,
       "reference_count": 46
     },
     {
       "kind": "callable",
       "name": "SizedBox",
-      "line": 5870,
+      "line": 5866,
       "reference_count": 131
     },
     {
       "kind": "callable",
       "name": "SizedBox",
-      "line": 5881,
+      "line": 5877,
       "reference_count": 131
     },
     {
       "kind": "callable",
       "name": "SizedBox",
-      "line": 5892,
+      "line": 5888,
       "reference_count": 131
     },
     {
       "kind": "callable",
       "name": "_buildDashboardActionTile",
-      "line": 5910,
+      "line": 5906,
       "reference_count": 4
     },
     {
       "kind": "callable",
       "name": "Material",
-      "line": 5920,
+      "line": 5916,
       "reference_count": 8
     },
     {
       "kind": "callable",
       "name": "_showAddProfileDialog",
-      "line": 6002,
+      "line": 5998,
       "reference_count": 2
     },
     {
       "kind": "callable",
       "name": "Directionality",
-      "line": 6009,
+      "line": 6005,
       "reference_count": 20
     },
     {
       "kind": "callable",
       "name": "_activateProfile",
-      "line": 6066,
+      "line": 6062,
       "reference_count": 5
     },
     {
       "kind": "callable",
       "name": "_showProfilesSheet",
-      "line": 6072,
+      "line": 6068,
       "reference_count": 4
     },
     {
       "kind": "callable",
       "name": "Directionality",
-      "line": 6082,
+      "line": 6078,
       "reference_count": 20
     },
     {
       "kind": "callable",
       "name": "_sectionLabel",
-      "line": 6221,
+      "line": 6217,
       "reference_count": 3
     },
     {
       "kind": "callable",
       "name": "Padding",
-      "line": 6222,
+      "line": 6218,
       "reference_count": 26
     },
     {
       "kind": "callable",
       "name": "_buildConnectionModeSwitch",
-      "line": 6238,
+      "line": 6234,
       "reference_count": 2
     },
     {
       "kind": "callable",
       "name": "side",
-      "line": 6239,
+      "line": 6235,
       "reference_count": 11
     },
     {
       "kind": "callable",
       "name": "Expanded",
-      "line": 6246,
+      "line": 6242,
       "reference_count": 26
     },
     {
       "kind": "callable",
       "name": "Column",
-      "line": 6288,
+      "line": 6284,
       "reference_count": 37
     },
     {
       "kind": "callable",
       "name": "_buildTunnelModeSwitch",
-      "line": 6339,
+      "line": 6335,
       "reference_count": 2
     },
     {
       "kind": "callable",
       "name": "chip",
-      "line": 6340,
+      "line": 6336,
       "reference_count": 4
     },
     {
       "kind": "callable",
       "name": "Expanded",
-      "line": 6347,
+      "line": 6343,
       "reference_count": 26
     },
     {
       "kind": "callable",
       "name": "Column",
-      "line": 6386,
+      "line": 6382,
       "reference_count": 37
     },
     {
       "kind": "callable",
       "name": "_buildSideTrafficChip",
-      "line": 6417,
+      "line": 6413,
       "reference_count": 3
     },
     {
       "kind": "callable",
       "name": "Column",
-      "line": 6423,
+      "line": 6419,
       "reference_count": 37
     },
     {
       "kind": "callable",
       "name": "SizedBox",
-      "line": 6427,
+      "line": 6423,
       "reference_count": 131
     },
     {
       "kind": "callable",
       "name": "SizedBox",
-      "line": 6438,
+      "line": 6434,
       "reference_count": 131
     },
     {
       "kind": "callable",
       "name": "_buildConnectWithTraffic",
-      "line": 6447,
+      "line": 6443,
       "reference_count": 2
     },
     {
       "kind": "callable",
       "name": "Directionality",
-      "line": 6453,
+      "line": 6449,
       "reference_count": 20
     },
     {
       "kind": "callable",
       "name": "_build3DAnimatedButton",
-      "line": 6492,
+      "line": 6488,
       "reference_count": 2
     },
     {
       "kind": "callable",
       "name": "GestureDetector",
-      "line": 6499,
+      "line": 6495,
       "reference_count": 5
     },
     {
       "kind": "callable",
       "name": "GestureDetector",
-      "line": 6740,
+      "line": 6736,
       "reference_count": 5
     },
     {
       "kind": "callable",
       "name": "build",
-      "line": 6870,
+      "line": 6866,
       "reference_count": 2
     },
     {
       "kind": "callable",
       "name": "Directionality",
-      "line": 6872,
+      "line": 6868,
       "reference_count": 20
     },
     {
       "kind": "callable",
       "name": "_updateStorageDir",
-      "line": 6983,
+      "line": 6979,
       "reference_count": 2
     },
     {
       "kind": "callable",
       "name": "_loadPendingUpdate",
-      "line": 6993,
+      "line": 6989,
       "reference_count": 6
     },
     {
       "kind": "callable",
       "name": "_clearPendingUpdatePrefs",
-      "line": 6999,
+      "line": 6995,
       "reference_count": 5
     },
     {
       "kind": "callable",
       "name": "_clearPendingUpdatePrefs",
-      "line": 7009,
+      "line": 7005,
       "reference_count": 5
     },
     {
       "kind": "callable",
       "name": "_clearPendingUpdatePrefs",
-      "line": 7018,
+      "line": 7014,
       "reference_count": 5
     },
     {
       "kind": "callable",
       "name": "_clearPendingUpdatePrefs",
-      "line": 7031,
+      "line": 7027,
       "reference_count": 5
     },
     {
       "kind": "callable",
       "name": "_savePendingUpdate",
-      "line": 7041,
+      "line": 7037,
       "reference_count": 2
     },
     {
       "kind": "callable",
       "name": "_deletePendingUpdateFile",
-      "line": 7058,
+      "line": 7054,
       "reference_count": 2
     },
     {
       "kind": "callable",
       "name": "_clearPendingUpdatePrefs",
-      "line": 7066,
+      "line": 7062,
       "reference_count": 5
     },
     {
       "kind": "callable",
       "name": "_cleanupInstalledUpdateIfNeeded",
-      "line": 7070,
+      "line": 7066,
       "reference_count": 2
     },
     {
       "kind": "callable",
       "name": "_loadPendingUpdate",
-      "line": 7072,
+      "line": 7068,
       "reference_count": 6
     },
     {
       "kind": "callable",
       "name": "_showUpToDateDialog",
-      "line": 7077,
+      "line": 7073,
       "reference_count": 3
     },
     {
       "kind": "callable",
       "name": "_checkAppUpdate",
-      "line": 7126,
+      "line": 7122,
       "reference_count": 3
     },
     {
       "kind": "callable",
       "name": "_showPendingInstallDialog",
-      "line": 7146,
+      "line": 7142,
       "reference_count": 4
     },
     {
       "kind": "callable",
       "name": "_showUpToDateDialog",
-      "line": 7174,
+      "line": 7170,
       "reference_count": 3
     },
     {
       "kind": "callable",
       "name": "_showUpToDateDialog",
-      "line": 7184,
+      "line": 7180,
       "reference_count": 3
     },
     {
       "kind": "callable",
       "name": "_showUpdateDialog",
-      "line": 7221,
+      "line": 7217,
       "reference_count": 2
     },
     {
       "kind": "callable",
       "name": "_showPendingInstallDialog",
-      "line": 7237,
+      "line": 7233,
       "reference_count": 4
     },
     {
       "kind": "callable",
       "name": "_deletePendingUpdateFile",
-      "line": 7287,
+      "line": 7283,
       "reference_count": 2
     },
     {
       "kind": "callable",
       "name": "_showUpdateDialog",
-      "line": 7298,
+      "line": 7294,
       "reference_count": 2
     },
     {
       "kind": "callable",
       "name": "AlertDialog",
-      "line": 7312,
+      "line": 7308,
       "reference_count": 13
     },
     {
       "kind": "callable",
       "name": "_startApkDownload",
-      "line": 7382,
+      "line": 7378,
       "reference_count": 2
     },
     {
       "kind": "callable",
       "name": "Directionality",
-      "line": 7398,
+      "line": 7394,
       "reference_count": 20
     },
     {
       "kind": "callable",
       "name": "for",
-      "line": 7473,
+      "line": 7469,
       "reference_count": 40
     },
     {
       "kind": "callable",
       "name": "Exception",
-      "line": 7493,
+      "line": 7489,
       "reference_count": 2
     },
     {
       "kind": "callable",
       "name": "for",
-      "line": 7499,
+      "line": 7495,
       "reference_count": 40
     },
     {
       "kind": "callable",
       "name": "Exception",
-      "line": 7525,
+      "line": 7521,
       "reference_count": 2
     },
     {
       "kind": "callable",
       "name": "_savePendingUpdate",
-      "line": 7528,
+      "line": 7524,
       "reference_count": 2
     },
     {
       "kind": "callable",
       "name": "_changeAppPassword",
-      "line": 7620,
+      "line": 7616,
       "reference_count": 2
     },
     {
       "kind": "callable",
       "name": "AlertDialog",
-      "line": 7631,
+      "line": 7627,
       "reference_count": 13
     },
     {
       "kind": "callable",
       "name": "_upsertProfile",
-      "line": 7699,
+      "line": 7695,
       "reference_count": 8
     },
     {
       "kind": "callable",
       "name": "_saveConnectionMode",
-      "line": 7715,
+      "line": 7711,
       "reference_count": 5
     },
     {
       "kind": "callable",
       "name": "_ensureConnectionModePicker",
-      "line": 7730,
+      "line": 7726,
       "reference_count": 3
     },
     {
       "kind": "callable",
       "name": "_showConnectionModePicker",
-      "line": 7737,
+      "line": 7733,
       "reference_count": 2
     },
     {
       "kind": "callable",
       "name": "_showConnectionModePicker",
-      "line": 7743,
+      "line": 7739,
       "reference_count": 2
     },
     {
       "kind": "callable",
       "name": "Directionality",
-      "line": 7756,
+      "line": 7752,
       "reference_count": 20
     },
     {
       "kind": "callable",
       "name": "_settingsModeChip",
-      "line": 7809,
+      "line": 7805,
       "reference_count": 1
     },
     {
       "kind": "callable",
       "name": "Material",
-      "line": 7815,
+      "line": 7811,
       "reference_count": 8
     },
     {
       "kind": "callable",
       "name": "_modeChoiceCard",
-      "line": 7841,
+      "line": 7837,
       "reference_count": 3
     },
     {
       "kind": "callable",
       "name": "Material",
-      "line": 7849,
+      "line": 7845,
       "reference_count": 8
     },
     {
       "kind": "callable",
       "name": "_themeChoiceChip",
-      "line": 7896,
+      "line": 7892,
       "reference_count": 3
     },
     {
       "kind": "callable",
       "name": "Material",
-      "line": 7904,
+      "line": 7900,
       "reference_count": 8
     },
     {
       "kind": "callable",
       "name": "_openConnLog",
-      "line": 7942,
+      "line": 7938,
       "reference_count": 2
     },
     {
       "kind": "callable",
       "name": "Directionality",
-      "line": 7951,
+      "line": 7947,
       "reference_count": 20
     },
     {
       "kind": "callable",
       "name": "_openSettings",
-      "line": 8042,
+      "line": 8038,
       "reference_count": 2
     },
     {
       "kind": "callable",
       "name": "StatefulBuilder",
-      "line": 8052,
+      "line": 8048,
       "reference_count": 5
     },
     {
       "kind": "callable",
       "name": "switchTile",
-      "line": 8060,
+      "line": 8056,
       "reference_count": 5
     },
     {
       "kind": "callable",
       "name": "Directionality",
-      "line": 8079,
+      "line": 8075,
       "reference_count": 20
     },
     {
       "kind": "callable",
       "name": "_buildLoginView",
-      "line": 8319,
+      "line": 8315,
       "reference_count": 2
     },
     {
       "kind": "callable",
       "name": "SingleChildScrollView",
-      "line": 8322,
+      "line": 8318,
       "reference_count": 5
+    },
+    {
+      "kind": "callable",
+      "name": "SizedBox",
+      "line": 8343,
+      "reference_count": 131
+    },
+    {
+      "kind": "callable",
+      "name": "SizedBox",
+      "line": 8345,
+      "reference_count": 131
     },
     {
       "kind": "callable",
@@ -1867,175 +1884,163 @@
     {
       "kind": "callable",
       "name": "SizedBox",
-      "line": 8349,
+      "line": 8358,
       "reference_count": 131
     },
     {
       "kind": "callable",
       "name": "SizedBox",
-      "line": 8351,
-      "reference_count": 131
-    },
-    {
-      "kind": "callable",
-      "name": "SizedBox",
-      "line": 8362,
-      "reference_count": 131
-    },
-    {
-      "kind": "callable",
-      "name": "SizedBox",
-      "line": 8373,
+      "line": 8369,
       "reference_count": 131
     },
     {
       "kind": "callable",
       "name": "SingleChildScrollView",
-      "line": 8421,
+      "line": 8417,
       "reference_count": 5
     },
     {
       "kind": "callable",
       "name": "SizedBox",
-      "line": 8437,
+      "line": 8433,
       "reference_count": 131
     },
     {
       "kind": "callable",
       "name": "SizedBox",
-      "line": 8442,
+      "line": 8438,
       "reference_count": 131
     },
     {
       "kind": "callable",
       "name": "SizedBox",
-      "line": 8459,
+      "line": 8455,
       "reference_count": 131
     },
     {
       "kind": "callable",
       "name": "SizedBox",
-      "line": 8486,
+      "line": 8482,
       "reference_count": 131
     },
     {
       "kind": "callable",
       "name": "SizedBox",
-      "line": 8504,
+      "line": 8500,
       "reference_count": 131
     },
     {
       "kind": "callable",
       "name": "SizedBox",
-      "line": 8511,
+      "line": 8507,
       "reference_count": 131
     },
     {
       "kind": "callable",
       "name": "SizedBox",
-      "line": 8547,
+      "line": 8543,
       "reference_count": 131
     },
     {
       "kind": "callable",
       "name": "_buildDashboardView",
-      "line": 8565,
+      "line": 8561,
       "reference_count": 2
     },
     {
       "kind": "callable",
       "name": "LayoutBuilder",
-      "line": 8579,
+      "line": 8575,
       "reference_count": 1
     },
     {
       "kind": "callable",
       "name": "SingleChildScrollView",
-      "line": 8581,
+      "line": 8577,
       "reference_count": 5
     },
     {
       "kind": "callable",
       "name": "SizedBox",
-      "line": 8749,
+      "line": 8745,
       "reference_count": 131
     },
     {
       "kind": "callable",
       "name": "SizedBox",
-      "line": 8751,
+      "line": 8747,
       "reference_count": 131
     },
     {
       "kind": "callable",
       "name": "SizedBox",
-      "line": 8769,
+      "line": 8765,
       "reference_count": 131
     },
     {
       "kind": "callable",
       "name": "SizedBox",
-      "line": 8777,
+      "line": 8773,
       "reference_count": 131
     },
     {
       "kind": "callable",
       "name": "SizedBox",
-      "line": 8846,
+      "line": 8842,
       "reference_count": 131
     },
     {
       "kind": "callable",
       "name": "SizedBox",
-      "line": 8943,
+      "line": 8939,
       "reference_count": 131
     },
     {
       "kind": "callable",
       "name": "SizedBox",
-      "line": 8948,
+      "line": 8944,
       "reference_count": 131
     },
     {
       "kind": "callable",
       "name": "_dashCardDeco",
-      "line": 8958,
+      "line": 8954,
       "reference_count": 3
     },
     {
       "kind": "callable",
       "name": "BoxDecoration",
-      "line": 8961,
+      "line": 8957,
       "reference_count": 49
     },
     {
       "kind": "callable",
       "name": "BoxDecoration",
-      "line": 8968,
+      "line": 8964,
       "reference_count": 49
     },
     {
       "kind": "callable",
       "name": "_buildCompactBadge",
-      "line": 8975,
+      "line": 8971,
       "reference_count": 1
     },
     {
       "kind": "callable",
       "name": "Column",
-      "line": 8977,
+      "line": 8973,
       "reference_count": 37
     },
     {
       "kind": "callable",
       "name": "SizedBox",
-      "line": 8989,
+      "line": 8985,
       "reference_count": 131
     },
     {
       "kind": "callable",
       "name": "SizedBox",
-      "line": 8991,
+      "line": 8987,
       "reference_count": 131
     }
   ],

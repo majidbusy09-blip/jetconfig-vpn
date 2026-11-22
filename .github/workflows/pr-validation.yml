@@ -39,6 +39,13 @@ jobs:
           channel: stable
           cache: true
 
+      - name: Generate Android scaffold in the temporary CI workspace
+        run: |
+          if [ ! -d android ]; then
+            flutter create . --platforms=android --project-name=jetconfig_vpn --org com.jetconfig.vpn
+          fi
+          test -f android/app/build.gradle || test -f android/app/build.gradle.kts
+
       - name: Install dependencies
         run: flutter pub get
 

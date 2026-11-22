@@ -134,6 +134,39 @@ class OrchestratorIntegrationTests(unittest.TestCase):
         )
         self.assertFalse(self.record.exists())
 
+
+    def test_scope_gate_detects_content_changed_after_validation(self) -> None:
+        self.prepared_task()
+        self.cli("begin", "--task-id", self.task_id)
+        target = self.root / "docs/new-note.md"
+        target.write_text("first version\\n", encoding="utf-8")
+        self.cli("validate-scope", "--task-id", self.task_id)
+        target.write_text("changed after validation\\n", encoding="utf-8")
+        self.cli("verify", "--task-id", self.task_id, "--profile", "python-tooling-tests")
+        self.cli("finalize", "--task-id", self.task_id, "--reviewed-diff", expected=2)
+
+    def test_failed_check_attempt_is_preserved_after_retry(self) -> None:
+        self.prepared_task()
+        self.cli("begin", "--task-id", self.task_id)
+        fixture = self.root / "tools/task_orchestrator/tests/test_fixture.py"
+        fixture.write_text(
+            "import unittest\\nclass FixtureTest(unittest.TestCase):\\n"
+            "    def test_fail(self): self.assertTrue(False)\\n",
+            encoding="utf-8",
+        )
+        self.cli("verify", "--task-id", self.task_id, "--profile", "python-tooling-tests", expected=2)
+        fixture.write_text(
+            "import unittest\\nclass FixtureTest(unittest.TestCase):\\n"
+            "    def test_ok(self): self.assertTrue(True)\\n",
+            encoding="utf-8",
+        )
+        self.cli("verify", "--task-id", self.task_id, "--profile", "python-tooling-tests")
+        record = json.loads(self.record.read_text(encoding="utf-8"))
+        self.assertEqual(
+            [item["status"] for item in record["check_attempts"]],
+            ["failed", "passed"],
+        )
+
     def test_finalize_requires_explicit_diff_review(self) -> None:
         self.prepared_task()
         self.cli("begin", "--task-id", self.task_id)

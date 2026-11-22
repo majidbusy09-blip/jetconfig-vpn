@@ -1,26 +1,22 @@
 # JET VPN — Prioritized Next Steps
 
-## Latest verified state — 2026-11-22
+## Latest verified state — 2026-11-23
 
-- `main` HEAD: `eae477a89816a5cfd475c596e166d5cb2575884a`.
-- PR #16 merged at `c4f7f4743b3c6ffc64d34a0efb0c19f41b236f1e`.
-- PR #17 merged at `eae477a89816a5cfd475c596e166d5cb2575884a`.
-- Post-merge project-memory audit [#45029689706](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45029689706) passed on the current main SHA.
-- Active `main-protection` ruleset verified through GitHub API. It requires PRs and the memory-audit status check, blocks deletion and force pushes, allows Squash only, and has an empty bypass list.
-- App version remains `2.4.5+284`; no production release or deployment was performed.
+- `main` HEAD: `abdff3a59b89419e869c98d7dbb4ac91512fe950`; PR #19 is merged.
+- PR #16, #17, and #19 are merged. PR #18 is the documentation-memory refresh currently being updated.
+- PR #19's final-head Project Memory Audit [#45065541236](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45065541236) and Non-production PR Validation [#45065541255](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45065541255) both succeeded.
+- App version remains `2.4.5+284`; app source and production release workflow were not changed by PR #19.
+- Active `main-protection` ruleset remains in force; no bypass or direct-main write.
 
 Priority is measured against the goal of a reliable, independent programming collaborator with durable project memory and safe execution. Every task must pass the criterion in `AGENTS.md`.
 
-## Historical planning preservation
+## P0 — Complete and validate authoritative project memory
 
-The complete pre-refresh planning document is preserved verbatim at [`docs/archive/NEXT_STEPS_pre_memory_refresh_20261122.md`](archive/NEXT_STEPS_pre_memory_refresh_20261122.md). It is historical context, not the active priority list.
-
-## P0 — Repair authoritative project memory
-
-- Refresh stale current-state snapshots after PR #16 and #17.
-- Keep current branch/commit, app version, source blob fingerprints, active ruleset and latest CI evidence synchronized.
-- Preserve historical decisions and work logs; do not rewrite history as if older statements were never true.
-- Add a memory-consistency check where practical so a merged PR cannot leave the top-level operational snapshot contradicting GitHub's actual state.
+- Update every current-state reference from pre-PR-19 main to `abdff3a59b89419e869c98d7dbb4ac91512fe950`.
+- Record PR #19 scope and exact successful CI evidence.
+- Ensure the file map and test plan include the Android validation parity tool and its tests.
+- Preserve superseded snapshots and append, rather than rewrite, development history.
+- Run both required CI workflows on the final PR #18 head and inspect the complete diff.
 
 ## P1 — Design the task execution orchestrator
 

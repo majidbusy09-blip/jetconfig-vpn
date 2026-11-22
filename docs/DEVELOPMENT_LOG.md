@@ -122,3 +122,15 @@ Append-only record of meaningful project work. Each entry should include branch/
 - **Safety:** No payment/profile/lifecycle code, native Java patch, app dependencies, app version, main branch, or production release workflow changed. No merge, release, build, or device test performed.
 - **Commits:** policy `02c24939352be09998a64334ec9946a76d195f25`; tests `7a368cf3e27a44ea2ee80f6cf1e5558befed1b94`; source integration `b7101afa870262ca116ebb9fcf7e6ab4b9df00cc`; CI `aca73de4a499f0edaa5e9a1d3d24931c92ba05eb`; lexical index `ed05584a624b9686a6ed1cf5b05e0541e0121c30`.
 - **Verification status:** Not yet run. CI must pass before this change is considered validated.
+
+## 2026-11-22 — Stage 10: live connection verification on restore and resume (PR #12)
+
+- **Base:** PR #11 branch `tests/recovery-regression-20261122`; PR #11 full CI Run [#45008026404](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45008026404) succeeded.
+- **Branch:** `tests/live-verification-resume-20261122`.
+- **Priority capability:** safer implementation and verification; a future collaborator can enforce and test one explicit UI connected-state invariant rather than infer connectivity from native state.
+- **Source evidence:** prior `_restoreWantConnectedAfterLoad` marked `_connectionVerified=true` from native `CONNECTED` without ping. Resume silent verification could retain a stale true flag when ping failed.
+- **Changes:** added `lib/live_connection_policy.dart`; `_isVpnConnected` now delegates to a pure policy requiring core connected, verified ping, and no forced-disconnect override. Both cold restore and resume clear verification/ping first and run `_verifyLiveConnection(silent: true)`. Silent failure clears verification and active ping, does not stop the core, and returns control to the caller's slow health-watch fallback.
+- **Tests:** added four unit cases in `test/live_connection_policy_test.dart` for native-only false, verified true, disconnected-core false, and explicit override false. They test the pure UI gate, not asynchronous lifecycle/native behavior.
+- **CI:** added `tests/recovery-regression-20261122` to the PR base-branch filter so this dependent PR can run the read-only memory audit. CI pending at this log snapshot.
+- **Memory:** regenerated `docs/generated/jet_vpn_code_index.json` for `lib/main.dart` blob `a2483f2bb90e528a70440978ac62b9f58264c778` (9,016 lines; 352,934 UTF-8 bytes; 336,842 Unicode code points; 16 imports; 326 lexical symbols).
+- **Safety:** no payment/profile logic, native Java, app dependencies, app version, main branch, or production release workflow changed. No build, device test, merge, or Release performed.

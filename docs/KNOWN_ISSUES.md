@@ -5,18 +5,19 @@
 ## JET-001 — connect_timeout recovery reason is rejected
 
 - **Severity:** High
-- **Status:** Source-level mismatch corrected in PR #11 branch `tests/recovery-regression-20261122`; focused unit tests authored and initial `flutter test` step passed in Run #66. A stricter allowlist assertion has since been added; latest full CI and runtime/device reproduction remain pending.
+- **Status:** Corrected in PR #11 branch `tests/recovery-regression-20261122`; full CI Run [#45008026404](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45008026404) passed, including the complete application unit suite and memory audit. Runtime/device reproduction remains pending.
 - **Original evidence:** `_toggleConnect` schedules `_scheduleSmartRecovery('connect_timeout')` after an 8-second unverified connection timeout; the prior scheduler allowlist omitted this reason. On the test branch, `lib/main.dart` delegates admission to `lib/recovery_policy.dart`, whose allowed reasons include `connect_timeout`.
 - **Impact:** Smart-mode connection timeout does not enter the intended recovery flow through this path.
-- **Verification:** `test/recovery_policy_test.dart` covers all allowed reasons, unknown reasons, connection-intent gates, and cooldown values. The test has not yet been executed in CI at this snapshot.
+- **Verification:** `test/recovery_policy_test.dart` covers the exact allowlist, unknown reasons, connection-intent gates, and cooldown values; all passed in CI Run #45008026404.
 
 ## JET-002 — Resume restore trusts native CONNECTED status as verified
 
 - **Severity:** High
-- **Status:** Confirmed source-level inconsistency; real-world impact needs device reproduction.
-- **Evidence:** `_restoreWantConnectedAfterLoad` sets `_connectionVerified = true` when `_statusMeansConnected(v2rayStatus.state)` is true (`lib/main.dart:3843–3868`). It does not call `_verifyLiveConnection` in that branch, while the ordinary verification method exists at line 1606.
-- **Impact:** UI/state may report verified connectivity before a live data-path check.
-- **Next:** Define one authoritative verification invariant and add lifecycle/resume tests on a device/emulator.
+- **Status:** Corrective change proposed in PR #12; CI and device verification pending.
+- **Original evidence:** `_restoreWantConnectedAfterLoad` previously set `_connectionVerified = true` from native `CONNECTED` without ping. `_reconcileVpnStateOnResume` could also retain a stale verified flag when silent ping failed.
+- **Current proposed behavior:** Both restore and resume clear verification and ping state first, then call `_verifyLiveConnection(silent: true)`. A failed silent check clears verification and does not stop the core; smart mode falls back to the slow health watcher. `_isVpnConnected` delegates to a pure policy requiring native connected + successful live verification + no forced-disconnect override.
+- **Tests:** `test/live_connection_policy_test.dart` covers core-only false, verified true, disconnected core false, and forced-disconnect false. These tests validate the UI gate, not the asynchronous lifecycle sequence.
+- **Next:** Run PR #12 CI, then reproduce cold restore and resume with native `CONNECTED` but blocked tunnel traffic on a real Android device.
 
 ## JET-003 — Pending payment token is not bound to its owner in local storage
 

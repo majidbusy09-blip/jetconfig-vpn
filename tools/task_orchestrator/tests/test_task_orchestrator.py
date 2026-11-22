@@ -163,6 +163,41 @@ class OrchestratorIntegrationTests(unittest.TestCase):
             ["failed", "passed"],
         )
 
+
+    def test_refuses_remote_default_branch(self) -> None:
+        git(self.root, "branch", "-m", "release")
+        git(self.root, "symbolic-ref", "refs/remotes/origin/HEAD", "refs/remotes/origin/release")
+        self.init_task()
+        self.cli("prepare", "--task-id", self.task_id, expected=2)
+
+    def test_remote_credentials_are_not_recorded(self) -> None:
+        git(self.root, "remote", "add", "origin",
+            "https://user:top-secret@github.com/owner/repo.git?access_token=also-secret")
+        self.init_task()
+        record = json.loads(self.record.read_text(encoding="utf-8"))
+        self.assertEqual(record["repository"]["origin"], "https://github.com/owner/repo.git")
+        self.assertNotIn("top-secret", self.record.read_text(encoding="utf-8"))
+        self.assertNotIn("also-secret", self.record.read_text(encoding="utf-8"))
+
+    def test_prepare_rejects_missing_required_context(self) -> None:
+        self.init_task()
+        (self.root / "docs/TASK_TEMPLATE.md").unlink()
+        self.cli("prepare", "--task-id", self.task_id, expected=2)
+
+    def test_scope_validation_handles_rename_and_delete(self) -> None:
+        old = self.root / "docs/old-note.md"
+        old.write_text("baseline\\n", encoding="utf-8")
+        git(self.root, "add", ".")
+        git(self.root, "commit", "-m", "add scoped fixture")
+        self.prepared_task()
+        self.cli("begin", "--task-id", self.task_id)
+        git(self.root, "mv", "docs/old-note.md", "docs/renamed-note.md")
+        (self.root / "docs/renamed-note.md").unlink()
+        self.cli("validate-scope", "--task-id", self.task_id)
+        record = json.loads(self.record.read_text(encoding="utf-8"))
+        self.assertEqual(record["scope_validation"]["status"], "passed")
+        self.assertIn("docs/old-note.md", record["changed_paths"])
+
     def test_finalize_requires_explicit_diff_review(self) -> None:
         self.prepared_task()
         self.cli("begin", "--task-id", self.task_id)

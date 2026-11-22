@@ -75,3 +75,12 @@ This log records decisions that govern future work. New entries should include d
 - **Decision:** The UI may expose a connected state only when the native core reports CONNECTED, a live tunnel verification has succeeded, and no explicit UI-disconnect override is active. Cold restore and app resume must clear stale verification and require a fresh ping check before showing connected.
 - **Rationale:** The native core can report CONNECTED before the data path is usable; retaining a stale verification flag or setting it from native state alone can produce a false-positive connected UI.
 - **Consequence:** Failed silent verification must not stop the core or preserve a green/connected state. In smart mode, it falls back to the slow health watcher; device-level lifecycle and network tests remain necessary.
+
+
+## D-010 — Pending invoice tokens are bound to their originating account
+
+- **Date:** 2026-11-22
+- **Status:** Proposed in PR #14
+- **Decision:** Persist each currently supported pending invoice as a structured record containing token, exact originating username, creation timestamp, and pending status. Permit status polling only while that account is active; invalidate in-flight polling when account credentials or active profile change.
+- **Rationale:** A global token combined with whichever credentials happen to be active can produce an account-context mismatch after profile switching.
+- **Consequence:** Legacy tokens without owner metadata are discarded rather than guessed. This is a client-side guard only; backend authorization and token idempotency must be independently verified. The token remains unencrypted in SharedPreferences.

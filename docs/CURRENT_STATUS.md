@@ -19,6 +19,8 @@
 ## Current engineering boundaries
 
 - Primary objective: build a reliable, independent programming collaborator with durable project memory and safe execution.
+- PR #20 design and initial local orchestrator implementation are on `design/task-execution-orchestrator-20261123`, based on main SHA `a09cdb0be35e3072be29973f7ae8df66ab44d07f`. Its Project Memory Audit and Non-production PR Validation both passed on design-only head `f7d9fa028d99e62e5d7c1ef453578440055e5cc9`; new implementation commits require a fresh CI result.
+- The orchestrator implementation is still under PR review; it is not on `main` and has not been approved for merge.
 - Work on isolated branches; inspect complete diffs; run relevant checks; open PRs; never merge, release, deploy, or dispatch the production release workflow without explicit user approval.
 - Telegram bot, payment, backend and server work are deferred unless a concrete issue appears or the user changes priority.
 - JET VPN TV and حسابگر من are separate repositories; do not infer their implementation from this repository.

@@ -178,6 +178,21 @@ def file_fingerprints(root: Path, patterns: list[str]) -> dict[str, str]:
     return result
 
 
+def path_fingerprints(root: Path, paths: list[str], task_id: str) -> dict[str, str]:
+    result = {}
+    for relative in paths:
+        if is_task_metadata(relative, task_id):
+            continue
+        target = root / relative
+        if target.is_file():
+            result[relative] = sha256_bytes(target.read_bytes())
+        elif target.is_symlink():
+            result[relative] = sha256_bytes(os.readlink(target).encode("utf-8"))
+        else:
+            result[relative] = "deleted"
+    return result
+
+
 def changed_paths(root: Path, base_sha: str) -> list[str]:
     result = subprocess.run(
         ["git", "diff", "--name-status", "-z", "--find-renames", base_sha, "--"],
@@ -363,6 +378,7 @@ def command_validate_scope(args: argparse.Namespace) -> None:
         "status": "failed" if violations else "passed",
         "checked_at": now_iso(),
         "violations": violations,
+        "path_fingerprints": path_fingerprints(root, paths, args.task_id),
     }
     record["updated_at"] = now_iso()
     save_record(record, path)
@@ -403,6 +419,7 @@ def command_verify(args: argparse.Namespace) -> None:
         "started_at": timestamp,
         "finished_at": now_iso(),
         "output_sha256": sha256_bytes(output.encode("utf-8", errors="replace")),
+        "argv": definition["argv"],
         "timeout_seconds": definition["timeout"],
     }
     record["check_attempts"].append(attempt)
@@ -439,6 +456,9 @@ def command_finalize(args: argparse.Namespace) -> None:
     ]
     if violations:
         raise TaskError("Final diff contains out-of-scope paths: " + ", ".join(violations))
+    current_fingerprints = path_fingerprints(root, paths, args.task_id)
+    if current_fingerprints != record["scope_validation"].get("path_fingerprints", {}):
+        raise TaskError("Files changed after scope validation; rerun validate-scope and review the complete diff.")
     diff = run_git(root, "diff", "--stat", base, "--")
     tracked = set(run_git(root, "ls-files").splitlines())
     untracked = [item for item in status_paths(root) if item not in tracked]

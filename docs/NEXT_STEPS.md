@@ -13,8 +13,8 @@ Priority is measured against the goal of a reliable programming collaborator wit
 ## P1 — Make the agent's knowledge executable
 
 1. **In progress in PR #8:** AST-based declaration and syntactic call-site extraction, with ambiguity/unresolved labels and focused tooling tests.
-2. After PR #8 CI is green, compare AST output against the lexical index and review representative high-value JET VPN paths for false positives/omissions.
-3. Upgrade from syntactic name candidates to analyzer element resolution using a package-aware analysis context; only then treat call edges as semantically resolved.
+2. **Completed for PR #8:** CI is green; the AST output remains explicitly syntactic and is not a semantic call graph. Side-by-side comparison with analyzer-resolved Elements is the current follow-up.
+3. **Implemented in PR #9; review pending:** analyzer Elements resolve invocation nodes using the app package context; same-name methods, dynamic calls, and app package URI classification have focused tests. CI Run #54 passed. Keep this graph labeled as a static call graph, not runtime reachability.
 4. Create focused automated tests for recovery admission, payment-token ownership, profile switching, and lifecycle restoration.
 5. Establish a repeatable baseline: format, analyze, test, debug build; preserve logs and artifact references.
 6. Extend source-fingerprint coverage to additional documented files and symbol-level evidence as the architecture is split across files.

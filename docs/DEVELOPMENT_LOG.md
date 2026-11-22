@@ -57,3 +57,30 @@ Append-only record of meaningful project work. Each entry should include branch/
 - **Verified run:** PR #8 [Run #39](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45001992670) succeeded. All three AST indexer tests passed; semantic generation, deterministic regeneration, lexical freshness audit, and both artifact uploads completed successfully. The semantic snapshot records 177 declarations, 3,394 call sites, 3,332 caller edges, 485 unique-name candidates, 7 ambiguous candidates, and 2,902 unresolved names.
 - **Safety:** `lib/main.dart`, app `pubspec.yaml`, native patch sources, app version, and production release workflow are unchanged. No merge or Release performed.
 - **Limitations:** This is a syntactic AST call-site graph with name-based candidates, not resolved analyzer elements. Detailed JSON is a generated CI artifact; its source fingerprint is tied to the checked-out `lib/main.dart` blob.
+
+
+## 2026-11-22 — Stage 7: analyzer-resolved Element graph (follow-up PR in progress)
+
+- **Dependency/base:** PR #8 branch `tools/dart-ast-memory-20261122`; this follow-up is intentionally based on its AST tooling and targets that branch rather than `main`.
+- **Branch:** `tools/dart-semantic-resolution-20261122`.
+- **Scope:** Add a second, package-aware static call-site index using resolved Dart analyzer Elements. Preserve the existing AST name-candidate index for comparison.
+- **Added:** `tools/project_memory/semantic/lib/resolved_indexer.dart`, `bin/resolve.dart`, and focused tests for same-name methods, constructor/function calls, and dynamic invocation.
+- **Workflow:** Resolve the application package context with `flutter pub get`; run resolver tests; generate both indexes twice and compare outputs; upload the resolved JSON as part of the existing read-only audit artifact.
+- **Memory updates:** Documented the new index and its precision boundaries in `PROJECT_MEMORY_AUTOMATION.md`; updated `NEXT_STEPS.md`.
+- **Safety:** No app Dart/native source, app dependency manifest, app version, production build/release workflow, or runtime behavior is intended to change. No merge or release is authorized.
+- **Verification status:** Pending CI on the final follow-up PR head. Do not describe analyzer resolution as validated until the resolver tests, full source generation, deterministic comparison, and lexical audit all pass.
+- **Precision boundary:** Analyzer Elements represent static resolution, not runtime reachability. Dynamic calls remain unresolved; virtual dispatch may differ at runtime. The graph still covers only `lib/main.dart`.
+
+
+## 2026-11-22 — Stage 7 verification: analyzer-resolved Element graph (PR #9)
+
+- **Final head:** `0999a59289c655c48314120fae9d01870be64022`.
+- **CI:** [Run #54](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45003174239) completed successfully.
+- **Tests:** All seven tooling tests passed (three AST-indexer tests and four resolved-indexer tests); the resolver test file also passed as its own CI step.
+- **Pipeline:** Flutter package-context resolution, isolated lockfile resolution, AST tests, resolved-element tests, both index generations, deterministic regeneration comparison, lexical freshness audit, and both artifact uploads all passed.
+- **Resolved source snapshot:** `lib/main.dart` blob `df2914b2954d723869e4196d96f96b050618985a`; 9,001 lines; 352,404 UTF-8 bytes.
+- **Analyzer result:** analyzer 6.11.0; resolved unit true; 112 diagnostics, zero errors.
+- **Resolved graph:** 468 declarations; 3,394 call sites; 3,353 statically resolved targets; 41 unresolved targets; 3,321 resolved caller-target edges; 2,870 external targets. Own-app `package:jet_vpn/...` elements are correctly classified as repository code; the package-URI classification has a focused regression test.
+- **Artifact:** `jet-vpn-semantic-ast-index`, ID `14746174961`, 30-day retention; includes the AST index, resolved-element graph, and isolated tooling lockfile.
+- **Diff review:** only `.github/workflows/project-memory-audit.yml`, project-memory documentation, and files under `tools/project_memory/semantic/` changed relative to the PR #8 base. No app source, native source, app dependency manifest, app version, or production release workflow changed.
+- **Review state:** PR #9 remains draft/open/unmerged and targets PR #8's branch. No app build, runtime/device test, merge, or Release was performed.

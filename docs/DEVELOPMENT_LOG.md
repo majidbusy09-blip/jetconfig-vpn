@@ -254,3 +254,16 @@ Append-only record of meaningful project work. Each entry should include branch/
 - **Application boundary:** No `lib/` files, native tunnel Java/Kotlin, DNS/routing implementation, app version, signing, production release workflow, bot, payment, backend, or server configuration changed. No release or deployment occurred.
 - **Device evidence:** User reported the Build 104 validation APK appeared to work in testing. This remains user-reported evidence; no broad Android/device/network compatibility claim is inferred.
 - **Memory maintenance:** This PR #18 refresh updates operational snapshots to main commit `abdff3a59b89419e869c98d7dbb4ac91512fe950` and records PR #19. Historical entries remain preserved; no older event is rewritten.
+
+
+## 2026-11-23 — PR #18 merged; task-orchestrator design started
+
+- **Main before merge:** `abdff3a59b89419e869c98d7dbb4ac91512fe950`.
+- **PR:** #18, `docs/refresh-authoritative-memory-20261122`; merged by Squash at `a09cdb0be35e3072be29973f7ae8df66ab44d07f`.
+- **Post-merge verification:** Project Memory Audit [#45069210457](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45069210457) completed successfully on the merge commit. Application regression tests, AST/resolved-index tests, critical-path tests and generation, deterministic comparisons, lexical index freshness, and artifact uploads passed.
+- **Next-stage finding:** current `AGENTS.md`, `docs/CURRENT_STATUS.md`, and `docs/NEXT_STEPS.md` still referenced the pre-PR-18 main SHA or described PR #18 as pending. This branch corrects that snapshot and records the current task-orchestrator design.
+- **Design:** `docs/TASK_ORCHESTRATOR_DESIGN.md` specifies a Python 3.12 standard-library-only local MVP, explicit lifecycle/state record, fail-closed scope and branch gates, reuse of existing semantic tooling, fixed verification profiles, and no GitHub write/merge/release/deploy capabilities.
+- **Branch:** `design/task-execution-orchestrator-20261123`, based on current main `a09cdb0be35e3072be29973f7ae8df66ab44d07f`.
+- **Scope:** documentation/design only. No Dart/Java/Kotlin application code, dependency, app version, signing, production release workflow, bot, payment, backend, or server behavior changed.
+- **Checks:** post-merge Project Memory Audit passed; this design branch's CI is pending/not yet run at the time of this entry. No implementation tests are claimed.
+- **Approval boundary:** branch only; no merge, release, or deployment.

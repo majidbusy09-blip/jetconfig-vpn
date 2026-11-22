@@ -39,7 +39,7 @@ jobs:
 
       - name: Resolve isolated semantic-index tooling
         working-directory: tools/project_memory/semantic
-        run: dart pub get --enforce-lockfile
+        run: dart pub get
 
       - name: Test Dart AST indexer
         working-directory: tools/project_memory/semantic

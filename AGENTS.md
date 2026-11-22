@@ -4,7 +4,13 @@ This file is mandatory operating guidance for any AI agent or contributor workin
 
 ## Mission and priority test
 
-The primary objective is to build a reliable, independent programming collaborator with durable project memory. Before starting work, ask: **Will this task materially improve the agent's ability to understand, change, verify, or safely maintain this project?** If not, it is not a priority unless explicitly requested.
+The primary objective is to build a reliable, independent programming collaborator with durable project memory.
+
+Before prioritizing any task, ask exactly:
+
+**«آیا این کار ما را به داشتن یک همکار برنامه‌نویس مستقل، دقیق و دارای حافظه پروژه نزدیک‌تر می‌کند؟»**
+
+If the answer is no, the task must not receive priority unless the user explicitly requests it. If the answer is yes, state briefly which capability it improves: project understanding, source navigation, implementation, verification, durable memory, or safe maintenance.
 
 ## Mandatory context-loading sequence
 
@@ -38,9 +44,9 @@ Do not assume previous chat context is complete. Git-tracked project memory is t
 8. Open or update a PR for review. Leave it unmerged pending explicit approval.
 9. Update project memory in the same change when behavior, architecture, APIs, storage, risks, or workflow changes.
 
-## High-risk release boundary
+## Release boundary
 
-`.github/workflows/build.yml` currently triggers on pushes to `main` and has `contents: write`; it builds signed APK variants and publishes a GitHub Release. A merge to `main` can therefore publish a release. Treat every PR merge into `main` as a potential production action until this workflow is deliberately redesigned and separately approved.
+`.github/workflows/build.yml` is manual-only. It requires `workflow_dispatch`, the selected ref to be exactly `main`, and the explicit Boolean input `confirm_release=true`. Ordinary pushes and PR merges do not publish a Release. The release job has `contents: write` scoped to that job. A manually confirmed run can publish signed APK variants and a public GitHub Release. Never dispatch this production workflow or approve a release without explicit user authorization.
 
 ## Engineering rules
 
@@ -77,7 +83,8 @@ A successful build is not a runtime/device test. A CI workflow definition is not
 
 - Repository: `majidbusy09-blip/jetconfig-vpn`
 - Branch: `main`
-- Commit: `47949178016a6ef3e855a215550b06f4eae8378d`
+- Commit: `f396f57459c9863a325f27e7d438e9456d560e92`
+- `.github/workflows/build.yml` blob: `abdb595af8df6b2d02ab0ba1da665ac9de1d6461`
 - `lib/main.dart` blob: `df2914b2954d723869e4196d96f96b050618985a`
 - `pubspec.yaml` blob: `adc3b22a4538db4738bec789e3c3badf26e4f710`
 - App version: `2.4.5+284`

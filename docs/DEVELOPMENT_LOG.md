@@ -170,3 +170,15 @@ Append-only record of meaningful project work. Each entry should include branch/
 - **Limitations:** CI is not an APK build or Android device test. No real tunnel traffic, Android lifecycle integration, or native V2Ray behavior was verified. No source-level blocker was identified in the focused review; device validation remains mandatory.
 - **Safety:** PR remains draft/unmerged. No merge, production release, deployment, or production workflow dispatch occurred.
 - **Detailed record:** `docs/INTEGRATION_REVIEW.md`.
+
+
+## 2026-11-22 — Stage 8: integration CI, ARM64 packaging verification, and memory synchronization
+
+- **Branch:** `integration/memory-and-recovery-20261122`.
+- **Verified head:** `895124409f2c6a302e2ede3c73ccd3af54c747a0`; base main `1f2519923cdd9f85ab280a3a4359d7ed5aed3949`.
+- **Scope:** CI-only ARM64 packaging correction and project-memory synchronization. No production app source, app version, payment, bot, backend, server, or production release workflow was changed in this stage.
+- **CI:** PR validation [Run #45021900956](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45021900956) passed Flutter analysis, application tests, Debug smoke build, ARM64 split Release-mode comparison build, and artifact uploads. Project-memory audit [Run #45021900965](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45021900965) passed application tests, AST/resolved-index tests, deterministic generation, critical-path generation, lexical freshness, and artifact uploads.
+- **Artifacts:** Debug `JET-VPN-debug-25`, ID `14754525304`, 153,067,024 bytes; ARM64 `JET-VPN-arm64-release-mode-25`, ID `14754511282`, ZIP 27,063,719 bytes. Both expire 2026-11-29. The contained ARM64 APK is 27,773,007 bytes (26.48 MiB); archive inspection confirmed only `lib/arm64-v8a/` native libraries.
+- **Identity evidence:** production `.github/workflows/build.yml` and non-production scaffold both use `flutter create . --platforms=android --project-name=jetconfig_vpn --org com.jetconfig.vpn`, yielding `com.jetconfig.vpn.jetconfig_vpn`. The comparison APK certificate is `CN=Android Debug`; the production release workflow uses the configured release keystore. Certificate fingerprints were not compared.
+- **Memory changes:** corrected the current-status header, made next steps reflect completed APK work and the actual safe next action, appended this log entry, and added `docs/TASK_TEMPLATE.md`; `AGENTS.md` now requires use of the template for non-trivial tasks.
+- **Limitations:** no production APK signature comparison, install test, Android device test, native V2Ray runtime test, or real tunnel-traffic validation was performed. PR #16 remains draft/unmerged. No release or deployment occurred.

@@ -66,7 +66,7 @@ jobs:
         run: bash tools/v2ray_notif_patch/apply_patch.sh
 
       - name: Static analysis
-        run: flutter analyze --no-pub --no-fatal-infos --no-fatal-warnings
+        run: flutter analyze lib test --no-pub --no-fatal-infos --no-fatal-warnings
 
       - name: Run application tests
         run: flutter test --no-pub

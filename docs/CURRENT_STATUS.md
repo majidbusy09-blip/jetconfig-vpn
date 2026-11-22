@@ -3,7 +3,7 @@
 > Snapshot date: 2026-11-22  
 > Repository: `majidbusy09-blip/jetconfig-vpn`  
 > Current inspected branch: `integration/memory-and-recovery-20261122`  
-> Current inspected commit: `895124409f2c6a302e2ede3c73ccd3af54c747a0`  
+> Current inspected application/validation source commit: `8571a10a8676bf114ca6eda07657da026e550085` (subsequent commits in this stage are documentation-only)  
 > Base main: `1f2519923cdd9f85ab280a3a4359d7ed5aed3949`  
 > App version: `2.4.5+284`  
 > `lib/main.dart` blob: `3d28693b7be8bfe309a850923599830e1a65ab59` (9,008 lines / 352,770 UTF-8 bytes / 336,710 Unicode code points)  

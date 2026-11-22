@@ -26,7 +26,7 @@ Commit the regenerated JSON and updated `CURRENT_STATUS.md` in the same pull req
 
 - An isolated Dart tooling package lives under `tools/project_memory/semantic/`; it pins `analyzer: 6.11.0`, commits a package lockfile for reproducible transitive dependencies, and does not modify the application's `pubspec.yaml`.
 - It parses `lib/main.dart` into AST declarations and syntactic invocation sites, then emits caller-to-name-candidate edges, source locations, and ambiguous/unresolved counts. This candidate index remains a single-file comparison aid.
-- The project-memory workflow runs focused tests, regenerates the AST index twice to verify deterministic output, and uploads the detailed JSON plus the tooling lockfile as a 30-day artifact. The recovery regression branch also runs the application package's `flutter test` suite after root dependency resolution.
+- The project-memory workflow runs focused tests, regenerates the AST index twice to verify deterministic output, and uploads the detailed JSON plus the tooling lockfile as a 30-day artifact. Its required PR check now runs for every pull request targeting main (not only selected paths), preventing a required status from remaining pending when a PR changes validation tooling. The recovery regression branch also runs the application package's `flutter test` suite after root dependency resolution.
 - The detailed graph is generated in CI rather than committed: it is substantially larger than the lexical index and is reproducible from the tracked source and generator. Re-run the workflow to obtain a fresh artifact for the exact PR/source SHA.
 
 ### Semantic precision boundary
@@ -51,8 +51,8 @@ An analyzer Element is a statically resolved symbol, not proof of runtime execut
 ## Main-branch automation
 
 - PR #17 added a `push` trigger for `main` when relevant application, test, dependency, documentation, project-memory tooling, or audit-workflow paths change.
-- The push-triggered run [#45029689706](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45029689706) completed successfully on main commit `eae477a89816a5cfd475c596e166d5cb2575884a`.
-- The required ruleset status-check context is `Verify generated code index and memory freshness`. This is the workflow job name, not the workflow display title.
+- The push-triggered run [#45029689706](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45029689706) completed successfully on main commit `eae477a89816a5cfd475c596e166d5cb2575884a`. After PR #19, the final-head audit [#45065541236](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45065541236) also passed; the paired non-production validation run [#45065541255](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45065541255) passed.
+- The required ruleset status-check context is `Verify generated code index and memory freshness`. This is the workflow job name, not the workflow display title. The pull_request trigger intentionally has no path filter because a path-filtered required check can remain pending for otherwise valid PRs.
 
 ## What the audit guarantees
 

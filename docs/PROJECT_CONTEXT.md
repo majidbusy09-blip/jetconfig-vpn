@@ -1,6 +1,6 @@
 # JET VPN — Project Context
 
-> Current verified repository snapshot: `main` at `f396f57459c9863a325f27e7d438e9456d560e92` (2026-11-22).  
+> Current verified repository snapshot: `main` at `1f2519923cdd9f85ab280a3a4359d7ed5aed3949` (2026-11-22).  
 > Application-source baseline: `47949178016a6ef3e855a215550b06f4eae8378d`; no app-source changes since that baseline.  
 > Main source blob: `lib/main.dart` = `df2914b2954d723869e4196d96f96b050618985a`.  
 > App version: `2.4.5+284` (`pubspec.yaml` and matching constants in `lib/main.dart`).

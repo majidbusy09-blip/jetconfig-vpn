@@ -1,0 +1,182 @@
+{
+  "schema_version": 1,
+  "paths": [
+    {
+      "id": "vpn_connection_recovery",
+      "title": "VPN connection and recovery",
+      "description": "Connection intent, live verification, health monitoring, automatic recovery, and resume reconciliation.",
+      "entrypoints": [
+        {
+          "source_path": "lib/main.dart",
+          "kind": "method",
+          "owner": "_MainVpnScreenState",
+          "name": "_toggleConnect"
+        },
+        {
+          "source_path": "lib/main.dart",
+          "kind": "method",
+          "owner": "_MainVpnScreenState",
+          "name": "_verifyLiveConnection"
+        },
+        {
+          "source_path": "lib/main.dart",
+          "kind": "method",
+          "owner": "_MainVpnScreenState",
+          "name": "_healthTick"
+        },
+        {
+          "source_path": "lib/main.dart",
+          "kind": "method",
+          "owner": "_MainVpnScreenState",
+          "name": "_scheduleSmartRecovery"
+        },
+        {
+          "source_path": "lib/main.dart",
+          "kind": "method",
+          "owner": "_MainVpnScreenState",
+          "name": "_runSmartRecovery"
+        }
+      ],
+      "related_native_sources": [
+        {
+          "path": "tools/v2ray_notif_patch/V2rayCoreManager.java",
+          "symbols": [
+            "startCore",
+            "stopCore"
+          ],
+          "evidence_lines": [
+            227,
+            235,
+            276
+          ],
+          "relationship": "Native engine start/stop boundary; Dart static edges do not cross this dependency boundary."
+        },
+        {
+          "path": "tools/v2ray_notif_patch/V2rayVPNService.java",
+          "symbols": [
+            "onStartCommand",
+            "onRevoke",
+            "USER_INITIATED_DISCONNECT"
+          ],
+          "evidence_lines": [
+            107,
+            109,
+            338
+          ],
+          "relationship": "Android VPN service stop/revoke behavior and explicit user-disconnect marker."
+        },
+        {
+          "path": "tools/v2ray_notif_patch/V2rayProxyOnlyService.java",
+          "symbols": [
+            "onStartCommand",
+            "USER_INITIATED_DISCONNECT"
+          ],
+          "evidence_lines": [
+            72,
+            73
+          ],
+          "relationship": "Proxy-only service stop handling and user-disconnect marker."
+        },
+        {
+          "path": "tools/v2ray_notif_patch/apply_patch.sh",
+          "symbols": [
+            "patch validation"
+          ],
+          "evidence_lines": [
+            19,
+            23,
+            27
+          ],
+          "relationship": "Build-time patch application and marker-presence checks."
+        }
+      ]
+    },
+    {
+      "id": "vpn_lifecycle",
+      "title": "Application and VPN lifecycle",
+      "description": "Startup, background/foreground transitions, connection restoration, and disposal.",
+      "entrypoints": [
+        {
+          "source_path": "lib/main.dart",
+          "kind": "method",
+          "owner": "_MainVpnScreenState",
+          "name": "initState"
+        },
+        {
+          "source_path": "lib/main.dart",
+          "kind": "method",
+          "owner": "_MainVpnScreenState",
+          "name": "didChangeAppLifecycleState"
+        },
+        {
+          "source_path": "lib/main.dart",
+          "kind": "method",
+          "owner": "_MainVpnScreenState",
+          "name": "_restoreWantConnectedAfterLoad"
+        },
+        {
+          "source_path": "lib/main.dart",
+          "kind": "method",
+          "owner": "_MainVpnScreenState",
+          "name": "_reconcileVpnStateOnResume"
+        },
+        {
+          "source_path": "lib/main.dart",
+          "kind": "method",
+          "owner": "_MainVpnScreenState",
+          "name": "dispose"
+        }
+      ]
+    },
+    {
+      "id": "purchase_payment",
+      "title": "Purchase, renewal, and payment status",
+      "description": "Invoice creation, pending-token persistence, payment polling, and account data refresh.",
+      "entrypoints": [
+        {
+          "source_path": "lib/main.dart",
+          "kind": "method",
+          "owner": "_MainVpnScreenState",
+          "name": "_createInvoiceAndPay"
+        },
+        {
+          "source_path": "lib/main.dart",
+          "kind": "method",
+          "owner": "_MainVpnScreenState",
+          "name": "_watchPaymentStatus"
+        },
+        {
+          "source_path": "lib/main.dart",
+          "kind": "method",
+          "owner": "_MainVpnScreenState",
+          "name": "_restorePendingPayToken"
+        },
+        {
+          "source_path": "lib/main.dart",
+          "kind": "method",
+          "owner": "_MainVpnScreenState",
+          "name": "_savePendingPayToken"
+        }
+      ]
+    },
+    {
+      "id": "profiles_account",
+      "title": "Profiles and account switching",
+      "description": "Profile activation, account-scoped data refresh, and profile-dependent state.",
+      "entrypoints": [
+        {
+          "source_path": "lib/main.dart",
+          "kind": "method",
+          "owner": "_MainVpnScreenState",
+          "name": "_activateProfile"
+        },
+        {
+          "source_path": "lib/main.dart",
+          "kind": "method",
+          "owner": "_MainVpnScreenState",
+          "name": "_fetchUserData"
+        }
+      ]
+    }
+  ]
+}

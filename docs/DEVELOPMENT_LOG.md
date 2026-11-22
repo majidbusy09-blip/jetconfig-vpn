@@ -149,7 +149,7 @@ Append-only record of meaningful project work. Each entry should include branch/
 - **Branch:** `tests/async-live-verifier-20261122`.
 - **Priority capability:** implementation and verification; the async ping sequence used by the app is now independently testable with injected wait and ping dependencies.
 - **Changes:** added `lib/live_connection_verifier.dart`; `_verifyLiveConnection` delegates only its settle/ping/retry decision sequence to this class. Flutter state transitions, generation checks, native stop behavior, and smart recovery remain in `lib/main.dart`.
-- **Tests:** six async cases cover silent one-shot verification, silent failure, core disconnect, obsolete-result cancellation, two-attempt retry timing, and explicit-disconnect cancellation.
+- **Tests:** seven cases cover silent one-shot verification, silent failure, core disconnect during an in-flight ping, obsolete-result cancellation, two-attempt retry timing, explicit-disconnect cancellation, and app-entrypoint compilation against the extracted verifier.
 - **Scope:** no payment/profile code, native Java, app dependencies, app version, or production release workflow changed. No device/emulator test, merge, or Release performed.
 - **Source:** `lib/main.dart` blob `2d833223153c61a0209123553b99f9d982bf4574`; 9,006 lines, 352,724 UTF-8 bytes, 336,664 Unicode code points.
 - **Verification:** pending CI on PR #13 head; do not treat authored tests as passed until CI completes.

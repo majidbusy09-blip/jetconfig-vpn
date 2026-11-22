@@ -4,6 +4,7 @@ on:
   pull_request:
     branches:
       - main
+      - tools/dart-ast-memory-20261122
       - docs/agent-memory-foundation-20261122
     paths:
       - "lib/**"
@@ -29,6 +30,43 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 1
+
+      - name: Set up Flutter and Dart
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.27.4'
+          channel: 'stable'
+          cache: true
+
+      - name: Resolve isolated semantic-index tooling
+        working-directory: tools/project_memory/semantic
+        run: dart pub get --enforce-lockfile
+
+      - name: Test Dart AST indexer
+        working-directory: tools/project_memory/semantic
+        run: dart test
+
+      - name: Generate semantic AST index
+        working-directory: tools/project_memory/semantic
+        run: dart run bin/index.dart --write
+
+      - name: Verify deterministic semantic AST generation
+        working-directory: tools/project_memory/semantic
+        run: |
+          cp ../../../docs/generated/jet_vpn_semantic_index.json "$RUNNER_TEMP/semantic-index-first.json"
+          dart run bin/index.dart --write
+          cmp "$RUNNER_TEMP/semantic-index-first.json" ../../../docs/generated/jet_vpn_semantic_index.json
+
+      - name: Upload semantic AST index
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jet-vpn-semantic-ast-index
+          path: |
+            docs/generated/jet_vpn_semantic_index.json
+            tools/project_memory/semantic/pubspec.lock
+          if-no-files-found: warn
+          retention-days: 30
 
       - name: Set up Python
         uses: actions/setup-python@v5

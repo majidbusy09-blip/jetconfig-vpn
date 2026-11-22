@@ -22,6 +22,17 @@ python tools/project_memory/index_dart.py --check --check-status
 
 Commit the regenerated JSON and updated `CURRENT_STATUS.md` in the same pull request as the source change.
 
+## Dart AST navigation layer (proposed in PR #8)
+
+- An isolated Dart tooling package lives under `tools/project_memory/semantic/`; it pins `analyzer: 6.11.0`, commits a package lockfile for reproducible transitive dependencies, and does not modify the application's `pubspec.yaml`.
+- It parses `lib/main.dart` into AST declarations and syntactic invocation sites, then emits caller-to-name-candidate edges, source locations, and ambiguous/unresolved counts.
+- The project-memory workflow runs focused tests, regenerates the AST index twice to verify deterministic output, and uploads the detailed JSON plus the tooling lockfile as a 30-day artifact.
+- The detailed graph is generated in CI rather than committed: it is substantially larger than the lexical index and is reproducible from the tracked source and generator. Re-run the workflow to obtain a fresh artifact for the exact PR/source SHA.
+
+### Semantic precision boundary
+
+This is an AST-derived **syntactic** call-site graph, not resolved analyzer elements. Name-based candidate matching is not proof of semantic binding; methods with the same name in unrelated classes can remain ambiguous. Calls into Flutter/dependencies and dynamic/function-valued calls are often unresolved. It does not prove runtime reachability.
+
 ## What the audit guarantees
 
 - The generated index is byte-for-byte reproducible from the checked-out source using the committed generator.
@@ -37,3 +48,4 @@ Commit the regenerated JSON and updated `CURRENT_STATUS.md` in the same pull req
 - It does not inspect backend code outside this repository.
 
 The next maturity step is to compare this lexical index with Dart analyzer data and, only then, add semantic caller/callee relationships.
+

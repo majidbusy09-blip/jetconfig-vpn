@@ -44,3 +44,16 @@ Append-only record of meaningful project work. Each entry should include branch/
 - **Prior validation:** Strict run [#44992436433](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/44992436433) passed before rebasing; a fresh run is required.
 - **Limitations:** The index is lexical, not a Dart AST or semantic call graph. Token counts do not prove caller/callee relationships or runtime reachability.
 - **Safety:** No Dart application source, Native code, app dependencies, Android build configuration, or production release workflow is changed by this stage. No merge or Release is authorized by this PR.
+
+
+## 2026-11-22 — Stage 6: Dart AST navigation index (PR #8, review pending)
+
+- **Base main:** `1f2519923cdd9f85ab280a3a4359d7ed5aed3949`.
+- **Branch:** `tools/dart-ast-memory-20261122`.
+- **Scope:** Isolated developer tooling and read-only project-memory CI; no application behavior changes.
+- **Added:** `tools/project_memory/semantic/` with analyzer 6.11.0, an AST visitor, a CLI generator, and three focused tests.
+- **Workflow:** Added Flutter/Dart setup, dependency resolution, unit tests, deterministic double-generation check, and 30-day semantic-index artifact upload. Existing lexical audit remains enabled.
+- **Initial CI debugging:** First compile exposed analyzer 6.11 API differences; corrected the LineInfo import, removed a nonexistent visitor type, and used the public type source representation. Tests then exposed constructor parsing and diagnostic handling; the fixture now uses explicit constructor syntax, class declarations are indexed, and parser diagnostics fail closed.
+- **Verified run:** PR #8 [Run #39](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45001992670) succeeded. All three AST indexer tests passed; semantic generation, deterministic regeneration, lexical freshness audit, and both artifact uploads completed successfully. The semantic snapshot records 177 declarations, 3,394 call sites, 3,332 caller edges, 485 unique-name candidates, 7 ambiguous candidates, and 2,902 unresolved names.
+- **Safety:** `lib/main.dart`, app `pubspec.yaml`, native patch sources, app version, and production release workflow are unchanged. No merge or Release performed.
+- **Limitations:** This is a syntactic AST call-site graph with name-based candidates, not resolved analyzer elements. Detailed JSON is a generated CI artifact; its source fingerprint is tied to the checked-out `lib/main.dart` blob.

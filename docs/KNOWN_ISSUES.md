@@ -19,13 +19,15 @@
 - **Tests:** PR #12's `test/live_connection_policy_test.dart` covers the UI gate. PR #13 extracts the async settle/ping/retry sequence into `LiveConnectionVerifier` and adds seven tests for silent success/failure, in-flight core disconnect, stale-result cancellation, retry timing, explicit-disconnect cancellation, and app-entrypoint compilation. Neither suite simulates Android lifecycle callbacks, V2Ray native behavior, or real tunnel traffic.
 - **Next:** Reproduce cold restore and resume with native `CONNECTED` but blocked tunnel traffic on a real Android device; then proceed to payment-token owner binding.
 
-## JET-003 — Pending payment token is not bound to its owner in local storage
+## JET-003 — Pending payment token owner binding
 
 - **Severity:** High
-- **Status:** Confirmed client storage/context gap; backend exploitability unknown.
-- **Evidence:** `_restorePendingPayToken` and `_savePendingPayToken` use one `pending_pay_token` key (`lib/main.dart:3800–3822`). `_watchPaymentStatus` combines it with current `savedUser/savedPass` (`3988–4015`). `_activateProfile` changes active credentials but does not visibly clear/rebind the token (`2566–2604`).
-- **Impact:** An invoice created under one profile may be checked using another profile's credentials after switching accounts.
-- **Next:** Store token owner and creation metadata; verify server rejects owner mismatch before implementation.
+- **Status:** Client-side mitigation implemented in PR #14; full CI Run [#45013721394](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45013721394) passed. Backend authorization and exploitability remain unverified.
+- **Original evidence:** the legacy `pending_pay_token` preference contained only the token, while `_watchPaymentStatus` supplied whichever `savedUser/savedPass` were active at poll time.
+- **Current proposed behavior:** `PendingPaymentRecord` stores token, exact originating username, creation timestamp, and `pending` status in `pending_payment_json`. Polling is refused unless the active username matches the stored owner. Account/profile changes and password changes invalidate in-flight polls; a late response cannot be applied after the active account changes.
+- **Legacy handling:** the old unowned `pending_pay_token` is discarded on restore because its owner cannot be established safely. Existing legacy pending invoices may need to be recreated or reconciled through support; they are not silently assigned to the current profile.
+- **Limits:** the token remains in SharedPreferences without an encrypted-storage migration. Client checks do not replace server-side invoice ownership validation.
+- **Next:** inspect backend source and verify cross-account token rejection and payment idempotency in a controlled test environment.
 
 ## JET-004 — Account passwords are stored as plaintext preference values
 

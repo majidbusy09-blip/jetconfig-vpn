@@ -11,7 +11,11 @@
 | `lib/recovery_policy.dart` | Pure smart-recovery admission and cooldown policy; added on the recovery regression branch for unit-testable decision rules. |
 | `lib/live_connection_policy.dart` | Pure UI connected-state gate requiring native core connected, successful live verification, and no forced-disconnect override; proposed in PR #12. |
 | `lib/live_connection_verifier.dart` | Injectable asynchronous settle/ping/retry sequence used by `_verifyLiveConnection`; UI state and native stop/recovery decisions remain in `main.dart`. |
+| `lib/pending_payment_record.dart` | Validated local model for a pending invoice token bound to owner username, creation timestamp, and pending status. |
+| `lib/pending_payment_record.dart` | Validated local model for a pending invoice token bound to owner username, creation timestamp, and pending status. |
+| `test/pending_payment_record_test.dart` | Unit tests for payment-record serialization, owner matching, and invalid-record rejection. |
 | `test/live_connection_verifier_test.dart` | Deterministic async tests for silent verification, retry timing, core disconnect, stale result cancellation, and explicit-disconnect cancellation. |
+| `test/pending_payment_record_test.dart` | Unit tests for payment-record serialization, owner matching, and invalid-record rejection. |
 | `test/recovery_policy_test.dart` | First application-owned unit suite; tests smart-recovery reason admission, intent gates, and cooldown selection. |
 | `test/live_connection_policy_test.dart` | Tests the verified-connection UI gate; does not simulate asynchronous lifecycle or native VPN behavior. |
 | `.github/workflows/build.yml` | Production build and GitHub Release workflow; manual dispatch only, requires main ref and explicit confirmation. |

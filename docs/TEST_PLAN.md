@@ -101,3 +101,23 @@ For each run record: date, device/Android version, branch and commit SHA, exact 
 - Injected wait and ping functions make the asynchronous sequence deterministic in unit tests without starting V2Ray.
 - Tests cover silent resume's one-attempt timing, silent ping failure, native-core disconnect during an in-flight check, obsolete-result cancellation, non-silent retry timing, explicit-disconnect cancellation, and compilation of the app entrypoint against the extracted verifier.
 - These tests exercise the async verifier used by the app, not the Android lifecycle callback, plugin implementation, sockets, or actual tunnel traffic. Device/emulator tests remain required.
+
+
+## Pending payment ownership — PR #14
+
+- `PendingPaymentRecord` serializes token, exact owner username, creation timestamp, and pending status; records without valid owner/token/timestamp/status are rejected.
+- Unit tests cover serialization round-trip, same-owner acceptance, cross-owner rejection, malformed JSON, missing owner, short token, invalid timestamp, and unknown status.
+- App polling must refuse a profile mismatch and re-check account, password, token, and generation after each network await.
+- Profile switch, active-session clear, registration/login account change, and password change must invalidate in-flight polling.
+- Legacy unowned `pending_pay_token` is deliberately discarded; never infer its owner from the currently active profile.
+- Backend ownership enforcement and idempotency require backend source and a controlled non-production test; no production payment request is part of CI.
+
+
+## Pending payment ownership — PR #14
+
+- `PendingPaymentRecord` serializes token, exact owner username, creation timestamp, and pending status; records without valid owner/token/timestamp/status are rejected.
+- Unit tests cover serialization round-trip, same-owner acceptance, cross-owner rejection, malformed JSON, missing owner, short token, invalid timestamp, and unknown status.
+- App polling must refuse a profile mismatch and re-check account, password, token, and generation after each network await.
+- Profile switch, active-session clear, registration/login account change, and password change must invalidate in-flight polling.
+- Legacy unowned `pending_pay_token` is deliberately discarded; never infer its owner from the currently active profile.
+- Backend ownership enforcement and idempotency require backend source and a controlled non-production test; no production payment request is part of CI.

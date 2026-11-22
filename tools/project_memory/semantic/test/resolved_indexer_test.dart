@@ -81,7 +81,7 @@ void main() {
   test('classifies the application package URI as repository code', () async {
     await Directory('${temp.path}/lib').create(recursive: true);
     await Directory('${temp.path}/.dart_tool').create(recursive: true);
-    await File('${temp.path}/pubspec.yaml').writeAsString('name: fixture_app\\n');
+    await File('${temp.path}/pubspec.yaml').writeAsString('name: fixture_app\n');
     await File('${temp.path}/.dart_tool/package_config.json').writeAsString(jsonEncode({
       'configVersion': 2,
       'packages': [

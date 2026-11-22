@@ -48,6 +48,12 @@ This is an AST-derived **syntactic** call-site graph, not resolved analyzer elem
 
 An analyzer Element is a statically resolved symbol, not proof of runtime execution. Virtual dispatch can select a runtime override different from the statically referenced declaration; dynamic calls, unresolved imports, reflection, generated code, callbacks, and native behavior may remain unresolved or outside this graph. Analyzer diagnostics must be reported alongside counts; unresolved calls are not automatically defects.
 
+## Main-branch automation
+
+- PR #17 added a `push` trigger for `main` when relevant application, test, dependency, documentation, project-memory tooling, or audit-workflow paths change.
+- The push-triggered run [#45029689706](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45029689706) completed successfully on main commit `eae477a89816a5cfd475c596e166d5cb2575884a`.
+- The required ruleset status-check context is `Verify generated code index and memory freshness`. This is the workflow job name, not the workflow display title.
+
 ## What the audit guarantees
 
 - The lexical index is byte-for-byte reproducible from `lib/main.dart` using the committed generator.

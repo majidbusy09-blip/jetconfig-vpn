@@ -58,7 +58,8 @@ Future<Map<String, Object?>> buildResolvedIndex({
       },
       'declarations': visitor.declarations,
       'call_sites': visitor.calls,
-      'call_edges': visitor.calls.where((call) => call['caller_element_id'] != null).toList(),
+      'call_edges': visitor.calls.where((call) =>
+        call['caller_element_id'] != null && call['target_element_id'] != null).toList(),
       'summary': {
         'declaration_count': visitor.declarations.length,
         'call_site_count': visitor.calls.length,

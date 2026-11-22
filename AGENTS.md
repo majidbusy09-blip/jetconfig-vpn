@@ -71,6 +71,9 @@ A successful build is not a runtime/device test. A CI workflow definition is not
 
 ## Memory maintenance
 
+- Keep `docs/generated/jet_vpn_code_index.json` synchronized with `lib/main.dart`; regenerate it with `python tools/project_memory/index_dart.py --write`.
+- Before submitting a source change, run `python tools/project_memory/index_dart.py --check --check-status`. A stale index or source fingerprint is a blocking documentation-maintenance failure; update the index and `docs/CURRENT_STATUS.md` in the same PR.
+- Treat the generated index as a lexical navigation aid only, not a semantic Dart AST, verified call graph, or proof of runtime reachability.
 - Keep `docs/CURRENT_STATUS.md` tied to a precise branch, commit SHA, source file blob SHA, app version, and snapshot date.
 - Keep `docs/KNOWN_ISSUES.md` limited to evidence-backed issues; include confidence and reproduction/verification status.
 - Record accepted technical choices in `docs/DECISIONS.md`.
@@ -83,7 +86,7 @@ A successful build is not a runtime/device test. A CI workflow definition is not
 
 - Repository: `majidbusy09-blip/jetconfig-vpn`
 - Branch: `main`
-- Commit: `f396f57459c9863a325f27e7d438e9456d560e92`
+- Commit: `477ff12fb5a82ba2b2bb3f68a268d27f679c40ab`
 - `.github/workflows/build.yml` blob: `abdb595af8df6b2d02ab0ba1da665ac9de1d6461`
 - `lib/main.dart` blob: `df2914b2954d723869e4196d96f96b050618985a`
 - `pubspec.yaml` blob: `adc3b22a4538db4738bec789e3c3badf26e4f710`

@@ -12,7 +12,7 @@ Append-only record of meaningful project work. Each entry should include branch/
 - **Validation:** Re-fetched source files and verified file paths/blob SHAs and current PR states. No app code changed. No build, analyzer, automated test, or device test run for this docs-only task.
 - **Review PR:** [#3 — Establish durable JET VPN agent memory and operating rules](https://github.com/majidbusy09-blip/jetconfig-vpn/pull/3), initially opened as draft.
 - **PR contents:** 15 Markdown files; no executable source/configuration changes.
-- **PR policy:** PR remains unmerged; no Release performed.
+- **PR policy at that point in history:** PR had not yet been merged; no Release was performed.
 
 ## 2026-11-22 — Stage 5: protect production release workflow
 
@@ -30,3 +30,17 @@ Append-only record of meaningful project work. Each entry should include branch/
 - **Files intended:** `AGENTS.md`; `docs/ARCHITECTURE.md`; `docs/CURRENT_STATUS.md`; `docs/DECISIONS.md`; `docs/DEVELOPMENT_LOG.md`; `docs/DEVELOPMENT_RULES.md`; `docs/FILE_MAP.md`; `docs/KNOWN_ISSUES.md`; `docs/NEXT_STEPS.md`; `docs/PROJECT_CONTEXT.md`.
 - **Source evidence:** current `main` SHA and release workflow/blob re-fetched; current PR states #1–#5 checked.
 - **Validation:** Documentation consistency and complete PR diff to be checked after updates. No application source or production workflow is to be modified by this refresh. No Build, analyzer, app test, device test, merge, or Release is part of this task.
+
+
+## 2026-11-22 — Stage 4: automated code index and memory freshness audit
+
+- **Base after PR #3:** `main` `477ff12fb5a82ba2b2bb3f68a268d27f679c40ab`.
+- **Branch:** `tools/project-memory-index-20261122`, rebased onto the merged main snapshot for review.
+- **Scope:** Developer tooling, generated navigation index, memory documentation, and read-only GitHub Actions audit.
+- **Added:** `tools/project_memory/index_dart.py`, `docs/generated/jet_vpn_code_index.json`, `docs/PROJECT_MEMORY_AUTOMATION.md`, and `.github/workflows/project-memory-audit.yml`.
+- **Updated:** `AGENTS.md`, `docs/CURRENT_STATUS.md`, `docs/DEVELOPMENT_LOG.md`, `docs/FILE_MAP.md`, `docs/NEXT_STEPS.md`, and `docs/TEST_PLAN.md`.
+- **Index baseline:** `lib/main.dart` blob `df2914b2954d723869e4196d96f96b050618985a`; 9,001 lines; 352,404 UTF-8 bytes; 336,257 Unicode code points; 14 import/export/part directives; 326 lexical symbols.
+- **Audit behavior:** Rebuilds and compares the deterministic lexical index, verifies source fingerprint and size metrics, and uploads the JSON index as a 30-day artifact. Workflow permissions are `contents: read`; it cannot commit or publish releases.
+- **Prior validation:** Strict run [#44992436433](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/44992436433) passed before rebasing; a fresh run is required.
+- **Limitations:** The index is lexical, not a Dart AST or semantic call graph. Token counts do not prove caller/callee relationships or runtime reachability.
+- **Safety:** No Dart application source, Native code, app dependencies, Android build configuration, or production release workflow is changed by this stage. No merge or Release is authorized by this PR.

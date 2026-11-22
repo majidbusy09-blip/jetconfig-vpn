@@ -3,36 +3,35 @@
 > Snapshot date: 2026-11-22  
 > Repository: `majidbusy09-blip/jetconfig-vpn`  
 > Inspected branch: `main`  
-> Inspected commit: `f396f57459c9863a325f27e7d438e9456d560e92`  
+> Inspected commit: `477ff12fb5a82ba2b2bb3f68a268d27f679c40ab`  
 > App version: `2.4.5+284`  
-> `lib/main.dart` blob: `df2914b2954d723869e4196d96f96b050618985a` (9,002 lines / 336,260 characters)  
+> `lib/main.dart` blob: `df2914b2954d723869e4196d96f96b050618985a` (9,001 lines / 352,404 UTF-8 bytes / 336,257 Unicode code points)  
 > `pubspec.yaml` blob: `adc3b22a4538db4738bec789e3c3badf26e4f710`  
 > `.github/workflows/build.yml` blob: `abdb595af8df6b2d02ab0ba1da665ac9de1d6461`
 
 ## Verified repository state
 
-- Flutter Android client; recursive tree contained 13 entries (8 files and 5 directories) at the inspected application-source snapshot.
-- Main app source is concentrated in `lib/main.dart`.
-- Dependency: `flutter_v2ray_client: 3.5.0`.
-- Native patch files exist under `tools/v2ray_notif_patch/`.
-- No tracked `android/`, `test/`, or `pubspec.lock` in `main`.
+- Flutter Android client; application source remains concentrated in `lib/main.dart`.
+- Dependency: `flutter_v2ray_client: 3.5.0`; native patch files exist under `tools/v2ray_notif_patch/`.
+- Project memory is tracked in `AGENTS.md` and `docs/`; lexical index and audit tooling are proposed in PR #4.
+- No tracked `android/`, `test/`, or `pubspec.lock` in the inspected application-source snapshot.
 - Backend, bot, web admin, worker and TV sources are outside this repository.
-- The application source and app version have not changed between the source baseline `47949178016a6ef3e855a215550b06f4eae8378d` and current main `f396f57459c9863a325f27e7d438e9456d560e92`; the latter adds the release safety gate only.
+- Application source and app version have not changed since source baseline `47949178016a6ef3e855a215550b06f4eae8378d`; subsequent main commits add release safety and project-memory documentation only.
 
 ## Pull requests observed
 
-- PR #1 `Add JET VPN project memory and development documentation`: open, draft, unmerged; branch `docs/jet-project-memory-20261121`; initial documentation overlaps with PR #3. Do not merge both blindly.
-- PR #2 `Add isolated JET VPN PR validation workflow`: open, ready for review, unmerged; branch `ci/jet-vpn-pr-validation-20261122`; adds only `.github/workflows/pr-validation.yml`.
-- PR #3 `Establish durable JET VPN agent memory and operating rules`: this PR; open, draft, unmerged; branch `docs/agent-memory-foundation-20261122`. Its documentation is being refreshed to the current main state.
-- PR #4 `Add automated JET VPN code index and memory freshness audit`: open, draft, unmerged; branch `tools/project-memory-index-20261122`; based on PR #3 and must be rechecked/rebased after PR #3 is finalized.
-- PR #5 `Require explicit confirmation before publishing JET VPN releases`: merged into main; merge commit `f396f57459c9863a325f27e7d438e9456d560e92`.
+- PR #1: initial project-memory documentation; open, draft, unmerged; overlaps with merged PR #3 and should not be merged blindly.
+- PR #2: isolated PR-validation workflow; open, ready for review, unmerged; adds only `.github/workflows/pr-validation.yml`.
+- PR #3: durable agent memory and operating rules; **merged** into main at `477ff12fb5a82ba2b2bb3f68a268d27f679c40ab`.
+- PR #4: automated code index and memory freshness audit; open, draft, rebased onto current main; fresh audit run pending.
+- PR #5: manual release confirmation gate; merged at `f396f57459c9863a325f27e7d438e9456d560e92`.
 
 ## Build and test baseline
 
 - Production workflow: `.github/workflows/build.yml`; manual `workflow_dispatch` only; requires `confirm_release=true` and selected ref `main`; Java 17 / Flutter 3.27.4; signs APKs and publishes a GitHub Release.
-- PR #2 validation workflow previously succeeded in run #10 (ID `44983819542`) and produced a debug APK artifact. It did not execute an app test suite because the repository has no `test/` directory. Recheck the live run before relying on it for a future change.
-- No runtime/device test was run for this documentation refresh.
-- A passing debug build does not prove VPN connection, payment, update, or Android lifecycle behavior.
+- PR #2 validation workflow previously succeeded in run #10 (ID `44983819542`) and produced a debug APK artifact. It did not execute an app test suite because the repository has no `test/` directory.
+- PR #4's project-memory audit previously passed strict run #44992436433; generated index and status fingerprint matched. Artifact ID `14742118654`. This run was on the pre-rebase branch and must be repeated on the updated PR.
+- No runtime/device test was run for this documentation and tooling work. A passing build or memory audit does not prove VPN connection, payment, update, or Android lifecycle behavior.
 
 ## Known high-priority risks
 
@@ -49,4 +48,4 @@ The previous critical risk that an ordinary push/merge to main automatically pub
 
 ## Memory freshness
 
-This document is authoritative for the exact main SHA and file blob SHAs listed above. The application implementation details in the architecture/API/storage/payment documents remain based on the unchanged `lib/main.dart` blob. After any application-source merge, refresh the commit SHA, version, tree, file blob SHAs, and affected line ranges before using this status as current.
+This document is authoritative for the exact main SHA and file blob SHAs listed above. The application implementation details in architecture/API/storage/payment documents remain based on the unchanged `lib/main.dart` blob. The project-memory audit verifies the generated lexical index and source fingerprint/size metrics; it does not establish semantic call relationships or runtime behavior.

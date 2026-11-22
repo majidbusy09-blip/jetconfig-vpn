@@ -9,7 +9,7 @@
 
 ## Verified repository state
 
-- Flutter Android client; recursive tree contained 13 entries (10 files and 3 directories) at this snapshot.
+- Flutter Android client; recursive tree contained 13 entries (8 files and 5 directories) at this snapshot.
 - Main app source is concentrated in `lib/main.dart`.
 - Dependency: `flutter_v2ray_client: 3.5.0`.
 - Native patch files exist under `tools/v2ray_notif_patch/`.

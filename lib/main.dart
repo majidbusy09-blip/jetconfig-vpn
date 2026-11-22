@@ -12,6 +12,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:installed_apps/installed_apps.dart';
 import 'package:installed_apps/app_info.dart';
+import 'recovery_policy.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -5112,24 +5113,19 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
   }
 
   void _scheduleSmartRecovery(String reason) {
-    if (!connectionModeSmart || !_userWantsConnected || _weInitiatedStop) return;
+    if (!SmartRecoveryPolicy.hasActiveConnectionIntent(
+      smartMode: connectionModeSmart,
+      userWantsConnected: _userWantsConnected,
+      userInitiatedStop: _weInitiatedStop,
+    )) return;
     if (_isRecovering) return;
-    // بازیابی فقط برای مشکل «سرور بد در حالی که هنوز CONNECTED بود»
-    // نه برای قطع کامل هسته / نوتیف
-    const allowed = {
-      'cold_restore',
-      'health_delay',
-      'network_restored',
-      'network_back',
-      'verify_fail',
-      'status_drop',
-    };
-    if (!allowed.contains(reason)) {
+    // بازیابی فقط برای دلایل صریح و شناخته‌شده مجاز است.
+    if (!SmartRecoveryPolicy.isReasonAllowed(reason)) {
       debugPrint('scheduleSmartRecovery blocked reason=$reason');
       return;
     }
     final now = DateTime.now();
-    final minGap = reason == 'network_back' ? 3 : 12;
+    final minGap = SmartRecoveryPolicy.minimumGapSeconds(reason);
     if (_lastRecoveryAt != null &&
         now.difference(_lastRecoveryAt!).inSeconds < minGap) {
       return;

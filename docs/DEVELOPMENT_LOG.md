@@ -100,3 +100,11 @@ Append-only record of meaningful project work. Each entry should include branch/
 - **Critical-path summaries:** connection/recovery 51 declarations / 602 calls (149 internal, 437 external, 16 unresolved); lifecycle 29 / 273 (67, 201, 5); purchase/payment 27 / 279 (51, 227, 1); profiles/account 23 / 238 (37, 200, 1).
 - **Artifact:** `jet-vpn-semantic-ast-index`, ID `14747635635`, 30-day retention; contains AST, resolved multi-file index, critical-path report, manifest, and tooling lockfile.
 - **Verification boundary:** No app build, runtime/device test, merge, or Release was performed. Static transitive reachability is not proof of runtime execution; callbacks, state-field dependencies, dynamic calls, and native runtime behavior remain incomplete.
+
+
+## 2026-11-22 — PR #9 audit-trigger refresh for dependent PR #10
+
+- **PR #9 head:** `ceea8af5aac276473c3c0422d3e1a3c0d1576a69` on `tools/dart-semantic-resolution-20261122`.
+- **Change:** Added the PR #10 target branch to the existing read-only project-memory workflow filter so the dependent PR receives CI from its base branch.
+- **Verification:** [CI Run #57](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45003966803) succeeded; AST/resolved tooling tests, generation, deterministic check, and lexical freshness audit passed.
+- **Safety:** No app/native source, app dependencies, app version, production release workflow, merge, or Release changed.

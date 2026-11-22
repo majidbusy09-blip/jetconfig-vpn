@@ -260,6 +260,9 @@ def command_init(args: argparse.Namespace) -> None:
         raise TaskError("At least one explicit --allow path pattern is required.")
     if not args.check:
         raise TaskError("At least one named --check profile is required.")
+    broad_patterns = [pattern for pattern in args.allow if pattern in {"*", "**", "**/*"}]
+    if broad_patterns and (args.risk != "high" or not args.scope_reason.strip()):
+        raise TaskError("Repository-wide scope patterns require --risk high and a non-empty --scope-reason.")
     unknown = sorted(set(args.check) - set(PROFILES))
     if unknown:
         raise TaskError("Unknown verification profile(s): " + ", ".join(unknown))
@@ -278,7 +281,8 @@ def command_init(args: argparse.Namespace) -> None:
         "created_at": now_iso(),
         "updated_at": now_iso(),
         "repository": {"root_name": root.name, "origin": safe_remote_identity(run_git(root, "remote", "get-url", "origin", check=False))},
-        "scope": {"allowed": sorted(set(args.allow)), "excluded": sorted(set(args.exclude))},
+        "scope": {"allowed": sorted(set(args.allow)), "excluded": sorted(set(args.exclude)),
+                  "reason": args.scope_reason.strip() or None},
         "planned_checks": list(dict.fromkeys(args.check)),
         "required_context": list(REQUIRED_CONTEXT),
         "context_fingerprints": {},
@@ -300,6 +304,9 @@ def command_prepare(args: argparse.Namespace) -> None:
     record, path = load_record(root, args.task_id)
     require_state(record, "draft")
     branch = current_branch(root)
+    origin = safe_remote_identity(run_git(root, "remote", "get-url", "origin", check=False))
+    if origin != record["repository"].get("origin"):
+        raise TaskError("Repository origin changed after task initialization; create a fresh task record.")
     unexpected = [p for p in status_paths(root) if not is_task_metadata(p, args.task_id)]
     if unexpected:
         raise TaskError("Worktree has pre-existing changes outside this task record: " + ", ".join(unexpected[:12]))
@@ -501,7 +508,7 @@ def command_finalize(args: argparse.Namespace) -> None:
         raise TaskError("Files changed after scope validation; rerun validate-scope and review the complete diff.")
     diff = run_git(root, "diff", "--stat", base, "--")
     tracked = set(run_git(root, "ls-files").splitlines())
-    untracked = [item for item in status_paths(root) if item not in tracked]
+    untracked = [item for item in status_paths(root) if item not in set(tracked_files(root))]
     record["changed_paths"] = paths
     record["final_diff"] = {
         "reviewed": True,
@@ -509,6 +516,7 @@ def command_finalize(args: argparse.Namespace) -> None:
         "head_sha": run_git(root, "rev-parse", "HEAD"),
         "stat": diff,
         "untracked_paths": untracked,
+        "path_fingerprints": current_fingerprints,
     }
     record["state"] = "review_ready"
     record["finalized_at"] = now_iso()
@@ -563,6 +571,7 @@ def build_parser() -> argparse.ArgumentParser:
     init.add_argument("--risk", required=True, choices=["low", "medium", "high"])
     init.add_argument("--allow", action="append", default=[])
     init.add_argument("--exclude", action="append", default=[])
+    init.add_argument("--scope-reason", default="")
     init.add_argument("--check", action="append", default=[])
     init.set_defaults(func=command_init)
     for name, func, help_text in [

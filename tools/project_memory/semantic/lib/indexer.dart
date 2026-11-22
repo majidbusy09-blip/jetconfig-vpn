@@ -79,6 +79,8 @@ class _IndexVisitor extends RecursiveAstVisitor<void> {
 
   @override
   void visitClassDeclaration(ClassDeclaration node) {
+    final line = _line(node.offset);
+    declarations.add({'id': node.name.lexeme + '#class@' + line.toString(), 'kind': 'class', 'name': node.name.lexeme, 'owner': null, 'line': line, 'offset': node.offset});
     _classNames.add(node.name.lexeme); node.visitChildren(this); _classNames.removeLast();
   }
   @override

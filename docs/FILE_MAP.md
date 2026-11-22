@@ -6,7 +6,10 @@
 |---|---|
 | `AGENTS.md` | Mandatory operating instructions for AI agents/contributors. |
 | `docs/TASK_TEMPLATE.md` | Required structured record for non-trivial engineering and maintenance tasks. |
-| `docs/TASK_ORCHESTRATOR_DESIGN.md` | Design proposal for a fail-closed local task execution orchestrator; implementation not yet included. |
+| `docs/TASK_ORCHESTRATOR_DESIGN.md` | Design and safety contract for the local task execution orchestrator. |
+| `tools/task_orchestrator/task_orchestrator.py` | Local fail-closed CLI for task records, context/base pinning, scope validation, fixed verification profiles, and handoff; currently under PR #20 review, not yet on main. |
+| `tools/task_orchestrator/tests/test_task_orchestrator.py` | Temporary-Git-repository integration tests for lifecycle and safety gates; currently under PR #20 review. |
+| `tools/task_orchestrator/README.md` | Local MVP usage, fixed profiles, and explicit non-goals; currently under PR #20 review. |
 | `tools/validation/align_validation_android.py` | Aligns the temporary validation Android scaffold with production SDK/package-visibility settings. |
 | `tools/validation/test_align_validation_android.py` | Unit tests for validation Android parity and idempotency. |
 | `README.md` | Project overview; may describe wider JetConfig ecosystem not included in this repository. |
@@ -48,7 +51,7 @@ The current `main` tree contains a tracked `test/` suite and isolated semantic t
 
 ## Source identity
 
-- Current `main`: `abdff3a59b89419e869c98d7dbb4ac91512fe950`.
+- Current `main`: `a09cdb0be35e3072be29973f7ae8df66ab44d07f`.
 - `lib/main.dart`: blob `3d28693b7be8bfe309a850923599830e1a65ab59`, 9,008 lines, 352,770 UTF-8 bytes, 336,710 Unicode code points.
 - `pubspec.yaml`: blob `adc3b22a4538db4738bec789e3c3badf26e4f710`, version `2.4.5+284`.
 - `.github/workflows/build.yml`: blob `abdb595af8df6b2d02ab0ba1da665ac9de1d6461`; manual release gate.

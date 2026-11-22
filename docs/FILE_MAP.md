@@ -1,10 +1,14 @@
 # JET VPN — Verified Repository File Map
 
-> Current source snapshot: `main` at `abdff3a59b89419e869c98d7dbb4ac91512fe950`, 2026-11-22. PR #16 and PR #17 are merged. App version `2.4.5+284`; `lib/main.dart` blob `3d28693b7be8bfe309a850923599830e1a65ab59`.
+> Current source snapshot: `main` at `a09cdb0be35e3072be29973f7ae8df66ab44d07f`, 2026-11-23. PRs #16, #17, #18, and #19 are merged. App version `2.4.5+284`; `lib/main.dart` blob `3d28693b7be8bfe309a850923599830e1a65ab59`.
 
 | Path | Verified purpose |
 |---|---|
-| `AGENTS.md` | Mandatory operating instructions for AI agents/contributors; merged in PR #3. |
+| `AGENTS.md` | Mandatory operating instructions for AI agents/contributors. |
+| `docs/TASK_TEMPLATE.md` | Required structured record for non-trivial engineering and maintenance tasks. |
+| `docs/TASK_ORCHESTRATOR_DESIGN.md` | Design proposal for a fail-closed local task execution orchestrator; implementation not yet included. |
+| `tools/validation/align_validation_android.py` | Aligns the temporary validation Android scaffold with production SDK/package-visibility settings. |
+| `tools/validation/test_align_validation_android.py` | Unit tests for validation Android parity and idempotency. |
 | `README.md` | Project overview; may describe wider JetConfig ecosystem not included in this repository. |
 | `pubspec.yaml` | Flutter package metadata, version, SDK constraint, dependencies. |
 | `lib/main.dart` | Main Flutter application; UI, account, payment, server, VPN connection/recovery, settings and update logic. |

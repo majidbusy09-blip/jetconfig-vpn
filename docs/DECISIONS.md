@@ -1,0 +1,51 @@
+# JET VPN — Technical Decisions
+
+This log records decisions that govern future work. New entries should include date, status, rationale, and consequences. Do not erase superseded decisions.
+
+## D-001 — GitHub source is authoritative for Android client
+
+- **Date:** 2026-11-22
+- **Status:** Accepted
+- **Decision:** Use the current GitHub repository/branch/commit as source of truth for client code; old ZIP archives and chat snippets are historical context only.
+- **Rationale:** The user may have newer local changes than old uploaded archives.
+- **Consequence:** Fetch latest source and record SHA before each task.
+
+## D-002 — Branch + diff + PR approval workflow
+
+- **Date:** 2026-11-22
+- **Status:** Accepted
+- **Decision:** Work on isolated branches, inspect diff and verification evidence, and request explicit approval before merge/release.
+- **Rationale:** Real code changes are allowed but production actions must remain under user control.
+- **Consequence:** Never merge or release autonomously.
+
+## D-003 — Project memory is part of the deliverable
+
+- **Date:** 2026-11-22
+- **Status:** Accepted
+- **Decision:** Update source-grounded project documents whenever implementation changes affect architecture, APIs, data, payment, issues, tests, or workflow.
+- **Rationale:** A future agent must be able to resume without depending on conversational memory.
+- **Consequence:** Every material code PR should include appropriate memory updates.
+
+## D-004 — Release workflow is a protected boundary
+
+- **Date:** 2026-11-22
+- **Status:** Accepted; remediation implemented in PR #5
+- **Decision:** Production release is manual-only and fail-closed: `workflow_dispatch`, selected ref exactly `main`, and explicit `confirm_release=true`. The release job alone receives `contents: write`.
+- **Rationale:** Prevent ordinary pushes and PR merges from unintentionally publishing signed production APKs.
+- **Consequence:** Never dispatch a production release without explicit user approval. Current implementation is in `.github/workflows/build.yml` at main commit `f396f57459c9863a325f27e7d438e9456d560e92`.
+
+## D-005 — API docs distinguish client observation from server truth
+
+- **Date:** 2026-11-22
+- **Status:** Accepted
+- **Decision:** Document request fields and response usage from Flutter source as client-observed only until backend source is reviewed.
+- **Rationale:** Client behavior cannot prove authorization, validation, idempotency, or payment correctness on the server.
+- **Consequence:** Use explicit server-unverified markers and do not make security claims about backend.
+
+## D-006 — Every task must pass the collaborator-priority test
+
+- **Date:** 2026-11-22
+- **Status:** Accepted
+- **Decision:** Before prioritizing work, ask: «آیا این کار ما را به داشتن یک همکار برنامه‌نویس مستقل، دقیق و دارای حافظه پروژه نزدیک‌تر می‌کند؟» A negative answer means the work is not a priority unless explicitly requested.
+- **Rationale:** Keep engineering effort focused on durable project understanding, implementation ability, verification, memory, and safe maintenance rather than unrelated activity.
+- **Consequence:** Record the capability improved by each prioritized task; defer unrelated product features, marketing, visual changes, and refactors.

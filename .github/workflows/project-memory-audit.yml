@@ -1,6 +1,20 @@
 name: JET VPN - Project Memory Audit
 
 on:
+  # Re-run the full regression + memory/index freshness audit after relevant
+  # changes land on main. This is validation only; it never publishes a release.
+  push:
+    branches:
+      - main
+    paths:
+      - "lib/**"
+      - "test/**"
+      - "pubspec.yaml"
+      - "pubspec.lock"
+      - "analysis_options.yaml"
+      - "docs/**"
+      - "tools/project_memory/**"
+      - ".github/workflows/project-memory-audit.yml"
   pull_request:
     branches:
       - main

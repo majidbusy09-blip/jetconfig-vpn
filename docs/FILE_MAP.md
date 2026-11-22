@@ -14,7 +14,13 @@
 | `docs/PROJECT_MEMORY_AUTOMATION.md` | Usage, guarantees, and limitations of project-memory audit; merged in PR #4. |
 | `docs/generated/jet_vpn_code_index.json` | Generated lexical Dart navigation index; merged in PR #4. |
 | `tools/project_memory/index_dart.py` | Standard-library generator/checker for lexical Dart index and source fingerprint; merged in PR #4. |
-| `tools/project_memory/semantic/` | Isolated Dart Analyzer AST indexer and focused tests; proposed in PR #8. Detailed output is generated as a CI artifact, not committed. |
+| `tools/project_memory/semantic/` | Isolated Dart Analyzer AST and resolved multi-file indexers, critical-path report generator, and focused tooling tests; proposed across PRs #8–#10. Detailed generated output is a CI artifact, not committed. |
+| `docs/critical_paths.json` | Curated, source-verified entrypoint anchors for connection/recovery, lifecycle, payment, and profile workflows; includes explicit native Java boundary references. |
+| `tools/project_memory/semantic/lib/critical_path_report.dart` | Computes static transitive reachability from curated entrypoints using resolved internal call edges. |
+| `tools/project_memory/semantic/bin/critical_paths.dart` | Generates or verifies the machine-readable critical-path report. |
+| `tools/project_memory/semantic/test/critical_path_report_test.dart` | Tests transitive traversal, external/unresolved calls, and ambiguous entrypoint handling. |
+| `docs/generated/jet_vpn_resolved_index.json` | Generated multi-file analyzer-resolved index; uploaded as a CI artifact, not committed. |
+| `docs/generated/jet_vpn_critical_paths.json` | Generated static critical-path report; uploaded as a CI artifact, not committed. |
 | `tools/v2ray_notif_patch/apply_patch.sh` | Applies repository-maintained native patch to dependency sources in build workspace. |
 | `tools/v2ray_notif_patch/V2rayCoreManager.java` | Patched V2Ray core manager source. |
 | `tools/v2ray_notif_patch/V2rayProxyOnlyService.java` | Patched proxy-only service source. |

@@ -16,14 +16,14 @@ Priority is measured against the goal of a reliable programming collaborator wit
 2. **Completed for PR #8:** CI is green; the AST output remains explicitly syntactic and is not a semantic call graph. Side-by-side comparison with analyzer-resolved Elements is the current follow-up.
 3. **Implemented in PR #9; review pending:** analyzer Elements resolve invocation nodes using the app package context; same-name methods, dynamic calls, and app package URI classification have focused tests. Latest PR #9 CI Run #57 passed after enabling the next dependent PR audit trigger. Keep this graph labeled as a static call graph, not runtime reachability.
 4. **Implemented in PR #10; review pending:** discover and resolve all tracked Dart files under `lib/`, build cross-file Element edges, and generate source-linked reachability reports for curated VPN, lifecycle, payment, and profile entrypoints. CI Run #58 passed; all 16 configured entrypoints resolved. The current repository still has one tracked Dart file, while a two-file fixture verifies cross-file behavior. Java patch files are linked as boundaries, not analyzed as Dart.
-5. Create focused automated tests for recovery admission, payment-token ownership, profile switching, and lifecycle restoration.
+5. **First recovery-policy seam implemented in `tests/recovery-regression-20261122`; CI pending:** pure policy extraction and unit coverage for `connect_timeout`, unknown reasons, intent gates, and cooldowns. Still required: scheduler integration/device test, payment-token ownership, profile switching, and lifecycle restoration.
 6. Establish a repeatable baseline: format, analyze, test, debug build; preserve logs and artifact references.
 7. Extend source-fingerprint coverage to additional documented files and symbol-level evidence as the architecture is split across files.
 8. Add a task template requiring context loaded, priority test, scope, branch, diff, tests, PR, and memory update.
 
 ## P2 — Close critical source-level risks (separate code PRs)
 
-1. Fix and test `connect_timeout` recovery allowlist mismatch.
+1. **Implementation and initial unit-test run completed in PR #11; full CI/device verification pending:** fix `connect_timeout` recovery allowlist mismatch. Do not mark verified until CI and runtime behavior are checked.
 2. Define a single live-verification invariant for resume and normal connection paths.
 3. Bind pending payment tokens to invoice owner/context and verify backend behavior.
 4. Design encrypted credential storage migration.

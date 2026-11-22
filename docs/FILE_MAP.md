@@ -8,6 +8,8 @@
 | `README.md` | Project overview; may describe wider JetConfig ecosystem not included in this repository. |
 | `pubspec.yaml` | Flutter package metadata, version, SDK constraint, dependencies. |
 | `lib/main.dart` | Main Flutter application; UI, account, payment, server, VPN connection/recovery, settings and update logic. |
+| `lib/recovery_policy.dart` | Pure smart-recovery admission and cooldown policy; added on the recovery regression branch for unit-testable decision rules. |
+| `test/recovery_policy_test.dart` | First application-owned unit suite; tests smart-recovery reason admission, intent gates, and cooldown selection. |
 | `.github/workflows/build.yml` | Production build and GitHub Release workflow; manual dispatch only, requires main ref and explicit confirmation. |
 | `.github/workflows/pr-validation.yml` | Isolated validation workflow proposed in PR #2; not present on `main` until merged. |
 | `.github/workflows/project-memory-audit.yml` | Read-only CI audit of generated code index and source freshness; merged in PR #4. |
@@ -28,7 +30,7 @@
 
 ## Confirmed absences in the application-source snapshot
 
-The recursive `main` tree at the application-source baseline did not contain `android/`, `test/`, `pubspec.lock`, backend PHP sources, bot sources, worker sources, or JET VPN TV sources. CI may generate Android scaffold files in its temporary workspace; that does not make them tracked repository files.
+The recursive `main` tree at the application-source baseline did not contain `android/`, `test/`, `pubspec.lock`; the recovery regression branch adds a `test/` suite, backend PHP sources, bot sources, worker sources, or JET VPN TV sources. CI may generate Android scaffold files in its temporary workspace; that does not make them tracked repository files.
 
 ## Source identity
 

@@ -108,3 +108,17 @@ Append-only record of meaningful project work. Each entry should include branch/
 - **Change:** Added the PR #10 target branch to the existing read-only project-memory workflow filter so the dependent PR receives CI from its base branch.
 - **Verification:** [CI Run #57](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45003966803) succeeded; AST/resolved tooling tests, generation, deterministic check, and lexical freshness audit passed.
 - **Safety:** No app/native source, app dependencies, app version, production release workflow, merge, or Release changed.
+
+
+## 2026-11-22 — Stage 9: first application regression seam (recovery admission)
+
+- **Base:** PR #10 branch `tools/dart-critical-paths-20261122`, commit `9278785227757f83fb11ac676dd018b4053de545`.
+- **Branch:** `tests/recovery-regression-20261122`.
+- **Scope:** Extract deterministic smart-recovery admission rules, add unit tests, and execute the app test suite in the read-only CI workflow.
+- **Changed application files:** `lib/recovery_policy.dart` added; `lib/main.dart` delegates existing recovery gates, reason admission, and cooldown selection to the pure policy. The policy now includes `connect_timeout`, which the 8-second timeout path already requests.
+- **Tests:** `test/recovery_policy_test.dart` covers allowed/unknown reasons, smart-mode and user-intent gates, intentional-stop rejection, and cooldown values. Four test cases are authored; execution is pending CI.
+- **CI:** Added root `flutter test` after `flutter pub get`; added the PR #10 base branch to the audit workflow filter so this dependent PR receives checks.
+- **Memory:** Regenerated `docs/generated/jet_vpn_code_index.json` from the updated source fingerprint `dc1d0832d55c412d7a475cc596d6b20bd611cf38` (8,997 lines; 352,351 UTF-8 bytes; 336,225 code points).
+- **Safety:** No payment/profile/lifecycle code, native Java patch, app dependencies, app version, main branch, or production release workflow changed. No merge, release, build, or device test performed.
+- **Commits:** policy `02c24939352be09998a64334ec9946a76d195f25`; tests `7a368cf3e27a44ea2ee80f6cf1e5558befed1b94`; source integration `b7101afa870262ca116ebb9fcf7e6ab4b9df00cc`; CI `aca73de4a499f0edaa5e9a1d3d24931c92ba05eb`; lexical index `ed05584a624b9686a6ed1cf5b05e0541e0121c30`.
+- **Verification status:** Not yet run. CI must pass before this change is considered validated.

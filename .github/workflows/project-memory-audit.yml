@@ -43,6 +43,9 @@ jobs:
       - name: Resolve application package context for semantic analysis
         run: flutter pub get
 
+      - name: Run application regression tests
+        run: flutter test
+
       - name: Resolve isolated semantic-index tooling
         working-directory: tools/project_memory/semantic
         run: dart pub get --enforce-lockfile

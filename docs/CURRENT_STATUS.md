@@ -23,6 +23,10 @@
 - Telegram bot, payment, backend and server work are deferred unless a concrete issue appears or the user changes priority.
 - JET VPN TV and حسابگر من are separate repositories; do not infer their implementation from this repository.
 
+## Historical detail preservation
+
+The complete pre-refresh status document is preserved verbatim at [`docs/archive/CURRENT_STATUS_pre_memory_refresh_20261122.md`](archive/CURRENT_STATUS_pre_memory_refresh_20261122.md). It contains historical PR snapshots and test/build evidence; some statuses and SHAs are superseded and must not be treated as current.
+
 ## Known memory-maintenance issue being corrected
 
 Earlier snapshot blocks in this document and related memory files incorrectly described PR #16 as open and used the pre-merge main SHA. This refresh supersedes those operational claims. Historical development records remain append-only in `docs/DEVELOPMENT_LOG.md`.

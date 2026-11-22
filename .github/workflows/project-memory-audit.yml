@@ -30,6 +30,37 @@ jobs:
         with:
           fetch-depth: 1
 
+      - name: Set up Flutter and Dart
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.27.4'
+          channel: 'stable'
+          cache: true
+
+      - name: Resolve isolated semantic-index tooling
+        working-directory: tools/project_memory/semantic
+        run: dart pub get
+
+      - name: Test Dart AST indexer
+        working-directory: tools/project_memory/semantic
+        run: dart test
+
+      - name: Generate semantic AST index
+        working-directory: tools/project_memory/semantic
+        run: dart run bin/index.dart --write
+
+      - name: Verify committed semantic AST index
+        run: git diff --exit-code -- docs/generated/jet_vpn_semantic_index.json
+
+      - name: Upload semantic AST index
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jet-vpn-semantic-ast-index
+          path: docs/generated/jet_vpn_semantic_index.json
+          if-no-files-found: warn
+          retention-days: 30
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:

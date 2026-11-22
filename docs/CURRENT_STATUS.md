@@ -3,7 +3,7 @@
 > Snapshot date: 2026-11-22  
 > Repository: `majidbusy09-blip/jetconfig-vpn`  
 > Inspected branch: `tests/live-verification-resume-20261122`  
-> Inspected source-change commit: `fea73bb85cc2568299340f4a2d719ad2e314bd2c`  
+> Inspected source-change commit: `6679e4b69e2d26338b1245536dec889b67374462`  
 > App version: `2.4.5+284`  
 > `lib/main.dart` blob: `a2483f2bb90e528a70440978ac62b9f58264c778` (9,016 lines / 352,934 UTF-8 bytes / 336,842 Unicode code points)  
 > `pubspec.yaml` blob: `adc3b22a4538db4738bec789e3c3badf26e4f710`  
@@ -31,7 +31,8 @@
 - PR #9: analyzer-resolved Element graph; open, draft, unmerged; dependent on PR #8; CI Run #57 succeeded.
 - PR #10: multi-file Dart resolution and critical-path report; open, draft, unmerged; dependent on PR #9 and PR #8; CI Run #58 succeeded; workflow-trigger refresh Run #65 is being revalidated.
 - PR #11: recovery admission policy and first application regression tests; open, draft, unmerged; targets PR #10 branch; full CI Run [#45008026404](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45008026404) succeeded, including app `flutter test`, semantic tooling tests/generation, and lexical freshness audit.
-- PR #12 (current branch): fresh live-connection verification on restore/resume; open, draft, unmerged, based on PR #11; full CI Run [#45008634023](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45008634023) succeeded, including app tests, all semantic tooling tests/generation, deterministic regeneration, and lexical freshness.
+- PR #12: fresh live-connection verification on restore/resume; open, draft, unmerged, based on PR #11; full CI Run [#45008634023](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45008634023) and final audit Run [#45008853860](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45008853860) succeeded.
+- PR #13 (current branch): extracts the asynchronous live-ping sequence behind an injectable verifier and adds deterministic async tests; based on PR #12, pending CI/review.
 
 ## Build and test baseline
 
@@ -56,4 +57,4 @@ The previous critical risk that an ordinary push/merge to main automatically pub
 
 ## Memory freshness
 
-This document preserves the authoritative `main` snapshot and separately records the review-branch source fingerprint above. `main` has one tracked Dart file under `lib/`; the PR #11 review branch has two (`lib/main.dart` and `lib/recovery_policy.dart`), and the current PR #12 branch adds `lib/live_connection_policy.dart`. The lexical index remains a navigation aid; PR #10 semantic tooling resolves every tracked Dart file and emits static critical-path reports. These outputs do not establish runtime behavior.
+This document preserves the authoritative `main` snapshot and separately records the review-branch source fingerprint above. `main` has one tracked Dart file under `lib/`; the PR #11 review branch has two (`lib/main.dart` and `lib/recovery_policy.dart`), and PR #12 adds `lib/live_connection_policy.dart`; the current PR #13 branch adds `lib/live_connection_verifier.dart` and its async test suite. The lexical index remains a navigation aid; PR #10 semantic tooling resolves every tracked Dart file and emits static critical-path reports. These outputs do not establish runtime behavior.

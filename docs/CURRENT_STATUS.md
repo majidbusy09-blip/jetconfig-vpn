@@ -3,7 +3,7 @@
 > Snapshot date: 2026-11-22  
 > Repository: `majidbusy09-blip/jetconfig-vpn`  
 > Inspected branch: `main`  
-> Inspected commit: `66b1b0127b0fc2ae58602c5cf2a69be6536466b7`  
+> Inspected commit: `1f2519923cdd9f85ab280a3a4359d7ed5aed3949`  
 > App version: `2.4.5+284`  
 > `lib/main.dart` blob: `df2914b2954d723869e4196d96f96b050618985a` (9,001 lines / 352,404 UTF-8 bytes / 336,257 Unicode code points)  
 > `pubspec.yaml` blob: `adc3b22a4538db4738bec789e3c3badf26e4f710`  
@@ -25,13 +25,19 @@
 - PR #3: durable agent memory and operating rules; merged into main at `477ff12fb5a82ba2b2bb3f68a268d27f679c40ab`.
 - PR #4: automated code index and memory freshness audit; **merged** into main at `66b1b0127b0fc2ae58602c5cf2a69be6536466b7`.
 - PR #5: manual release confirmation gate; merged at `f396f57459c9863a325f27e7d438e9456d560e92`.
+- PR #6: project-memory documentation snapshot refresh; merged at current `main` `1f2519923cdd9f85ab280a3a4359d7ed5aed3949`.
+- PR #7: disposable stale-index negative test; closed unmerged after the audit correctly rejected the stale fingerprint.
+- PR #8: Dart AST tooling; open, unmerged; CI Run #40 succeeded.
+- PR #9: analyzer-resolved Element graph; open, draft, unmerged; dependent on PR #8; CI Run #57 succeeded.
+- PR #10: multi-file Dart resolution and critical-path report; open, draft, unmerged; dependent on PR #9 and PR #8; CI Run #58 succeeded.
 
 ## Build and test baseline
 
 - Production workflow: `.github/workflows/build.yml`; manual `workflow_dispatch` only; requires `confirm_release=true` and selected ref `main`; Java 17 / Flutter 3.27.4; signs APKs and publishes a GitHub Release.
 - PR #2 validation workflow previously succeeded in run #10 (ID `44983819542`) and produced a debug APK artifact. It did not execute an app test suite because the repository has no `test/` directory.
 - PR #4's final strict project-memory audit passed in run [#44999570281](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/44999570281) on head `5508b99d1666f24bc602363f32b1eb770065518a`; all five main steps succeeded. Artifact `jet-vpn-code-index`, ID `14744947755`, retained until 2026-12-22.
-- No runtime/device test was run for this documentation and tooling work. A passing build or memory audit does not prove VPN connection, payment, update, or Android lifecycle behavior.
+- PR #10's project-memory tool suite has 10 distinct tests (3 AST, 5 resolved-indexer, 2 critical-path tests); all passed in CI Run #58. These are tooling tests, not application regression tests.
+- No app build or runtime/device test was run for PRs #8–#10. A passing memory audit does not prove VPN connection, payment, update, or Android lifecycle behavior.
 
 ## Known high-priority risks
 
@@ -48,4 +54,4 @@ The previous critical risk that an ordinary push/merge to main automatically pub
 
 ## Memory freshness
 
-This document is authoritative for the exact main SHA and file blob SHAs listed above. The application implementation details in architecture/API/storage/payment documents remain based on the unchanged `lib/main.dart` blob. The project-memory audit verifies the generated lexical index and source fingerprint/size metrics; it does not establish semantic call relationships or runtime behavior.
+This document is authoritative for the exact main SHA and file blob SHAs listed above. The application implementation details in architecture/API/storage/payment documents remain based on the unchanged `lib/main.dart` blob. The lexical index remains a navigation aid for `lib/main.dart`; the proposed semantic tooling in PR #10 resolves every tracked Dart file under `lib/` (currently one file) and emits curated static critical-path reports. These outputs do not establish runtime behavior.

@@ -3,7 +3,19 @@ import 'package:jet_vpn/recovery_policy.dart';
 
 void main() {
   group('SmartRecoveryPolicy', () {
-    test('allows every documented recovery reason, including connect timeout', () {
+    test('matches the complete documented recovery allowlist', () {
+      expect(
+        SmartRecoveryPolicy.allowedReasons,
+        equals({
+          'cold_restore',
+          'health_delay',
+          'network_restored',
+          'network_back',
+          'verify_fail',
+          'status_drop',
+          'connect_timeout',
+        }),
+      );
       for (final reason in SmartRecoveryPolicy.allowedReasons) {
         expect(
           SmartRecoveryPolicy.isReasonAllowed(reason),

@@ -33,6 +33,18 @@ Commit the regenerated JSON and updated `CURRENT_STATUS.md` in the same pull req
 
 This is an AST-derived **syntactic** call-site graph, not resolved analyzer elements. Name-based candidate matching is not proof of semantic binding; methods with the same name in unrelated classes can remain ambiguous. Calls into Flutter/dependencies and dynamic/function-valued calls are often unresolved. It does not prove runtime reachability.
 
+## Analyzer-resolved call graph (experimental follow-up)
+
+- The follow-up branch `tools/dart-semantic-resolution-20261122` adds `resolved_indexer.dart` and `bin/resolve.dart` using `AnalysisContextCollection` and `AnalysisSession.getResolvedUnit`.
+- The visitor reads the resolved Element attached to each supported invocation node. Calls are labeled `resolved_element` only when the analyzer provides a target Element; unresolved dynamic/function-valued calls remain unresolved rather than being guessed by name.
+- Stable target identifiers are derived from the Element source URI, name, and name offset. The output records caller/target IDs, target source, repository-vs-external classification, source line, analyzer diagnostics, and unresolved counts.
+- CI first runs `flutter pub get` at the app root to provide the package configuration needed to resolve Flutter and application imports. It then runs the isolated tooling package with its enforced lockfile, focused resolver tests, and deterministic generation checks.
+- The resolved graph remains scoped to `lib/main.dart`; the AST candidate graph remains available for side-by-side comparison. The follow-up PR targets the AST-tooling branch and depends on PR #8; neither PR is merged by this work.
+
+### Semantic precision boundary
+
+An analyzer Element is a statically resolved symbol, not proof of runtime execution. Virtual dispatch can select a runtime override different from the statically referenced declaration; dynamic calls, unresolved imports, reflection, generated code, callbacks, and native behavior may remain unresolved or outside this graph. Analyzer diagnostics must be reported alongside counts; unresolved calls are not automatically defects.
+
 ## What the audit guarantees
 
 - The generated index is byte-for-byte reproducible from the checked-out source using the committed generator.

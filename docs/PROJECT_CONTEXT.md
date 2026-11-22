@@ -1,6 +1,7 @@
 # JET VPN — Project Context
 
-> Verified source snapshot: `main` at `47949178016a6ef3e855a215550b06f4eae8378d` (2026-11-22).  
+> Current verified repository snapshot: `main` at `f396f57459c9863a325f27e7d438e9456d560e92` (2026-11-22).  
+> Application-source baseline: `47949178016a6ef3e855a215550b06f4eae8378d`; no app-source changes since that baseline.  
 > Main source blob: `lib/main.dart` = `df2914b2954d723869e4196d96f96b050618985a`.  
 > App version: `2.4.5+284` (`pubspec.yaml` and matching constants in `lib/main.dart`).
 
@@ -10,8 +11,8 @@
 - Telegram bot: [@JetConfig1bot](https://t.me/JetConfig1bot).
 - Telegram information channel: [@jetconfig11](https://t.me/jetconfig11).
 - In-app purchase is active; the bot remains an alternative purchase and management route. These are user/product context, not proof of backend implementation.
-- This repository is the Flutter Android client. The verified recursive root tree contains only `.github/workflows/build.yml`, `README.md`, `lib/main.dart`, `pubspec.yaml`, and `tools/v2ray_notif_patch/` with three Java files and one shell script.
-- No backend PHP source, Telegram bot source, admin panel, worker, Android project directory, test directory, or lockfile was present in the verified `main` tree.
+- This repository is the Flutter Android client. The inspected application-source tree contains `.github/workflows/build.yml`, `README.md`, `lib/main.dart`, `pubspec.yaml`, and `tools/v2ray_notif_patch/` with three Java files and one shell script.
+- No backend PHP source, Telegram bot source, admin panel, worker, Android project directory, test directory, or lockfile was present in the inspected main snapshot.
 
 ## Runtime summary
 
@@ -27,7 +28,11 @@ Smart routing, direct/domestic app handling, account profiles, purchase/renewal,
 
 ## Collaboration contract
 
-The repository's `AGENTS.md` is the mandatory operating contract. The short version: load project memory first, verify current source, work on isolated branches, show diffs and evidence, open PRs, and do not merge or release without explicit approval.
+The repository's `AGENTS.md` is the mandatory operating contract. Before prioritizing work, apply the collaborator-priority test stated there. The short version: load project memory first, verify current source, work on isolated branches, show diffs and evidence, open PRs, and do not merge or release without explicit approval.
+
+## Release workflow
+
+The production workflow `.github/workflows/build.yml` is manual-only after merged PR #5: `workflow_dispatch`, selected ref `main`, and explicit `confirm_release=true` are required. Ordinary pushes and PR merges do not publish a Release. A confirmed manual run can publish signed APKs and a public GitHub Release; never trigger it without explicit approval.
 
 ## External source dependencies and unknowns
 

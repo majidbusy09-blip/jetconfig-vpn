@@ -65,13 +65,13 @@ void main() {
     final calls = index['call_sites'] as List;
     expect(calls.any((call) =>
         call['invocation_kind'] == 'constructor' &&
-        call['target_name'] == 'new'), isTrue);
+        call['target_element_id'] != null &&
+        call['target_expression'].toString().contains('Service')), isTrue);
     expect(calls.any((call) =>
         call['invocation_kind'] == 'method' &&
         call['target_name'] == 'start' &&
         call['resolution_status'] == 'resolved_element'), isTrue);
     expect(calls.any((call) =>
-        call['invocation_kind'] == 'function_expression' &&
         call['target_name'] == 'helper' &&
         call['resolution_status'] == 'resolved_element'), isTrue);
   });

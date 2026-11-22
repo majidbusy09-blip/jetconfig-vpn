@@ -68,14 +68,19 @@ void main() {
       var current = true;
       final verifier = LiveConnectionVerifier(wait: (_) async {});
 
+      final pingStarted = Completer<void>();
       final future = verifier.verify(
         silent: true,
         isCurrent: () => current,
         forceDisconnected: () => false,
         coreConnected: () => true,
-        getConnectedServerDelay: () => ping.future,
+        getConnectedServerDelay: () {
+          pingStarted.complete();
+          return ping.future;
+        },
         timeout: const Duration(seconds: 1),
       );
+      await pingStarted.future;
       current = false;
       ping.complete(55);
 

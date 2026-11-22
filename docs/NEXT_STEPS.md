@@ -11,19 +11,19 @@ Priority is measured against the goal of a reliable, independent programming col
 - The APK uses Android Debug signing, not the production release key. Its package ID is distinct and the validation updater is disabled.
 - No physical-device test, merge, production release, or deployment has occurred. Main and production release workflow remain untouched.
 
-## P0 — Physical-device validation
+## P0 — Physical-device validation — user reports passed
 
-1. Install `JET VPN TEST` alongside the existing JET VPN; do not uninstall or overwrite the production app. The test package is ARM64-only and intended for compatible 64-bit Android devices.
-2. Follow the exact checklist in [DEVICE_VALIDATION.md](DEVICE_VALIDATION.md). Record device model, Android version, app behavior, and relevant logs for each scenario.
-3. Test only VPN connection/recovery behavior. Do not test purchases, payments, subscriptions, or production updater behavior in the validation build; its updater is intentionally disabled.
-4. If any test fails, capture the exact sequence and logs before changing code. Fix only the demonstrated defect, add a regression test, rebuild, and repeat.
-5. Do not claim recovery is production-validated until real tunnel traffic and Android lifecycle behavior pass on-device.
+- User reports all four scenarios in [DEVICE_VALIDATION.md](DEVICE_VALIDATION.md) passed: cold start/restore, background resume, explicit disconnect during verification, and profile switch during verification.
+- The result is recorded as user-reported evidence; device model, Android build, network type, and diagnostic logs were not supplied. Do not overgeneralize beyond the tested environment.
+- This closes the immediate device-test action. If a defect appears later, capture logs and reproduce before modifying code.
+- Purchases, payments, subscriptions, and production updater behavior remain untested and out of scope for this validation APK.
 
-## P1 — Review and activate the collaborator foundation safely
+## P1 — Final PR #16 review and merge decision
 
-1. Review the complete PR #16 diff against main, especially `lib/main.dart` integration points, cancellation/generation guards, and test coverage.
+1. Complete a final review of all changed files against main, focusing on `lib/main.dart` integration points, cancellation/generation guards, CI safety, and test coverage.
 2. Verify generated project-memory outputs and all docs against the exact final PR head; stale snapshots block approval.
-3. After device evidence and final review, present a merge decision for explicit user approval. Never merge autonomously.
+3. Check CI and PR review feedback on the final head. Resolve any blockers and report residual risks.
+4. Present a concise merge recommendation and wait for explicit user approval. Never merge autonomously.
 
 ## P2 — Improve project memory and task execution
 

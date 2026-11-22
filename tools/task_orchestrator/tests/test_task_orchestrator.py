@@ -186,17 +186,21 @@ class OrchestratorIntegrationTests(unittest.TestCase):
 
     def test_scope_validation_handles_rename_and_delete(self) -> None:
         old = self.root / "docs/old-note.md"
-        old.write_text("baseline\\n", encoding="utf-8")
+        deleted = self.root / "docs/delete-note.md"
+        old.write_text("rename baseline\\n", encoding="utf-8")
+        deleted.write_text("delete baseline\\n", encoding="utf-8")
         git(self.root, "add", ".")
-        git(self.root, "commit", "-m", "add scoped fixture")
+        git(self.root, "commit", "-m", "add scoped fixtures")
         self.prepared_task()
         self.cli("begin", "--task-id", self.task_id)
         git(self.root, "mv", "docs/old-note.md", "docs/renamed-note.md")
-        (self.root / "docs/renamed-note.md").unlink()
+        deleted.unlink()
         self.cli("validate-scope", "--task-id", self.task_id)
         record = json.loads(self.record.read_text(encoding="utf-8"))
         self.assertEqual(record["scope_validation"]["status"], "passed")
         self.assertIn("docs/old-note.md", record["changed_paths"])
+        self.assertIn("docs/renamed-note.md", record["changed_paths"])
+        self.assertIn("docs/delete-note.md", record["changed_paths"])
 
     def test_finalize_requires_explicit_diff_review(self) -> None:
         self.prepared_task()

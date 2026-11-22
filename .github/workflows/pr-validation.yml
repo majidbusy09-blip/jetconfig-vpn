@@ -12,6 +12,7 @@ on:
       - "test/**"
       - "pubspec.yaml"
       - "tools/v2ray_notif_patch/**"
+      - "tools/validation/**"
       - ".github/workflows/pr-validation.yml"
       - "docs/**"
   workflow_dispatch:
@@ -66,6 +67,9 @@ jobs:
 
       - name: Prepare isolated validation package and updater guard
         run: python3 tools/validation/prepare_validation_build.py
+
+      - name: Align validation Android manifest and SDK with production
+        run: python3 tools/validation/align_validation_android.py
 
       - name: Report generated Android package identity
         shell: bash

@@ -41,9 +41,10 @@ The initial command set:
 1. `init`: create a task record from explicit goal, risk, allowed paths, excluded paths, and intended checks. It must not modify application files.
 2. `prepare`: load mandatory context; capture repository identity, branch, base/head SHAs, clean-worktree status, app version, declared scope, and pre-change Git blob fingerprints. Refuse to proceed on `main`, a dirty pre-existing worktree, missing required context, or an ambiguous base.
 3. `impact`: attach available semantic-index and critical-path artifact fingerprints and report relevant declarations/call edges for the declared source paths. Missing or stale artifacts are reported as unavailable, never silently treated as zero impact.
-4. `validate-scope`: compare changed paths against declared allowed/excluded paths; fail on unexpected files and protected paths.
-5. `verify`: run only named, repository-owned profiles (for example `docs`, `flutter-tests`, `flutter-analysis`, `validation-apk`). Each check has a fixed argument vector, timeout, working directory, and recorded exit status. No shell interpolation or arbitrary commands supplied by task text.
-6. `finalize`: capture final SHA, diff summary, changed paths, post-change fingerprints, check outcomes (passed/failed/skipped/not-run), remaining risks, and render a PR handoff report.
+4. `begin`: explicitly transition a prepared task into implementation and record the implementation-start SHA. It does not edit files or create commits.
+5. `validate-scope`: compare changed paths against declared allowed/excluded paths; fail on unexpected files and protected paths.
+6. `verify`: run only named, repository-owned profiles (for example `docs`, `flutter-tests`, `flutter-analysis`, `validation-apk`). Each check has a fixed argument vector, timeout, working directory, and recorded exit status. No shell interpolation or arbitrary commands supplied by task text.
+7. `finalize`: capture final SHA, diff summary, changed paths, post-change fingerprints, check outcomes (passed/failed/skipped/not-run), remaining risks, and render a PR handoff report.
 
 The orchestrator must never create a commit, push a branch, open/merge a PR, create a tag, publish a release, deploy, or dispatch the production workflow in the MVP. Those remain separate, explicitly authorized actions.
 
@@ -65,7 +66,7 @@ State transitions are one-way and explicit:
 
 `draft → prepared → implementation → verification → review_ready`
 
-Any gate failure moves the task to `blocked` with a reason. A task cannot reach `review_ready` if scope validation failed, a required check failed, a required check was not run, or the final diff was not inspected. Re-running a check appends an attempt; it must not erase a previous failure.
+Any gate failure moves the task to `blocked` with a reason. The `begin` command is the only transition into implementation. A task cannot reach `review_ready` if scope validation failed, a required check failed, a required check was not run, or the final diff was not inspected. Re-running a check appends an attempt; it must not erase a previous failure.
 
 ## 6. Fail-closed safety policy
 

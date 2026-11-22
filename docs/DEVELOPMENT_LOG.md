@@ -182,3 +182,11 @@ Append-only record of meaningful project work. Each entry should include branch/
 - **Identity evidence:** production `.github/workflows/build.yml` and non-production scaffold both use `flutter create . --platforms=android --project-name=jetconfig_vpn --org com.jetconfig.vpn`, yielding `com.jetconfig.vpn.jetconfig_vpn`. The comparison APK certificate is `CN=Android Debug`; the production release workflow uses the configured release keystore. Certificate fingerprints were not compared.
 - **Memory changes:** corrected the current-status header, made next steps reflect completed APK work and the actual safe next action, appended this log entry, and added `docs/TASK_TEMPLATE.md`; `AGENTS.md` now requires use of the template for non-trivial tasks.
 - **Limitations:** no production APK signature comparison, install test, Android device test, native V2Ray runtime test, or real tunnel-traffic validation was performed. PR #16 remains draft/unmerged. No release or deployment occurred.
+
+
+## 2026-11-22 — Documentation protocol finalized
+
+- **Docs-only head:** `c8c40f3e174248a5c01b5b4449e874abd983e464` (application source unchanged from the previously validated integration source).
+- Added `docs/TASK_TEMPLATE.md` and linked it from the mandatory context-loading sequence in `AGENTS.md`.
+- Corrected `docs/CURRENT_STATUS.md` to identify the current integration head and exact CI/artifact evidence; rewrote `docs/NEXT_STEPS.md` so the next action reflects verified state rather than already-completed APK work.
+- This commit changes documentation only. A fresh project-memory audit must pass on the final docs head before this documentation refresh is marked fully validated.

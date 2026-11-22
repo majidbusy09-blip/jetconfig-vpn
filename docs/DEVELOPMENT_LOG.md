@@ -84,3 +84,19 @@ Append-only record of meaningful project work. Each entry should include branch/
 - **Artifact:** `jet-vpn-semantic-ast-index`, ID `14746174961`, 30-day retention; includes the AST index, resolved-element graph, and isolated tooling lockfile.
 - **Diff review:** only `.github/workflows/project-memory-audit.yml`, project-memory documentation, and files under `tools/project_memory/semantic/` changed relative to the PR #8 base. No app source, native source, app dependency manifest, app version, or production release workflow changed.
 - **Review state:** PR #9 remains draft/open/unmerged and targets PR #8's branch. No app build, runtime/device test, merge, or Release was performed.
+
+
+## 2026-11-22 — Stage 8: multi-file Dart resolution and critical-path impact maps (PR #10)
+
+- **Base branch:** `tools/dart-semantic-resolution-20261122`, base SHA `ceea8af5aac276473c3c0422d3e1a3c0d1576a69`.
+- **Branch/head:** `tools/dart-critical-paths-20261122`, final SHA `a611d9e995d889aa7d560c92e30c184d497c2fdb`.
+- **PR:** [#10 — index Dart source set and critical paths](https://github.com/majidbusy09-blip/jetconfig-vpn/pull/10); open, draft, unmerged; depends on PR #9 and PR #8.
+- **Scope:** Isolated project-memory tooling, read-only workflow, curated manifest, and docs. No app/native source, app dependency manifest, app version, or production release workflow changed.
+- **Implementation:** Resolver discovers all tracked `lib/**/*.dart` files via `git ls-files`, records per-file blob SHA/metrics/diagnostics, and links cross-file calls by analyzer Element IDs. Critical-path generator traverses internal resolved edges from curated entrypoints and reports external/unresolved calls plus missing/ambiguous anchors. Native Java patch sources are included as explicit references only, not Dart-analyzed edges.
+- **Critical-path anchors:** VPN connection/recovery 5/5 resolved; lifecycle 5/5; purchase/payment 4/4; profiles/account 2/2. No missing or ambiguous configured entrypoints.
+- **Current source set:** one tracked Dart file under `lib/`; `lib/main.dart` blob `df2914b2954d723869e4196d96f96b050618985a`. A two-file analyzer fixture verifies cross-file resolution and repository classification.
+- **Resolved graph:** 468 declarations; 3,394 call sites; 3,353 resolved targets; 41 unresolved targets; 3,321 caller-target edges; 481 internal edges; 2,870 external targets; 112 analyzer diagnostics, zero errors.
+- **Workflow:** [CI Run #58](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45004481949) succeeded. Ten distinct tooling tests passed (3 AST, 5 resolved indexer, 2 critical-path). AST, resolved index, and critical-path outputs regenerated twice and compared byte-for-byte; lexical index freshness audit passed.
+- **Critical-path summaries:** connection/recovery 51 declarations / 602 calls (149 internal, 437 external, 16 unresolved); lifecycle 29 / 273 (67, 201, 5); purchase/payment 27 / 279 (51, 227, 1); profiles/account 23 / 238 (37, 200, 1).
+- **Artifact:** `jet-vpn-semantic-ast-index`, ID `14747635635`, 30-day retention; contains AST, resolved multi-file index, critical-path report, manifest, and tooling lockfile.
+- **Verification boundary:** No app build, runtime/device test, merge, or Release was performed. Static transitive reachability is not proof of runtime execution; callbacks, state-field dependencies, dynamic calls, and native runtime behavior remain incomplete.

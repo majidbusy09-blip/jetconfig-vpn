@@ -58,3 +58,21 @@ The previous critical risk that an ordinary push/merge to main automatically pub
 ## Memory freshness
 
 This document preserves the authoritative `main` snapshot and separately records the review-branch source fingerprint above. `main` has one tracked Dart file under `lib/`; the PR #11 review branch has two (`lib/main.dart` and `lib/recovery_policy.dart`), and PR #12 adds `lib/live_connection_policy.dart`; the current PR #13 branch adds `lib/live_connection_verifier.dart` and its async test suite. The lexical index remains a navigation aid; PR #10 semantic tooling resolves every tracked Dart file and emits static critical-path reports. These outputs do not establish runtime behavior.
+
+
+## Integration review snapshot — PR #16 (2026-11-22)
+
+This section supersedes the earlier PR #13 branch snapshot above for the integrated review branch; the earlier snapshot is retained as historical evidence.
+
+- **Branch:** `integration/memory-and-recovery-20261122`.
+- **Reviewed source head before documentation refresh:** `287448bfae73d6b38e95e4944b6c23afa0ea80f4`.
+- **Base main:** `1f2519923cdd9f85ab280a3a4359d7ed5aed3949`.
+- **App version:** `2.4.5+284`; unchanged.
+- **Application source:** `lib/main.dart` blob `3d28693b7be8bfe309a850923599830e1a65ab59`.
+- **Integration diff:** 32 files; 2,762 additions / 432 deletions. It consolidates PRs #8–#13: AST and analyzer-resolved indexing, critical-path tooling, recovery policy, live-connection UI policy, asynchronous verifier, app integration, tests, and docs.
+- **Latest CI on the reviewed source head:** [Run #91 / 45018162238](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45018162238) succeeded. Application tests, semantic tooling tests/generation, deterministic AST regeneration, lexical freshness, and both artifacts passed.
+- **Artifacts:** code index ID `14753040563`; semantic AST/index bundle ID `14752731739`; expire 2026-12-22.
+- **Source review:** no source-level blocker found in the focused review. See `docs/INTEGRATION_REVIEW.md` for the scope, verified behavior, and exact limitations.
+- **Not verified:** APK build, Android emulator/device behavior, Android lifecycle integration, native V2Ray behavior, or real tunnel traffic.
+- **PR state:** open, draft, unmerged. GitHub reported mergeable/clean at reviewed head. Do not merge or release without explicit user approval.
+- **Deferred:** bot, payment, backend, and server changes remain out of current priority per user direction.

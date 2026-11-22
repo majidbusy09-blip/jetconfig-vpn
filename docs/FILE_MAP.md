@@ -1,6 +1,6 @@
 # JET VPN — Verified Repository File Map
 
-> Current source snapshot: `main` at `1f2519923cdd9f85ab280a3a4359d7ed5aed3949`, 2026-11-22. Application source baseline `47949178016a6ef3e855a215550b06f4eae8378d` is unchanged; PR #5 modifies only the release workflow and PR #4 adds developer tooling/documentation.
+> Current source snapshot: `main` at `eae477a89816a5cfd475c596e166d5cb2575884a`, 2026-11-22. PR #16 and PR #17 are merged. App version `2.4.5+284`; `lib/main.dart` blob `3d28693b7be8bfe309a850923599830e1a65ab59`.
 
 | Path | Verified purpose |
 |---|---|
@@ -38,11 +38,11 @@
 
 ## Confirmed absences in the application-source snapshot
 
-The current `main` tree contains a tracked `test/` suite and isolated semantic tooling. No backend PHP sources, Telegram bot sources, website/admin source, worker source, or JET VPN TV source are present in this repository. CI may generate Android scaffold files in its temporary workspace; that does not make them tracked application source. CI may generate Android scaffold files in its temporary workspace; that does not make them tracked repository files.
+The current `main` tree contains a tracked `test/` suite and isolated semantic tooling. No backend PHP sources, Telegram bot sources, website/admin source, worker source, or JET VPN TV source are present in this repository. CI may generate Android scaffold files in its temporary workspace; that does not make them tracked application source.
 
 ## Source identity
 
-- Current `main`: `${head}`.
+- Current `main`: `eae477a89816a5cfd475c596e166d5cb2575884a`.
 - `lib/main.dart`: blob `${mainBlob}`, 9,008 lines, 352,770 UTF-8 bytes, 336,710 Unicode code points.
 - `pubspec.yaml`: blob `adc3b22a4538db4738bec789e3c3badf26e4f710`, version `2.4.5+284`.
 - `.github/workflows/build.yml`: blob `abdb595af8df6b2d02ab0ba1da665ac9de1d6461`; manual release gate.

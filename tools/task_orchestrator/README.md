@@ -39,12 +39,12 @@ The example is illustrative: choose only checks appropriate to the actual task. 
 
 ## Commands
 
-- `init`: requires an initially clean worktree and explicit allowed paths and named checks.
-- `prepare`: rejects main/master, detached HEAD, pre-existing changes, and missing mandatory project context; pins the base SHA and fingerprints context/source files.
+- `init`: requires an initially clean worktree and explicit allowed paths and named checks. Repository-wide patterns (`*`, `**`, `**/*`) require `--risk high` and `--scope-reason`.
+- `prepare`: rejects main/master/the detected `origin/HEAD` default branch, detached HEAD, pre-existing changes, changed repository origin, and missing mandatory project context; pins the base SHA and fingerprints context/source files.
 - `impact`: records hashes and availability of existing semantic/critical-path artifacts. The MVP does not independently prove freshness or complete path-specific impact.
 - `begin`: verifies that the pinned base has not moved before entering implementation.
 - `validate-scope`: compares committed, staged, unstaged, renamed, deleted, and untracked paths with the declared allow/exclude patterns.
-- `verify`: runs only fixed profiles declared at init; no shell command can be supplied by task text.
+- `verify`: runs only fixed profiles declared at init; no shell command can be supplied by task text. The child process receives a restricted environment allowlist so arbitrary local API tokens are not forwarded.
 - `finalize`: requires passing scope validation, latest passing attempt for every planned check, and explicit human confirmation that the complete diff was reviewed. It writes a Markdown handoff.
 
 Task records and handoffs are stored under `.agent/tasks/<task-id>/`. They contain hashes and check metadata, not environment variables, credentials, or raw command output.
@@ -56,7 +56,7 @@ Task records and handoffs are stored under `.agent/tasks/<task-id>/`. They conta
 - `flutter-analysis`
 - `lexical-memory-audit`
 
-Profiles use fixed argument vectors, bounded timeouts, and `shell=False`. A missing executable or timeout is recorded as failure. Repeated attempts append to the record; an earlier failure is not erased.
+Profiles use fixed argument vectors, bounded timeouts, `shell=False`, and a restricted environment allowlist. A missing executable, OS execution error, or timeout is recorded as failure. Repeated attempts append to the record; an earlier failure is not erased.
 
 ## Explicit non-goals
 

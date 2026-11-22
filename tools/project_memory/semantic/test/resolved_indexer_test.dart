@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'package:test/test.dart';
 import 'package:jet_vpn_semantic_memory/resolved_indexer.dart';
@@ -75,6 +76,34 @@ void main() {
     expect(calls.any((call) =>
         call['target_name'] == 'helper' &&
         call['resolution_status'] == 'resolved_element'), isTrue);
+  });
+
+  test('classifies the application package URI as repository code', () async {
+    await Directory('${temp.path}/lib').create(recursive: true);
+    await Directory('${temp.path}/.dart_tool').create(recursive: true);
+    await File('${temp.path}/pubspec.yaml').writeAsString('name: fixture_app\\n');
+    await File('${temp.path}/.dart_tool/package_config.json').writeAsString(jsonEncode({
+      'configVersion': 2,
+      'packages': [
+        {
+          'name': 'fixture_app',
+          'rootUri': '../',
+          'packageUri': 'lib/',
+          'languageVersion': '3.5',
+        },
+      ],
+    }));
+    final file = File('${temp.path}/lib/fixture.dart');
+    await file.writeAsString('class Thing { void run() {} void invoke() { run(); } }');
+    final index = await buildResolvedIndex(
+      sourcePath: file.path,
+      repositoryRoot: temp.path,
+      sourceGitBlobSha: 'fixture-blob',
+    );
+    final call = (index['call_sites'] as List)
+        .singleWhere((entry) => entry['target_name'] == 'run');
+    expect(call['target_element_source'], 'package:fixture_app/fixture.dart');
+    expect(call['target_is_in_repository'], isTrue);
   });
 
   test('reports dynamic invocation as unresolved instead of guessing', () async {

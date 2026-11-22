@@ -5,6 +5,7 @@ import 'package:analyzer/dart/analysis/results.dart';
 import 'package:analyzer/dart/ast/ast.dart';
 import 'package:analyzer/dart/ast/visitor.dart';
 import 'package:analyzer/dart/element/element.dart';
+import 'package:analyzer/source/line_info.dart';
 
 /// Builds call sites using analyzer-resolved Elements, not name matching.
 Future<Map<String, Object?>> buildResolvedIndex({
@@ -22,7 +23,10 @@ Future<Map<String, Object?>> buildResolvedIndex({
       throw StateError('Analyzer did not return a resolved unit for $absoluteSource (${result.runtimeType}).');
     }
     final sourceText = await File(absoluteSource).readAsString();
-    final visitor = _ResolvedIndexVisitor(repositoryRoot: absoluteRoot);
+    final visitor = _ResolvedIndexVisitor(
+      repositoryRoot: absoluteRoot,
+      lineInfo: LineInfo.fromContent(sourceText),
+    );
     result.unit.accept(visitor);
     final resolved = visitor.calls.where((call) => call['target_element_id'] != null).length;
     final unresolved = visitor.calls.length - resolved;
@@ -71,8 +75,10 @@ Future<Map<String, Object?>> buildResolvedIndex({
 }
 
 class _ResolvedIndexVisitor extends RecursiveAstVisitor<void> {
-  _ResolvedIndexVisitor({required this.repositoryRoot});
+  _ResolvedIndexVisitor({required this.repositoryRoot, required this.lineInfo});
   final String repositoryRoot;
+  final LineInfo lineInfo;
+  int _line(AstNode node) => lineInfo.getLocation(node.offset).lineNumber;
   final List<Map<String, Object?>> declarations = [];
   final List<Map<String, Object?>> calls = [];
   String? _callerId;
@@ -103,7 +109,7 @@ class _ResolvedIndexVisitor extends RecursiveAstVisitor<void> {
       'id': id,
       'kind': kind,
       'name': name,
-      'line': node.beginToken.line,
+      'line': _line(node),
       'offset': node.offset,
       'element_resolved': element != null,
       'element_source': element?.source?.uri.toString(),
@@ -142,7 +148,7 @@ class _ResolvedIndexVisitor extends RecursiveAstVisitor<void> {
 
   @override
   void visitConstructorDeclaration(ConstructorDeclaration node) {
-    final name = node.name?.lexeme ?? node.returnType.name.lexeme;
+    final name = node.name?.lexeme ?? node.returnType.toSource();
     _recordDeclaration('constructor', name, node.declaredElement, node,
         () => node.visitChildren(this));
   }

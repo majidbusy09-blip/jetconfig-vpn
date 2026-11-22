@@ -306,7 +306,7 @@ packages:
     dependency: transitive
     description:
       name: term_glyph
-      sha256: "7f554798625ea768a7518313e58f83891c7f5024f88e46e7182a4558850a4b8e"
+      sha256: "a29248a84fbb7c79282b40b8c72a1209db169a2e0542bce341da992fe1bc7e84"
       url: "https://pub.dev"
     source: hosted
     version: "1.2.1"

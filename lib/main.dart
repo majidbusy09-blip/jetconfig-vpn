@@ -624,6 +624,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
   /// فقط بعد از تأیید واقعی (getConnectedServerDelay) دکمه سبز می‌شود
   bool _connectionVerified = false;
   int _verifyGen = 0; // برای باطل کردن verifyهای قدیمی
+  final LiveConnectionVerifier _liveConnectionVerifier = LiveConnectionVerifier();
 
   Map<String, dynamic>? userData;
   String? savedUser;
@@ -1614,32 +1615,19 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
       });
     }
 
-    // کمی صبر تا تونل پایدار شود (در silent کوتاه‌تر)
-    await Future.delayed(Duration(milliseconds: silent ? 200 : 800));
-    if (!mounted || gen != _verifyGen) return;
-    if (!silent && _uiForceDisconnected) return;
-
-    int delay = -1;
-    final attempts = silent ? 1 : 2;
-    for (var attempt = 0; attempt < attempts; attempt++) {
-      if (!mounted || gen != _verifyGen) return;
-      if (!silent && _uiForceDisconnected) return;
-      try {
-        delay = await flutterV2ray
-            .getConnectedServerDelay()
-            .timeout(const Duration(milliseconds: 4500));
-      } catch (_) {
-        delay = -1;
-      }
-      if (delay >= 0 && delay <= 15000) break;
-      if (!silent) {
-        await Future.delayed(const Duration(milliseconds: 400));
-      }
+    final verification = await _liveConnectionVerifier.verify(
+      silent: silent,
+      isCurrent: () => mounted && gen == _verifyGen,
+      forceDisconnected: () => _uiForceDisconnected,
+      coreConnected: () => _statusMeansConnected(v2rayStatus.state),
+      getConnectedServerDelay: () => flutterV2ray.getConnectedServerDelay(),
+      timeout: const Duration(milliseconds: 4500),
+    );
+    if (verification.status == LiveConnectionVerificationStatus.cancelled) {
+      return;
     }
 
-    if (!mounted || gen != _verifyGen) return;
-
-    if (!_statusMeansConnected(v2rayStatus.state)) {
+    if (verification.status == LiveConnectionVerificationStatus.coreDisconnected) {
       if (mounted) {
         setState(() {
           isConnecting = false;
@@ -1649,6 +1637,8 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
       }
       return;
     }
+
+    final delay = verification.delayMs;
 
     if (delay >= 0 && delay <= 15000) {
       if (mounted) {

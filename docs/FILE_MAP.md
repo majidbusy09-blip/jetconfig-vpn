@@ -9,7 +9,9 @@
 | `pubspec.yaml` | Flutter package metadata, version, SDK constraint, dependencies. |
 | `lib/main.dart` | Main Flutter application; UI, account, payment, server, VPN connection/recovery, settings and update logic. |
 | `lib/recovery_policy.dart` | Pure smart-recovery admission and cooldown policy; added on the recovery regression branch for unit-testable decision rules. |
+| `lib/live_connection_policy.dart` | Pure UI connected-state gate requiring native core connected, successful live verification, and no forced-disconnect override; proposed in PR #12. |
 | `test/recovery_policy_test.dart` | First application-owned unit suite; tests smart-recovery reason admission, intent gates, and cooldown selection. |
+| `test/live_connection_policy_test.dart` | Tests the verified-connection UI gate; does not simulate asynchronous lifecycle or native VPN behavior. |
 | `.github/workflows/build.yml` | Production build and GitHub Release workflow; manual dispatch only, requires main ref and explicit confirmation. |
 | `.github/workflows/pr-validation.yml` | Isolated validation workflow proposed in PR #2; not present on `main` until merged. |
 | `.github/workflows/project-memory-audit.yml` | Read-only CI audit of generated code index and source freshness; merged in PR #4. |

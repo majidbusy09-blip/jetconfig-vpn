@@ -14,11 +14,11 @@
 
 1. Cold launch with persisted want-connected=false: VPN stays disconnected.
 2. Cold launch with want-connected=true and native disconnected: recovery starts only when network is available.
-3. Resume with native CONNECTED but data path unavailable: UI must not mark verified until live verification succeeds.
+3. Resume with native CONNECTED but data path unavailable: UI must not mark verified until live verification succeeds. PR #12 adds a pure UI-gate test; lifecycle/device test remains pending.
 4. Notification disconnect: user intent becomes false; automatic recovery does not reconnect.
 5. Internal stop during recovery/server switch: must not be interpreted as explicit user disconnect.
 6. Android VPN permission revoke: state reconciles without false connected UI or unintended reconnect.
-7. Connect timeout: smart recovery scheduler accepts the intended reason and runs within rate limits.
+7. **Unit seam added (CI pending):** `SmartRecoveryPolicy` admits `connect_timeout`, rejects unknown reasons, and preserves connection-intent/cooldown gates. End-to-end scheduler execution and rate-limit behavior still require a later integration/device test.
 8. Recovery attempt cap: maximum four attempts per 15-minute window; cooldown/slow health watch behaves as designed.
 9. User presses disconnect during ping/start/recovery: generation checks prevent late reconnect.
 10. Network down/up: no wasteful repeated recovery while offline; resume recovery after network returns.
@@ -69,3 +69,35 @@ For each run record: date, device/Android version, branch and commit SHA, exact 
 3. The `JET VPN - Project Memory Audit` workflow repeats both checks on relevant PRs and uploads the machine-readable index as a 30-day artifact.
 4. A changed source blob or changed byte/line/code-point metrics without matching `CURRENT_STATUS.md` is a stale-memory failure.
 5. The index is lexical only: symbol locations and token occurrence counts are not a semantic call graph and do not replace Dart analysis or tests.
+
+
+## Project-memory tooling regression tests (PR #10 proposal)
+
+- Resolve a call from one Dart file into a declaration in another file and assert the target Element source and repository classification.
+- Ensure every tracked `lib/**/*.dart` file is included in the generated source fingerprint list.
+- Traverse internal resolved edges from curated workflow anchors; count external and unresolved calls without following them.
+- Fail closed when a curated entrypoint is missing or ambiguous.
+- Generate the multi-file resolved index and critical-path report twice and compare byte-for-byte in CI.
+- Keep native Java patch references visible as cross-language boundaries; do not label them as Dart-analyzed edges.
+
+
+## Application unit tests — recovery policy branch
+
+- `lib/recovery_policy.dart` isolates deterministic recovery-admission rules from Flutter/plugin state.
+- `test/recovery_policy_test.dart` covers documented reason admission (including `connect_timeout`), unknown reasons, smart-mode/user-intent/intentional-stop gates, and cooldown selection.
+- The project-memory workflow now runs `flutter test` after root `flutter pub get`. This is a unit-level policy test, not a VPN engine, Android lifecycle, network, or device integration test.
+
+## Application unit tests — live verification branch (PR #12)
+
+- `lib/live_connection_policy.dart` isolates the UI connected-state invariant: native core connected AND live verification succeeded AND no forced-disconnect override.
+- `test/live_connection_policy_test.dart` covers native-only connected rejection, verified acceptance, stale verification with disconnected core, and explicit disconnect override.
+- PR #12 changes both cold restore and resume to clear verification/ping state and require a fresh silent live check. A failed silent check clears the verified state, leaves the core running, and lets smart mode use the slow health watcher.
+- These unit tests do not simulate Flutter lifecycle callbacks, V2Ray plugin behavior, sockets, or actual tunnel traffic. Device/emulator verification is still required.
+
+
+## Asynchronous live-verification seam — PR #13
+
+- `LiveConnectionVerifier` owns only the settle/ping/retry sequence; Flutter UI state, native core lifecycle, recovery scheduling, and stop decisions remain in `_MainVpnScreenState`.
+- Injected wait and ping functions make the asynchronous sequence deterministic in unit tests without starting V2Ray.
+- Tests cover silent resume's one-attempt timing, silent ping failure, native-core disconnect during an in-flight check, obsolete-result cancellation, non-silent retry timing, explicit-disconnect cancellation, and compilation of the app entrypoint against the extracted verifier.
+- These tests exercise the async verifier used by the app, not the Android lifecycle callback, plugin implementation, sockets, or actual tunnel traffic. Device/emulator tests remain required.

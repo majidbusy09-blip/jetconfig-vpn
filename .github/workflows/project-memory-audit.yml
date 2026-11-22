@@ -5,6 +5,12 @@ on:
     branches:
       - main
       - docs/agent-memory-foundation-20261122
+      - tools/dart-ast-memory-20261122
+      - tools/dart-semantic-resolution-20261122
+      - tools/dart-critical-paths-20261122
+      - tests/recovery-regression-20261122
+      - tests/live-verification-resume-20261122
+      - tests/async-live-verifier-20261122
     paths:
       - "lib/**"
       - "pubspec.yaml"
@@ -29,6 +35,74 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 1
+
+      - name: Set up Flutter and Dart
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.27.4'
+          channel: 'stable'
+          cache: true
+
+      - name: Resolve application package context for semantic analysis
+        run: flutter pub get
+
+      - name: Run application regression tests
+        run: flutter test
+
+      - name: Resolve isolated semantic-index tooling
+        working-directory: tools/project_memory/semantic
+        run: dart pub get --enforce-lockfile
+
+      - name: Test Dart AST indexer
+        working-directory: tools/project_memory/semantic
+        run: dart test
+
+      - name: Test resolved-element indexer
+        working-directory: tools/project_memory/semantic
+        run: dart test test/resolved_indexer_test.dart
+
+      - name: Test critical-path report
+        working-directory: tools/project_memory/semantic
+        run: dart test test/critical_path_report_test.dart
+
+      - name: Generate semantic AST index
+        working-directory: tools/project_memory/semantic
+        run: dart run bin/index.dart --write
+
+      - name: Generate analyzer-resolved index
+        working-directory: tools/project_memory/semantic
+        run: dart run bin/resolve.dart --write
+
+      - name: Generate critical-path reachability report
+        working-directory: tools/project_memory/semantic
+        run: dart run bin/critical_paths.dart --write
+
+      - name: Verify deterministic semantic AST generation
+        working-directory: tools/project_memory/semantic
+        run: |
+          cp ../../../docs/generated/jet_vpn_semantic_index.json "$RUNNER_TEMP/semantic-index-first.json"
+          cp ../../../docs/generated/jet_vpn_resolved_index.json "$RUNNER_TEMP/resolved-index-first.json"
+          cp ../../../docs/generated/jet_vpn_critical_paths.json "$RUNNER_TEMP/critical-paths-first.json"
+          dart run bin/index.dart --write
+          dart run bin/resolve.dart --write
+          dart run bin/critical_paths.dart --write
+          cmp "$RUNNER_TEMP/semantic-index-first.json" ../../../docs/generated/jet_vpn_semantic_index.json
+          cmp "$RUNNER_TEMP/resolved-index-first.json" ../../../docs/generated/jet_vpn_resolved_index.json
+          cmp "$RUNNER_TEMP/critical-paths-first.json" ../../../docs/generated/jet_vpn_critical_paths.json
+
+      - name: Upload semantic AST index
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jet-vpn-semantic-ast-index
+          path: |
+            docs/generated/jet_vpn_semantic_index.json
+            docs/generated/jet_vpn_resolved_index.json
+            docs/generated/jet_vpn_critical_paths.json
+            docs/critical_paths.json
+            tools/project_memory/semantic/pubspec.lock
+          if-no-files-found: warn
+          retention-days: 30
 
       - name: Set up Python
         uses: actions/setup-python@v5

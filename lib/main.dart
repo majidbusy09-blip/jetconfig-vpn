@@ -12,6 +12,9 @@ import 'package:path_provider/path_provider.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:installed_apps/installed_apps.dart';
 import 'package:installed_apps/app_info.dart';
+import 'recovery_policy.dart';
+import 'live_connection_policy.dart';
+import 'live_connection_verifier.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -622,6 +625,8 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
   /// فقط بعد از تأیید واقعی (getConnectedServerDelay) دکمه سبز می‌شود
   bool _connectionVerified = false;
   int _verifyGen = 0; // برای باطل کردن verifyهای قدیمی
+  final LiveConnectionVerifier _liveConnectionVerifier =
+      LiveConnectionVerifier();
 
   Map<String, dynamic>? userData;
   String? savedUser;
@@ -1595,11 +1600,11 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
   }
 
 
-  bool get _isVpnConnected {
-    if (_uiForceDisconnected) return false;
-    if (!_connectionVerified) return false;
-    return _statusMeansConnected(v2rayStatus.state);
-  }
+  bool get _isVpnConnected => LiveConnectionPolicy.isUiConnected(
+        coreConnected: _statusMeansConnected(v2rayStatus.state),
+        connectionVerified: _connectionVerified,
+        forceDisconnected: _uiForceDisconnected,
+      );
 
   /// بعد از CONNECTED هسته: آیا اینترنت از داخل تونل واقعاً جواب می‌دهد؟
   /// [silent]: برگشت به اپ — UI را قرمز/درحال‌اتصال نکن و روی یک بار fail تونل را stop نکن.
@@ -1612,40 +1617,30 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
       });
     }
 
-    // کمی صبر تا تونل پایدار شود (در silent کوتاه‌تر)
-    await Future.delayed(Duration(milliseconds: silent ? 200 : 800));
-    if (!mounted || gen != _verifyGen) return;
-    if (!silent && _uiForceDisconnected) return;
-
-    int delay = -1;
-    final attempts = silent ? 1 : 2;
-    for (var attempt = 0; attempt < attempts; attempt++) {
-      if (!mounted || gen != _verifyGen) return;
-      if (!silent && _uiForceDisconnected) return;
-      try {
-        delay = await flutterV2ray
-            .getConnectedServerDelay()
-            .timeout(const Duration(milliseconds: 4500));
-      } catch (_) {
-        delay = -1;
-      }
-      if (delay >= 0 && delay <= 15000) break;
-      if (!silent) {
-        await Future.delayed(const Duration(milliseconds: 400));
-      }
+    final verification = await _liveConnectionVerifier.verify(
+      silent: silent,
+      isCurrent: () => mounted && gen == _verifyGen,
+      forceDisconnected: () => _uiForceDisconnected,
+      coreConnected: () => _statusMeansConnected(v2rayStatus.state),
+      getConnectedServerDelay: () => flutterV2ray.getConnectedServerDelay(),
+      timeout: const Duration(milliseconds: 4500),
+    );
+    if (verification.status == LiveConnectionVerificationStatus.cancelled) {
+      return;
     }
 
-    if (!mounted || gen != _verifyGen) return;
-
-    if (!_statusMeansConnected(v2rayStatus.state)) {
-      if (mounted && !silent) {
+    if (verification.status == LiveConnectionVerificationStatus.coreDisconnected) {
+      if (mounted) {
         setState(() {
           isConnecting = false;
           _connectionVerified = false;
+          activePing = -1;
         });
       }
       return;
     }
+
+    final delay = verification.delayMs;
 
     if (delay >= 0 && delay <= 15000) {
       if (mounted) {
@@ -1672,10 +1667,11 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     debugPrint('verifyLiveConnection failed delay=$delay silent=$silent');
 
     if (silent) {
-      // برگشت به اپ: تونل را نکش؛ فقط پینگ را خالی بگذار و به health بسپار
-      if (mounted && _connectionVerified) {
-        // قبلاً سبز بود — سبز بماند؛ health اگر لازم بود درست می‌کند
+      // برگشت به اپ: بدون پینگ موفق، اتصال را تأییدشده نشان نده و هسته را stop نکن.
+      if (mounted) {
         setState(() {
+          _connectionVerified = false;
+          isConnecting = false;
           activePing = -1;
         });
       }
@@ -3855,12 +3851,17 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
       if (_statusMeansConnected(v2rayStatus.state)) {
         if (mounted) {
           setState(() {
-            isConnecting = false;
-            _connectionVerified = true;
+            isConnecting = true;
+            _connectionVerified = false;
             _uiForceDisconnected = false;
+            activePing = -1;
           });
         }
-        if (connectionModeSmart) _startHealthWatch(slow: false);
+        await _verifyLiveConnection(silent: true);
+        if (!mounted || !_userWantsConnected) return;
+        if (connectionModeSmart && !_connectionVerified) {
+          _startHealthWatch(slow: true);
+        }
         _startNativeStopPoll();
       } else if (connectionModeSmart) {
         if (mounted) {
@@ -3976,8 +3977,19 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
       }
 
       if (_statusMeansConnected(st)) {
-        if (mounted) setState(() => _uiForceDisconnected = false);
+        if (mounted) {
+          setState(() {
+            _uiForceDisconnected = false;
+            _connectionVerified = false;
+            isConnecting = true;
+            activePing = -1;
+          });
+        }
         await _verifyLiveConnection(silent: true);
+        if (!mounted || !_userWantsConnected || _weInitiatedStop) return;
+        if (connectionModeSmart && !_connectionVerified) {
+          _startHealthWatch(slow: true);
+        }
       }
     } catch (e) {
       _connLog('resume err: $e');
@@ -5112,24 +5124,19 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
   }
 
   void _scheduleSmartRecovery(String reason) {
-    if (!connectionModeSmart || !_userWantsConnected || _weInitiatedStop) return;
+    if (!SmartRecoveryPolicy.hasActiveConnectionIntent(
+      smartMode: connectionModeSmart,
+      userWantsConnected: _userWantsConnected,
+      userInitiatedStop: _weInitiatedStop,
+    )) return;
     if (_isRecovering) return;
-    // بازیابی فقط برای مشکل «سرور بد در حالی که هنوز CONNECTED بود»
-    // نه برای قطع کامل هسته / نوتیف
-    const allowed = {
-      'cold_restore',
-      'health_delay',
-      'network_restored',
-      'network_back',
-      'verify_fail',
-      'status_drop',
-    };
-    if (!allowed.contains(reason)) {
+    // بازیابی فقط برای دلایل صریح و شناخته‌شده مجاز است.
+    if (!SmartRecoveryPolicy.isReasonAllowed(reason)) {
       debugPrint('scheduleSmartRecovery blocked reason=$reason');
       return;
     }
     final now = DateTime.now();
-    final minGap = reason == 'network_back' ? 3 : 12;
+    final minGap = SmartRecoveryPolicy.minimumGapSeconds(reason);
     if (_lastRecoveryAt != null &&
         now.difference(_lastRecoveryAt!).inSeconds < minGap) {
       return;

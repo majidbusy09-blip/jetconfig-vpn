@@ -17,11 +17,12 @@ If the answer is no, the task must not receive priority unless the user explicit
 Before proposing or changing code:
 
 1. Read this file and `docs/PROJECT_CONTEXT.md`.
-2. Read `docs/CURRENT_STATUS.md`, `docs/NEXT_STEPS.md`, and the relevant entries in `docs/DEVELOPMENT_LOG.md`.
-3. Read the relevant architecture, API, data, payment, issue, decision, and test documents.
-4. Check the actual target branch and current commit SHA. Documentation is a guide, not a substitute for current source.
-5. Verify every relevant symbol, caller, state variable, persistence key, network request, native patch, and workflow against the current source.
-6. If a document's `Verified against` commit differs from the target source commit, treat its implementation claims as potentially stale and re-verify them.
+2. Read `docs/TASK_TEMPLATE.md` and use it to structure every non-trivial task.
+3. Read `docs/CURRENT_STATUS.md`, `docs/NEXT_STEPS.md`, and the relevant entries in `docs/DEVELOPMENT_LOG.md`.
+4. Read the relevant architecture, API, data, payment, issue, decision, and test documents.
+5. Check the actual target branch and current commit SHA. Documentation is a guide, not a substitute for current source.
+6. Verify every relevant symbol, caller, state variable, persistence key, network request, native patch, and workflow against the current source.
+7. If a document's `Verified against` commit differs from the target source commit, treat its implementation claims as potentially stale and re-verify them.
 
 Do not assume previous chat context is complete. Git-tracked project memory is the durable baseline.
 
@@ -73,7 +74,10 @@ A successful build is not a runtime/device test. A CI workflow definition is not
 
 - Keep `docs/generated/jet_vpn_code_index.json` synchronized with `lib/main.dart`; regenerate it with `python tools/project_memory/index_dart.py --write`.
 - Before submitting a source change, run `python tools/project_memory/index_dart.py --check --check-status`. A stale index or source fingerprint is a blocking documentation-maintenance failure; update the index and `docs/CURRENT_STATUS.md` in the same PR.
-- Treat the generated index as a lexical navigation aid only, not a semantic Dart AST, verified call graph, or proof of runtime reachability.
+- Treat the generated lexical index as a navigation aid only, not a semantic Dart AST, verified call graph, or proof of runtime reachability.
+- The isolated semantic tooling resolves every tracked `lib/**/*.dart` file discovered by `git ls-files`; its generated resolved index is a CI artifact, not committed application source.
+- `docs/critical_paths.json` contains curated entrypoint anchors; the generated critical-path report is a static transitive closure over resolved invocation edges, not proof of runtime execution. Revalidate anchors after symbol moves/renames.
+- Native Java patch files are linked as explicit cross-language boundaries, not analyzed as Dart Elements.
 - Keep `docs/CURRENT_STATUS.md` tied to a precise branch, commit SHA, source file blob SHA, app version, and snapshot date.
 - Keep `docs/KNOWN_ISSUES.md` limited to evidence-backed issues; include confidence and reproduction/verification status.
 - Record accepted technical choices in `docs/DECISIONS.md`.
@@ -86,7 +90,7 @@ A successful build is not a runtime/device test. A CI workflow definition is not
 
 - Repository: `majidbusy09-blip/jetconfig-vpn`
 - Branch: `main`
-- Commit: `477ff12fb5a82ba2b2bb3f68a268d27f679c40ab`
+- Commit: `1f2519923cdd9f85ab280a3a4359d7ed5aed3949`
 - `.github/workflows/build.yml` blob: `abdb595af8df6b2d02ab0ba1da665ac9de1d6461`
 - `lib/main.dart` blob: `df2914b2954d723869e4196d96f96b050618985a`
 - `pubspec.yaml` blob: `adc3b22a4538db4738bec789e3c3badf26e4f710`

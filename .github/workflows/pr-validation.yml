@@ -1,0 +1,135 @@
+name: JET VPN - Non-production PR Validation
+
+on:
+  push:
+    branches:
+      - integration/memory-and-recovery-20261122
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "lib/**"
+      - "test/**"
+      - "pubspec.yaml"
+      - "tools/v2ray_notif_patch/**"
+      - ".github/workflows/pr-validation.yml"
+      - "docs/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Use the same group for push and pull_request events from the same branch,
+# avoiding duplicate concurrent APK builds for one commit.
+concurrency:
+  group: jet-vpn-pr-validation-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Analyze, test, and arm64 APK builds
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: zulu
+          java-version: '17'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.27.4'
+          channel: stable
+          cache: true
+
+      - name: Generate Android scaffold in the temporary CI workspace
+        run: |
+          if [ ! -d android ]; then
+            flutter create . --platforms=android --project-name=jetconfig_vpn --org com.jetconfig.vpn
+          fi
+          test -f android/app/build.gradle || test -f android/app/build.gradle.kts
+          # flutter create may generate a placeholder widget test that does not
+          # match this app entrypoint. Remove only that exact scaffold file.
+          if [ -f test/widget_test.dart ] && grep -q "package:jetconfig_vpn/main.dart" test/widget_test.dart; then
+            rm -f test/widget_test.dart
+            rmdir test 2>/dev/null || true
+          fi
+
+      - name: Test validation build preparation tool
+        run: python3 -m unittest discover -s tools/validation -p "test_*.py"
+
+      - name: Prepare isolated validation package and updater guard
+        run: python3 tools/validation/prepare_validation_build.py
+
+      - name: Report generated Android package identity
+        shell: bash
+        run: |
+          echo "Generated Android validation package configuration:"
+          grep -nE '^[[:space:]]*(namespace|applicationId)[[:space:]]*=' android/app/build.gradle android/app/build.gradle.kts 2>/dev/null || true
+          grep -n 'android:label=' android/app/src/main/AndroidManifest.xml
+          echo "This package is test-only and intentionally differs from production."
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Apply repository-maintained V2Ray patches to CI cache
+        run: bash tools/v2ray_notif_patch/apply_patch.sh
+
+      - name: Static analysis
+        run: flutter analyze lib test --no-pub --no-fatal-infos --no-fatal-warnings
+
+      - name: Run application tests
+        run: flutter test --no-pub
+
+      - name: Build debug APK smoke test
+        run: flutter build apk --debug --no-pub --dart-define=JETVPN_VALIDATION_BUILD=true
+
+      - name: Upload debug APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: JET-VPN-TEST-debug-${{ github.run_number }}
+          path: build/app/outputs/flutter-apk/app-debug.apk
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Build arm64 release-mode comparison APK (split per ABI)
+        run: flutter build apk --release --target-platform android-arm64 --split-per-abi --no-pub --dart-define=JETVPN_VALIDATION_BUILD=true --dart-define=APK_CHANNEL=arm64
+
+      - name: Verify validation APK package, label, signer, and ABI
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="build/app/outputs/flutter-apk/app-arm64-v8a-release.apk"
+          BUILD_TOOLS="${ANDROID_HOME:-$ANDROID_SDK_ROOT}/build-tools"
+          AAPT="$(find "$BUILD_TOOLS" -name aapt -type f | sort -V | tail -1)"
+          APKSIGNER="$(find "$BUILD_TOOLS" -name apksigner -type f | sort -V | tail -1)"
+          test -n "$AAPT"
+          test -n "$APKSIGNER"
+          BADGING="$("$AAPT" dump badging "$APK")"
+          printf '%s\n' "$BADGING" | head -5
+          printf '%s\n' "$BADGING" | grep -Fq "package: name='com.jetconfig.vpn.jetconfig_vpn.validation'"
+          printf '%s\n' "$BADGING" | grep -Fq "application-label:'JET VPN TEST'"
+          "$APKSIGNER" verify --verbose --print-certs "$APK"
+          python3 - "$APK" <<'PY'
+          import sys, zipfile
+          with zipfile.ZipFile(sys.argv[1]) as apk:
+              abis = {name.split('/')[1] for name in apk.namelist()
+                      if name.startswith('lib/') and len(name.split('/')) > 2}
+          print("Native ABIs:", sorted(abis))
+          if abis != {"arm64-v8a"}:
+              raise SystemExit(f"Unexpected native ABI set: {sorted(abis)}")
+          PY
+
+      - name: Upload arm64 validation APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: JET-VPN-TEST-arm64-validation-${{ github.run_number }}
+          path: build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
+          if-no-files-found: error
+          retention-days: 7

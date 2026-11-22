@@ -49,3 +49,29 @@ This log records decisions that govern future work. New entries should include d
 - **Decision:** Before prioritizing work, ask: «آیا این کار ما را به داشتن یک همکار برنامه‌نویس مستقل، دقیق و دارای حافظه پروژه نزدیک‌تر می‌کند؟» A negative answer means the work is not a priority unless explicitly requested.
 - **Rationale:** Keep engineering effort focused on durable project understanding, implementation ability, verification, memory, and safe maintenance rather than unrelated activity.
 - **Consequence:** Record the capability improved by each prioritized task; defer unrelated product features, marketing, visual changes, and refactors.
+
+
+## D-007 — AST call-site map must not overclaim semantic resolution
+
+- **Date:** 2026-11-22
+- **Status:** Proposed in PR #8
+- **Decision:** Introduce Dart Analyzer AST parsing in an isolated developer-tool package, but label the first call graph as syntactic and candidate-based until analyzer element resolution is implemented.
+- **Rationale:** AST structure is more reliable than regex for declaration and invocation locations, but matching identifier names alone cannot prove which declaration a call binds to.
+- **Consequence:** Keep ambiguous and unresolved calls explicit; never describe this first graph as a verified semantic call graph or runtime reachability map.
+
+
+## D-008 — Multi-file analyzer index and curated critical-path report
+
+- **Date:** 2026-11-22
+- **Status:** Proposed in PR #10
+- **Decision:** Resolve all tracked Dart source files under `lib/` as one application source set, fingerprint each file, and build cross-file edges from analyzer Elements. Define critical workflows through a source-path/owner/kind/name manifest and report static transitive reachability from those curated anchors.
+- **Rationale:** A single-file graph cannot show cross-file impact once the app is split; explicit entrypoint anchors make impact analysis useful while remaining auditable.
+- **Consequence:** Missing or ambiguous anchors fail closed and are reported. Static reachability is not runtime execution; callbacks, state-field dependencies, dynamic calls, and native Java behavior remain separate evidence boundaries.
+
+## D-009 — Native VPN state is not live connection verification
+
+- **Date:** 2026-11-22
+- **Status:** Proposed in PR #12
+- **Decision:** The UI may expose a connected state only when the native core reports CONNECTED, a live tunnel verification has succeeded, and no explicit UI-disconnect override is active. Cold restore and app resume must clear stale verification and require a fresh ping check before showing connected.
+- **Rationale:** The native core can report CONNECTED before the data path is usable; retaining a stale verification flag or setting it from native state alone can produce a false-positive connected UI.
+- **Consequence:** Failed silent verification must not stop the core or preserve a green/connected state. In smart mode, it falls back to the slow health watcher; device-level lifecycle and network tests remain necessary.

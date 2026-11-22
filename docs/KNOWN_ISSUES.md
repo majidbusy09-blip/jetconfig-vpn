@@ -1,22 +1,23 @@
 # JET VPN — Known Issues and Risks
 
-> Application findings were inspected against `main` commit `47949178016a6ef3e855a215550b06f4eae8378d`; `lib/main.dart` blob remains unchanged at current main `f396f57459c9863a325f27e7d438e9456d560e92`. A source-level finding is not automatically a reproduced runtime bug.
+> Application findings were inspected against `main` commit `47949178016a6ef3e855a215550b06f4eae8378d`; `lib/main.dart` blob remains unchanged at current main `1f2519923cdd9f85ab280a3a4359d7ed5aed3949`. A source-level finding is not automatically a reproduced runtime bug.
 
 ## JET-001 — connect_timeout recovery reason is rejected
 
 - **Severity:** High
-- **Status:** Confirmed source-level control-flow defect; runtime reproduction pending.
-- **Evidence:** `_toggleConnect` schedules `_scheduleSmartRecovery('connect_timeout')` after an 8-second unverified connection timeout (`lib/main.dart:5571`). The scheduler allowlist at `5114–5129` does not include `connect_timeout`; it logs and returns.
+- **Status:** Corrected in PR #11 branch `tests/recovery-regression-20261122`; full CI Run [#45008026404](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45008026404) passed, including the complete application unit suite and memory audit. Runtime/device reproduction remains pending.
+- **Original evidence:** `_toggleConnect` schedules `_scheduleSmartRecovery('connect_timeout')` after an 8-second unverified connection timeout; the prior scheduler allowlist omitted this reason. On the test branch, `lib/main.dart` delegates admission to `lib/recovery_policy.dart`, whose allowed reasons include `connect_timeout`.
 - **Impact:** Smart-mode connection timeout does not enter the intended recovery flow through this path.
-- **Next:** Add a focused regression test for scheduler admission and verify intended recovery behavior before changing the allowlist.
+- **Verification:** `test/recovery_policy_test.dart` covers the exact allowlist, unknown reasons, connection-intent gates, and cooldown values; all passed in CI Run #45008026404.
 
 ## JET-002 — Resume restore trusts native CONNECTED status as verified
 
 - **Severity:** High
-- **Status:** Confirmed source-level inconsistency; real-world impact needs device reproduction.
-- **Evidence:** `_restoreWantConnectedAfterLoad` sets `_connectionVerified = true` when `_statusMeansConnected(v2rayStatus.state)` is true (`lib/main.dart:3843–3868`). It does not call `_verifyLiveConnection` in that branch, while the ordinary verification method exists at line 1606.
-- **Impact:** UI/state may report verified connectivity before a live data-path check.
-- **Next:** Define one authoritative verification invariant and add lifecycle/resume tests on a device/emulator.
+- **Status:** Corrective change implemented in PR #12; asynchronous verification sequence extracted and fully CI-verified in PR #13 Run [#45011976765](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45011976765). Android device verification remains pending.
+- **Original evidence:** `_restoreWantConnectedAfterLoad` previously set `_connectionVerified = true` from native `CONNECTED` without ping. `_reconcileVpnStateOnResume` could also retain a stale verified flag when silent ping failed.
+- **Current proposed behavior:** Both restore and resume clear verification and ping state first, then call `_verifyLiveConnection(silent: true)`. A failed silent check clears verification and does not stop the core; smart mode falls back to the slow health watcher. `_isVpnConnected` delegates to a pure policy requiring native connected + successful live verification + no forced-disconnect override.
+- **Tests:** PR #12's `test/live_connection_policy_test.dart` covers the UI gate. PR #13 extracts the async settle/ping/retry sequence into `LiveConnectionVerifier` and adds seven tests for silent success/failure, in-flight core disconnect, stale-result cancellation, retry timing, explicit-disconnect cancellation, and app-entrypoint compilation. Neither suite simulates Android lifecycle callbacks, V2Ray native behavior, or real tunnel traffic.
+- **Next:** Reproduce cold restore and resume with native `CONNECTED` but blocked tunnel traffic on a real Android device; then proceed to payment-token owner binding.
 
 ## JET-003 — Pending payment token is not bound to its owner in local storage
 

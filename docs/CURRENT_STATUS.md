@@ -16,7 +16,7 @@
 - Durable project memory, the generated lexical code index, and the read-only memory-audit workflow are now present on `main`.
 - No tracked `android/` or `pubspec.lock` in the inspected application-source snapshot. `main` still has no application test suite; this branch adds `test/recovery_policy_test.dart` as the first app-owned unit test.
 - Backend, bot, web admin, worker and TV sources are outside this repository.
-- Application source and app version have not changed since source baseline `47949178016a6ef3e855a215550b06f4eae8378d`; subsequent main commits add release safety and project-memory tooling/documentation only.
+- The `main` branch application source remains unchanged since source baseline `47949178016a6ef3e855a215550b06f4eae8378d`; this review branch contains the isolated recovery-policy change documented below. App version remains `2.4.5+284`.
 
 ## Pull requests observed
 

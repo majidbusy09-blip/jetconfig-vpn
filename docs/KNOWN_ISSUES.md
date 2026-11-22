@@ -13,7 +13,7 @@
 ## JET-002 — Resume restore trusts native CONNECTED status as verified
 
 - **Severity:** High
-- **Status:** Corrective change proposed in PR #12; CI and device verification pending.
+- **Status:** Corrective change implemented in PR #12; full CI Run [#45008634023](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45008634023) passed. Device verification pending.
 - **Original evidence:** `_restoreWantConnectedAfterLoad` previously set `_connectionVerified = true` from native `CONNECTED` without ping. `_reconcileVpnStateOnResume` could also retain a stale verified flag when silent ping failed.
 - **Current proposed behavior:** Both restore and resume clear verification and ping state first, then call `_verifyLiveConnection(silent: true)`. A failed silent check clears verification and does not stop the core; smart mode falls back to the slow health watcher. `_isVpnConnected` delegates to a pure policy requiring native connected + successful live verification + no forced-disconnect override.
 - **Tests:** `test/live_connection_policy_test.dart` covers core-only false, verified true, disconnected core false, and forced-disconnect false. These tests validate the UI gate, not the asynchronous lifecycle sequence.

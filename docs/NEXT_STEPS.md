@@ -2,9 +2,9 @@
 
 ## Latest verified snapshot — 2026-11-22 (supersedes older status entries below)
 
-- PR #16 current head: `8f8da63cb4cd687ee1e35a452d6d695a2043084d`; branch `integration/memory-and-recovery-20261122`; base `main` at `1f2519923cdd9f85ab280a3a4359d7ed5aed3949`.
+- PR #16 current head: `1d9bb95d71eb2b3426e57a236cea28edec727b14`; branch `integration/memory-and-recovery-20261122`; base `main` at `1f2519923cdd9f85ab280a3a4359d7ed5aed3949`.
 - Application source SHA remains `8571a10a8676bf114ca6eda07657da026e550085`; commits after that source snapshot are documentation-only.
-- PR #16 is open, Draft, unmerged, and GitHub reports it mergeable. Diff: 38 files, 3,528 additions, 453 deletions.
+- PR #16 is open, Draft, unmerged, and GitHub reports it mergeable. Diff: 38 files, 3,577 additions, 457 deletions.
 - Project-memory audit run [#45026323360](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45026323360) **succeeded** on the exact current head. Application regression tests, AST indexer tests, resolved-element indexer tests, critical-path tests, deterministic semantic generation, lexical index freshness, and both artifact uploads passed.
 - Non-production PR validation run [#45026323476](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45026323476) **succeeded** on the exact current head. Validation-preparation tests, Flutter analysis, app tests, debug smoke build, split ARM64 release-mode build, package/label/signature/ABI checks, and artifact uploads passed.
 - Latest ARM64 test artifact: `JET-VPN-TEST-arm64-validation-69`, artifact ID `14756425339`, ZIP size 27,040,234 bytes, expires 2026-11-29. It is an isolated test APK, not production-signed and not for distribution or updating production.

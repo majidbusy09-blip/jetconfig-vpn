@@ -6,7 +6,7 @@ import 'package:analyzer/dart/ast/visitor.dart';
 import 'package:analyzer/source/line_info.dart';
 
 Map<String, Object?> buildSemanticIndex({required String source, required String sourcePath, required String? gitBlobSha}) {
-  final parsed = parseString(content: source, path: sourcePath);
+  final parsed = parseString(content: source, path: sourcePath, throwIfDiagnostics: false);
   if (parsed.errors.isNotEmpty) {
     throw FormatException('Dart AST parsing failed for $sourcePath:\n${parsed.errors.join('\n')}');
   }

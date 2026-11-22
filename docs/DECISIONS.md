@@ -49,3 +49,12 @@ This log records decisions that govern future work. New entries should include d
 - **Decision:** Before prioritizing work, ask: «آیا این کار ما را به داشتن یک همکار برنامه‌نویس مستقل، دقیق و دارای حافظه پروژه نزدیک‌تر می‌کند؟» A negative answer means the work is not a priority unless explicitly requested.
 - **Rationale:** Keep engineering effort focused on durable project understanding, implementation ability, verification, memory, and safe maintenance rather than unrelated activity.
 - **Consequence:** Record the capability improved by each prioritized task; defer unrelated product features, marketing, visual changes, and refactors.
+
+
+## D-007 — AST call-site map must not overclaim semantic resolution
+
+- **Date:** 2026-11-22
+- **Status:** Proposed in PR #8
+- **Decision:** Introduce Dart Analyzer AST parsing in an isolated developer-tool package, but label the first call graph as syntactic and candidate-based until analyzer element resolution is implemented.
+- **Rationale:** AST structure is more reliable than regex for declaration and invocation locations, but matching identifier names alone cannot prove which declaration a call binds to.
+- **Consequence:** Keep ambiguous and unresolved calls explicit; never describe this first graph as a verified semantic call graph or runtime reachability map.

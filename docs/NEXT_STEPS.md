@@ -1,5 +1,20 @@
 # JET VPN — Prioritized Next Steps
 
+## Latest verified snapshot — 2026-11-22 (supersedes older status entries below)
+
+- PR #16 current head: `8f8da63cb4cd687ee1e35a452d6d695a2043084d`; branch `integration/memory-and-recovery-20261122`; base `main` at `1f2519923cdd9f85ab280a3a4359d7ed5aed3949`.
+- Application source SHA remains `8571a10a8676bf114ca6eda07657da026e550085`; commits after that source snapshot are documentation-only.
+- PR #16 is open, Draft, unmerged, and GitHub reports it mergeable. Diff: 38 files, 3,528 additions, 453 deletions.
+- Project-memory audit run [#45026323360](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45026323360) **succeeded** on the exact current head. Application regression tests, AST indexer tests, resolved-element indexer tests, critical-path tests, deterministic semantic generation, lexical index freshness, and both artifact uploads passed.
+- Non-production PR validation run [#45026323476](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45026323476) **succeeded** on the exact current head. Validation-preparation tests, Flutter analysis, app tests, debug smoke build, split ARM64 release-mode build, package/label/signature/ABI checks, and artifact uploads passed.
+- Latest ARM64 test artifact: `JET-VPN-TEST-arm64-validation-69`, artifact ID `14756425339`, ZIP size 27,040,234 bytes, expires 2026-11-29. It is an isolated test APK, not production-signed and not for distribution or updating production.
+- Latest semantic artifacts: `jet-vpn-code-index` ID `14755568224` and `jet-vpn-semantic-ast-index` ID `14755153930`, both retained until 2026-12-22.
+- User-reported device tests passed for all four scenarios: cold restore, background resume, explicit disconnect during verification, and profile switch during verification. Device model/build and diagnostic logs were not supplied; do not generalize beyond the tested environment.
+- PR review submissions: none. Inline review threads: none.
+- Final scoped diff review found no source-level blocker in the inspected VPN verifier/recovery integration, validation workflow, or project-memory workflow. CI does not prove all Android/device/network conditions.
+- Production source on `main`, app version `2.4.5+284`, payment, bot, backend, server configuration, and production release workflow remain outside this PR's changes. No merge, release, or deployment has occurred.
+- Next action: present the merge recommendation and wait for explicit user approval. Do not merge, mark ready, release, deploy, or dispatch the production workflow without that approval.
+
 Priority is measured against the goal of a reliable, independent programming collaborator with durable project memory and safe execution. Every task must pass the criterion in `AGENTS.md`.
 
 ## Current verified state — 2026-11-22

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:jet_vpn/main.dart' show MainVpnScreen;
 import 'package:jet_vpn/live_connection_verifier.dart';
 
 void main() {
@@ -48,19 +49,34 @@ void main() {
       expect(result.delayMs, -1);
     });
 
-    test('does not accept a ping if the native core disconnected', () async {
+    test('does not accept a ping if the native core disconnects in flight', () async {
+      final ping = Completer<int>();
+      final pingStarted = Completer<void>();
+      var coreConnected = true;
       final verifier = LiveConnectionVerifier(wait: (_) async {});
 
-      final result = await verifier.verify(
+      final future = verifier.verify(
         silent: true,
         isCurrent: () => true,
         forceDisconnected: () => false,
-        coreConnected: () => false,
-        getConnectedServerDelay: () async => 40,
+        coreConnected: () => coreConnected,
+        getConnectedServerDelay: () {
+          pingStarted.complete();
+          return ping.future;
+        },
         timeout: const Duration(seconds: 1),
       );
+      await pingStarted.future;
+      coreConnected = false;
+      ping.complete(40);
 
+      final result = await future;
       expect(result.status, LiveConnectionVerificationStatus.coreDisconnected);
+    });
+
+    test('application entrypoint compiles with the extracted verifier', () {
+      final Type screenType = MainVpnScreen;
+      expect(screenType, MainVpnScreen);
     });
 
     test('discards an obsolete check after its ping completes', () async {

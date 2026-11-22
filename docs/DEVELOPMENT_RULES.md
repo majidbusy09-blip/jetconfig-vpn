@@ -7,7 +7,7 @@
 3. Verify the target branch and latest commit SHA.
 4. Re-fetch relevant source; do not rely on line numbers from an older snapshot.
 5. Trace callers, state, persistence, callbacks, network/API requests, native integration, and build workflow.
-6. Identify expected behavior, invariants, failure modes, and test plan before editing.
+6. Read and complete the applicable sections of `docs/TASK_TEMPLATE.md`; identify expected behavior, invariants, failure modes, and test plan before editing.
 
 ## Branching and approval
 

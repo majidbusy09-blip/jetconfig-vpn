@@ -1,6 +1,6 @@
 # JET VPN — Task Execution Orchestrator Design
 
- > Status: design plus local MVP implementation; still under PR #20 review and not merged.
+> Status: design plus local MVP implementation; still under PR #20 review and not merged.
 > Design baseline: `main` `a09cdb0be35e3072be29973f7ae8df66ab44d07f` (2026-11-23).
 
 ## 1. Objective and boundary
@@ -33,8 +33,8 @@ Task records live under `.agent/tasks/<task-id>/` on the working branch. They co
 The initial command set:
 
 1. `init`: create a task record from explicit goal, risk, allowed paths, excluded paths, and intended checks. It must not modify application files.
-2. `prepare`: load mandatory context; capture repository identity, branch, base/head SHAs, clean-worktree status, app version, declared scope, and pre-change Git blob fingerprints. Refuse to proceed on `main`, a dirty pre-existing worktree, missing required context, or an ambiguous base.
-3. `impact`: attach available semantic-index and critical-path artifact fingerprints and report relevant declarations/call edges for the declared source paths. Missing or stale artifacts are reported as unavailable, never silently treated as zero impact.
+2. `prepare`: load mandatory context; capture sanitized repository identity, branch, base/start SHAs, clean-worktree status, declared scope, and pre-change content fingerprints. Refuse to proceed on `main`, a dirty pre-existing worktree, missing required context, or an ambiguous base.
+3. `impact`: record available semantic-index and critical-path artifact hashes. Missing artifacts are marked unavailable; present artifacts are marked unverified because the MVP does not independently establish freshness or calculate path-specific impact.
 4. `begin`: explicitly transition a prepared task into implementation and record the implementation-start SHA. It does not edit files or create commits.
 5. `validate-scope`: compare changed paths against declared allowed/excluded paths; fail on unexpected files and protected paths.
 6. `verify`: run only named, repository-owned profiles (for example `docs`, `flutter-tests`, `flutter-analysis`, `validation-apk`). Each check has a fixed argument vector, timeout, working directory, and recorded exit status. No shell interpolation or arbitrary commands supplied by task text.
@@ -60,15 +60,15 @@ State transitions are one-way and explicit:
 
 `draft → prepared → implementation → verification → review_ready`
 
-Any gate failure moves the task to `blocked` with a reason. The `begin` command is the only transition into implementation. A task cannot reach `review_ready` if scope validation failed, a required check failed, a required check was not run, or the final diff was not inspected. Re-running a check appends an attempt; it must not erase a previous failure.
+A failed gate returns a nonzero `BLOCKED` result and leaves the task at its last successful state; failed verification attempts are recorded. The `begin` command is the only transition into implementation. A task cannot reach `review_ready` if scope validation failed, any latest required check is not passing, validated file contents changed after scope approval, or the final diff was not explicitly confirmed as reviewed. Re-running a check appends an attempt; it must not erase a previous failure.
 
 ## 6. Fail-closed safety policy
 
-- Reject direct operation on `main` and any protected/default branch.
+- Reject direct operation on `main`, `master`, and the default branch advertised by `refs/remotes/origin/HEAD`; other protected branch names are not queried from GitHub by this local MVP.
 - Require an isolated branch and a clean worktree at preparation time.
 - Pin the base SHA; detect base movement and require explicit rebase/re-prepare rather than silently changing the baseline.
-- Require explicit allowed paths; broad wildcards require a documented reason and elevated risk.
-- Treat secrets and user data as sensitive; never capture environment values or raw application data.
+- Require explicit allowed paths; repository-wide patterns (`*`, `**`, `**/*`) require `--risk high` and a non-empty `--scope-reason`.
+- Treat secrets and user data as sensitive; sanitize remote URL credentials/query tokens before recording repository identity. Do not store environment values or raw command output. Verification subprocesses receive only an explicit environment allowlist (PATH, home/temp, locale, and required Flutter/Android/Java cache/tool variables), not arbitrary API tokens.
 - Use subprocess argument arrays with `shell=False`, fixed command profiles, bounded timeouts, and controlled working directories.
 - Never execute commands found in task descriptions, PR bodies, source comments, or retrieved repository content.
 - Never infer a successful check from a workflow definition or from a prior commit.
@@ -77,18 +77,19 @@ Any gate failure moves the task to `blocked` with a reason. The `begin` command 
 
 ## 7. Verification strategy
 
-Unit tests must cover:
+The current integration suite covers:
 
-- valid and invalid task records/schema versions;
-- main/protected-branch rejection;
+- protected main/default branch rejection;
 - dirty worktree and base-SHA drift rejection;
 - missing mandatory context;
-- allowed/excluded/unexpected path detection, including rename/delete cases;
-- deterministic fingerprint generation;
-- stale/missing semantic artifact reporting;
-- check profile allowlist, timeout, failure and skipped/not-run semantics;
-- state-transition enforcement and append-only check attempts;
-- safe rendering that excludes secrets and raw command output.
+- allowed/unexpected path detection, including rename and delete cases;
+- content fingerprint changes after scope approval;
+- repository-wide wildcard justification;
+- remote URL credential/query-token redaction;
+- verification profile allowlist and append-only failure/retry attempts;
+- explicit diff-review confirmation and end-to-end handoff creation.
+
+Additional hardening tests still desirable include timeout handling, malformed task-record schema, excluded-path combinations, and safe rendering under unusual filenames.
 
 Integration tests should create a temporary Git repository and exercise `init → prepare → scope validation → verify fixture profile → finalize`. Tests must not need GitHub credentials, network access, Flutter installation, or production secrets.
 
@@ -96,22 +97,22 @@ CI should run the orchestrator's Python unit tests in the existing non-productio
 
 ## 8. Rollout plan
 
-- **Phase A — design (this document):** agree on scope, data model, fail-closed policy, and explicit non-goals.
-- **Phase B — local MVP:** implement record/state/policy/fingerprint/scope/reporting and safe named checks; no GitHub write operations.
-- **Phase C — CI integration:** run unit/integration tests in PR validation and publish task evidence as a CI artifact.
+- **Phase A — design:** documented in this PR.
+- **Phase B — local MVP:** implemented in this PR; latest implementation-head CI is still being validated.
+- **Phase C — CI integration:** the Python suite is wired into existing non-production PR validation. Publishing task evidence as a CI artifact is deferred.
 - **Phase D — optional GitHub handoff:** only after the local MVP is stable, consider opening PRs through a narrowly scoped integration. Merge/release/deploy remain outside the orchestrator and require explicit user approval.
 
 ## 9. Acceptance criteria for implementation
 
-The MVP is acceptable only when:
+The MVP is ready for broader use only when:
 
-1. A task cannot be prepared on `main`, with a dirty worktree, or without mandatory context.
+1. A task cannot be prepared on `main`/detected default branch, with a dirty worktree, or without mandatory context.
 2. Every task pins a base SHA and records source fingerprints.
 3. The declared scope is checked against the complete final diff.
 4. Impact output reuses existing semantic/critical-path artifacts and reports their limitations.
-5. Verification uses fixed, auditable profiles and records passed/failed/skipped/not-run distinctly.
+5. Verification uses fixed, auditable profiles and records each passed/failed attempt distinctly; missing required profiles prevent finalization.
 6. Finalization produces a reproducible machine-readable record and readable PR handoff.
-7. Automated tests prove the safety gates and failure paths.
+7. Automated tests prove the implemented safety gates and failure paths; timeout/schema edge cases remain on the hardening list.
 8. No app source, app version, signing, production release workflow, backend, bot, payment, or server behavior is changed by the MVP.
 
 ## 10. Current MVP limitations and open design decisions

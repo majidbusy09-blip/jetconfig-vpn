@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - docs/agent-memory-foundation-20261122
+      - tools/dart-ast-memory-20261122
     paths:
       - "lib/**"
       - "pubspec.yaml"
@@ -37,6 +38,9 @@ jobs:
           channel: 'stable'
           cache: true
 
+      - name: Resolve application package context for semantic analysis
+        run: flutter pub get
+
       - name: Resolve isolated semantic-index tooling
         working-directory: tools/project_memory/semantic
         run: dart pub get --enforce-lockfile
@@ -45,16 +49,27 @@ jobs:
         working-directory: tools/project_memory/semantic
         run: dart test
 
+      - name: Test resolved-element indexer
+        working-directory: tools/project_memory/semantic
+        run: dart test test/resolved_indexer_test.dart
+
       - name: Generate semantic AST index
         working-directory: tools/project_memory/semantic
         run: dart run bin/index.dart --write
+
+      - name: Generate analyzer-resolved index
+        working-directory: tools/project_memory/semantic
+        run: dart run bin/resolve.dart --write
 
       - name: Verify deterministic semantic AST generation
         working-directory: tools/project_memory/semantic
         run: |
           cp ../../../docs/generated/jet_vpn_semantic_index.json "$RUNNER_TEMP/semantic-index-first.json"
+          cp ../../../docs/generated/jet_vpn_resolved_index.json "$RUNNER_TEMP/resolved-index-first.json"
           dart run bin/index.dart --write
+          dart run bin/resolve.dart --write
           cmp "$RUNNER_TEMP/semantic-index-first.json" ../../../docs/generated/jet_vpn_semantic_index.json
+          cmp "$RUNNER_TEMP/resolved-index-first.json" ../../../docs/generated/jet_vpn_resolved_index.json
 
       - name: Upload semantic AST index
         if: always()
@@ -63,6 +78,7 @@ jobs:
           name: jet-vpn-semantic-ast-index
           path: |
             docs/generated/jet_vpn_semantic_index.json
+            docs/generated/jet_vpn_resolved_index.json
             tools/project_memory/semantic/pubspec.lock
           if-no-files-found: warn
           retention-days: 30

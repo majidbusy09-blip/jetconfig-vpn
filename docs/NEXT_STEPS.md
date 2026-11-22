@@ -2,36 +2,33 @@
 
 Priority is measured against the goal of a reliable programming collaborator with durable project memory and safe execution. Every candidate task must pass the question in `AGENTS.md`; tasks that fail it are deferred unless explicitly requested.
 
-## P0 — Activate and validate the memory/agent foundation
+## P0 — Make the collaborator workflow repeatable and safe
 
-1. **Completed:** PR #4 was merged after a fresh successful audit on the final PR head; the generated index and source fingerprint matched.
-2. Verify the audit workflow catches a deliberately stale index in a disposable test branch without merging that test branch.
-3. Decide whether PR #1's initial documentation should be closed as superseded; do not merge it alongside PR #3.
-4. Decide separately whether PR #2's isolated PR-validation workflow should be merged; it is not a production release trigger, but still requires explicit approval.
-5. Ensure every task loads project memory, checks current source, works on an isolated branch, reports exact verification, and updates memory when needed.
+1. **Completed:** PR #4 added the deterministic lexical source index and read-only memory audit; its final audit passed.
+2. **Completed:** PR #7's disposable negative test proved the audit rejects a deliberately stale source fingerprint; the test PR was closed unmerged.
+3. **Completed in this change:** add `docs/TASK_TEMPLATE.md` and make it part of the mandatory agent operating procedure.
+4. PR #2's isolated validation workflow passed run #11: static analysis and debug APK build succeeded; tests were skipped because the tested revision had no `test/` directory. The PR remains open; merge only after explicit user approval.
+5. Review the dependent source/tooling PR chain #8–#13 in dependency order. Do not merge any PR without explicit user approval.
+6. PR #14 is payment-related and remains parked at the user's direction. Do not extend payment/backend work unless the user re-prioritizes it.
+7. Keep PR #1 unmerged because its documentation overlaps with merged PR #3; close it only with explicit approval.
 
-## P1 — Make the agent's knowledge executable
+## P1 — Improve executable project understanding and verification
 
-1. Upgrade the lexical Dart index toward semantic AST and call/reference relationships using Dart tooling where feasible; label all limitations.
-2. Compare lexical index output with Dart Analyzer output and document false positives/omissions before relying on it for navigation.
-3. Create focused automated tests for recovery admission, payment-token ownership, profile switching, and lifecycle restoration.
-4. Establish a repeatable baseline: format, analyze, test, debug build; preserve logs and artifact references.
-5. Extend source-fingerprint coverage to additional documented files and symbol-level evidence as the architecture is split across files.
-6. Add a task template requiring context loaded, priority test, scope, branch, diff, tests, PR, and memory update.
+1. **Implemented in review branches, not yet on main:** PR #8 AST extraction, PR #9 analyzer-resolved Elements, and PR #10 multi-file static critical-path reports. Their CI runs passed; preserve their documented limitations and review their dependency chain.
+2. **Implemented in review branches, not yet on main:** PRs #11–#13 add focused recovery and live-connection verification policies with unit tests. CI passed; Android device and real tunnel validation remain outstanding.
+3. After the approved source/tooling changes are integrated, run one repeatable validation against the exact combined candidate: format, analyze, full app tests, debug APK build, and memory freshness audit. Preserve exact run IDs and artifact references.
+4. Keep generated semantic graphs and critical-path reports labeled as static analysis, not runtime traces or proof of reachability.
+5. Extend source-fingerprint coverage to important architecture and workflow documents without making routine maintenance excessively expensive.
 
-## P2 — Close critical source-level risks (separate code PRs)
+## P2 — Deferred application risks
 
-1. Fix and test `connect_timeout` recovery allowlist mismatch.
-2. Define a single live-verification invariant for resume and normal connection paths.
-3. Bind pending payment tokens to invoice owner/context and verify backend behavior.
-4. Design encrypted credential storage migration.
-5. Coordinate POST-body credential transport with backend owner.
-6. Review `onRevoke` behavior with Android device tests.
+- Password storage migration, credential transport changes, and Android VPN revoke-path validation remain separate, evidence-driven tasks. Do not mix them into the collaborator-foundation work.
+- Payment/backend audit and related changes are deferred while the current bot/payment service is operating normally, unless the user explicitly changes priority.
 
-## P3 — Backend visibility
+## P3 — Expand the collaborator to other projects
 
-Obtain read-only access to authoritative backend source before making security/payment claims or changing API semantics. Map server-side authorization, invoice creation/approval, idempotency, and rate limits.
+After the JET VPN workflow is reliable, apply the same project-memory, source-verification, isolated-branch, test, and PR process to JET VPN TV and حسابگر من. Keep each repository's source, decisions, and status separate.
 
 ## Explicitly out of current priority
 
-Do not prioritize new product features, visual redesigns, marketing, or unrelated refactors until the agent can reliably understand, verify, and maintain the existing project—unless the user explicitly changes the priority.
+Do not prioritize new product features, visual redesigns, marketing, unrelated refactors, or deferred payment work until the programming collaborator can reliably understand, verify, and maintain the existing project—unless the user explicitly changes the priority.

@@ -134,3 +134,10 @@ Append-only record of meaningful project work. Each entry should include branch/
 - **CI:** added `tests/recovery-regression-20261122` to the PR base-branch filter so this dependent PR can run the read-only memory audit. CI pending at this log snapshot.
 - **Memory:** regenerated `docs/generated/jet_vpn_code_index.json` for `lib/main.dart` blob `a2483f2bb90e528a70440978ac62b9f58264c778` (9,016 lines; 352,934 UTF-8 bytes; 336,842 Unicode code points; 16 imports; 326 lexical symbols).
 - **Safety:** no payment/profile logic, native Java, app dependencies, app version, main branch, or production release workflow changed. No build, device test, merge, or Release performed.
+
+### Stage 10 verification update — PR #12
+
+- **CI:** Run [#45008634023](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45008634023) completed successfully on head `62ebdd4ea65e641cad8fa7ef19ca881b813070fc`.
+- **Passed:** application `flutter test`; AST indexer tests; resolved-element indexer tests; critical-path report tests; AST/resolved/critical-path generation; deterministic regeneration comparison; lexical code-index and CURRENT_STATUS freshness verification.
+- **Artifacts:** `jet-vpn-code-index` ID `14748897624`; `jet-vpn-semantic-ast-index` ID `14748603470`; both retained until 2026-12-22.
+- **Not performed:** Flutter APK build, Android emulator/device test, runtime VPN/network test, merge, or Release.

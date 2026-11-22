@@ -540,7 +540,7 @@ def command_finalize(args: argparse.Namespace) -> None:
 
 def render_handoff(record: dict[str, Any]) -> str:
     latest: dict[str, dict[str, Any]] = {}
-    for item in checks:
+    for item in record.get("check_attempts", []):
         latest[item["profile"]] = item
     lines = [
         f"# Task handoff: {record['task_id']}", "",

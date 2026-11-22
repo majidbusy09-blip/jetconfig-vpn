@@ -1,6 +1,6 @@
 # JET VPN — Known Issues and Risks
 
-> Findings are source-inspection results against `main` commit `47949178016a6ef3e855a215550b06f4eae8378d`. A source-level finding is not automatically a reproduced runtime bug.
+> Application findings were inspected against `main` commit `47949178016a6ef3e855a215550b06f4eae8378d`; `lib/main.dart` blob remains unchanged at current main `f396f57459c9863a325f27e7d438e9456d560e92`. A source-level finding is not automatically a reproduced runtime bug.
 
 ## JET-001 — connect_timeout recovery reason is rejected
 
@@ -53,15 +53,15 @@
 ## JET-007 — Main branch push triggers production release
 
 - **Severity:** Critical operational risk
-- **Status:** Confirmed workflow configuration.
-- **Evidence:** `.github/workflows/build.yml:1–10` triggers on push to `main`, grants `contents: write`; later steps build release APKs and publish GitHub Release.
-- **Impact:** Merging a PR can publish production APKs automatically.
-- **Next:** Design a separately reviewed release gate/manual approval workflow. Do not modify production workflow under this docs-only task.
+- **Status:** **Resolved** by merged PR #5.
+- **Historical evidence:** Before PR #5, `.github/workflows/build.yml` triggered on push to `main` and published signed APKs/GitHub Releases.
+- **Resolution evidence:** Current workflow at main commit `f396f57459c9863a325f27e7d438e9456d560e92` uses only `workflow_dispatch`; requires `confirm_release=true` and `github.ref == 'refs/heads/main'`; `contents: write` is scoped to the release job.
+- **Residual risk:** A manually dispatched, explicitly confirmed run can still publish a public Release. Do not dispatch without user approval.
 
 ## JET-008 — No repository-owned automated test suite in main snapshot
 
 - **Severity:** High quality/process gap
 - **Status:** Confirmed tree observation.
-- **Evidence:** Recursive `main` tree at `47949178016a6ef3e855a215550b06f4eae8378d` contains no `test/` directory.
+- **Evidence:** Recursive `main` tree at application-source baseline `47949178016a6ef3e855a215550b06f4eae8378d` contains no `test/` directory; application source remains unchanged at current main.
 - **Impact:** CI can build/analyze but cannot provide regression coverage for connection, payment, profile, or lifecycle behavior.
 - **Next:** Establish test seams and add focused unit tests before high-risk code changes. Do not confuse a CI build with tests.

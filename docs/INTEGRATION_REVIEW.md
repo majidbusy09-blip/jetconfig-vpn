@@ -71,3 +71,26 @@ This is CI evidence for unit tests and project-memory tooling. It is **not** evi
 2. Test cold restore and app resume on an Android device with: (a) working tunnel, (b) native core still CONNECTED but tunnel data path blocked, (c) explicit user disconnect during an in-flight ping, and (d) profile switch during verification.
 3. Record device model, Android version, exact commit, expected/actual behavior, and redacted logs.
 4. Only after these checks, decide whether PR #16 is ready for final review.
+
+## Non-production APK validation update — 2026-11-22
+
+The integration branch now includes a PR-only validation workflow that generates the Android scaffold in the temporary CI workspace (it does not commit an `android/` directory), applies the repository-maintained V2Ray patches to the CI cache, runs analysis/tests, and builds comparison APKs.
+
+- Workflow-only head: `613d465774e8093d4ba38f7959406ca4c3bf2d8f`.
+- PR validation [Run #45021183386](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45021183386): success. Static analysis, app tests, Debug build, split-per-ABI ARM64 Release build, and artifact uploads all passed.
+- Project-memory audit [Run #45021183398](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45021183398): success.
+- Debug APK artifact: 153,067,021 bytes; retained until 2026-11-29.
+- ARM64 Release artifact ID `14753468185`; contained APK `app-arm64-v8a-release.apk` is 27,773,007 bytes (about 26.48 MiB). The artifact ZIP is 27,063,707 bytes and expires 2026-11-29.
+- The APK was downloaded and inspected. Its native library entries are exclusively under `lib/arm64-v8a/`; no other ABI directories were present. This validates that `--split-per-abi` corrected the previous fat-APK output.
+
+### Important limitation
+
+The Android project used for this CI build was generated temporarily because the repository does not contain the production Android scaffold. CI reported the generated application ID/namespace as `com.jetconfig.vpn.jetconfig_vpn`. This is not confirmed to be the installed production JET VPN package ID, and the signing certificate has not been matched. Therefore this APK is for build/size analysis only: do not install it over the production app or distribute it.
+
+### Next checks
+
+1. Inspect the authoritative production Android project/build configuration to establish the production application ID and signing identity.
+2. Compare the ARM64 APK size against the actual installed production package using consistent units and packaging basis.
+3. Only after package/signature compatibility is established, perform controlled Android device tests for restore, resume, disconnect cancellation, profile switching, and real tunnel traffic.
+
+The successful CI build does not establish production installability, signing compatibility, native runtime correctness, or VPN connectivity. PR #16 remains draft and unmerged; no release/deployment was triggered.

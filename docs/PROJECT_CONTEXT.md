@@ -1,10 +1,12 @@
 # JET VPN — Project Context
 
-> Current verified repository snapshot: `main` at `1f2519923cdd9f85ab280a3a4359d7ed5aed3949` (2026-11-22).  
-> Application-source baseline: `47949178016a6ef3e855a215550b06f4eae8378d`; no app-source changes since that baseline.  
-> Main source blob: `lib/main.dart` = `df2914b2954d723869e4196d96f96b050618985a`.  
-> App version: `2.4.5+284` (`pubspec.yaml` and matching constants in `lib/main.dart`).
-
+> Current verified repository snapshot: `main` at `eae477a89816a5cfd475c596e166d5cb2575884a` (2026-11-22).  
+> PR #16 merged at `c4f7f4743b3c6ffc64d34a0efb0c19f41b236f1e`; PR #17 merged at `eae477a89816a5cfd475c596e166d5cb2575884a`.  
+> Main source blob: `lib/main.dart` = `3d28693b7be8bfe309a850923599830e1a65ab59`.  
+> App version: `2.4.5+284` (`pubspec.yaml` blob `adc3b22a4538db4738bec789e3c3badf26e4f710`).  
+> Project-memory audit run #45029689706 passed on the current main commit.  
+> Active `main-protection` ruleset protects only the default branch and requires PR + memory-audit status check.
+ 
 ## Product and repository identity
 
 - App: **JET VPN**; related service/brand name: **JetConfig**.

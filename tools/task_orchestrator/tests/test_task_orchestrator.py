@@ -148,18 +148,14 @@ class OrchestratorIntegrationTests(unittest.TestCase):
     def test_failed_check_attempt_is_preserved_after_retry(self) -> None:
         self.prepared_task()
         self.cli("begin", "--task-id", self.task_id)
-        fixture = self.root / "tools/task_orchestrator/tests/test_fixture.py"
-        fixture.write_text(
-            "import unittest\\nclass FixtureTest(unittest.TestCase):\\n"
+        failure_fixture = self.root / "tools/task_orchestrator/tests/test_fixture_failure.py"
+        failure_fixture.write_text(
+            "import unittest\\nclass FailureFixture(unittest.TestCase):\\n"
             "    def test_fail(self): self.assertTrue(False)\\n",
             encoding="utf-8",
         )
         self.cli("verify", "--task-id", self.task_id, "--profile", "python-tooling-tests", expected=2)
-        fixture.write_text(
-            "import unittest\\nclass FixtureTest(unittest.TestCase):\\n"
-            "    def test_ok(self): self.assertTrue(True)\\n",
-            encoding="utf-8",
-        )
+        failure_fixture.unlink()
         self.cli("verify", "--task-id", self.task_id, "--profile", "python-tooling-tests")
         record = json.loads(self.record.read_text(encoding="utf-8"))
         self.assertEqual(

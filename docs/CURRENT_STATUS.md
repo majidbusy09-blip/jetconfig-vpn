@@ -31,7 +31,7 @@
 - PR #9: analyzer-resolved Element graph; open, draft, unmerged; dependent on PR #8; CI Run #57 succeeded.
 - PR #10: multi-file Dart resolution and critical-path report; open, draft, unmerged; dependent on PR #9 and PR #8; CI Run #58 succeeded; workflow-trigger refresh Run #65 is being revalidated.
 - PR #11: recovery admission policy and first application regression tests; open, draft, unmerged; targets PR #10 branch; full CI Run [#45008026404](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45008026404) succeeded, including app `flutter test`, semantic tooling tests/generation, and lexical freshness audit.
-- PR #12 (current branch): fresh live-connection verification on restore/resume; in progress, based on PR #11; CI pending.
+- PR #12 (current branch): fresh live-connection verification on restore/resume; open, draft, unmerged, based on PR #11; full CI Run [#45008634023](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45008634023) succeeded, including app tests, all semantic tooling tests/generation, deterministic regeneration, and lexical freshness.
 
 ## Build and test baseline
 
@@ -39,13 +39,13 @@
 - PR #2 validation workflow previously succeeded in run #10 (ID `44983819542`) and produced a debug APK artifact. At that time no application `test/` directory existed; PR #11 adds the first app-owned unit suite.
 - PR #4's final strict project-memory audit passed in run [#44999570281](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/44999570281) on head `5508b99d1666f24bc602363f32b1eb770065518a`; all five main steps succeeded. Artifact `jet-vpn-code-index`, ID `14744947755`, retained until 2026-12-22.
 - PR #10's project-memory tool suite has 10 distinct tests (3 AST, 5 resolved-indexer, 2 critical-path tests); all passed in CI Run #58. These are tooling tests, not application regression tests.
-- No app build or runtime/device test was run for PRs #8–#10. PR #11's full `flutter test` and memory audit passed in Run #45008026404. The current branch adds four live-connection policy tests; its CI result is pending. A passing unit test or memory audit does not prove live VPN connectivity, payment, update, or Android lifecycle behavior.
+- No app build or runtime/device test was run for PRs #8–#10. PR #11's full `flutter test` and memory audit passed in Run #45008026404. The current branch's four live-connection policy tests passed in Run #45008634023; full read-only audit and both artifact uploads also passed. A passing unit test or memory audit does not prove live VPN connectivity, payment, update, or Android lifecycle behavior.
 
 ## Known high-priority risks
 
 See `KNOWN_ISSUES.md`. Highest priorities:
 1. `connect_timeout` is admitted by PR #11; full CI passed, while runtime/device recovery behavior remains unverified.
-2. PR #12 removes native-state-only verification on restore/resume; unit tests and full CI are pending, and device reproduction remains required.
+2. PR #12 removes native-state-only verification on restore/resume; unit tests and full CI passed, but device reproduction remains required.
 3. Pending payment token is stored globally without an owner identity.
 4. Account passwords are stored in SharedPreferences profile JSON/plain keys.
 5. Login/password-change credentials are sent in GET query strings.

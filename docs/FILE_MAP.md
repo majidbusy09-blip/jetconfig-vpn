@@ -43,10 +43,11 @@ The current `main` tree contains a tracked `test/` suite and isolated semantic t
 ## Source identity
 
 - Current `main`: `eae477a89816a5cfd475c596e166d5cb2575884a`.
-- `lib/main.dart`: blob `${mainBlob}`, 9,008 lines, 352,770 UTF-8 bytes, 336,710 Unicode code points.
+- `lib/main.dart`: blob `3d28693b7be8bfe309a850923599830e1a65ab59`, 9,008 lines, 352,770 UTF-8 bytes, 336,710 Unicode code points.
 - `pubspec.yaml`: blob `adc3b22a4538db4738bec789e3c3badf26e4f710`, version `2.4.5+284`.
 - `.github/workflows/build.yml`: blob `abdb595af8df6b2d02ab0ba1da665ac9de1d6461`; manual release gate.
 - `tools/v2ray_notif_patch/apply_patch.sh`: blob `ef603a667eded4786dd12c2fefd3650667d12ba3`.
 - `tools/v2ray_notif_patch/V2rayVPNService.java`: blob `fb081e7a99b076f7bbcda47b736b8571bb12966f`.
 
 Never add paths to this map unless verified from the current tree or a separately identified source repository.
+

@@ -14,6 +14,7 @@
 | `docs/PROJECT_MEMORY_AUTOMATION.md` | Usage, guarantees, and limitations of project-memory audit; merged in PR #4. |
 | `docs/generated/jet_vpn_code_index.json` | Generated lexical Dart navigation index; merged in PR #4. |
 | `tools/project_memory/index_dart.py` | Standard-library generator/checker for lexical Dart index and source fingerprint; merged in PR #4. |
+| `tools/project_memory/semantic/` | Isolated Dart Analyzer AST indexer and focused tests; proposed in PR #8. Detailed output is generated as a CI artifact, not committed. |
 | `tools/v2ray_notif_patch/apply_patch.sh` | Applies repository-maintained native patch to dependency sources in build workspace. |
 | `tools/v2ray_notif_patch/V2rayCoreManager.java` | Patched V2Ray core manager source. |
 | `tools/v2ray_notif_patch/V2rayProxyOnlyService.java` | Patched proxy-only service source. |

@@ -24,7 +24,7 @@ Future<Map<String, Object?>> buildResolvedIndex({
     }
     final sourceText = await File(absoluteSource).readAsString();
     final pubspec = await File('$absoluteRoot/pubspec.yaml').readAsString();
-    final packageName = RegExp(r'^name:\\s*([A-Za-z0-9_]+)', multiLine: true)
+    final packageName = RegExp(r'^name:\s*([A-Za-z0-9_]+)', multiLine: true)
         .firstMatch(pubspec)
         ?.group(1);
     if (packageName == null) {

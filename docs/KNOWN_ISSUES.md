@@ -22,7 +22,7 @@
 ## JET-003 — Pending payment token owner binding
 
 - **Severity:** High
-- **Status:** Client-side mitigation implemented in PR #14; CI and review pending. Backend authorization and exploitability remain unverified.
+- **Status:** Client-side mitigation implemented in PR #14; full CI Run [#45013721394](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45013721394) passed. Backend authorization and exploitability remain unverified.
 - **Original evidence:** the legacy `pending_pay_token` preference contained only the token, while `_watchPaymentStatus` supplied whichever `savedUser/savedPass` were active at poll time.
 - **Current proposed behavior:** `PendingPaymentRecord` stores token, exact originating username, creation timestamp, and `pending` status in `pending_payment_json`. Polling is refused unless the active username matches the stored owner. Account/profile changes and password changes invalidate in-flight polls; a late response cannot be applied after the active account changes.
 - **Legacy handling:** the old unowned `pending_pay_token` is discarded on restore because its owner cannot be established safely. Existing legacy pending invoices may need to be recreated or reconciled through support; they are not silently assigned to the current profile.

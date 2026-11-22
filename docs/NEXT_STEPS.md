@@ -5,7 +5,7 @@ Priority is measured against the goal of a reliable programming collaborator wit
 ## P0 — Activate and validate the memory/agent foundation
 
 1. **Completed:** PR #4 was merged after a fresh successful audit on the final PR head; the generated index and source fingerprint matched.
-2. Verify the audit workflow catches a deliberately stale index in a disposable test branch without merging that test branch.
+2. **Completed:** PR #7's disposable negative test proved that the audit workflow triggers on PRs and rejects a deliberately stale source fingerprint; the test PR was closed unmerged.
 3. Decide whether PR #1's initial documentation should be closed as superseded; do not merge it alongside PR #3.
 4. Decide separately whether PR #2's isolated PR-validation workflow should be merged; it is not a production release trigger, but still requires explicit approval.
 5. Ensure every task loads project memory, checks current source, works on an isolated branch, reports exact verification, and updates memory when needed.

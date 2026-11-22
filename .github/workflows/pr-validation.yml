@@ -91,13 +91,13 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
-      - name: Build arm64 release-mode comparison APK
-        run: flutter build apk --release --target-platform android-arm64 --no-pub
+      - name: Build arm64 release-mode comparison APK (split per ABI)
+        run: flutter build apk --release --target-platform android-arm64 --split-per-abi --no-pub
 
       - name: Upload arm64 release-mode comparison APK
         uses: actions/upload-artifact@v4
         with:
           name: JET-VPN-arm64-release-mode-${{ github.run_number }}
-          path: build/app/outputs/flutter-apk/app-release.apk
+          path: build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
           if-no-files-found: error
           retention-days: 7

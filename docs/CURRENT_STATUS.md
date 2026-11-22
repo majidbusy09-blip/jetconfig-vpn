@@ -32,7 +32,7 @@
 - PR #10: multi-file Dart resolution and critical-path report; open, draft, unmerged; dependent on PR #9 and PR #8; CI Run #58 succeeded; workflow-trigger refresh Run #65 is being revalidated.
 - PR #11: recovery admission policy and first application regression tests; open, draft, unmerged; targets PR #10 branch; full CI Run [#45008026404](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45008026404) succeeded, including app `flutter test`, semantic tooling tests/generation, and lexical freshness audit.
 - PR #12: fresh live-connection verification on restore/resume; open, draft, unmerged, based on PR #11; full CI Run [#45008634023](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45008634023) and final audit Run [#45008853860](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45008853860) succeeded.
-- PR #13 (current branch): extracts the asynchronous live-ping sequence behind an injectable verifier and adds deterministic async tests; based on PR #12, pending CI/review.
+- PR #13 (current branch): extracts the asynchronous live-ping sequence behind an injectable verifier; full audit CI Run [#45011976765](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45011976765) succeeded on head `e11598dfb3978e44e01aa52a3e3afa95f87307b1`, including 15 app tests, all semantic tooling tests/generation, deterministic regeneration, lexical freshness, and both artifact uploads. Open/draft/unmerged; review pending.
 
 ## Build and test baseline
 

@@ -1683,9 +1683,6 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
           activePing = -1;
         });
       }
-      if (connectionModeSmart && _userWantsConnected && !_weInitiatedStop) {
-        _startHealthWatch(slow: true);
-      }
       return;
     }
 

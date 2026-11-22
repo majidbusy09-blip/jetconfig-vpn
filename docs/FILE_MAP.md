@@ -9,7 +9,7 @@
 | `pubspec.yaml` | Flutter package metadata, version, SDK constraint, dependencies. |
 | `lib/main.dart` | Main Flutter application; UI, account, payment, server, VPN connection/recovery, settings and update logic. |
 | `lib/recovery_policy.dart` | Pure smart-recovery admission and cooldown policy; added on the recovery regression branch for unit-testable decision rules. |
-| `lib/live_connection_policy.dart` | Pure UI connected-state gate requiring native core connected, successful live verification, and no forced-disconnect override; proposed in PR #12. |
+| `lib/live_connection_policy.dart` | Merged pure UI connected-state gate requiring native core connected, successful live verification, and no forced-disconnect override. |
 | `lib/live_connection_verifier.dart` | Injectable asynchronous settle/ping/retry sequence used by `_verifyLiveConnection`; UI state and native stop/recovery decisions remain in `main.dart`. |
 | `test/live_connection_verifier_test.dart` | Deterministic async tests for silent verification, retry timing, core disconnect, stale result cancellation, and explicit-disconnect cancellation. |
 | `test/recovery_policy_test.dart` | First application-owned unit suite; tests smart-recovery reason admission, intent gates, and cooldown selection. |

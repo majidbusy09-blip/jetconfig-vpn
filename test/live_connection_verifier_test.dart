@@ -132,6 +132,33 @@ void main() {
       ]);
     });
 
+    test('profile switch invalidates a pending verification before ping', () async {
+      var current = true;
+      var pingCalls = 0;
+      final verifier = LiveConnectionVerifier(
+        wait: (_) async {
+          // Model _activateProfile advancing the verification generation
+          // while the verifier is waiting for the native core to settle.
+          current = false;
+        },
+      );
+
+      final result = await verifier.verify(
+        silent: true,
+        isCurrent: () => current,
+        forceDisconnected: () => false,
+        coreConnected: () => true,
+        getConnectedServerDelay: () async {
+          pingCalls++;
+          return 25;
+        },
+        timeout: const Duration(seconds: 1),
+      );
+
+      expect(result.status, LiveConnectionVerificationStatus.cancelled);
+      expect(pingCalls, 0);
+    });
+
     test('explicit disconnect cancels a non-silent check before ping', () async {
       final verifier = LiveConnectionVerifier(wait: (_) async {});
       var pingCalls = 0;

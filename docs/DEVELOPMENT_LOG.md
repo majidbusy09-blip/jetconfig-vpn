@@ -156,3 +156,17 @@ Append-only record of meaningful project work. Each entry should include branch/
 - **Passed:** all 15 application tests (including all seven verifier tests); 10 AST-indexer tests; 5 resolved-indexer tests; 2 critical-path tests; semantic index generation; deterministic regeneration; lexical index and CURRENT_STATUS freshness checks; both artifact uploads.
 - **Artifacts:** `jet-vpn-code-index` ID `14750137931`; `jet-vpn-semantic-ast-index` ID `14750411193`; both expire 2026-12-22.
 - **Not performed:** Flutter APK build, Android emulator/device test, runtime VPN/network test, merge, or Release.
+
+
+## 2026-11-22 — Stage 12: integration review and CI verification (PR #16)
+
+- **PR:** [#16 — consolidate project memory and VPN recovery work](https://github.com/majidbusy09-blip/jetconfig-vpn/pull/16).
+- **Branch:** `integration/memory-and-recovery-20261122`.
+- **Reviewed source head:** `287448bfae73d6b38e95e4944b6c23afa0ea80f4`; app version `2.4.5+284`; `lib/main.dart` blob `3d28693b7be8bfe309a850923599830e1a65ab59`.
+- **Diff:** 32 files, 2,762 additions, 432 deletions. Scope is project-memory tooling/docs plus recovery/live-verification policy, verifier, app integration, and tests. No payment, bot, backend, server, native Java, app dependency, app version, or production release workflow changes.
+- **CI:** Run [#45018162238](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45018162238) succeeded on the exact reviewed head. Application `flutter test`, semantic tooling tests/generation, deterministic AST regeneration, lexical freshness, and both artifact uploads all passed.
+- **Artifacts:** `jet-vpn-code-index` ID `14753040563`; `jet-vpn-semantic-ast-index` ID `14752731739`; 30-day retention.
+- **Source review:** Confirmed the UI connection gate requires core-connected + verified ping + no forced-disconnect override; restore/resume clear stale verification and run the async verifier; stale verifier generations are cancelled; silent failure leaves the native core running and delegates to slow health watch; recovery policy includes `connect_timeout`.
+- **Limitations:** CI is not an APK build or Android device test. No real tunnel traffic, Android lifecycle integration, or native V2Ray behavior was verified. No source-level blocker was identified in the focused review; device validation remains mandatory.
+- **Safety:** PR remains draft/unmerged. No merge, production release, deployment, or production workflow dispatch occurred.
+- **Detailed record:** `docs/INTEGRATION_REVIEW.md`.

@@ -29,10 +29,10 @@ This log records decisions that govern future work. New entries should include d
 ## D-004 — Release workflow is a protected boundary
 
 - **Date:** 2026-11-22
-- **Status:** Accepted; remediation not yet implemented
-- **Decision:** Treat merge to `main` as potentially publishing a production Release while `.github/workflows/build.yml` triggers on main push.
-- **Rationale:** Workflow has release publishing and signing behavior.
-- **Consequence:** Do not merge without explicit release approval; separately propose a release gate.
+- **Status:** Accepted; remediation implemented in PR #5
+- **Decision:** Production release is manual-only and fail-closed: `workflow_dispatch`, selected ref exactly `main`, and explicit `confirm_release=true`. The release job alone receives `contents: write`.
+- **Rationale:** Prevent ordinary pushes and PR merges from unintentionally publishing signed production APKs.
+- **Consequence:** Never dispatch a production release without explicit user approval. Current implementation is in `.github/workflows/build.yml` at main commit `f396f57459c9863a325f27e7d438e9456d560e92`.
 
 ## D-005 — API docs distinguish client observation from server truth
 
@@ -41,3 +41,11 @@ This log records decisions that govern future work. New entries should include d
 - **Decision:** Document request fields and response usage from Flutter source as client-observed only until backend source is reviewed.
 - **Rationale:** Client behavior cannot prove authorization, validation, idempotency, or payment correctness on the server.
 - **Consequence:** Use explicit server-unverified markers and do not make security claims about backend.
+
+## D-006 — Every task must pass the collaborator-priority test
+
+- **Date:** 2026-11-22
+- **Status:** Accepted
+- **Decision:** Before prioritizing work, ask: «آیا این کار ما را به داشتن یک همکار برنامه‌نویس مستقل، دقیق و دارای حافظه پروژه نزدیک‌تر می‌کند؟» A negative answer means the work is not a priority unless explicitly requested.
+- **Rationale:** Keep engineering effort focused on durable project understanding, implementation ability, verification, memory, and safe maintenance rather than unrelated activity.
+- **Consequence:** Record the capability improved by each prioritized task; defer unrelated product features, marketing, visual changes, and refactors.

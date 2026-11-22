@@ -1,7 +1,7 @@
 # JET VPN — Project Context
 
-> Current verified repository snapshot: `main` at `abdff3a59b89419e869c98d7dbb4ac91512fe950` (2026-11-23).  
-> PR #16 merged at `c4f7f4743b3c6ffc64d34a0efb0c19f41b236f1e`; PR #17 at `eae477a89816a5cfd475c596e166d5cb2575884a`; PR #19 at `abdff3a59b89419e869c98d7dbb4ac91512fe950`.  
+> Current verified repository snapshot: `main` at `a09cdb0be35e3072be29973f7ae8df66ab44d07f` (2026-11-23).  
+> PR #16 merged at `c4f7f4743b3c6ffc64d34a0efb0c19f41b236f1e`; PR #17 at `eae477a89816a5cfd475c596e166d5cb2575884a`; PR #19 at `abdff3a59b89419e869c98d7dbb4ac91512fe950`; PR #18 documentation refresh at `a09cdb0be35e3072be29973f7ae8df66ab44d07f`.  
 > Main source blob: `lib/main.dart` = `3d28693b7be8bfe309a850923599830e1a65ab59`.  
 > App version: `2.4.5+284` (`pubspec.yaml` blob `adc3b22a4538db4738bec789e3c3badf26e4f710`).  
 > PR #19 aligns validation-only Android SDK and package visibility with production; its final-head CI runs #45065541236 and #45065541255 passed.  
@@ -30,7 +30,7 @@ Smart routing, direct/domestic app handling, account profiles, purchase/renewal,
 
 ## Collaboration contract
 
-The repository's `AGENTS.md` is the mandatory operating contract. Before prioritizing work, apply the collaborator-priority test stated there. The short version: load project memory first, verify current source, work on isolated branches, show diffs and evidence, open PRs, and do not merge or release without explicit approval.
+The repository's `AGENTS.md` is the mandatory operating contract. Before prioritizing work, apply the collaborator-priority test stated there. The short version: load project memory and `docs/TASK_TEMPLATE.md` first, verify current source, work on isolated branches, record scope and evidence, show complete diffs, open PRs, and do not merge or release without explicit approval.
 
 ## Release workflow
 

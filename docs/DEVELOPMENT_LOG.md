@@ -70,3 +70,17 @@ Append-only record of meaningful project work. Each entry should include branch/
 - **Safety:** No app Dart/native source, app dependency manifest, app version, production build/release workflow, or runtime behavior is intended to change. No merge or release is authorized.
 - **Verification status:** Pending CI on the final follow-up PR head. Do not describe analyzer resolution as validated until the resolver tests, full source generation, deterministic comparison, and lexical audit all pass.
 - **Precision boundary:** Analyzer Elements represent static resolution, not runtime reachability. Dynamic calls remain unresolved; virtual dispatch may differ at runtime. The graph still covers only `lib/main.dart`.
+
+
+## 2026-11-22 — Stage 7 verification: analyzer-resolved Element graph (PR #9)
+
+- **Final head:** `0999a59289c655c48314120fae9d01870be64022`.
+- **CI:** [Run #54](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45003174239) completed successfully.
+- **Tests:** All seven tooling tests passed (three AST-indexer tests and four resolved-indexer tests); the resolver test file also passed as its own CI step.
+- **Pipeline:** Flutter package-context resolution, isolated lockfile resolution, AST tests, resolved-element tests, both index generations, deterministic regeneration comparison, lexical freshness audit, and both artifact uploads all passed.
+- **Resolved source snapshot:** `lib/main.dart` blob `df2914b2954d723869e4196d96f96b050618985a`; 9,001 lines; 352,404 UTF-8 bytes.
+- **Analyzer result:** analyzer 6.11.0; resolved unit true; 112 diagnostics, zero errors.
+- **Resolved graph:** 468 declarations; 3,394 call sites; 3,353 statically resolved targets; 41 unresolved targets; 3,321 resolved caller-target edges; 2,870 external targets. Own-app `package:jet_vpn/...` elements are correctly classified as repository code; the package-URI classification has a focused regression test.
+- **Artifact:** `jet-vpn-semantic-ast-index`, ID `14746174961`, 30-day retention; includes the AST index, resolved-element graph, and isolated tooling lockfile.
+- **Diff review:** only `.github/workflows/project-memory-audit.yml`, project-memory documentation, and files under `tools/project_memory/semantic/` changed relative to the PR #8 base. No app source, native source, app dependency manifest, app version, or production release workflow changed.
+- **Review state:** PR #9 remains draft/open/unmerged and targets PR #8's branch. No app build, runtime/device test, merge, or Release was performed.

@@ -12,12 +12,13 @@ Priority is measured against the goal of a reliable programming collaborator wit
 
 ## P1 — Make the agent's knowledge executable
 
-1. Upgrade the lexical Dart index toward semantic AST and call/reference relationships using Dart tooling where feasible; label all limitations.
-2. Compare lexical index output with Dart Analyzer output and document false positives/omissions before relying on it for navigation.
-3. Create focused automated tests for recovery admission, payment-token ownership, profile switching, and lifecycle restoration.
-4. Establish a repeatable baseline: format, analyze, test, debug build; preserve logs and artifact references.
-5. Extend source-fingerprint coverage to additional documented files and symbol-level evidence as the architecture is split across files.
-6. Add a task template requiring context loaded, priority test, scope, branch, diff, tests, PR, and memory update.
+1. **In progress in PR #8:** AST-based declaration and syntactic call-site extraction, with ambiguity/unresolved labels and focused tooling tests.
+2. After PR #8 CI is green, compare AST output against the lexical index and review representative high-value JET VPN paths for false positives/omissions.
+3. Upgrade from syntactic name candidates to analyzer element resolution using a package-aware analysis context; only then treat call edges as semantically resolved.
+4. Create focused automated tests for recovery admission, payment-token ownership, profile switching, and lifecycle restoration.
+5. Establish a repeatable baseline: format, analyze, test, debug build; preserve logs and artifact references.
+6. Extend source-fingerprint coverage to additional documented files and symbol-level evidence as the architecture is split across files.
+7. Add a task template requiring context loaded, priority test, scope, branch, diff, tests, PR, and memory update.
 
 ## P2 — Close critical source-level risks (separate code PRs)
 

@@ -26,10 +26,11 @@ Priority is measured against the goal of a reliable programming collaborator wit
 1. **PR #11 implementation and full CI completed:** fix `connect_timeout` recovery allowlist mismatch. Runtime/device verification remains outstanding.
 2. **Implemented and full CI passed in PR #12:** apply one live-verification invariant to UI, cold restore, and app resume. Device validation remains required.
 3. **Implemented and CI-verified in PR #13:** isolate the async live-ping/retry sequence behind injected dependencies; all 15 app tests and full project-memory audit passed. Android lifecycle/device verification remains required.
-4. **Next:** bind pending payment tokens to invoice owner/context and verify backend behavior.
-4. Design encrypted credential storage migration.
-5. Coordinate POST-body credential transport with backend owner.
-6. Review `onRevoke` behavior with Android device tests.
+4. **Implemented in PR #14; CI/review pending:** persist the payment token with originating username, creation timestamp, and pending status; block cross-profile polling; cancel stale polling after account/password changes. Backend ownership enforcement remains unverified.
+5. Obtain read-only backend access and verify invoice ownership, replay/idempotency, and authorization. Never test against production without approval.
+6. Design encrypted credential storage migration.
+7. Coordinate POST-body credential transport with backend owner.
+8. Review `onRevoke` behavior with Android device tests.
 
 ## P3 — Backend visibility
 

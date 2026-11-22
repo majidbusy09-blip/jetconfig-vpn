@@ -397,11 +397,14 @@ def command_verify(args: argparse.Namespace) -> None:
     definition = PROFILES[profile]
     started = time.monotonic()
     timestamp = now_iso()
+    check_env = os.environ.copy()
+    # Verification must not dirty the worktree with bytecode cache files.
+    check_env["PYTHONDONTWRITEBYTECODE"] = "1"
     try:
         result = subprocess.run(
-            definition["argv"], cwd=root, text=True, stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT, timeout=definition["timeout"],
-            check=False, shell=False,
+            definition["argv"], cwd=root, env=check_env, text=True,
+            stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+            timeout=definition["timeout"], check=False, shell=False,
         )
         exit_code = result.returncode
         status = "passed" if exit_code == 0 else "failed"

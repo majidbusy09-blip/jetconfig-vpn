@@ -1,6 +1,6 @@
 # JET VPN — System Map
 
-> Source baseline: `main` `abdff3a59b89419e869c98d7dbb4ac91512fe950`; `lib/main.dart` blob `3d28693b7be8bfe309a850923599830e1a65ab59` (verified 2026-11-23). Historical line references below have not yet been revalidated against this blob; re-fetch source before relying on a line number. Historical line references below have not yet been revalidated against this blob; re-fetch source before relying on a line number.
+> Source baseline: `main` `abdff3a59b89419e869c98d7dbb4ac91512fe950`; `lib/main.dart` blob `3d28693b7be8bfe309a850923599830e1a65ab59` (verified 2026-11-23). Historical line references below have not yet been revalidated against this blob; re-fetch source before relying on a line number.
 
 ## Component map
 

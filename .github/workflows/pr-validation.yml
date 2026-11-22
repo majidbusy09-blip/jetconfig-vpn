@@ -45,6 +45,12 @@ jobs:
             flutter create . --platforms=android --project-name=jetconfig_vpn --org com.jetconfig.vpn
           fi
           test -f android/app/build.gradle || test -f android/app/build.gradle.kts
+          # flutter create may generate a placeholder widget test that does not
+          # match this existing app entrypoint. Remove only that exact scaffold file.
+          if [ -f test/widget_test.dart ] && grep -q "package:jetconfig_vpn/main.dart" test/widget_test.dart; then
+            rm -f test/widget_test.dart
+            rmdir test 2>/dev/null || true
+          fi
 
       - name: Install dependencies
         run: flutter pub get

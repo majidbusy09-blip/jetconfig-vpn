@@ -54,6 +54,10 @@ jobs:
         working-directory: tools/project_memory/semantic
         run: dart test test/resolved_indexer_test.dart
 
+      - name: Test critical-path report
+        working-directory: tools/project_memory/semantic
+        run: dart test test/critical_path_report_test.dart
+
       - name: Generate semantic AST index
         working-directory: tools/project_memory/semantic
         run: dart run bin/index.dart --write

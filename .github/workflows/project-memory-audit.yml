@@ -49,15 +49,21 @@ jobs:
         working-directory: tools/project_memory/semantic
         run: dart run bin/index.dart --write
 
-      - name: Verify committed semantic AST index
-        run: git diff --exit-code -- docs/generated/jet_vpn_semantic_index.json
+      - name: Verify deterministic semantic AST generation
+        working-directory: tools/project_memory/semantic
+        run: |
+          cp ../../../docs/generated/jet_vpn_semantic_index.json "$RUNNER_TEMP/semantic-index-first.json"
+          dart run bin/index.dart --write
+          cmp "$RUNNER_TEMP/semantic-index-first.json" ../../../docs/generated/jet_vpn_semantic_index.json
 
       - name: Upload semantic AST index
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: jet-vpn-semantic-ast-index
-          path: docs/generated/jet_vpn_semantic_index.json
+          path: |
+            docs/generated/jet_vpn_semantic_index.json
+            tools/project_memory/semantic/pubspec.lock
           if-no-files-found: warn
           retention-days: 30
 

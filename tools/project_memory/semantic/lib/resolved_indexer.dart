@@ -132,7 +132,7 @@ class _ResolvedIndexVisitor extends RecursiveAstVisitor<void> {
   String _elementId(Element element) {
     final uri = element.source?.uri.toString() ?? 'synthetic:';
     final name = element.name ?? '<unnamed>';
-    return '$uri#$name@\\${element.nameOffset}';
+    return '$uri#$name@${element.nameOffset}';
   }
 
   bool _isRepositoryElement(Element element) {

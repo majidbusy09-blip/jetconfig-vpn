@@ -23,8 +23,16 @@ Future<Map<String, Object?>> buildResolvedIndex({
       throw StateError('Analyzer did not return a resolved unit for $absoluteSource (${result.runtimeType}).');
     }
     final sourceText = await File(absoluteSource).readAsString();
+    final pubspec = await File('$absoluteRoot/pubspec.yaml').readAsString();
+    final packageName = RegExp(r'^name:\\s*([A-Za-z0-9_]+)', multiLine: true)
+        .firstMatch(pubspec)
+        ?.group(1);
+    if (packageName == null) {
+      throw StateError('Unable to read the application package name from pubspec.yaml.');
+    }
     final visitor = _ResolvedIndexVisitor(
       repositoryRoot: absoluteRoot,
+      repositoryPackageName: packageName,
       lineInfo: LineInfo.fromContent(sourceText),
     );
     result.unit.accept(visitor);
@@ -75,8 +83,9 @@ Future<Map<String, Object?>> buildResolvedIndex({
 }
 
 class _ResolvedIndexVisitor extends RecursiveAstVisitor<void> {
-  _ResolvedIndexVisitor({required this.repositoryRoot, required this.lineInfo});
+  _ResolvedIndexVisitor({required this.repositoryRoot, required this.repositoryPackageName, required this.lineInfo});
   final String repositoryRoot;
+  final String repositoryPackageName;
   final LineInfo lineInfo;
   int _line(AstNode node) => lineInfo.getLocation(node.offset).lineNumber;
   final List<Map<String, Object?>> declarations = [];
@@ -91,14 +100,20 @@ class _ResolvedIndexVisitor extends RecursiveAstVisitor<void> {
 
   bool _isRepositoryElement(Element element) {
     final uri = element.source?.uri;
-    if (uri == null || uri.scheme != 'file') return false;
+    if (uri == null) return false;
+    if (uri.scheme == 'package') {
+      return uri.pathSegments.isNotEmpty && uri.pathSegments.first == repositoryPackageName;
+    }
+    if (uri.scheme != 'file') return false;
     final path = uri.toFilePath();
     return path == repositoryRoot || path.startsWith('$repositoryRoot/');
   }
 
   String _displayName(Element element) {
     final owner = element.enclosingElement?.name;
-    return owner == null || owner.isEmpty ? (element.name ?? '<unnamed>') : '$owner.${element.name}';
+    final name = element.name ?? '';
+    if (owner == null || owner.isEmpty) return name.isEmpty ? '<unnamed>' : name;
+    return name.isEmpty ? owner : '$owner.$name';
   }
 
   void _recordDeclaration(String kind, String name, Element? element, AstNode node,

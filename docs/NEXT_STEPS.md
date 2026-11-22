@@ -1,57 +1,52 @@
 # JET VPN — Prioritized Next Steps
 
-## Latest verified snapshot — 2026-11-22 (supersedes older status entries below)
+## Latest verified state — 2026-11-22
 
-- PR #16 reviewed baseline before the final documentation-only alignment: `1d9bb95d71eb2b3426e57a236cea28edec727b14`; branch `integration/memory-and-recovery-20261122`; base `main` at `1f2519923cdd9f85ab280a3a4359d7ed5aed3949`.
-- Application source SHA remains `8571a10a8676bf114ca6eda07657da026e550085`; commits after that source snapshot are documentation-only.
-- PR #16 is open, Draft, unmerged, and GitHub reports it mergeable. Diff: 38 files, 3,577 additions, 457 deletions.
-- Project-memory audit run [#45026323360](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45026323360) **succeeded** on the earlier reviewed integration head. A later documentation-alignment audit [#45027343286](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45027343286) also **succeeded** on reviewed head `6d4341b9bfd33d0184519c143844b5135ce79096`. Application regression tests, AST indexer tests, resolved-element indexer tests, critical-path tests, deterministic semantic generation, lexical index freshness, and both artifact uploads passed.
-- Non-production PR validation run [#45026323476](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45026323476) **succeeded** on the earlier reviewed integration head. A later validation run [#45027343367](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45027343367) was still running at the time of this note; the code and validation tooling are unchanged, and only documentation alignment followed. Validation-preparation tests, Flutter analysis, app tests, debug smoke build, split ARM64 release-mode build, package/label/signature/ABI checks, and artifact uploads passed.
-- Latest ARM64 test artifact: `JET-VPN-TEST-arm64-validation-69`, artifact ID `14756425339`, ZIP size 27,040,234 bytes, expires 2026-11-29. It is an isolated test APK, not production-signed and not for distribution or updating production.
-- Latest semantic artifacts: `jet-vpn-code-index` ID `14755568224` and `jet-vpn-semantic-ast-index` ID `14755153930`, both retained until 2026-12-22.
-- User-reported device tests passed for all four scenarios: cold restore, background resume, explicit disconnect during verification, and profile switch during verification. Device model/build and diagnostic logs were not supplied; do not generalize beyond the tested environment.
-- PR review submissions: none. Inline review threads: none.
-- Final scoped diff review found no source-level blocker in the inspected VPN verifier/recovery integration, validation workflow, or project-memory workflow. CI does not prove all Android/device/network conditions.
-- Production source on `main`, app version `2.4.5+284`, payment, bot, backend, server configuration, and production release workflow remain outside this PR's changes. No merge, release, or deployment has occurred.
-- Next action: present the merge recommendation and wait for explicit user approval. Do not merge, mark ready, release, deploy, or dispatch the production workflow without that approval.
+- `main` HEAD: `eae477a89816a5cfd475c596e166d5cb2575884a`.
+- PR #16 merged at `c4f7f4743b3c6ffc64d34a0efb0c19f41b236f1e`.
+- PR #17 merged at `eae477a89816a5cfd475c596e166d5cb2575884a`.
+- Post-merge project-memory audit [#45029689706](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45029689706) passed on the current main SHA.
+- Active `main-protection` ruleset verified through GitHub API. It requires PRs and the memory-audit status check, blocks deletion and force pushes, allows Squash only, and has an empty bypass list.
+- App version remains `2.4.5+284`; no production release or deployment was performed.
 
 Priority is measured against the goal of a reliable, independent programming collaborator with durable project memory and safe execution. Every task must pass the criterion in `AGENTS.md`.
 
-## Current verified state — 2026-11-22
+## P0 — Repair authoritative project memory
 
-- PR #16 is open, draft, and unmerged. Current validated source head for the isolated validation APK: `8571a10a8676bf114ca6eda07657da026e550085`.
-- PR validation [Run #45023210674](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45023210674) succeeded end-to-end, including Flutter analysis/tests, debug build, ARM64 release-mode APK build, and APK package/label/signature/ABI verification.
-- Project-memory audit [Run #45023210902](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45023210902) succeeded.
-- Install candidate: artifact `JET-VPN-TEST-arm64-validation-42` (ID `14754751347`), package `com.jetconfig.vpn.jetconfig_vpn.validation`, label `JET VPN TEST`, version `2.4.5`, ARM64 only, APK size 27,748,544 bytes. Artifact expires 2026-11-29.
-- The APK uses Android Debug signing, not the production release key. Its package ID is distinct and the validation updater is disabled.
-- No physical-device test, merge, production release, or deployment has occurred. Main and production release workflow remain untouched.
+- Refresh stale current-state snapshots after PR #16 and #17.
+- Keep current branch/commit, app version, source blob fingerprints, active ruleset and latest CI evidence synchronized.
+- Preserve historical decisions and work logs; do not rewrite history as if older statements were never true.
+- Add a memory-consistency check where practical so a merged PR cannot leave the top-level operational snapshot contradicting GitHub's actual state.
 
-## P0 — Physical-device validation — user reports passed
+## P1 — Design the task execution orchestrator
 
-- User reports all four scenarios in [DEVICE_VALIDATION.md](DEVICE_VALIDATION.md) passed: cold start/restore, background resume, explicit disconnect during verification, and profile switch during verification.
-- The result is recorded as user-reported evidence; device model, Android build, network type, and diagnostic logs were not supplied. Do not overgeneralize beyond the tested environment.
-- This closes the immediate device-test action. If a defect appears later, capture logs and reproduce before modifying code.
-- Purchases, payments, subscriptions, and production updater behavior remain untested and out of scope for this validation APK.
+After the memory refresh is reviewed and merged, design (before implementing) a small, auditable task protocol that:
+1. loads mandatory project context and a task template;
+2. records target repository, branch, base SHA, source fingerprints and scope;
+3. discovers relevant symbols and dependency/critical-path impact;
+4. produces a risk and test plan before edits;
+5. executes only on a dedicated branch;
+6. runs exact checks and records pass/fail/not-run evidence;
+7. reviews the full diff and unexpected paths;
+8. updates durable memory and opens a PR;
+9. leaves merge/release/deployment under explicit user approval.
 
-## P1 — Final PR #16 review and merge decision
+Prefer extending existing semantic indexers, task template and workflows over building duplicate infrastructure.
 
-1. Complete a final review of all changed files against main, focusing on `lib/main.dart` integration points, cancellation/generation guards, CI safety, and test coverage.
-2. Verify generated project-memory outputs and all docs against the exact final PR head; stale snapshots block approval.
-3. Check CI and PR review feedback on the final head. Resolve any blockers and report residual risks.
-4. Present a concise merge recommendation and wait for explicit user approval. Never merge autonomously.
+## P2 — Cross-repository project memory
 
-## P2 — Improve project memory and task execution
-
-- Keep task-to-evidence trails: loaded context, source SHA, intended diff, exact tests, artifact/PR, and memory update.
-- Extend source-fingerprint coverage to architecture/API/storage decisions and symbol-level evidence as the app is split into files.
-- Keep lexical index, semantic index, and critical-path report distinct; none alone proves runtime behavior.
-- Prioritize read-only analysis, scoped branches, regression tests, reproducible CI, and safe review workflows.
+- Perform a read-only architecture and workflow inventory of `jetconfig-vpn-tv` and `hesabgar_man`.
+- Establish repository-specific agent instructions and a shared project map only after verifying each repository's current source.
+- Keep JET VPN Android as the primary development priority.
 
 ## Deferred by user
 
-- Telegram bot, payment, backend, and server work: currently working; do not prioritize absent a concrete issue or changed instruction.
-- New product features, marketing, and visual redesigns: lower priority than collaborator reliability and project verification.
+- Telegram bot, payment, backend and server changes: currently working; defer absent a concrete issue.
+- Product features, marketing and visual redesigns: lower priority than collaborator reliability and verification.
 
-## Approval boundary
+## Approval and safety boundary
 
-PR #16 remains draft/unmerged. No merge, production release, deployment, production workflow dispatch, or installation over the production app without explicit approval and verified package/signature compatibility.
+- Do not commit directly to `main`.
+- Do not merge PRs without explicit user approval.
+- Do not publish releases, create production tags, deploy, or dispatch the production workflow without explicit approval.
+- Do not change app version, signing, production package identity, bot/payment/backend/server behavior as part of memory/orchestrator work.

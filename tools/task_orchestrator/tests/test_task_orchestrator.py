@@ -141,6 +141,19 @@ class OrchestratorIntegrationTests(unittest.TestCase):
         record = json.loads(self.record.read_text(encoding="utf-8"))
         self.assertEqual(record["scope"]["reason"], "repository-wide migration")
 
+    def test_malformed_task_record_is_rejected(self) -> None:
+        self.init_task()
+        self.record.write_text("[]\\n", encoding="utf-8")
+        self.cli("prepare", "--task-id", self.task_id, expected=2)
+
+    def test_blank_goal_is_rejected(self) -> None:
+        self.cli(
+            "init", "--task-id", self.task_id, "--goal", "", "--capability", "x",
+            "--risk", "low", "--allow", "docs/**", "--check", "python-tooling-tests",
+            expected=2,
+        )
+        self.assertFalse(self.record.exists())
+
     def test_unknown_profile_is_rejected(self) -> None:
         self.cli(
             "init", "--task-id", self.task_id, "--goal", "x", "--capability", "x",

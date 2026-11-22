@@ -4,9 +4,12 @@
 
 ## Current test baseline
 
-- The verified `main` tree at `477ff12fb5a82ba2b2bb3f68a268d27f679c40ab` has no `test/` directory.
-- A prior PR validation workflow may build/analyze in CI, but absence of tests means no app regression suite is executed.
-- No runtime/device tests were run during the documentation stage.
+- Current `main` is `eae477a89816a5cfd475c596e166d5cb2575884a`; PR #16 and PR #17 are merged.
+- Application regression tests exist under `test/`; the project-memory workflow runs `flutter test` after resolving root Flutter dependencies.
+- The isolated semantic tooling package has tests for AST indexing, analyzer-resolved indexing, and critical-path reporting.
+- Project-memory audit run [#45029689706](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45029689706) passed on current main after PR #17.
+- User-reported device tests passed for cold restore, background resume, explicit disconnect during verification, and profile switch during verification. Device/build/log details were not supplied.
+- Unit tests and CI do not replace Android lifecycle, VPN-engine, network, payment, or backend integration tests.
 
 ## Priority regression suites
 
@@ -14,11 +17,11 @@
 
 1. Cold launch with persisted want-connected=false: VPN stays disconnected.
 2. Cold launch with want-connected=true and native disconnected: recovery starts only when network is available.
-3. Resume with native CONNECTED but data path unavailable: UI must not mark verified until live verification succeeds. PR #12 adds a pure UI-gate test; lifecycle/device test remains pending.
+3. Resume with native CONNECTED but data path unavailable: UI must not mark verified until live verification succeeds. The pure UI-gate test is part of the merged regression suite; lifecycle/device coverage remains limited to the user-reported scenarios above.
 4. Notification disconnect: user intent becomes false; automatic recovery does not reconnect.
 5. Internal stop during recovery/server switch: must not be interpreted as explicit user disconnect.
 6. Android VPN permission revoke: state reconciles without false connected UI or unintended reconnect.
-7. **Unit seam added (CI pending):** `SmartRecoveryPolicy` admits `connect_timeout`, rejects unknown reasons, and preserves connection-intent/cooldown gates. End-to-end scheduler execution and rate-limit behavior still require a later integration/device test.
+7. **Unit seam added (CI-covered):** `SmartRecoveryPolicy` admits `connect_timeout`, rejects unknown reasons, and preserves connection-intent/cooldown gates. End-to-end scheduler execution and rate-limit behavior still require a later integration/device test.
 8. Recovery attempt cap: maximum four attempts per 15-minute window; cooldown/slow health watch behaves as designed.
 9. User presses disconnect during ping/start/recovery: generation checks prevent late reconnect.
 10. Network down/up: no wasteful repeated recovery while offline; resume recovery after network returns.

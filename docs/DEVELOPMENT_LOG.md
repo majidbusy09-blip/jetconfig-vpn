@@ -141,3 +141,18 @@ Append-only record of meaningful project work. Each entry should include branch/
 - **Passed:** application `flutter test`; AST indexer tests; resolved-element indexer tests; critical-path report tests; AST/resolved/critical-path generation; deterministic regeneration comparison; lexical code-index and CURRENT_STATUS freshness verification.
 - **Artifacts:** `jet-vpn-code-index` ID `14748897624`; `jet-vpn-semantic-ast-index` ID `14748603470`; both retained until 2026-12-22.
 - **Not performed:** Flutter APK build, Android emulator/device test, runtime VPN/network test, merge, or Release.
+
+
+## 2026-11-22 — Stage 11: injectable asynchronous live verifier (PR #13)
+
+- **Base:** PR #12 head `f600a6e5eae13aced2d58c99fc1ec51484ca3429`; final PR #12 documentation audit Run [#45008853860](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45008853860) succeeded.
+- **Branch:** `tests/async-live-verifier-20261122`.
+- **Priority capability:** implementation and verification; the async ping sequence used by the app is now independently testable with injected wait and ping dependencies.
+- **Changes:** added `lib/live_connection_verifier.dart`; `_verifyLiveConnection` delegates only its settle/ping/retry decision sequence to this class. Flutter state transitions, generation checks, native stop behavior, and smart recovery remain in `lib/main.dart`.
+- **Tests:** seven cases cover silent one-shot verification, silent failure, core disconnect during an in-flight ping, obsolete-result cancellation, two-attempt retry timing, explicit-disconnect cancellation, and app-entrypoint compilation against the extracted verifier.
+- **Scope:** no payment/profile code, native Java, app dependencies, app version, or production release workflow changed. No device/emulator test, merge, or Release performed.
+- **Source:** `lib/main.dart` blob `2d833223153c61a0209123553b99f9d982bf4574`; 9,006 lines, 352,724 UTF-8 bytes, 336,664 Unicode code points.
+- **CI:** [Run #45011976765](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45011976765) succeeded on final head `e11598dfb3978e44e01aa52a3e3afa95f87307b1`.
+- **Passed:** all 15 application tests (including all seven verifier tests); 10 AST-indexer tests; 5 resolved-indexer tests; 2 critical-path tests; semantic index generation; deterministic regeneration; lexical index and CURRENT_STATUS freshness checks; both artifact uploads.
+- **Artifacts:** `jet-vpn-code-index` ID `14750137931`; `jet-vpn-semantic-ast-index` ID `14750411193`; both expire 2026-12-22.
+- **Not performed:** Flutter APK build, Android emulator/device test, runtime VPN/network test, merge, or Release.

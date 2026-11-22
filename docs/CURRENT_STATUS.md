@@ -2,10 +2,10 @@
 
 > Snapshot date: 2026-11-22  
 > Repository: `majidbusy09-blip/jetconfig-vpn`  
-> Inspected branch: `tests/live-verification-resume-20261122`  
-> Inspected source-change commit: `fea73bb85cc2568299340f4a2d719ad2e314bd2c`  
+> Inspected branch: `tests/async-live-verifier-20261122`  
+> Inspected source-change commit: `f09b972f3a6ee2f466bcf9553f9f43672483c983`  
 > App version: `2.4.5+284`  
-> `lib/main.dart` blob: `a2483f2bb90e528a70440978ac62b9f58264c778` (9,016 lines / 352,934 UTF-8 bytes / 336,842 Unicode code points)  
+> `lib/main.dart` blob: `3d28693b7be8bfe309a850923599830e1a65ab59` (9,008 lines / 352,770 UTF-8 bytes / 336,710 Unicode code points)  
 > `pubspec.yaml` blob: `adc3b22a4538db4738bec789e3c3badf26e4f710`  
 > `.github/workflows/build.yml` blob: `abdb595af8df6b2d02ab0ba1da665ac9de1d6461`
 
@@ -14,7 +14,7 @@
 - Flutter Android client; application source remains concentrated in `lib/main.dart`.
 - Dependency: `flutter_v2ray_client: 3.5.0`; native patch files exist under `tools/v2ray_notif_patch/`.
 - Durable project memory, the generated lexical code index, and the read-only memory-audit workflow are now present on `main`.
-- No tracked `android/` or `pubspec.lock` in the inspected application-source snapshot. `main` still has no application test suite; review branches add `test/recovery_policy_test.dart` and `test/live_connection_policy_test.dart`.
+- No tracked `android/` or `pubspec.lock` in the inspected application-source snapshot. `main` still has no application test suite; review branches add `test/recovery_policy_test.dart`, `test/live_connection_policy_test.dart`, and `test/live_connection_verifier_test.dart`.
 - Backend, bot, web admin, worker and TV sources are outside this repository.
 - The `main` branch application source remains unchanged since source baseline `47949178016a6ef3e855a215550b06f4eae8378d`; this review branch contains the isolated recovery-policy change documented below. App version remains `2.4.5+284`.
 
@@ -31,7 +31,8 @@
 - PR #9: analyzer-resolved Element graph; open, draft, unmerged; dependent on PR #8; CI Run #57 succeeded.
 - PR #10: multi-file Dart resolution and critical-path report; open, draft, unmerged; dependent on PR #9 and PR #8; CI Run #58 succeeded; workflow-trigger refresh Run #65 is being revalidated.
 - PR #11: recovery admission policy and first application regression tests; open, draft, unmerged; targets PR #10 branch; full CI Run [#45008026404](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45008026404) succeeded, including app `flutter test`, semantic tooling tests/generation, and lexical freshness audit.
-- PR #12 (current branch): fresh live-connection verification on restore/resume; open, draft, unmerged, based on PR #11; full CI Run [#45008634023](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45008634023) succeeded, including app tests, all semantic tooling tests/generation, deterministic regeneration, and lexical freshness.
+- PR #12: fresh live-connection verification on restore/resume; open, draft, unmerged, based on PR #11; full CI Run [#45008634023](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45008634023) and final audit Run [#45008853860](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45008853860) succeeded.
+- PR #13 (current branch): extracts the asynchronous live-ping sequence behind an injectable verifier; full audit CI Run [#45011976765](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45011976765) succeeded on head `e11598dfb3978e44e01aa52a3e3afa95f87307b1`, including 15 app tests, all semantic tooling tests/generation, deterministic regeneration, lexical freshness, and both artifact uploads. Open/draft/unmerged; review pending.
 
 ## Build and test baseline
 
@@ -56,4 +57,4 @@ The previous critical risk that an ordinary push/merge to main automatically pub
 
 ## Memory freshness
 
-This document preserves the authoritative `main` snapshot and separately records the review-branch source fingerprint above. `main` has one tracked Dart file under `lib/`; the PR #11 review branch has two (`lib/main.dart` and `lib/recovery_policy.dart`), and the current PR #12 branch adds `lib/live_connection_policy.dart`. The lexical index remains a navigation aid; PR #10 semantic tooling resolves every tracked Dart file and emits static critical-path reports. These outputs do not establish runtime behavior.
+This document preserves the authoritative `main` snapshot and separately records the review-branch source fingerprint above. `main` has one tracked Dart file under `lib/`; the PR #11 review branch has two (`lib/main.dart` and `lib/recovery_policy.dart`), and PR #12 adds `lib/live_connection_policy.dart`; the current PR #13 branch adds `lib/live_connection_verifier.dart` and its async test suite. The lexical index remains a navigation aid; PR #10 semantic tooling resolves every tracked Dart file and emits static critical-path reports. These outputs do not establish runtime behavior.

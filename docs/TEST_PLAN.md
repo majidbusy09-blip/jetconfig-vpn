@@ -93,3 +93,11 @@ For each run record: date, device/Android version, branch and commit SHA, exact 
 - `test/live_connection_policy_test.dart` covers native-only connected rejection, verified acceptance, stale verification with disconnected core, and explicit disconnect override.
 - PR #12 changes both cold restore and resume to clear verification/ping state and require a fresh silent live check. A failed silent check clears the verified state, leaves the core running, and lets smart mode use the slow health watcher.
 - These unit tests do not simulate Flutter lifecycle callbacks, V2Ray plugin behavior, sockets, or actual tunnel traffic. Device/emulator verification is still required.
+
+
+## Asynchronous live-verification seam — PR #13
+
+- `LiveConnectionVerifier` owns only the settle/ping/retry sequence; Flutter UI state, native core lifecycle, recovery scheduling, and stop decisions remain in `_MainVpnScreenState`.
+- Injected wait and ping functions make the asynchronous sequence deterministic in unit tests without starting V2Ray.
+- Tests cover silent resume's one-attempt timing, silent ping failure, native-core disconnect during an in-flight check, obsolete-result cancellation, non-silent retry timing, explicit-disconnect cancellation, and compilation of the app entrypoint against the extracted verifier.
+- These tests exercise the async verifier used by the app, not the Android lifecycle callback, plugin implementation, sockets, or actual tunnel traffic. Device/emulator tests remain required.

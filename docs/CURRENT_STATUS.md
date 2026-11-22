@@ -2,10 +2,10 @@
 
 > Snapshot date: 2026-11-22  
 > Repository: `majidbusy09-blip/jetconfig-vpn`  
-> Inspected branch: `tests/live-verification-resume-20261122`  
+> Inspected branch: `tests/async-live-verifier-20261122`  
 > Inspected source-change commit: `6679e4b69e2d26338b1245536dec889b67374462`  
 > App version: `2.4.5+284`  
-> `lib/main.dart` blob: `a2483f2bb90e528a70440978ac62b9f58264c778` (9,016 lines / 352,934 UTF-8 bytes / 336,842 Unicode code points)  
+> `lib/main.dart` blob: `2d833223153c61a0209123553b99f9d982bf4574` (9,006 lines / 352,724 UTF-8 bytes / 336,664 Unicode code points)  
 > `pubspec.yaml` blob: `adc3b22a4538db4738bec789e3c3badf26e4f710`  
 > `.github/workflows/build.yml` blob: `abdb595af8df6b2d02ab0ba1da665ac9de1d6461`
 
@@ -14,7 +14,7 @@
 - Flutter Android client; application source remains concentrated in `lib/main.dart`.
 - Dependency: `flutter_v2ray_client: 3.5.0`; native patch files exist under `tools/v2ray_notif_patch/`.
 - Durable project memory, the generated lexical code index, and the read-only memory-audit workflow are now present on `main`.
-- No tracked `android/` or `pubspec.lock` in the inspected application-source snapshot. `main` still has no application test suite; review branches add `test/recovery_policy_test.dart` and `test/live_connection_policy_test.dart`.
+- No tracked `android/` or `pubspec.lock` in the inspected application-source snapshot. `main` still has no application test suite; review branches add `test/recovery_policy_test.dart`, `test/live_connection_policy_test.dart`, and `test/live_connection_verifier_test.dart`.
 - Backend, bot, web admin, worker and TV sources are outside this repository.
 - The `main` branch application source remains unchanged since source baseline `47949178016a6ef3e855a215550b06f4eae8378d`; this review branch contains the isolated recovery-policy change documented below. App version remains `2.4.5+284`.
 

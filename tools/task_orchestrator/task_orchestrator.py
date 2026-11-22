@@ -96,6 +96,8 @@ def load_record(root: Path, task_id: str) -> tuple[dict[str, Any], Path]:
         record = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
         raise TaskError(f"Task record is unreadable: {exc}") from exc
+    if not isinstance(record, dict):
+        raise TaskError("Task record must be a JSON object.")
     if record.get("schema_version") != SCHEMA_VERSION or record.get("task_id") != task_id:
         raise TaskError("Unsupported or inconsistent task record schema.")
     return record, path
@@ -256,6 +258,8 @@ def require_state(record: dict[str, Any], *states: str) -> None:
 def command_init(args: argparse.Namespace) -> None:
     root = repository_root()
     clean_before_init(root)
+    if not args.goal.strip() or not args.capability.strip():
+        raise TaskError("Goal and capability must be non-empty.")
     if not args.allow:
         raise TaskError("At least one explicit --allow path pattern is required.")
     if not args.check:
@@ -517,18 +521,24 @@ def command_finalize(args: argparse.Namespace) -> None:
         "stat": diff,
         "untracked_paths": untracked,
         "path_fingerprints": current_fingerprints,
+        "task_metadata_paths": [
+            (TASK_DIR / args.task_id / "task.json").as_posix(),
+            (TASK_DIR / args.task_id / "HANDOFF.md").as_posix(),
+        ],
     }
     record["state"] = "review_ready"
     record["finalized_at"] = now_iso()
     record["updated_at"] = now_iso()
     record["handoff"] = render_handoff(record)
+    handoff_path = path.parent / "HANDOFF.md"
+    handoff_temp = handoff_path.with_suffix(".md.tmp")
+    handoff_temp.write_text(record["handoff"], encoding="utf-8")
+    handoff_temp.replace(handoff_path)
     save_record(record, path)
-    print(f"Task {args.task_id} is review_ready. Handoff: {path.parent / 'HANDOFF.md'}")
-    (path.parent / "HANDOFF.md").write_text(record["handoff"], encoding="utf-8")
+    print(f"Task {args.task_id} is review_ready. Handoff: {handoff_path}")
 
 
 def render_handoff(record: dict[str, Any]) -> str:
-    checks = record.get("check_attempts", [])
     latest: dict[str, dict[str, Any]] = {}
     for item in checks:
         latest[item["profile"]] = item

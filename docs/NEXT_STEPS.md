@@ -23,7 +23,7 @@ Priority is measured against the goal of a reliable programming collaborator wit
 
 ## P2 — Close critical source-level risks (separate code PRs)
 
-1. **Implementation proposed in recovery regression branch; automated unit test added, CI pending:** fix `connect_timeout` recovery allowlist mismatch. Do not mark verified until CI and runtime behavior are checked.
+1. **Implementation and initial unit-test run completed in PR #11; full CI/device verification pending:** fix `connect_timeout` recovery allowlist mismatch. Do not mark verified until CI and runtime behavior are checked.
 2. Define a single live-verification invariant for resume and normal connection paths.
 3. Bind pending payment tokens to invoice owner/context and verify backend behavior.
 4. Design encrypted credential storage migration.

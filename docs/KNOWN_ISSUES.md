@@ -5,7 +5,7 @@
 ## JET-001 — connect_timeout recovery reason is rejected
 
 - **Severity:** High
-- **Status:** Source-level mismatch corrected in `tests/recovery-regression-20261122`; regression test added, CI verification pending. Runtime/device reproduction remains pending.
+- **Status:** Source-level mismatch corrected in PR #11 branch `tests/recovery-regression-20261122`; focused unit tests authored and initial `flutter test` step passed in Run #66. A stricter allowlist assertion has since been added; latest full CI and runtime/device reproduction remain pending.
 - **Original evidence:** `_toggleConnect` schedules `_scheduleSmartRecovery('connect_timeout')` after an 8-second unverified connection timeout; the prior scheduler allowlist omitted this reason. On the test branch, `lib/main.dart` delegates admission to `lib/recovery_policy.dart`, whose allowed reasons include `connect_timeout`.
 - **Impact:** Smart-mode connection timeout does not enter the intended recovery flow through this path.
 - **Verification:** `test/recovery_policy_test.dart` covers all allowed reasons, unknown reasons, connection-intent gates, and cooldown values. The test has not yet been executed in CI at this snapshot.

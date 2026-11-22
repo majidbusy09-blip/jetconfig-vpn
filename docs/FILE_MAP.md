@@ -1,6 +1,6 @@
 # JET VPN — Verified Repository File Map
 
-> Snapshot: `main` at `47949178016a6ef3e855a215550b06f4eae8378d`, 2026-11-22. Recursive Git tree was not truncated; it contained 13 entries (10 files and 3 directories).
+> Snapshot: `main` at `47949178016a6ef3e855a215550b06f4eae8378d`, 2026-11-22. Recursive Git tree was not truncated; it contained 13 entries (8 files and 5 directories).
 
 | Path | Verified purpose |
 |---|---|

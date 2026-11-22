@@ -17,7 +17,8 @@ If the answer is no, the task must not receive priority unless the user explicit
 Before proposing or changing code:
 
 1. Read this file and `docs/PROJECT_CONTEXT.md`.
-2. Read `docs/CURRENT_STATUS.md`, `docs/NEXT_STEPS.md`, and the relevant entries in `docs/DEVELOPMENT_LOG.md`.
+2. Read `docs/TASK_TEMPLATE.md` and use it to structure every non-trivial task.
+3. Read `docs/CURRENT_STATUS.md`, `docs/NEXT_STEPS.md`, and the relevant entries in `docs/DEVELOPMENT_LOG.md`.
 3. Read the relevant architecture, API, data, payment, issue, decision, and test documents.
 4. Check the actual target branch and current commit SHA. Documentation is a guide, not a substitute for current source.
 5. Verify every relevant symbol, caller, state variable, persistence key, network request, native patch, and workflow against the current source.

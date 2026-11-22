@@ -23,7 +23,7 @@ All POST actions use form-encoded request bodies in the client. The table lists 
 | `ticket_list` | `device_id` | `_loadTickets`, 3276–3300 |
 | `ticket_create` | `device_id`, `subject`, `body`; optional `username`, `email` | `_createTicket`, 3301–3336 |
 | `ticket_thread` | `device_id`, `ticket_id` | `_openTicketThread`, 3337 onward |
-| `ticket_reply` | ticket/device/message fields; re-fetch exact body before changing | around 3474 |
+| `ticket_reply` | `device_id`, `ticket_id`, `body` | `_openTicketThread`, 3466–3485 |
 | `list_services` | `username`, `password` | `_syncAppServicesFromApi`, 3707–3734 |
 | `register` | `username`, `password`; optional `email` | `_registerAppAccount`, 3735–3781 |
 | `invoice_status` | `username`, `password`, `pay_token` | `_watchPaymentStatus`, 3988–4091 |
@@ -41,7 +41,7 @@ All POST actions use form-encoded request bodies in the client. The table lists 
 - Payment status: expects `ok`, `status`; on approval may read `panel_username`, `is_additional_service`, and `msg`.
 - Free-test offers: expects `ok`, `offers`; each offer is inspected for `id`, `used`, `emoji`, `title`.
 - Plan lists: expects `plans` and, in purchase catalogue, optionally grouped plan data.
-- Invoice creation: client reads `pay_token` and a payment URL field; re-check exact response parsing before modifying.
+- Invoice creation: client reads `pay_url`, `price_fmt` or `price`, `discount_note`, `additional_note`, `is_additional_service`, and `pay_token` (`_createInvoiceAndPay`, 4524–4558).
 
 ## Authentication and transport observations
 

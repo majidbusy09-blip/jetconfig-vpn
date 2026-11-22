@@ -190,3 +190,16 @@ Append-only record of meaningful project work. Each entry should include branch/
 - Added `docs/TASK_TEMPLATE.md` and linked it from the mandatory context-loading sequence in `AGENTS.md`.
 - Corrected `docs/CURRENT_STATUS.md` to identify the current integration head and exact CI/artifact evidence; rewrote `docs/NEXT_STEPS.md` so the next action reflects verified state rather than already-completed APK work.
 - This commit changes documentation only. A fresh project-memory audit must pass on the final docs head before this documentation refresh is marked fully validated.
+
+
+## 2026-11-22 — Stage 13: isolated validation APK and physical-device handoff
+
+- **Branch/source head:** `integration/memory-and-recovery-20261122`, validated source head `8571a10a8676bf114ca6eda07657da026e550085`; PR #16 remains draft/unmerged.
+- **CI:** PR validation [Run #45023210674](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45023210674) succeeded through validation-tool unit tests, Flutter analysis, app tests, debug smoke build, ARM64 split Release-mode APK build, package/label/signature/ABI verification, and upload. Project-memory audit [Run #45023210902](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45023210902) succeeded.
+- **Changes:** added `tools/validation/prepare_validation_build.py` and its unit tests; updated `.github/workflows/pr-validation.yml` to prepare a separate validation package in the ephemeral CI workspace, disable the updater in that build, and verify the resulting APK. Production `lib/main.dart` and production `.github/workflows/build.yml` are untouched by the validation preparation step.
+- **Verified artifact:** `JET-VPN-TEST-arm64-validation-42`, ID `14754751347`, expires 2026-11-29 12:43:53 UTC. APK is 27,748,544 bytes (~26.46 MiB), package `com.jetconfig.vpn.jetconfig_vpn.validation`, label `JET VPN TEST`, versionName `2.4.5`, versionCode `2284`, ABI set exactly `arm64-v8a`.
+- **Signature:** CI `apksigner` verified v1 and v2 signatures; one signer `CN=Android Debug`; certificate SHA-256 `524cfda67adac575c959bdeaf99484cd5f0f1a260a87a275cd84f2f6d833fdf9`. This is not the production signing key.
+- **Local inspection:** downloaded the workflow artifact, extracted its sole APK, confirmed archive structure and ARM64-only native library directory. No production app installation was attempted.
+- **Memory:** appended exact artifact and verification evidence to `docs/CURRENT_STATUS.md`; replaced `docs/NEXT_STEPS.md` with the device-validation-first sequence; added `docs/DEVICE_VALIDATION.md`; mapped validation tooling and checklist in `docs/FILE_MAP.md`.
+- **Next:** user installs the isolated test app alongside production and runs the four documented recovery scenarios. Payment, bot, backend, production updater, merge, and release remain out of scope.
+- **Limitations:** physical-device installation, Android lifecycle behavior, native V2Ray tunnel behavior, and real tunnel traffic are not yet validated. A passing CI build does not establish those properties. A fresh project-memory audit is required on the documentation-updated head.

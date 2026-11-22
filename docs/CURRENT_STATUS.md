@@ -2,7 +2,7 @@
 
 ## Latest verified snapshot — 2026-11-22 (supersedes older status entries below)
 
-- PR #16 current head: `1d9bb95d71eb2b3426e57a236cea28edec727b14`; branch `integration/memory-and-recovery-20261122`; base `main` at `1f2519923cdd9f85ab280a3a4359d7ed5aed3949`.
+- PR #16 reviewed baseline before the final documentation-only alignment: `1d9bb95d71eb2b3426e57a236cea28edec727b14`; branch `integration/memory-and-recovery-20261122`; base `main` at `1f2519923cdd9f85ab280a3a4359d7ed5aed3949`.
 - Application source SHA remains `8571a10a8676bf114ca6eda07657da026e550085`; commits after that source snapshot are documentation-only.
 - PR #16 is open, Draft, unmerged, and GitHub reports it mergeable. Diff: 38 files, 3,577 additions, 457 deletions.
 - Project-memory audit run [#45026323360](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45026323360) **succeeded** on the exact current head. Application regression tests, AST indexer tests, resolved-element indexer tests, critical-path tests, deterministic semantic generation, lexical index freshness, and both artifact uploads passed.

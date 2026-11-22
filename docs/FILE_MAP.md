@@ -1,6 +1,6 @@
 # JET VPN — Verified Repository File Map
 
-> Current source snapshot: `main` at `eae477a89816a5cfd475c596e166d5cb2575884a`, 2026-11-22. PR #16 and PR #17 are merged. App version `2.4.5+284`; `lib/main.dart` blob `3d28693b7be8bfe309a850923599830e1a65ab59`.
+> Current source snapshot: `main` at `abdff3a59b89419e869c98d7dbb4ac91512fe950`, 2026-11-22. PR #16 and PR #17 are merged. App version `2.4.5+284`; `lib/main.dart` blob `3d28693b7be8bfe309a850923599830e1a65ab59`.
 
 | Path | Verified purpose |
 |---|---|
@@ -16,7 +16,7 @@
 | `test/live_connection_policy_test.dart` | Tests the verified-connection UI gate; does not simulate asynchronous lifecycle or native VPN behavior. |
 | `.github/workflows/build.yml` | Production build and GitHub Release workflow; manual dispatch only, requires main ref and explicit confirmation. |
 | `.github/workflows/pr-validation.yml` | Non-production PR validation workflow on `main`; analyzes/tests the app and builds isolated validation APK artifacts. |
-| `.github/workflows/project-memory-audit.yml` | Read-only CI audit of generated code index and source freshness; merged in PR #4. |
+| `.github/workflows/project-memory-audit.yml` | Read-only CI audit of generated code index and source freshness; required on every main-targeting PR and on relevant main pushes. |
 | `docs/PROJECT_MEMORY_AUTOMATION.md` | Usage, guarantees, and limitations of project-memory audit; merged in PR #4. |
 | `docs/generated/jet_vpn_code_index.json` | Generated lexical Dart navigation index; merged in PR #4. |
 | `tools/project_memory/index_dart.py` | Standard-library generator/checker for lexical Dart index and source fingerprint; merged in PR #4. |
@@ -32,6 +32,8 @@
 | `tools/v2ray_notif_patch/V2rayProxyOnlyService.java` | Patched proxy-only service source. |
 | `tools/v2ray_notif_patch/V2rayVPNService.java` | Patched VPN service source, including user-initiated notification disconnect marker. |
 
+| `tools/validation/align_validation_android.py` | Aligns the ephemeral validation Android scaffold with production SDK levels, QUERY_ALL_PACKAGES permission and package visibility queries; CI-only. |
+| `tools/validation/test_align_validation_android.py` | Unit tests for Gradle Groovy/Kotlin, manifest package visibility, and idempotency of Android parity alignment. |
 | `tools/validation/prepare_validation_build.py` | CI-only preparation script that creates a distinct validation package ID/label and disables the updater in the disposable validation workspace; it does not alter tracked production app source. |
 | `tools/validation/test_prepare_validation_build.py` | Unit tests for validation package isolation, updater guard, idempotence, and fail-closed behavior. |
 | `docs/DEVICE_VALIDATION.md` | Physical-device test protocol for cold restore, background resume, explicit disconnect during verification, and profile switch during verification. |
@@ -42,7 +44,7 @@ The current `main` tree contains a tracked `test/` suite and isolated semantic t
 
 ## Source identity
 
-- Current `main`: `eae477a89816a5cfd475c596e166d5cb2575884a`.
+- Current `main`: `abdff3a59b89419e869c98d7dbb4ac91512fe950`.
 - `lib/main.dart`: blob `3d28693b7be8bfe309a850923599830e1a65ab59`, 9,008 lines, 352,770 UTF-8 bytes, 336,710 Unicode code points.
 - `pubspec.yaml`: blob `adc3b22a4538db4738bec789e3c3badf26e4f710`, version `2.4.5+284`.
 - `.github/workflows/build.yml`: blob `abdb595af8df6b2d02ab0ba1da665ac9de1d6461`; manual release gate.

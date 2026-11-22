@@ -84,3 +84,12 @@ This log records decisions that govern future work. New entries should include d
 - **Decision:** Persist each currently supported pending invoice as a structured record containing token, exact originating username, creation timestamp, and pending status. Permit status polling only while that account is active; invalidate in-flight polling when account credentials or active profile change.
 - **Rationale:** A global token combined with whichever credentials happen to be active can produce an account-context mismatch after profile switching.
 - **Consequence:** Legacy tokens without owner metadata are discarded rather than guessed. This is a client-side guard only; backend authorization and token idempotency must be independently verified. The token remains unencrypted in SharedPreferences.
+
+
+## D-010 — Pending invoice tokens are bound to their originating account
+
+- **Date:** 2026-11-22
+- **Status:** Proposed in PR #14
+- **Decision:** Persist each currently supported pending invoice as a structured record containing token, exact originating username, creation timestamp, and pending status. Permit status polling only while that account is active; invalidate in-flight polling when account credentials or active profile change.
+- **Rationale:** A global token combined with whichever credentials happen to be active can produce an account-context mismatch after profile switching.
+- **Consequence:** Legacy tokens without owner metadata are discarded rather than guessed. This is a client-side guard only; backend authorization and token idempotency must be independently verified. The token remains unencrypted in SharedPreferences.

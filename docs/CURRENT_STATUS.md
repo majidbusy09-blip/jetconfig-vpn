@@ -76,3 +76,15 @@ This section supersedes the earlier PR #13 branch snapshot above for the integra
 - **Not verified:** APK build, Android emulator/device behavior, Android lifecycle integration, native V2Ray behavior, or real tunnel traffic.
 - **PR state:** open, draft, unmerged. GitHub reported mergeable/clean at reviewed head. Do not merge or release without explicit user approval.
 - **Deferred:** bot, payment, backend, and server changes remain out of current priority per user direction.
+
+
+## APK comparison validation — 2026-11-22
+
+- Latest integration head: `613d465774e8093d4ba38f7959406ca4c3bf2d8f` (CI workflow-only change; app version and app source unchanged).
+- Non-production PR validation [Run #45021183386](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45021183386) completed successfully: Flutter analysis, application tests, debug APK build, ARM64 split Release APK build, and both artifact uploads.
+- Project-memory audit [Run #45021183398](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45021183398) completed successfully on the same head.
+- Debug artifact: `JET-VPN-debug-21`, 153,067,021 bytes; expires 2026-11-29. This is a CI smoke-test build, not a production package.
+- ARM64 Release artifact: `JET-VPN-arm64-release-mode-21`, artifact ID `14753468185`, ZIP size 27,063,707 bytes; expires 2026-11-29. The contained APK `app-arm64-v8a-release.apk` is exactly 27,773,007 bytes (about 26.48 MiB).
+- Downloaded and inspected the APK archive: it contains native libraries only under `lib/arm64-v8a/`; no `armeabi-v7a`, `x86`, or `x86_64` ABI libraries were present. This confirms the split-per-ABI fix worked.
+- **Package identity limitation:** CI generated a temporary Android scaffold. Its reported application ID/namespace is `com.jetconfig.vpn.jetconfig_vpn`; this has not been confirmed as the production app ID. Signing compatibility is also unverified. Do not install this APK over the production JET VPN app or distribute it.
+- This is a valid ARM64 size comparison build, but not yet proof of production installability or runtime VPN behavior. Next: compare the exact APK size with the installed production package and verify the production application ID/signature from the authoritative Android project/build configuration before any installation.

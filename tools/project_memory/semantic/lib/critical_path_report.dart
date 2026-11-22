@@ -4,10 +4,11 @@ Map<String, Object?> buildCriticalPathReport({
 }) {
   final declarations = (resolvedIndex['declarations'] as List).cast<Map<String, Object?>>();
   final callSites = (resolvedIndex['call_sites'] as List).cast<Map<String, Object?>>();
-  final declarationsById = <String, Map<String, Object?>>{
-    for (final declaration in declarations)
-      if (declaration['id'] is String) declaration['id'] as String: declaration,
-  };
+  final declarationsById = <String, Map<String, Object?>>{};
+  for (final declaration in declarations) {
+    final id = declaration['id'];
+    if (id is String) declarationsById[id] = declaration;
+  }
   final paths = (manifest['paths'] as List).cast<Map<String, Object?>>();
   final reports = <Map<String, Object?>>[];
 

@@ -98,6 +98,7 @@ Map<String, Object?> buildCriticalPathReport({
       'id': path['id'],
       'title': path['title'],
       'description': path['description'],
+      'related_native_sources': path['related_native_sources'] ?? const [],
       'entrypoints': resolvedEntrypoints,
       'unresolved_entrypoints': unresolvedEntrypoints,
       'reachable_declarations': reachableDeclarations,

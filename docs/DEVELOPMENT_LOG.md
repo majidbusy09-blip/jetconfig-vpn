@@ -203,3 +203,13 @@ Append-only record of meaningful project work. Each entry should include branch/
 - **Memory:** appended exact artifact and verification evidence to `docs/CURRENT_STATUS.md`; replaced `docs/NEXT_STEPS.md` with the device-validation-first sequence; added `docs/DEVICE_VALIDATION.md`; mapped validation tooling and checklist in `docs/FILE_MAP.md`.
 - **Next:** user installs the isolated test app alongside production and runs the four documented recovery scenarios. Payment, bot, backend, production updater, merge, and release remain out of scope.
 - **Limitations:** physical-device installation, Android lifecycle behavior, native V2Ray tunnel behavior, and real tunnel traffic are not yet validated. A passing CI build does not establish those properties. A fresh project-memory audit is required on the documentation-updated head.
+
+
+## 2026-11-22 — Stage 14: user-reported physical-device recovery validation passed
+
+- **PR/head:** #16, `integration/memory-and-recovery-20261122`, head `eefde6baa1556e56c11ce4c872ca4cdd9cee3722`; open, draft, unmerged, mergeable at inspection.
+- **Device test:** user reports all four scenarios in `docs/DEVICE_VALIDATION.md` passed: cold start/restore, background resume, explicit disconnect during verification, and profile switch during verification.
+- **Evidence qualification:** this is a user-reported manual result. No logs or recording were provided; device model, Android version/build, network type, and profile are unknown. Do not infer device details or claim universal coverage.
+- **CI:** current-head PR validation [Run #45024183497](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45024183497) passed Flutter analysis, application tests, debug smoke build, isolated ARM64 validation APK build, package/label/signer/ABI verification, and artifact upload. Project-memory audit [Run #45024183512](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45024183512) passed app tests, semantic indexer tests, deterministic generation, critical-path generation, and lexical freshness.
+- **PR review state:** no submitted PR reviews or inline review threads were returned by the GitHub review-list endpoints at inspection. PR is still draft and unmerged.
+- **Next:** finish final diff/source review and validate documentation/indexes on the latest head; then present merge recommendation for explicit user approval. No merge/release/deploy was performed.

@@ -19,15 +19,17 @@ on:
 permissions:
   contents: read
 
+# Use the same group for push and pull_request events from the same branch,
+# avoiding duplicate concurrent APK builds for one commit.
 concurrency:
-  group: jet-vpn-pr-validation-${{ github.event.pull_request.number || github.ref }}
+  group: jet-vpn-pr-validation-${{ github.head_ref || github.ref_name }}
   cancel-in-progress: true
 
 jobs:
   validate:
-    name: Analyze, test, and debug APK
+    name: Analyze, test, and arm64 APK builds
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
 
     steps:
       - name: Checkout source
@@ -59,6 +61,13 @@ jobs:
             rmdir test 2>/dev/null || true
           fi
 
+      - name: Report generated Android package identity
+        shell: bash
+        run: |
+          echo "Generated Android package configuration:"
+          grep -nE '^[[:space:]]*(namespace|applicationId)[[:space:]]*=' android/app/build.gradle android/app/build.gradle.kts 2>/dev/null || true
+          echo "This is a temporary CI scaffold identity, not proof of the production app ID."
+
       - name: Install dependencies
         run: flutter pub get
 
@@ -71,7 +80,7 @@ jobs:
       - name: Run application tests
         run: flutter test --no-pub
 
-      - name: Build debug APK
+      - name: Build debug APK smoke test
         run: flutter build apk --debug --no-pub
 
       - name: Upload debug APK artifact
@@ -79,5 +88,16 @@ jobs:
         with:
           name: JET-VPN-debug-${{ github.run_number }}
           path: build/app/outputs/flutter-apk/app-debug.apk
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Build arm64 release-mode comparison APK
+        run: flutter build apk --release --target-platform android-arm64 --no-pub
+
+      - name: Upload arm64 release-mode comparison APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: JET-VPN-arm64-release-mode-${{ github.run_number }}
+          path: build/app/outputs/flutter-apk/app-release.apk
           if-no-files-found: error
           retention-days: 7

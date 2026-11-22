@@ -2,14 +2,31 @@
 
 > Snapshot date: 2026-11-22  
 > Repository: `majidbusy09-blip/jetconfig-vpn`  
-> Inspected branch: `tests/async-live-verifier-20261122`  
-> Inspected source-change commit: `f09b972f3a6ee2f466bcf9553f9f43672483c983`  
+> Current inspected branch: `integration/memory-and-recovery-20261122`  
+> Current inspected commit: `895124409f2c6a302e2ede3c73ccd3af54c747a0`  
+> Base main: `1f2519923cdd9f85ab280a3a4359d7ed5aed3949`  
 > App version: `2.4.5+284`  
 > `lib/main.dart` blob: `3d28693b7be8bfe309a850923599830e1a65ab59` (9,008 lines / 352,770 UTF-8 bytes / 336,710 Unicode code points)  
-> `pubspec.yaml` blob: `adc3b22a4538db4738bec789e3c3badf26e4f710`  
-> `.github/workflows/build.yml` blob: `abdb595af8df6b2d02ab0ba1da665ac9de1d6461`
+> `pubspec.yaml` blob: `adc3b22a4538db4738bec789e3c3badf26e4f710`
 
-## Verified repository state
+## Current verified integration snapshot
+
+- PR #16 is open, draft, unmerged, and reported mergeable at inspected head `895124409f2c6a302e2ede3c73ccd3af54c747a0`.
+- PR validation [Run #45021900956](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45021900956) passed: Flutter analysis, app tests, debug APK build, ARM64 split Release-mode comparison APK build, and artifact uploads.
+- Project-memory audit [Run #45021900965](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45021900965) passed: app regression tests, AST and resolved-element tooling tests, deterministic generation, critical-path report, lexical freshness, and artifact uploads.
+- Latest debug artifact: `JET-VPN-debug-25`, 153,067,024 bytes; artifact ID `14754525304`; expires 2026-11-29. It is a CI smoke-test build, not a suitable install candidate.
+- Latest ARM64 comparison artifact: `JET-VPN-arm64-release-mode-25`, artifact ID `14754511282`; ZIP size 27,063,719 bytes; expires 2026-11-29. Its contained APK is 27,773,007 bytes (about 26.48 MiB) and contains native libraries only under `lib/arm64-v8a/`.
+- Production package ID is derived from the production workflow's Android scaffold command: `flutter create . --platforms=android --project-name=jetconfig_vpn --org com.jetconfig.vpn`, which generates `com.jetconfig.vpn.jetconfig_vpn`. CI reported the same generated ID. This is workflow-derived evidence, not a package dump from the user's installed device.
+- The comparison APK is signed with the Android Debug certificate. The production release workflow decodes the configured release keystore and signs production builds. The signing fingerprints have **not** been compared; the comparison APK must not be installed as an update over the production app.
+- No production release, deployment, or merge has occurred. Main app source and version remain unchanged by the CI size investigation.
+
+## Immediate safety boundary
+
+- The 26.48 MiB APK proves the split-per-ABI build output is lean and ARM64-only; it does not prove production signing, installation compatibility, or live VPN behavior.
+- Do not install this comparison APK over the installed JET VPN.
+- The next useful device-validation path is a separately identified validation package (distinct application ID), signed with a test key, so it can coexist with the production app. It must be clearly labeled as a test build and must not publish or update production.
+
+## Historical source snapshot — pre-integration (superseded by the current snapshot above)
 
 - Flutter Android client; application source remains concentrated in `lib/main.dart`.
 - Dependency: `flutter_v2ray_client: 3.5.0`; native patch files exist under `tools/v2ray_notif_patch/`.
@@ -18,7 +35,7 @@
 - Backend, bot, web admin, worker and TV sources are outside this repository.
 - The `main` branch application source remains unchanged since source baseline `47949178016a6ef3e855a215550b06f4eae8378d`; this review branch contains the isolated recovery-policy change documented below. App version remains `2.4.5+284`.
 
-## Pull requests observed
+## Historical pull-request snapshot — superseded by current PR state above
 
 - PR #1: initial project-memory documentation; open, draft, unmerged; overlaps with merged PR #3 and should not be merged blindly.
 - PR #2: isolated PR-validation workflow; open, ready for review, unmerged; adds only `.github/workflows/pr-validation.yml`.
@@ -34,7 +51,7 @@
 - PR #12: fresh live-connection verification on restore/resume; open, draft, unmerged, based on PR #11; full CI Run [#45008634023](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45008634023) and final audit Run [#45008853860](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45008853860) succeeded.
 - PR #13 (current branch): extracts the asynchronous live-ping sequence behind an injectable verifier; full audit CI Run [#45011976765](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45011976765) succeeded on head `e11598dfb3978e44e01aa52a3e3afa95f87307b1`, including 15 app tests, all semantic tooling tests/generation, deterministic regeneration, lexical freshness, and both artifact uploads. Open/draft/unmerged; review pending.
 
-## Build and test baseline
+## Historical build and test baseline
 
 - Production workflow: `.github/workflows/build.yml`; manual `workflow_dispatch` only; requires `confirm_release=true` and selected ref `main`; Java 17 / Flutter 3.27.4; signs APKs and publishes a GitHub Release.
 - PR #2 validation workflow previously succeeded in run #10 (ID `44983819542`) and produced a debug APK artifact. At that time no application `test/` directory existed; PR #11 adds the first app-owned unit suite.

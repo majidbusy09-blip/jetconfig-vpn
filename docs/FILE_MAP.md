@@ -32,6 +32,10 @@
 | `tools/v2ray_notif_patch/V2rayProxyOnlyService.java` | Patched proxy-only service source. |
 | `tools/v2ray_notif_patch/V2rayVPNService.java` | Patched VPN service source, including user-initiated notification disconnect marker. |
 
+| `tools/validation/prepare_validation_build.py` | CI-only preparation script that creates a distinct validation package ID/label and disables the updater in the disposable validation workspace; it does not alter tracked production app source. |
+| `tools/validation/test_prepare_validation_build.py` | Unit tests for validation package isolation, updater guard, idempotence, and fail-closed behavior. |
+| `docs/DEVICE_VALIDATION.md` | Physical-device test protocol for cold restore, background resume, explicit disconnect during verification, and profile switch during verification. |
+
 ## Confirmed absences in the application-source snapshot
 
 The recursive `main` tree at the application-source baseline did not contain `android/`, `test/`, `pubspec.lock`; the recovery regression branch adds a `test/` suite, backend PHP sources, bot sources, worker sources, or JET VPN TV sources. CI may generate Android scaffold files in its temporary workspace; that does not make them tracked repository files.

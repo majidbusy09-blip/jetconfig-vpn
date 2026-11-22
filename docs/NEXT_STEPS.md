@@ -10,13 +10,14 @@
 
 Priority is measured against the goal of a reliable, independent programming collaborator with durable project memory and safe execution.
 
-## P0 — Design and implement the task execution orchestrator
+## P0 — Implement and validate the task execution orchestrator
 
-1. **Design in progress:** `docs/TASK_ORCHESTRATOR_DESIGN.md` defines a small Python 3.12, standard-library-only local orchestrator.
-2. **Next:** implement a fail-closed local MVP that loads required context, pins repository/branch/base SHA, fingerprints scoped files, reuses semantic/critical-path reports, validates changed paths, runs only fixed verification profiles, and produces an auditable task record and PR handoff.
-3. Add unit/integration tests using temporary Git repositories; no GitHub credentials or network should be required.
-4. Integrate tests into existing non-production PR validation only after the local test suite is stable. Do not add a required status check until reliability is demonstrated.
-5. Keep GitHub PR creation as a later optional phase. The orchestrator must not merge, release, tag, deploy, or dispatch the production workflow.
+1. **Completed:** the design was documented in `docs/TASK_ORCHESTRATOR_DESIGN.md`; the design-only PR head passed both Project Memory Audit and Non-production PR Validation.
+2. **In progress:** a local Python standard-library MVP now exists under `tools/task_orchestrator/`: task record, clean-branch/context preparation, base-SHA pinning, scope gates, artifact availability recording, fixed verification profiles, append-only check attempts, and final handoff.
+3. **Verification pending:** run its temporary-Git-repository integration tests in CI on the latest implementation head; review/fix every failure before treating the MVP as usable.
+4. **Still required:** test missing context, rename/delete scope handling, timeout behavior, stale semantic artifact labeling, and a full test pass; then inspect the complete PR diff and update the task docs.
+5. CI integration is currently in the existing non-production PR validation workflow. Do not add a required branch-protection check until reliability is demonstrated.
+6. GitHub PR creation remains a later optional phase. The orchestrator must not merge, release, tag, deploy, or dispatch the production workflow.
 
 ## P1 — Reconcile outstanding draft work
 

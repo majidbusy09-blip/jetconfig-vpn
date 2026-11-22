@@ -23,14 +23,14 @@
 - PR #1: initial project-memory documentation; open, draft, unmerged; overlaps with merged PR #3 and should not be merged blindly.
 - PR #2: isolated PR-validation workflow; open, ready for review, unmerged; adds only `.github/workflows/pr-validation.yml`.
 - PR #3: durable agent memory and operating rules; **merged** into main at `477ff12fb5a82ba2b2bb3f68a268d27f679c40ab`.
-- PR #4: automated code index and memory freshness audit; open, draft, rebased onto current main; fresh audit run pending.
+- PR #4: automated code index and memory freshness audit; open, ready for review, rebased onto current main. Fresh strict audit run #44999404369 passed on head `37e9d0fa92661ac7cb7c9c9e9d52c8d11dd3f5e9`.
 - PR #5: manual release confirmation gate; merged at `f396f57459c9863a325f27e7d438e9456d560e92`.
 
 ## Build and test baseline
 
 - Production workflow: `.github/workflows/build.yml`; manual `workflow_dispatch` only; requires `confirm_release=true` and selected ref `main`; Java 17 / Flutter 3.27.4; signs APKs and publishes a GitHub Release.
 - PR #2 validation workflow previously succeeded in run #10 (ID `44983819542`) and produced a debug APK artifact. It did not execute an app test suite because the repository has no `test/` directory.
-- PR #4's project-memory audit previously passed strict run #44992436433; generated index and status fingerprint matched. Artifact ID `14742118654`. This run was on the pre-rebase branch and must be repeated on the updated PR.
+- PR #4's fresh project-memory audit passed in run [#44999404369](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/44999404369) on the rebased PR head. The lexical index and CURRENT_STATUS source fingerprint/metrics matched; artifact ID `14745610539`, retained until 2026-12-22.
 - No runtime/device test was run for this documentation and tooling work. A passing build or memory audit does not prove VPN connection, payment, update, or Android lifecycle behavior.
 
 ## Known high-priority risks

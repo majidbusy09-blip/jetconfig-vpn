@@ -15,6 +15,7 @@ import 'package:installed_apps/app_info.dart';
 import 'recovery_policy.dart';
 import 'live_connection_policy.dart';
 import 'live_connection_verifier.dart';
+import 'pending_payment_record.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -522,8 +523,10 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
 
   bool isLoading = false;
   /// توکن فاکتور در انتظار تأیید (پولینگ بعد از پرداخت)
-  String? _pendingPayToken;
+  PendingPaymentRecord? _pendingPayment;
+  String? get _pendingPayToken => _pendingPayment?.token;
   bool _paymentWatchRunning = false;
+  int _paymentWatchGeneration = 0;
   bool isConnecting = false;
   bool isPingingAll = false;
   bool isRefreshingServers = false;
@@ -2524,6 +2527,8 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
   }
 
   Future<void> _clearActiveSession(SharedPreferences prefs, {bool stopVpn = false}) async {
+    _paymentWatchGeneration++;
+    _paymentWatchRunning = false;
     await prefs.remove('saved_username');
     await prefs.remove('saved_password');
     await prefs.remove('last_server_id');
@@ -2560,6 +2565,9 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
   }
 
   Future<void> _activateProfile(String username, String password, {bool fetch = true}) async {
+    // Invalidate any invoice poll started under the previous account.
+    _paymentWatchGeneration++;
+    _paymentWatchRunning = false;
     // قطع اتصال قبلی قبل از سوئیچ
     _verifyGen++;
     _recoveryGen++;
@@ -3751,6 +3759,10 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
         data = Map<String, dynamic>.from(json.decode(res.body) as Map);
       } catch (_) {}
       if (res.statusCode >= 200 && res.statusCode < 300 && data['ok'] == true) {
+        if (savedUser != username || savedPass != password) {
+          _paymentWatchGeneration++;
+          _paymentWatchRunning = false;
+        }
         await _upsertProfile(username, password);
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('saved_username', username);
@@ -3796,24 +3808,68 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
   Future<void> _restorePendingPayToken() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final t = prefs.getString('pending_pay_token');
-      if (t != null && t.length >= 16 && mounted) {
-        setState(() => _pendingPayToken = t);
+      final raw = prefs.getString(PendingPaymentRecord.storageKey);
+      final restored = raw == null ? null : PendingPaymentRecord.decode(raw);
+
+      // A legacy token has no provable owner. Never attach it to whichever
+      // profile happens to be active now; discard it rather than risk
+      // querying another account's invoice.
+      await prefs.remove(PendingPaymentRecord.legacyStorageKey);
+      if (raw != null && restored == null) {
+        await prefs.remove(PendingPaymentRecord.storageKey);
       }
+      if (mounted) setState(() => _pendingPayment = restored);
     } catch (_) {}
   }
 
-  Future<void> _savePendingPayToken(String? token) async {
-    _pendingPayToken = (token != null && token.length >= 16) ? token : null;
+  Future<void> _savePendingPayToken(
+    String? token, {
+    String? ownerUsername,
+  }) async {
+    PendingPaymentRecord? next;
+    if (token != null &&
+        token.length >= 16 &&
+        ownerUsername != null &&
+        ownerUsername.trim().isNotEmpty) {
+      next = PendingPaymentRecord(
+        token: token,
+        ownerUsername: ownerUsername.trim(),
+        createdAtMs: DateTime.now().millisecondsSinceEpoch,
+      );
+    }
+    _pendingPayment = next;
     try {
       final prefs = await SharedPreferences.getInstance();
-      if (_pendingPayToken != null) {
-        await prefs.setString('pending_pay_token', _pendingPayToken!);
+      if (next != null) {
+        await prefs.setString(
+          PendingPaymentRecord.storageKey,
+          next.encode(),
+        );
       } else {
-        await prefs.remove('pending_pay_token');
+        await prefs.remove(PendingPaymentRecord.storageKey);
       }
+      await prefs.remove(PendingPaymentRecord.legacyStorageKey);
     } catch (_) {}
     if (mounted) setState(() {});
+  }
+
+  Future<void> _clearPendingPaymentIfMatches(String token) async {
+    if (_pendingPayment?.token != token) return;
+    await _savePendingPayToken(null);
+  }
+
+  bool _isPaymentWatchCurrent({
+    required int generation,
+    required String token,
+    required String ownerUsername,
+    required String ownerPassword,
+  }) {
+    return mounted &&
+        generation == _paymentWatchGeneration &&
+        savedUser == ownerUsername &&
+        savedPass == ownerPassword &&
+        _pendingPayment?.token == token &&
+        _pendingPayment?.belongsTo(ownerUsername) == true;
   }
 
   @override
@@ -3998,22 +4054,38 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
 
   /// پولینگ وضعیت فاکتور — auto بعد از برگشت از مرورگر، یا دستی با دکمه
   Future<void> _watchPaymentStatus({bool auto = false}) async {
-    final token = _pendingPayToken;
+    final pending = _pendingPayment;
+    final token = pending?.token;
     final u = savedUser;
     final pw = savedPass;
-    if (token == null || u == null || pw == null) {
+    if (pending == null || token == null || u == null || pw == null) {
       if (!auto) _showToast('فاکتور در انتظاری نیست');
       return;
     }
+    if (!pending.belongsTo(u)) {
+      if (!auto) {
+        _showToast('این فاکتور متعلق به حساب دیگری است؛ برای بررسی، به همان حساب برگردید.');
+      }
+      return;
+    }
     if (_paymentWatchRunning) return;
+    final generation = ++_paymentWatchGeneration;
     _paymentWatchRunning = true;
+    if (mounted) setState(() {});
     if (!auto && mounted) {
       _showToast('در حال بررسی وضعیت پرداخت…');
     }
     try {
-      final rounds = auto ? 10 : 1; // خودکار ~۳۰ثانیه؛ دستی یک‌بار
+      final rounds = auto ? 10 : 1;
       for (var i = 0; i < rounds; i++) {
-        if (!mounted) break;
+        if (!_isPaymentWatchCurrent(
+          generation: generation,
+          token: token,
+          ownerUsername: u,
+          ownerPassword: pw,
+        )) {
+          break;
+        }
         try {
           final res = await http
               .post(
@@ -4027,16 +4099,30 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
                 },
               )
               .timeout(const Duration(seconds: 12));
+          if (!_isPaymentWatchCurrent(
+            generation: generation,
+            token: token,
+            ownerUsername: u,
+            ownerPassword: pw,
+          )) {
+            break;
+          }
           final data = json.decode(res.body);
           if (data is Map && data['ok'] == true) {
             final st = '${data['status'] ?? ''}'.toLowerCase();
             if (st == 'approved') {
-              await _savePendingPayToken(null);
+              await _clearPendingPaymentIfMatches(token);
+              if (generation != _paymentWatchGeneration || savedUser != u) {
+                break;
+              }
               final panelUser = '${data['panel_username'] ?? ''}';
               final isAddSvc = data['is_additional_service'] == true;
               final msg = data['msg']?.toString() ?? 'اشتراک فعال شد ✅';
               if (isAddSvc && panelUser.isNotEmpty && panelUser != u) {
                 await _upsertProfile(panelUser, pw, label: 'سرویس · $panelUser');
+                if (generation != _paymentWatchGeneration || savedUser != u) {
+                  break;
+                }
                 await _activateProfile(panelUser, pw, fetch: true);
                 if (mounted) {
                   await showDialog<void>(
@@ -4074,11 +4160,12 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
               break;
             }
             if (st == 'expired' || st == 'cancelled' || st == 'rejected') {
-              await _savePendingPayToken(null);
-              _showToast(data['msg']?.toString() ?? 'فاکتور منقضی یا لغو شد', isError: true);
+              await _clearPendingPaymentIfMatches(token);
+              if (generation == _paymentWatchGeneration && savedUser == u) {
+                _showToast(data['msg']?.toString() ?? 'فاکتور منقضی یا لغو شد', isError: true);
+              }
               break;
             }
-            // pending
             if (!auto && i == rounds - 1) {
               _showToast(data['msg']?.toString() ?? 'هنوز در انتظار تأیید پرداخت');
             }
@@ -4087,7 +4174,9 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
             break;
           }
         } catch (_) {
-          if (!auto && i == rounds - 1) {
+          if (!auto && i == rounds - 1 &&
+              generation == _paymentWatchGeneration &&
+              savedUser == u) {
             _showToast('خطا در بررسی وضعیت', isError: true);
           }
         }
@@ -4096,10 +4185,12 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
         }
       }
     } finally {
-      _paymentWatchRunning = false;
+      if (generation == _paymentWatchGeneration) {
+        _paymentWatchRunning = false;
+        if (mounted) setState(() {});
+      }
     }
   }
-
 
   Future<void> _claimFreeTest() async {
     final u = savedUser;
@@ -4569,7 +4660,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
                     Navigator.pop(ctx);
                     final tok = '${data['pay_token'] ?? ''}';
                     if (tok.length >= 16) {
-                      await _savePendingPayToken(tok);
+                      await _savePendingPayToken(tok, ownerUsername: u);
                     }
                     if (payUrl.isNotEmpty) {
                       final uri = Uri.parse(payUrl);
@@ -4578,7 +4669,7 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
                         // بعد از برگشت از مرورگر، lifecycle پولینگ را شروع می‌کند؛
                         // اینجا هم یک دور کوتاه در پس‌زمینه می‌گذاریم.
                         Future.delayed(const Duration(seconds: 2), () {
-                          if (mounted && _pendingPayToken != null) {
+                          if (mounted && _pendingPayToken != null && savedUser == u) {
                             _watchPaymentStatus(auto: true);
                           }
                         });
@@ -4627,6 +4718,10 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
       if (res.statusCode == 200) {
         final data = json.decode(res.body);
         if (data['ok'] == true) {
+          if (savedUser != username || savedPass != password) {
+            _paymentWatchGeneration++;
+            _paymentWatchRunning = false;
+          }
           final prefs = await SharedPreferences.getInstance();
           await prefs.setString('saved_username', username);
           await prefs.setString('saved_password', password);
@@ -7700,6 +7795,8 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
       final res = await http.get(uri).timeout(const Duration(seconds: 12));
       final data = json.decode(utf8.decode(res.bodyBytes));
       if (data is Map && data['ok'] == true) {
+        _paymentWatchGeneration++;
+        _paymentWatchRunning = false;
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('saved_password', newPass);
         if (user.isNotEmpty) {

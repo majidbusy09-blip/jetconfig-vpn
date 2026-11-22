@@ -119,7 +119,7 @@ class _ResolvedIndexVisitor extends RecursiveAstVisitor<void> {
     _callerId = previous;
   }
 
-  void _recordCall(String kind, String expression, Element? target, AstNode node) {
+  void _recordCall(String kind, String expression, ExecutableElement? target, AstNode node) {
     calls.add({
       'caller_element_id': _callerId,
       'invocation_kind': kind,
@@ -130,7 +130,7 @@ class _ResolvedIndexVisitor extends RecursiveAstVisitor<void> {
       'target_element_kind': target?.runtimeType.toString(),
       'target_element_source': target?.source?.uri.toString(),
       'target_is_in_repository': target == null ? null : _isRepositoryElement(target),
-      'line': node.beginToken.line,
+      'line': _line(node),
       'offset': node.offset,
       'resolution_status': target == null ? 'unresolved' : 'resolved_element',
     });
@@ -165,7 +165,7 @@ class _ResolvedIndexVisitor extends RecursiveAstVisitor<void> {
 
   @override
   void visitMethodInvocation(MethodInvocation node) {
-    _recordCall('method', node.toSource(), node.methodName.staticElement, node);
+    _recordCall('method', node.toSource(), node.methodName.staticElement is ExecutableElement ? node.methodName.staticElement as ExecutableElement : null, node);
     super.visitMethodInvocation(node);
   }
 

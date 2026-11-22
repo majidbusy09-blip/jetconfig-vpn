@@ -1,6 +1,6 @@
 # JET VPN — Known Issues and Risks
 
-> Application findings were inspected against `main` commit `47949178016a6ef3e855a215550b06f4eae8378d`; `lib/main.dart` blob remains unchanged at current main `f396f57459c9863a325f27e7d438e9456d560e92`. A source-level finding is not automatically a reproduced runtime bug.
+> Application findings were inspected against `main` commit `47949178016a6ef3e855a215550b06f4eae8378d`; `lib/main.dart` blob remains unchanged at current main `1f2519923cdd9f85ab280a3a4359d7ed5aed3949`. A source-level finding is not automatically a reproduced runtime bug.
 
 ## JET-001 — connect_timeout recovery reason is rejected
 

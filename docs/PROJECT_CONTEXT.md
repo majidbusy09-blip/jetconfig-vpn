@@ -14,7 +14,7 @@
 - Telegram information channel: [@jetconfig11](https://t.me/jetconfig11).
 - In-app purchase is active; the bot remains an alternative purchase and management route. These are user/product context, not proof of backend implementation.
 - This repository is the Flutter Android client. The inspected application-source tree contains `.github/workflows/build.yml`, `README.md`, `lib/main.dart`, `pubspec.yaml`, and `tools/v2ray_notif_patch/` with three Java files and one shell script.
-- No backend PHP source, Telegram bot source, admin panel, worker, Android project directory, test directory, or lockfile was present in the inspected main snapshot.
+- The current main tree contains tracked application tests under `test/` and developer tooling under `tools/project_memory/`. No backend PHP source, Telegram bot source, admin panel, worker, or JET VPN TV source is present in this repository. CI may generate Android scaffold files in its temporary workspace; those generated files are not tracked application source.
 
 ## Runtime summary
 

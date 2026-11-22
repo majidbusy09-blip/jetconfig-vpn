@@ -58,3 +58,12 @@ This log records decisions that govern future work. New entries should include d
 - **Decision:** Introduce Dart Analyzer AST parsing in an isolated developer-tool package, but label the first call graph as syntactic and candidate-based until analyzer element resolution is implemented.
 - **Rationale:** AST structure is more reliable than regex for declaration and invocation locations, but matching identifier names alone cannot prove which declaration a call binds to.
 - **Consequence:** Keep ambiguous and unresolved calls explicit; never describe this first graph as a verified semantic call graph or runtime reachability map.
+
+
+## D-008 — Multi-file analyzer index and curated critical-path report
+
+- **Date:** 2026-11-22
+- **Status:** Proposed in PR #10
+- **Decision:** Resolve all tracked Dart source files under `lib/` as one application source set, fingerprint each file, and build cross-file edges from analyzer Elements. Define critical workflows through a source-path/owner/kind/name manifest and report static transitive reachability from those curated anchors.
+- **Rationale:** A single-file graph cannot show cross-file impact once the app is split; explicit entrypoint anchors make impact analysis useful while remaining auditable.
+- **Consequence:** Missing or ambiguous anchors fail closed and are reported. Static reachability is not runtime execution; callbacks, state-field dependencies, dynamic calls, and native Java behavior remain separate evidence boundaries.

@@ -507,8 +507,8 @@ def command_finalize(args: argparse.Namespace) -> None:
     if current_fingerprints != record["scope_validation"].get("path_fingerprints", {}):
         raise TaskError("Files changed after scope validation; rerun validate-scope and review the complete diff.")
     diff = run_git(root, "diff", "--stat", base, "--")
-    tracked = set(run_git(root, "ls-files").splitlines())
-    untracked = [item for item in status_paths(root) if item not in set(tracked_files(root))]
+    tracked = set(tracked_files(root))
+    untracked = [item for item in status_paths(root) if item not in tracked]
     record["changed_paths"] = paths
     record["final_diff"] = {
         "reviewed": True,

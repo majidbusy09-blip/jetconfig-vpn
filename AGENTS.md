@@ -22,6 +22,7 @@ Before proposing or changing code:
 4. Check the actual target branch and current commit SHA. Documentation is a guide, not a substitute for current source.
 5. Verify every relevant symbol, caller, state variable, persistence key, network request, native patch, and workflow against the current source.
 6. If a document's `Verified against` commit differs from the target source commit, treat its implementation claims as potentially stale and re-verify them.
+7. For every non-trivial code, tooling, architecture, CI, or maintenance task, use `docs/TASK_TEMPLATE.md`; carry the completed record into the PR description or development log. Mark irrelevant sections as not applicable.
 
 Do not assume previous chat context is complete. Git-tracked project memory is the durable baseline.
 
@@ -79,6 +80,7 @@ A successful build is not a runtime/device test. A CI workflow definition is not
 - Record accepted technical choices in `docs/DECISIONS.md`.
 - Append meaningful work and exact verification results to `docs/DEVELOPMENT_LOG.md`.
 - Keep next actions prioritized in `docs/NEXT_STEPS.md`.
+- Use `docs/TASK_TEMPLATE.md` as the standard execution record; it does not replace source verification, tests, or explicit approval gates.
 - If source changes invalidate a document, update it or explicitly mark it stale in the same PR.
 - Do not overwrite history: append log entries and preserve superseded decisions with status.
 
@@ -86,7 +88,7 @@ A successful build is not a runtime/device test. A CI workflow definition is not
 
 - Repository: `majidbusy09-blip/jetconfig-vpn`
 - Branch: `main`
-- Commit: `477ff12fb5a82ba2b2bb3f68a268d27f679c40ab`
+- Commit: `1f2519923cdd9f85ab280a3a4359d7ed5aed3949`
 - `.github/workflows/build.yml` blob: `abdb595af8df6b2d02ab0ba1da665ac9de1d6461`
 - `lib/main.dart` blob: `df2914b2954d723869e4196d96f96b050618985a`
 - `pubspec.yaml` blob: `adc3b22a4538db4738bec789e3c3badf26e4f710`

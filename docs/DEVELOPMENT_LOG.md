@@ -44,3 +44,17 @@ Append-only record of meaningful project work. Each entry should include branch/
 - **Prior validation:** Strict run [#44992436433](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/44992436433) passed before rebasing; a fresh run is required.
 - **Limitations:** The index is lexical, not a Dart AST or semantic call graph. Token counts do not prove caller/callee relationships or runtime reachability.
 - **Safety:** No Dart application source, Native code, app dependencies, Android build configuration, or production release workflow is changed by this stage. No merge or Release is authorized by this PR.
+
+
+## 2026-11-22 — Reusable task execution protocol and memory snapshot reconciliation
+
+- **Base:** `main` at `1f2519923cdd9f85ab280a3a4359d7ed5aed3949` (verified as PR #6's merge commit and PR #8's base SHA).
+- **Branch:** `docs/agent-task-protocol-20261122`.
+- **Priority capability:** durable memory and safe maintenance; make the agreed collaborator workflow reusable rather than relying on chat-only instructions.
+- **Added:** `docs/TASK_TEMPLATE.md`, a repeatable record for user goal, priority test, context loading, source evidence, plan, diff, exact verification, memory updates, PR handoff, and approval boundaries.
+- **Updated:** `AGENTS.md` and `docs/DEVELOPMENT_RULES.md` to require the template for non-trivial tasks; refreshed `docs/NEXT_STEPS.md` to reflect completed and still-unmerged work; reconciled the main snapshot in `docs/CURRENT_STATUS.md`, `docs/PROJECT_CONTEXT.md`, and `docs/FILE_MAP.md`.
+- **Verified external CI evidence:** PR #2 validation run #11 (`44983827682`) succeeded on its branch: static analysis and debug APK build passed; its app-test step was skipped because that revision had no `test/` directory. Artifact ID `14739381273` expires 2026-11-29. PR #14 documentation audit run #45014029283 also succeeded on its review branch; it is not evidence about `main`.
+- **Scope:** documentation only; no Flutter/Dart app source, dependency, app version, native patch, production release workflow, or server code changed.
+- **CI:** Project Memory Audit Run #89 (ID `45016382603`) succeeded. The lexical index freshness check and machine-readable artifact upload passed. Artifact ID `14752195782`, retained until 2026-12-22.
+- **Not performed:** no app build, device/runtime test, merge, Release, or deployment as part of this documentation change.
+- **Priority boundary:** further payment/backend work is parked at the user's direction while the service is operating normally.

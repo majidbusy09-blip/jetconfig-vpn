@@ -625,7 +625,8 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
   /// فقط بعد از تأیید واقعی (getConnectedServerDelay) دکمه سبز می‌شود
   bool _connectionVerified = false;
   int _verifyGen = 0; // برای باطل کردن verifyهای قدیمی
-  final LiveConnectionVerifier _liveConnectionVerifier = LiveConnectionVerifier();
+  final LiveConnectionVerifier _liveConnectionVerifier =
+      LiveConnectionVerifier();
 
   Map<String, dynamic>? userData;
   String? savedUser;

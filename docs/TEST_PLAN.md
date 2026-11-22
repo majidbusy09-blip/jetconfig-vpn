@@ -14,7 +14,7 @@
 
 1. Cold launch with persisted want-connected=false: VPN stays disconnected.
 2. Cold launch with want-connected=true and native disconnected: recovery starts only when network is available.
-3. Resume with native CONNECTED but data path unavailable: UI must not mark verified until live verification succeeds.
+3. Resume with native CONNECTED but data path unavailable: UI must not mark verified until live verification succeeds. PR #12 adds a pure UI-gate test; lifecycle/device test remains pending.
 4. Notification disconnect: user intent becomes false; automatic recovery does not reconnect.
 5. Internal stop during recovery/server switch: must not be interpreted as explicit user disconnect.
 6. Android VPN permission revoke: state reconciles without false connected UI or unintended reconnect.
@@ -86,3 +86,10 @@ For each run record: date, device/Android version, branch and commit SHA, exact 
 - `lib/recovery_policy.dart` isolates deterministic recovery-admission rules from Flutter/plugin state.
 - `test/recovery_policy_test.dart` covers documented reason admission (including `connect_timeout`), unknown reasons, smart-mode/user-intent/intentional-stop gates, and cooldown selection.
 - The project-memory workflow now runs `flutter test` after root `flutter pub get`. This is a unit-level policy test, not a VPN engine, Android lifecycle, network, or device integration test.
+
+## Application unit tests — live verification branch (PR #12)
+
+- `lib/live_connection_policy.dart` isolates the UI connected-state invariant: native core connected AND live verification succeeded AND no forced-disconnect override.
+- `test/live_connection_policy_test.dart` covers native-only connected rejection, verified acceptance, stale verification with disconnected core, and explicit disconnect override.
+- PR #12 changes both cold restore and resume to clear verification/ping state and require a fresh silent live check. A failed silent check clears the verified state, leaves the core running, and lets smart mode use the slow health watcher.
+- These unit tests do not simulate Flutter lifecycle callbacks, V2Ray plugin behavior, sockets, or actual tunnel traffic. Device/emulator verification is still required.

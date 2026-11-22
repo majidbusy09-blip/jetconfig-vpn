@@ -14,6 +14,7 @@ import 'package:installed_apps/installed_apps.dart';
 import 'package:installed_apps/app_info.dart';
 import 'recovery_policy.dart';
 import 'live_connection_policy.dart';
+import 'live_connection_verifier.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();

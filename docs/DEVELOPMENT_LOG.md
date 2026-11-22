@@ -156,3 +156,16 @@ Append-only record of meaningful project work. Each entry should include branch/
 - **Passed:** all 15 application tests (including all seven verifier tests); 10 AST-indexer tests; 5 resolved-indexer tests; 2 critical-path tests; semantic index generation; deterministic regeneration; lexical index and CURRENT_STATUS freshness checks; both artifact uploads.
 - **Artifacts:** `jet-vpn-code-index` ID `14750137931`; `jet-vpn-semantic-ast-index` ID `14750411193`; both expire 2026-12-22.
 - **Not performed:** Flutter APK build, Android emulator/device test, runtime VPN/network test, merge, or Release.
+
+
+## 2026-11-22 — Stage 8: bind pending invoice tokens to account owner (PR #14)
+
+- **Base:** PR #13 branch `tests/async-live-verifier-20261122`, after adding the PR #14 branch to its project-memory workflow filter.
+- **Branch:** `security/payment-token-owner-20261122`.
+- **Source-change commit:** `40ebfb50c72c527a67bc8e56f9de1e58cac45f14`; `lib/main.dart` blob `0411f4d6d82e9412147dfdd9dbb8211df2666d47`.
+- **Scope:** Client-side pending-payment ownership, profile/credential transition guards, focused model tests, and durable project-memory updates.
+- **Added:** `lib/pending_payment_record.dart`; `test/pending_payment_record_test.dart`.
+- **Changed:** `lib/main.dart` replaces the global token string with a structured record containing token, originating username, creation timestamp, and pending status. Polling requires the active account to match the record owner. In-flight polls are invalidated on profile/session/account/password transitions and responses are rechecked after network awaits.
+- **Legacy policy:** An unowned legacy `pending_pay_token` cannot be safely attributed; it is discarded during restore instead of being assigned to whichever account is active.
+- **Verification:** CI pending on the final PR head. Four focused model tests are authored; do not report them as passed until CI completes.
+- **Limits:** No backend source is present in this repository. Server-side token ownership, replay protection, and idempotency remain unverified. No production payment was attempted. No app version, native Java, app dependencies, APK, release, or main branch changed.

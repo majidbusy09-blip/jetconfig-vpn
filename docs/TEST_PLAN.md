@@ -99,5 +99,5 @@ For each run record: date, device/Android version, branch and commit SHA, exact 
 
 - `LiveConnectionVerifier` owns only the settle/ping/retry sequence; Flutter UI state, native core lifecycle, recovery scheduling, and stop decisions remain in `_MainVpnScreenState`.
 - Injected wait and ping functions make the asynchronous sequence deterministic in unit tests without starting V2Ray.
-- Tests cover silent resume's one-attempt timing, silent ping failure, native-core disconnect during verification, obsolete-result cancellation, non-silent retry timing, and explicit disconnect cancellation.
+- Tests cover silent resume's one-attempt timing, silent ping failure, native-core disconnect during an in-flight check, obsolete-result cancellation, non-silent retry timing, explicit-disconnect cancellation, and compilation of the app entrypoint against the extracted verifier.
 - These tests exercise the async verifier used by the app, not the Android lifecycle callback, plugin implementation, sockets, or actual tunnel traffic. Device/emulator tests remain required.

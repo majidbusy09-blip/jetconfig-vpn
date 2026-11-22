@@ -61,12 +61,19 @@ jobs:
             rmdir test 2>/dev/null || true
           fi
 
+      - name: Test validation build preparation tool
+        run: python3 -m unittest discover -s tools/validation -p "test_*.py"
+
+      - name: Prepare isolated validation package and updater guard
+        run: python3 tools/validation/prepare_validation_build.py
+
       - name: Report generated Android package identity
         shell: bash
         run: |
-          echo "Generated Android package configuration:"
+          echo "Generated Android validation package configuration:"
           grep -nE '^[[:space:]]*(namespace|applicationId)[[:space:]]*=' android/app/build.gradle android/app/build.gradle.kts 2>/dev/null || true
-          echo "This is a temporary CI scaffold identity, not proof of the production app ID."
+          grep -n 'android:label=' android/app/src/main/AndroidManifest.xml
+          echo "This package is test-only and intentionally differs from production."
 
       - name: Install dependencies
         run: flutter pub get
@@ -81,23 +88,48 @@ jobs:
         run: flutter test --no-pub
 
       - name: Build debug APK smoke test
-        run: flutter build apk --debug --no-pub
+        run: flutter build apk --debug --no-pub --dart-define=JETVPN_VALIDATION_BUILD=true
 
       - name: Upload debug APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: JET-VPN-debug-${{ github.run_number }}
+          name: JET-VPN-TEST-debug-${{ github.run_number }}
           path: build/app/outputs/flutter-apk/app-debug.apk
           if-no-files-found: error
           retention-days: 7
 
       - name: Build arm64 release-mode comparison APK (split per ABI)
-        run: flutter build apk --release --target-platform android-arm64 --split-per-abi --no-pub
+        run: flutter build apk --release --target-platform android-arm64 --split-per-abi --no-pub --dart-define=JETVPN_VALIDATION_BUILD=true --dart-define=APK_CHANNEL=arm64
 
-      - name: Upload arm64 release-mode comparison APK
+      - name: Verify validation APK package, label, signer, and ABI
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="build/app/outputs/flutter-apk/app-arm64-v8a-release.apk"
+          BUILD_TOOLS="${ANDROID_HOME:-$ANDROID_SDK_ROOT}/build-tools"
+          AAPT="$(find "$BUILD_TOOLS" -name aapt -type f | sort -V | tail -1)"
+          APKSIGNER="$(find "$BUILD_TOOLS" -name apksigner -type f | sort -V | tail -1)"
+          test -n "$AAPT"
+          test -n "$APKSIGNER"
+          BADGING="$("$AAPT" dump badging "$APK")"
+          printf '%s\n' "$BADGING" | head -5
+          printf '%s\n' "$BADGING" | grep -Fq "package: name='com.jetconfig.vpn.jetconfig_vpn.validation'"
+          printf '%s\n' "$BADGING" | grep -Fq "application-label:'JET VPN TEST'"
+          "$APKSIGNER" verify --verbose --print-certs "$APK"
+          python3 - "$APK" <<'PY'
+          import sys, zipfile
+          with zipfile.ZipFile(sys.argv[1]) as apk:
+              abis = {name.split('/')[1] for name in apk.namelist()
+                      if name.startswith('lib/') and len(name.split('/')) > 2}
+          print("Native ABIs:", sorted(abis))
+          if abis != {"arm64-v8a"}:
+              raise SystemExit(f"Unexpected native ABI set: {sorted(abis)}")
+          PY
+
+      - name: Upload arm64 validation APK
         uses: actions/upload-artifact@v4
         with:
-          name: JET-VPN-arm64-release-mode-${{ github.run_number }}
+          name: JET-VPN-TEST-arm64-validation-${{ github.run_number }}
           path: build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
           if-no-files-found: error
           retention-days: 7

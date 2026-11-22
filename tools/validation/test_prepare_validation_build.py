@@ -21,7 +21,7 @@ class PrepareValidationBuildTests(unittest.TestCase):
             encoding="utf-8",
         )
         (root / "android" / "app" / "build.gradle").write_text(
-            'android { defaultConfig { applicationId "com.jetconfig.vpn.jetconfig_vpn" } }\n',
+            'android {\n  defaultConfig {\n    applicationId "com.jetconfig.vpn.jetconfig_vpn"\n  }\n}\n',
             encoding="utf-8",
         )
         (root / "android" / "app" / "src" / "main" / "AndroidManifest.xml").write_text(

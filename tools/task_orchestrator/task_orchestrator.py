@@ -132,7 +132,8 @@ def status_paths(root: Path) -> list[str]:
 
 
 def is_task_metadata(path: str, task_id: str) -> bool:
-    return path == (TASK_DIR / task_id / "task.json").as_posix()
+    prefix = (TASK_DIR / task_id).as_posix() + "/"
+    return path.startswith(prefix)
 
 
 def clean_before_init(root: Path) -> None:
@@ -277,7 +278,7 @@ def command_prepare(args: argparse.Namespace) -> None:
     record["state"] = "prepared"
     record["updated_at"] = now_iso()
     save_record(record, path)
-    print(f"Prepared task on {branch} at {head}. Context files: {len(missing) + len(REQUIRED_CONTEXT) - len(missing)}.")
+    print(f"Prepared task on {branch} at {head}. Verified {len(REQUIRED_CONTEXT)} required context files.")
 
 
 def command_impact(args: argparse.Namespace) -> None:
@@ -439,12 +440,15 @@ def command_finalize(args: argparse.Namespace) -> None:
     if violations:
         raise TaskError("Final diff contains out-of-scope paths: " + ", ".join(violations))
     diff = run_git(root, "diff", "--stat", base, "--")
+    tracked = set(run_git(root, "ls-files").splitlines())
+    untracked = [item for item in status_paths(root) if item not in tracked]
     record["changed_paths"] = paths
     record["final_diff"] = {
         "reviewed": True,
         "reviewed_at": now_iso(),
         "head_sha": run_git(root, "rev-parse", "HEAD"),
         "stat": diff,
+        "untracked_paths": untracked,
     }
     record["state"] = "review_ready"
     record["finalized_at"] = now_iso()

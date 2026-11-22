@@ -19,9 +19,9 @@ void main() {
     final file = File('${temp.path}/fixture.dart');
     await file.writeAsString(source);
     return buildResolvedIndex(
-      sourcePath: file.path,
+      sourcePaths: [file.path],
       repositoryRoot: temp.path,
-      sourceGitBlobSha: 'fixture-blob',
+      sourceGitBlobShas: {'fixture.dart': 'fixture-blob'},
     );
   }
 
@@ -96,14 +96,53 @@ void main() {
     final file = File('${temp.path}/lib/fixture.dart');
     await file.writeAsString('class Thing { void run() {} void invoke() { run(); } }');
     final index = await buildResolvedIndex(
-      sourcePath: file.path,
+      sourcePaths: [file.path],
       repositoryRoot: temp.path,
-      sourceGitBlobSha: 'fixture-blob',
+      sourceGitBlobShas: {'lib/fixture.dart': 'fixture-blob'},
     );
     final call = (index['call_sites'] as List)
         .singleWhere((entry) => entry['target_name'] == 'run');
     expect(call['target_element_source'], 'package:fixture_app/fixture.dart');
     expect(call['target_is_in_repository'], isTrue);
+  });
+
+  test('resolves cross-file calls across every supplied source unit', () async {
+    await Directory('${temp.path}/lib').create(recursive: true);
+    await Directory('${temp.path}/.dart_tool').create(recursive: true);
+    await File('${temp.path}/.dart_tool/package_config.json').writeAsString(jsonEncode({
+      'configVersion': 2,
+      'packages': [
+        {
+          'name': 'fixture_app',
+          'rootUri': '../',
+          'packageUri': 'lib/',
+          'languageVersion': '3.5',
+        },
+      ],
+    }));
+    final service = File('${temp.path}/lib/service.dart');
+    final screen = File('${temp.path}/lib/screen.dart');
+    await service.writeAsString('class Service { void refresh() {} }');
+    await screen.writeAsString(
+      "import 'package:fixture_app/service.dart'; void main() { Service().refresh(); }",
+    );
+    final index = await buildResolvedIndex(
+      sourcePaths: [screen.path, service.path],
+      repositoryRoot: temp.path,
+      sourceGitBlobShas: {
+        'lib/service.dart': 'service-blob',
+        'lib/screen.dart': 'screen-blob',
+      },
+    );
+    final summary = index['summary'] as Map<String, Object?>;
+    expect(summary['source_file_count'], 2);
+    expect(summary['internal_call_edges'], greaterThanOrEqualTo(1));
+    final call = (index['call_sites'] as List)
+        .singleWhere((entry) => entry['target_name'] == 'refresh');
+    expect(call['target_is_in_repository'], isTrue);
+    expect(call['target_element_source'], 'package:fixture_app/service.dart');
+    expect(call['source_path'], 'lib/screen.dart');
+    expect(call['target_element_id'], isNotNull);
   });
 
   test('reports dynamic invocation as unresolved instead of guessing', () async {

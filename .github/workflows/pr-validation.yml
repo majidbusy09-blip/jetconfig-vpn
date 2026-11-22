@@ -1,6 +1,9 @@
 name: JET VPN - PR Validation
 
 on:
+  push:
+    branches:
+      - ci/jet-vpn-pr-validation-20261122
   pull_request:
     branches:
       - main

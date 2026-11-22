@@ -9,6 +9,7 @@ on:
       - tools/dart-semantic-resolution-20261122
       - tools/dart-critical-paths-20261122
       - tests/recovery-regression-20261122
+      - tests/live-verification-resume-20261122
     paths:
       - "lib/**"
       - "pubspec.yaml"

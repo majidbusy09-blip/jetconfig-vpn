@@ -7,6 +7,7 @@ void main() {
 
   setUp(() async {
     temp = await Directory.systemTemp.createTemp('jet-vpn-semantic-test-');
+    await File('${temp.path}/pubspec.yaml').writeAsString('name: fixture_app\\n');
   });
 
   tearDown(() async {

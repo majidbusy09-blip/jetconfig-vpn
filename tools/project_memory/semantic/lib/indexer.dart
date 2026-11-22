@@ -34,7 +34,7 @@ Map<String, Object?> buildSemanticIndex({required String source, required String
     'schema_version': 1,
     'generator': 'tools/project_memory/semantic',
     'analysis_mode': 'dart_ast_syntactic_call_graph',
-    'source': {'path': sourcePath, 'git_blob_sha': gitBlobSha, 'utf8_bytes': utf8.encode(source).length, 'unicode_code_points': source.runes.length, 'lines': source.split('\n').length},
+    'source': {'path': sourcePath, 'git_blob_sha': gitBlobSha, 'utf8_bytes': utf8.encode(source).length, 'unicode_code_points': source.runes.length, 'lines': LineSplitter.split(source).length},
     'parser': {'package': 'analyzer', 'version': '6.11.0', 'parse_errors': 0},
     'declarations': visitor.declarations, 'call_sites': callSites, 'call_edges': edges,
     'summary': {

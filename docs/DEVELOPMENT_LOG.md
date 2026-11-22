@@ -227,3 +227,30 @@ Append-only record of meaningful project work. Each entry should include branch/
 - Project-memory audit [Run #45026094298](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45026094298) completed successfully on commit `a6690d0d9efe310624946d47207ffd19016a6f25`. Application tests, semantic indexer tests, deterministic AST/resolved/critical-path generation, lexical freshness, and both index artifact uploads passed.
 - Non-production PR validation [Run #45026094310](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45026094310) was created for the same docs-only snapshot but remained queued at the time of this note. The exact application/validation source had already passed complete analysis/tests/ARM64 APK validation in Run #45024183497; no app code changed in the later documentation commits.
 - Final review spot-check confirmed `_applyUserDisconnect` increments `_verifyGen`, `_activateProfile` increments `_verifyGen`, and the verifier checks generation/currentness after async waits and ping completion. This matches the two race-condition device scenarios reported as passing by the user.
+
+
+## 2026-11-22 — Authoritative memory refresh after PR #16/#17 and main protection
+
+- **Base main:** `eae477a89816a5cfd475c596e166d5cb2575884a`.
+- **Branch:** `docs/refresh-authoritative-memory-20261122`.
+- **Scope:** Documentation-only correction of operational snapshots and repository map.
+- **Verified GitHub state:** PR #16 merged at `c4f7f4743b3c6ffc64d34a0efb0c19f41b236f1e`; PR #17 merged at `eae477a89816a5cfd475c596e166d5cb2575884a`; main branch points to `eae477a89816a5cfd475c596e166d5cb2575884a`.
+- **Source identity:** `lib/main.dart` blob `3d28693b7be8bfe309a850923599830e1a65ab59`; `pubspec.yaml` blob `adc3b22a4538db4738bec789e3c3badf26e4f710`; app version `2.4.5+284`.
+- **CI evidence:** post-merge audit [#45029689706](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45029689706) completed successfully on main after PR #17.
+- **Ruleset:** `main-protection` verified active; default branch only; PR required; required status context `Verify generated code index and memory freshness`; deletion and force-push blocked; Squash-only; no bypass actors.
+- **Problem found:** top-level snapshots still described PR #16 as open and used the pre-merge main SHA. This could mislead future agent decisions.
+- **Files refreshed:** `AGENTS.md`, `docs/CURRENT_STATUS.md`, `docs/NEXT_STEPS.md`, `docs/PROJECT_CONTEXT.md`, `docs/FILE_MAP.md`, `docs/TEST_PLAN.md`, `docs/PROJECT_MEMORY_AUTOMATION.md`; this append-only log records the correction.
+- **Verification scope:** GitHub API metadata, tree, source blob IDs, version, PR states, ruleset and workflow run were re-fetched. Documentation-only changes; no Flutter source, bot, payment, backend, server, release workflow, version, signing or deployment changes.
+- **Checks:** project-memory audit will run on this PR; no local Flutter/Dart execution was performed through the GitHub connector.
+- **Approval boundary:** PR remains unmerged; no release or deployment.
+
+
+## 2026-11-23 — PR #19 merged; validation Android parity and required-check reliability
+
+- **Main commit:** `abdff3a59b89419e869c98d7dbb4ac91512fe950` (PR #19 squash merge).
+- **PR:** #19, `fix/validation-android-parity-20261122`; final head `3d47359c1ebaf6dcd6adfb19e886b9f148bbf030`.
+- **Scope:** Added `tools/validation/align_validation_android.py` and `tools/validation/test_align_validation_android.py`; updated `.github/workflows/pr-validation.yml` to align the temporary validation Android scaffold with production SDK/package-visibility configuration. Updated `.github/workflows/project-memory-audit.yml` so the required memory-audit check runs on every PR targeting main, avoiding path-filter-induced pending required checks.
+- **CI:** Project Memory Audit [#45065541236](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45065541236) and Non-production PR Validation [#45065541255](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45065541255) both completed successfully on the final PR head before merge.
+- **Application boundary:** No `lib/` files, native tunnel Java/Kotlin, DNS/routing implementation, app version, signing, production release workflow, bot, payment, backend, or server configuration changed. No release or deployment occurred.
+- **Device evidence:** User reported the Build 104 validation APK appeared to work in testing. This remains user-reported evidence; no broad Android/device/network compatibility claim is inferred.
+- **Memory maintenance:** This PR #18 refresh updates operational snapshots to main commit `abdff3a59b89419e869c98d7dbb4ac91512fe950` and records PR #19. Historical entries remain preserved; no older event is rewritten.

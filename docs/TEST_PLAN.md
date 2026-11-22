@@ -4,9 +4,12 @@
 
 ## Current test baseline
 
-- The verified `main` tree at `477ff12fb5a82ba2b2bb3f68a268d27f679c40ab` has no `test/` directory.
-- A prior PR validation workflow may build/analyze in CI, but absence of tests means no app regression suite is executed.
-- No runtime/device tests were run during the documentation stage.
+- Current `main` is `abdff3a59b89419e869c98d7dbb4ac91512fe950`; PR #16, #17, and #19 are merged.
+- Application regression tests exist under `test/`; the project-memory workflow runs `flutter test` after resolving root Flutter dependencies.
+- The isolated semantic tooling package has tests for AST indexing, analyzer-resolved indexing, and critical-path reporting.
+- Project-memory audit after PR #19 [#45065541236](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45065541236) passed; non-production PR validation [#45065541255](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45065541255) also passed.
+- User-reported device tests passed for cold restore, background resume, explicit disconnect during verification, and profile switch during verification. Device/build/log details were not supplied.
+- Unit tests and CI do not replace Android lifecycle, VPN-engine, network, payment, or backend integration tests.
 
 ## Priority regression suites
 
@@ -14,11 +17,11 @@
 
 1. Cold launch with persisted want-connected=false: VPN stays disconnected.
 2. Cold launch with want-connected=true and native disconnected: recovery starts only when network is available.
-3. Resume with native CONNECTED but data path unavailable: UI must not mark verified until live verification succeeds. PR #12 adds a pure UI-gate test; lifecycle/device test remains pending.
+3. Resume with native CONNECTED but data path unavailable: UI must not mark verified until live verification succeeds. The pure UI-gate test is part of the merged regression suite; lifecycle/device coverage remains limited to the user-reported scenarios above.
 4. Notification disconnect: user intent becomes false; automatic recovery does not reconnect.
 5. Internal stop during recovery/server switch: must not be interpreted as explicit user disconnect.
 6. Android VPN permission revoke: state reconciles without false connected UI or unintended reconnect.
-7. **Unit seam added (CI pending):** `SmartRecoveryPolicy` admits `connect_timeout`, rejects unknown reasons, and preserves connection-intent/cooldown gates. End-to-end scheduler execution and rate-limit behavior still require a later integration/device test.
+7. **Unit seam added (CI-covered):** `SmartRecoveryPolicy` admits `connect_timeout`, rejects unknown reasons, and preserves connection-intent/cooldown gates. End-to-end scheduler execution and rate-limit behavior still require a later integration/device test.
 8. Recovery attempt cap: maximum four attempts per 15-minute window; cooldown/slow health watch behaves as designed.
 9. User presses disconnect during ping/start/recovery: generation checks prevent late reconnect.
 10. Network down/up: no wasteful repeated recovery while offline; resume recovery after network returns.
@@ -61,6 +64,13 @@
 
 For each run record: date, device/Android version, branch and commit SHA, exact test case, steps, expected/actual result, logs (redacted), pass/fail, and follow-up issue. Do not record credentials or payment tokens.
 
+
+## Validation Android parity (PR #19)
+
+- `tools/validation/align_validation_android.py` aligns the disposable CI Android scaffold with production compileSdk 35, minSdk 24, targetSdk 35, `QUERY_ALL_PACKAGES`, and the production package-visibility query set.
+- `tools/validation/test_align_validation_android.py` covers Groovy/Kotlin Gradle configuration, manifest package declarations, and idempotency.
+- These tests validate build configuration parity; they do not prove live VPN routing, DNS, or tunnel traffic.
+- PR #19 final-head validation and memory-audit runs #45065541255 and #45065541236 both passed.
 
 ## Project memory automation
 

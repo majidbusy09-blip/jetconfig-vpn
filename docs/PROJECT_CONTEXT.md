@@ -1,10 +1,12 @@
 # JET VPN — Project Context
 
-> Current verified repository snapshot: `main` at `1f2519923cdd9f85ab280a3a4359d7ed5aed3949` (2026-11-22).  
-> Application-source baseline: `47949178016a6ef3e855a215550b06f4eae8378d`; no app-source changes since that baseline.  
-> Main source blob: `lib/main.dart` = `df2914b2954d723869e4196d96f96b050618985a`.  
-> App version: `2.4.5+284` (`pubspec.yaml` and matching constants in `lib/main.dart`).
-
+> Current verified repository snapshot: `main` at `abdff3a59b89419e869c98d7dbb4ac91512fe950` (2026-11-23).  
+> PR #16 merged at `c4f7f4743b3c6ffc64d34a0efb0c19f41b236f1e`; PR #17 at `eae477a89816a5cfd475c596e166d5cb2575884a`; PR #19 at `abdff3a59b89419e869c98d7dbb4ac91512fe950`.  
+> Main source blob: `lib/main.dart` = `3d28693b7be8bfe309a850923599830e1a65ab59`.  
+> App version: `2.4.5+284` (`pubspec.yaml` blob `adc3b22a4538db4738bec789e3c3badf26e4f710`).  
+> PR #19 aligns validation-only Android SDK and package visibility with production; its final-head CI runs #45065541236 and #45065541255 passed.  
+> Active `main-protection` ruleset protects the default branch and requires PR + memory-audit status check.
+ 
 ## Product and repository identity
 
 - App: **JET VPN**; related service/brand name: **JetConfig**.
@@ -12,7 +14,7 @@
 - Telegram information channel: [@jetconfig11](https://t.me/jetconfig11).
 - In-app purchase is active; the bot remains an alternative purchase and management route. These are user/product context, not proof of backend implementation.
 - This repository is the Flutter Android client. The inspected application-source tree contains `.github/workflows/build.yml`, `README.md`, `lib/main.dart`, `pubspec.yaml`, and `tools/v2ray_notif_patch/` with three Java files and one shell script.
-- No backend PHP source, Telegram bot source, admin panel, worker, Android project directory, test directory, or lockfile was present in the inspected main snapshot.
+- The current main tree contains tracked application tests under `test/` and developer tooling under `tools/project_memory/`. No backend PHP source, Telegram bot source, admin panel, worker, or JET VPN TV source is present in this repository. CI may generate Android scaffold files in its temporary workspace; those generated files are not tracked application source.
 
 ## Runtime summary
 

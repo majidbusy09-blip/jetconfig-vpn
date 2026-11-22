@@ -90,9 +90,14 @@ A successful build is not a runtime/device test. A CI workflow definition is not
 
 - Repository: `majidbusy09-blip/jetconfig-vpn`
 - Branch: `main`
-- Commit: `1f2519923cdd9f85ab280a3a4359d7ed5aed3949`
-- `.github/workflows/build.yml` blob: `abdb595af8df6b2d02ab0ba1da665ac9de1d6461`
-- `lib/main.dart` blob: `df2914b2954d723869e4196d96f96b050618985a`
-- `pubspec.yaml` blob: `adc3b22a4538db4738bec789e3c3badf26e4f710`
-- App version: `2.4.5+284`
-- Snapshot date: 2026-11-22
+- Current main commit (verified 2026-11-23): `abdff3a59b89419e869c98d7dbb4ac91512fe950`
+- PR #16 merged at `c4f7f4743b3c6ffc64d34a0efb0c19f41b236f1e`; PR #17 merged at `eae477a89816a5cfd475c596e166d5cb2575884a`; PR #19 merged at `abdff3a59b89419e869c98d7dbb4ac91512fe950`.
+- `lib/main.dart` blob: `3d28693b7be8bfe309a850923599830e1a65ab59` (9,008 lines / 352,770 UTF-8 bytes / 336,710 Unicode code points).
+- `pubspec.yaml` blob: `adc3b22a4538db4738bec789e3c3badf26e4f710`.
+- App version: `2.4.5+284`.
+- PR #19 added validation-only Android parity tooling: `tools/validation/align_validation_android.py` and `tools/validation/test_align_validation_android.py`; production app source and release workflow were not changed.
+- Active branch ruleset: `main-protection`, targets the default branch, requires PR + the project-memory status check, blocks deletion and force pushes, allows Squash only, and has no bypass actors.
+- PR #19 final-head CI: Project Memory Audit [#45065541236](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45065541236) and Non-production PR Validation [#45065541255](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45065541255) both succeeded.
+- Production release workflow remains manual-only and must never be dispatched without explicit user approval.
+
+Snapshot verification source: GitHub branch, commit, file, ruleset, PR, and Actions APIs checked on 2026-11-23.

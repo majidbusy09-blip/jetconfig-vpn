@@ -5,7 +5,7 @@ void main() {
   test('extracts declarations and syntactic caller-to-callee candidates', () {
     const source = '''
 void main() {
-  final service = Service();
+  final service = new Service();
   service.start();
   helper();
 }
@@ -18,8 +18,6 @@ class Service {
     final declarations = index['declarations'] as List;
     final calls = index['call_sites'] as List;
     final edges = index['call_edges'] as List;
-    print('DECLARATIONS: $declarations');
-    print('EDGES: $edges');
     expect(declarations.any((e) => e['name'] == 'main'), isTrue);
     expect(declarations.any((e) => e['name'] == 'start' && e['owner'] == 'Service'), isTrue);
     expect(calls.any((e) => e['invocation_kind'] == 'constructor' && e['target_name'] == 'Service'), isTrue);

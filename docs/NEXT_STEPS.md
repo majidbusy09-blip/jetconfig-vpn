@@ -11,6 +11,10 @@
 
 Priority is measured against the goal of a reliable, independent programming collaborator with durable project memory and safe execution. Every task must pass the criterion in `AGENTS.md`.
 
+## Historical planning preservation
+
+The complete pre-refresh planning document is preserved verbatim at [`docs/archive/NEXT_STEPS_pre_memory_refresh_20261122.md`](archive/NEXT_STEPS_pre_memory_refresh_20261122.md). It is historical context, not the active priority list.
+
 ## P0 — Repair authoritative project memory
 
 - Refresh stale current-state snapshots after PR #16 and #17.

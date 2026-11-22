@@ -4,7 +4,7 @@
 
 ## Current test baseline
 
-- The verified `main` tree at `47949178016a6ef3e855a215550b06f4eae8378d` has no `test/` directory.
+- The verified `main` tree at `477ff12fb5a82ba2b2bb3f68a268d27f679c40ab` has no `test/` directory.
 - A prior PR validation workflow may build/analyze in CI, but absence of tests means no app regression suite is executed.
 - No runtime/device tests were run during the documentation stage.
 
@@ -60,3 +60,12 @@
 ## Test evidence format
 
 For each run record: date, device/Android version, branch and commit SHA, exact test case, steps, expected/actual result, logs (redacted), pass/fail, and follow-up issue. Do not record credentials or payment tokens.
+
+
+## Project memory automation
+
+1. After changing `lib/main.dart`, regenerate the navigation index with `python tools/project_memory/index_dart.py --write`.
+2. Run `python tools/project_memory/index_dart.py --check --check-status` before opening the PR.
+3. The `JET VPN - Project Memory Audit` workflow repeats both checks on relevant PRs and uploads the machine-readable index as a 30-day artifact.
+4. A changed source blob or changed byte/line/code-point metrics without matching `CURRENT_STATUS.md` is a stale-memory failure.
+5. The index is lexical only: symbol locations and token occurrence counts are not a semantic call graph and do not replace Dart analysis or tests.

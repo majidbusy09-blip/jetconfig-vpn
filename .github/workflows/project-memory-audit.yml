@@ -7,6 +7,7 @@ on:
       - docs/agent-memory-foundation-20261122
       - tools/dart-ast-memory-20261122
       - tools/dart-semantic-resolution-20261122
+      - tools/dart-critical-paths-20261122
     paths:
       - "lib/**"
       - "pubspec.yaml"
@@ -41,6 +42,9 @@ jobs:
 
       - name: Resolve application package context for semantic analysis
         run: flutter pub get
+
+      - name: Run application regression tests
+        run: flutter test
 
       - name: Resolve isolated semantic-index tooling
         working-directory: tools/project_memory/semantic

@@ -18,7 +18,7 @@
 4. Notification disconnect: user intent becomes false; automatic recovery does not reconnect.
 5. Internal stop during recovery/server switch: must not be interpreted as explicit user disconnect.
 6. Android VPN permission revoke: state reconciles without false connected UI or unintended reconnect.
-7. Connect timeout: smart recovery scheduler accepts the intended reason and runs within rate limits.
+7. **Unit seam added (CI pending):** `SmartRecoveryPolicy` admits `connect_timeout`, rejects unknown reasons, and preserves connection-intent/cooldown gates. End-to-end scheduler execution and rate-limit behavior still require a later integration/device test.
 8. Recovery attempt cap: maximum four attempts per 15-minute window; cooldown/slow health watch behaves as designed.
 9. User presses disconnect during ping/start/recovery: generation checks prevent late reconnect.
 10. Network down/up: no wasteful repeated recovery while offline; resume recovery after network returns.
@@ -79,3 +79,10 @@ For each run record: date, device/Android version, branch and commit SHA, exact 
 - Fail closed when a curated entrypoint is missing or ambiguous.
 - Generate the multi-file resolved index and critical-path report twice and compare byte-for-byte in CI.
 - Keep native Java patch references visible as cross-language boundaries; do not label them as Dart-analyzed edges.
+
+
+## Application unit tests — recovery policy branch
+
+- `lib/recovery_policy.dart` isolates deterministic recovery-admission rules from Flutter/plugin state.
+- `test/recovery_policy_test.dart` covers documented reason admission (including `connect_timeout`), unknown reasons, smart-mode/user-intent/intentional-stop gates, and cooldown selection.
+- The project-memory workflow now runs `flutter test` after root `flutter pub get`. This is a unit-level policy test, not a VPN engine, Android lifecycle, network, or device integration test.

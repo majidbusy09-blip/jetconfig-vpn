@@ -1,5 +1,7 @@
 # JET VPN — Project Memory Automation
 
+> Current main snapshot: `abdff3a59b89419e869c98d7dbb4ac91512fe950` (PR #19 merged, verified 2026-11-23). The application source fingerprint remains unchanged by PR #19.
+
 ## Purpose
 
 Keep the agent's source navigation index and its documented source fingerprint synchronized with the actual repository. The audit is intended to catch stale project memory before an agent relies on it.

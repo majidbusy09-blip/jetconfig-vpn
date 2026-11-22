@@ -1,6 +1,6 @@
 # JET VPN — Architecture
 
-> Application-source baseline: `main` commit `47949178016a6ef3e855a215550b06f4eae8378d`; `lib/main.dart` blob `df2914b2954d723869e4196d96f96b050618985a`. The current main commit is `f396f57459c9863a325f27e7d438e9456d560e92`; the only change since the application-source baseline is the release-workflow safety gate in `.github/workflows/build.yml`.
+> Application-source baseline: `main` commit `47949178016a6ef3e855a215550b06f4eae8378d`; `lib/main.dart` blob `df2914b2954d723869e4196d96f96b050618985a`. The current main commit is `1f2519923cdd9f85ab280a3a4359d7ed5aed3949`; the only change since the application-source baseline is the release-workflow safety gate in `.github/workflows/build.yml`.
 
 ## 1. Runtime composition
 

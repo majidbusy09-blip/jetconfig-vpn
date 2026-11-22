@@ -2,36 +2,27 @@
 
 ## Latest verified state — 2026-11-23
 
-- `main` HEAD: `abdff3a59b89419e869c98d7dbb4ac91512fe950`; PR #19 is merged.
-- PR #16, #17, and #19 are merged. PR #18 is the documentation-memory refresh currently being updated.
-- PR #19's final-head Project Memory Audit [#45065541236](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45065541236) and Non-production PR Validation [#45065541255](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45065541255) both succeeded.
-- App version remains `2.4.5+284`; app source and production release workflow were not changed by PR #19.
-- Active `main-protection` ruleset remains in force; no bypass or direct-main write.
+- Current `main`: `a09cdb0be35e3072be29973f7ae8df66ab44d07f`.
+- PR #16, #17, #18, and #19 are merged. PR #18 refreshed the authoritative project-memory documents after PR #19.
+- Post-merge Project Memory Audit [#45069210457](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45069210457) succeeded on the current main commit.
+- App version remains `2.4.5+284`; `lib/main.dart`, native tunnel implementation, production release workflow, bot, payment, backend, and server behavior were not changed by PR #18.
+- The active `main-protection` ruleset remains in force. No direct-main write, bypass, release, or deployment.
 
-Priority is measured against the goal of a reliable, independent programming collaborator with durable project memory and safe execution. Every task must pass the criterion in `AGENTS.md`.
+Priority is measured against the goal of a reliable, independent programming collaborator with durable project memory and safe execution.
 
-## P0 — Complete and validate authoritative project memory
+## P0 — Design and implement the task execution orchestrator
 
-- Update every current-state reference from pre-PR-19 main to `abdff3a59b89419e869c98d7dbb4ac91512fe950`.
-- Record PR #19 scope and exact successful CI evidence.
-- Ensure the file map and test plan include the Android validation parity tool and its tests.
-- Preserve superseded snapshots and append, rather than rewrite, development history.
-- Run both required CI workflows on the final PR #18 head and inspect the complete diff.
+1. **Design in progress:** `docs/TASK_ORCHESTRATOR_DESIGN.md` defines a small Python 3.12, standard-library-only local orchestrator.
+2. **Next:** implement a fail-closed local MVP that loads required context, pins repository/branch/base SHA, fingerprints scoped files, reuses semantic/critical-path reports, validates changed paths, runs only fixed verification profiles, and produces an auditable task record and PR handoff.
+3. Add unit/integration tests using temporary Git repositories; no GitHub credentials or network should be required.
+4. Integrate tests into existing non-production PR validation only after the local test suite is stable. Do not add a required status check until reliability is demonstrated.
+5. Keep GitHub PR creation as a later optional phase. The orchestrator must not merge, release, tag, deploy, or dispatch the production workflow.
 
-## P1 — Design the task execution orchestrator
+## P1 — Reconcile outstanding draft work
 
-After the memory refresh is reviewed and merged, design (before implementing) a small, auditable task protocol that:
-1. loads mandatory project context and a task template;
-2. records target repository, branch, base SHA, source fingerprints and scope;
-3. discovers relevant symbols and dependency/critical-path impact;
-4. produces a risk and test plan before edits;
-5. executes only on a dedicated branch;
-6. runs exact checks and records pass/fail/not-run evidence;
-7. reviews the full diff and unexpected paths;
-8. updates durable memory and opens a PR;
-9. leaves merge/release/deployment under explicit user approval.
-
-Prefer extending existing semantic indexers, task template and workflows over building duplicate infrastructure.
+- Review existing draft PRs for overlap, stale base SHAs, and whether their changes are already represented in main. Do not merge blindly.
+- PR #15 contains an earlier task-protocol/template draft; compare it with the current main template and the new orchestrator design before deciding whether it is superseded.
+- Keep payment-related PR #14 parked at the user's direction unless a concrete issue is raised.
 
 ## P2 — Cross-repository project memory
 
@@ -41,8 +32,8 @@ Prefer extending existing semantic indexers, task template and workflows over bu
 
 ## Deferred by user
 
-- Telegram bot, payment, backend and server changes: currently working; defer absent a concrete issue.
-- Product features, marketing and visual redesigns: lower priority than collaborator reliability and verification.
+- Telegram bot, payment, backend, and server changes: currently working; defer absent a concrete issue.
+- Product features, marketing, and visual redesigns: lower priority than collaborator reliability and verification.
 
 ## Approval and safety boundary
 

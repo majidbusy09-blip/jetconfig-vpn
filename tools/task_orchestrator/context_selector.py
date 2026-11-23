@@ -17,6 +17,13 @@ MAX_ARTIFACT_BYTES = 25_000_000
 MAX_INDEXED_FILES = 5_000
 MAX_CRITICAL_PATHS = 1_000
 MAX_SUGGESTIONS = 25
+STOP_WORDS = {
+    "a", "an", "and", "are", "as", "at", "be", "by", "for", "from",
+    "in", "is", "it", "of", "on", "or", "the", "this", "that", "to",
+    "with", "please", "help", "and",
+    "و", "از", "به", "در", "برای", "با", "را", "که", "این", "آن",
+    "یک", "لطفا", "لطفاً", "کن", "کنید", "شود", "شده",
+}
 REVISION_RE = re.compile(r"^(?:[0-9a-f]{40}|[0-9a-f]{64})$")
 
 
@@ -89,7 +96,7 @@ def _git_blob_sha(root: Path, revision: str, relative: str) -> str:
 def _tokens(value: str) -> set[str]:
     normalized = value.casefold().replace("ي", "ی").replace("ك", "ک").replace("ۀ", "ه")
     return {token for token in re.findall(r"[^\W_]+", normalized, flags=re.UNICODE)
-            if len(token) >= 2}
+            if len(token) >= 2 and token not in STOP_WORDS}
 
 
 def _matches(path: str, patterns: list[str]) -> bool:

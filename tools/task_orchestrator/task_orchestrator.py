@@ -469,6 +469,11 @@ def command_verify(args: argparse.Namespace) -> None:
     definition = PROFILES[profile]
     started = time.monotonic()
     timestamp = now_iso()
+    base_sha = record.get("repository", {}).get("base_sha")
+    verification_paths_before = changed_paths(root, base_sha) if base_sha else []
+    verification_fingerprints_before = path_fingerprints(
+        root, verification_paths_before, args.task_id
+    )
     allowed_env = {
         "PATH", "HOME", "TMPDIR", "TEMP", "TMP", "LANG", "LC_ALL", "CI",
         "JAVA_HOME", "JAVA_HOME_17_X64", "JAVA_HOME_21_X64",
@@ -498,13 +503,22 @@ def command_verify(args: argparse.Namespace) -> None:
     except OSError as exc:
         exit_code, status, output = 126, "failed", str(exc)
     duration = round(time.monotonic() - started, 3)
-    base_sha = record.get("repository", {}).get("base_sha")
     verification_paths = changed_paths(root, base_sha) if base_sha else []
     verification_fingerprints = path_fingerprints(root, verification_paths, args.task_id)
+    source_stable = (
+        verification_paths_before == verification_paths
+        and verification_fingerprints_before == verification_fingerprints
+    )
+    if not source_stable and status == "passed":
+        status = "failed"
+        exit_code = 125
+        output = "Source files changed while verification was running; rerun the check on a stable worktree."
     attempt = {
         "profile": profile,
         "status": status,
         "exit_code": exit_code,
+        "source_stable_during_check": source_stable,
+        "verification_input_path_fingerprints": verification_fingerprints_before,
         "duration_seconds": duration,
         "started_at": timestamp,
         "finished_at": now_iso(),
@@ -558,9 +572,9 @@ def command_finalize(args: argparse.Namespace) -> None:
     for profile in record["planned_checks"]:
         attempt = latest[profile]
         verified = attempt.get("verified_path_fingerprints")
-        if verified is None:
+        if attempt.get("source_stable_during_check") is not True:
             stale_checks.append(profile)
-        elif verified != current_fingerprints:
+        elif verified is None or verified != current_fingerprints:
             stale_checks.append(profile)
     if stale_checks:
         raise TaskError(

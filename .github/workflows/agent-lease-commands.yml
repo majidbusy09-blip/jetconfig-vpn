@@ -32,6 +32,7 @@ jobs:
           python-version: "3.12"
 
       - name: Validate and execute the fixed lease command
+        id: lease
         env:
           GITHUB_REPOSITORY: ${{ github.repository }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -40,10 +41,40 @@ jobs:
           --event-file "$GITHUB_EVENT_PATH"
           --output "$RUNNER_TEMP/lease-result.json"
 
+      - name: Build lease-verified task handoff
+        id: build_handoff
+        if: >-
+          success() &&
+          (startsWith(github.event.comment.body, '/jet-agent claim ') ||
+           startsWith(github.event.comment.body, '/jet-agent renew '))
+        run: >-
+          python -m tools.task_orchestrator.github_task_handoff
+          --event-file "$GITHUB_EVENT_PATH"
+          --lease-result "$RUNNER_TEMP/lease-result.json"
+          --output "$RUNNER_TEMP/task-handoff.json"
+          --run-id "$GITHUB_RUN_ID"
+          --run-attempt "$GITHUB_RUN_ATTEMPT"
+
+      - name: Upload lease-verified handoff artifact
+        id: upload_handoff
+        if: >-
+          success() &&
+          (startsWith(github.event.comment.body, '/jet-agent claim ') ||
+           startsWith(github.event.comment.body, '/jet-agent renew '))
+        uses: actions/upload-artifact@v4
+        with:
+          name: jet-agent-handoff-${{ github.event.issue.number }}-${{ github.run_id }}
+          path: ${{ runner.temp }}/task-handoff.json
+          if-no-files-found: error
+          retention-days: 14
+
       - name: Report the verified lease result on the Issue
+        if: always() && steps.lease.outcome == 'success'
         uses: actions/github-script@v7
         env:
           RESULT_FILE: ${{ runner.temp }}/lease-result.json
+          HANDOFF_BUILD_OUTCOME: ${{ steps.build_handoff.outcome }}
+          HANDOFF_UPLOAD_OUTCOME: ${{ steps.upload_handoff.outcome }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -60,7 +91,33 @@ jobs:
               'Lock commit: `' + result.lock_commit + '`',
             ];
             if (result.base_sha) lines.push('Pinned base SHA: `' + result.base_sha + '`');
-            lines.push('', 'This confirms lease ownership only. It does not start an agent or authorize merge, release, or deployment.');
+            if (result.expires_at) lines.push('Lease expires: `' + result.expires_at + '`');
+            if (payload.operation === 'claim' || payload.operation === 'renew') {
+              if (process.env.HANDOFF_BUILD_OUTCOME === 'success' &&
+                  process.env.HANDOFF_UPLOAD_OUTCOME === 'success') {
+                lines.push(
+                  '',
+                  '**Execution handoff artifact created.**',
+                  'Open this workflow run and download `jet-agent-handoff-' +
+                    payload.issue_number + '-' + context.runId + '` from Artifacts.',
+                  'https://github.com/' + context.repo.owner + '/' + context.repo.repo +
+                    '/actions/runs/' + context.runId
+                );
+              } else {
+                lines.push(
+                  '',
+                  '**WARNING:** The lease is verified, but the handoff artifact was not created or uploaded.',
+                  'Do not dispatch an agent from this run until the artifact issue is resolved.'
+                );
+              }
+            } else {
+              lines.push('', 'Lease release verified. No handoff artifact was created.');
+            }
+            lines.push(
+              '',
+              'This workflow does not wake a model or run implementation code. ' +
+              'No source files are uploaded, and merge/release/deployment remain separate.'
+            );
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,

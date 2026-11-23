@@ -20,6 +20,8 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
 
+from context_builder import ContextBuildError, build_context
+
 SCHEMA_VERSION = 1
 REQUIRED_CONTEXT = (
     "AGENTS.md",
@@ -295,6 +297,8 @@ def command_init(args: argparse.Namespace) -> None:
         raise TaskError("At least one explicit --allow path pattern is required.")
     if not args.check:
         raise TaskError("At least one named --check profile is required.")
+    if len(set(args.context)) != len(args.context):
+        raise TaskError("--context paths must be unique.")
     broad_patterns = [pattern for pattern in args.allow if pattern in {"*", "**", "**/*"}]
     if broad_patterns and (args.risk != "high" or not args.scope_reason.strip()):
         raise TaskError("Repository-wide scope patterns require --risk high and a non-empty --scope-reason.")
@@ -320,6 +324,8 @@ def command_init(args: argparse.Namespace) -> None:
                   "reason": args.scope_reason.strip() or None},
         "planned_checks": list(dict.fromkeys(args.check)),
         "required_context": list(REQUIRED_CONTEXT),
+        "context_paths": list(dict.fromkeys(args.context)),
+        "context_package": None,
         "context_fingerprints": {},
         "pre_change_fingerprints": {},
         "semantic_artifacts": {"status": "not_collected"},
@@ -345,9 +351,6 @@ def command_prepare(args: argparse.Namespace) -> None:
     unexpected = [p for p in status_paths(root) if not is_task_metadata(p, args.task_id)]
     if unexpected:
         raise TaskError("Worktree has pre-existing changes outside this task record: " + ", ".join(unexpected[:12]))
-    missing = [p for p in REQUIRED_CONTEXT if not (root / p).is_file()]
-    if missing:
-        raise TaskError("Required project context is missing: " + ", ".join(missing))
     head = run_git(root, "rev-parse", "HEAD")
     record["repository"].update({
         "branch": branch,
@@ -355,14 +358,28 @@ def command_prepare(args: argparse.Namespace) -> None:
         "start_sha": head,
         "prepared_at": now_iso(),
     })
-    record["context_fingerprints"] = {
-        p: sha256_bytes((root / p).read_bytes()) for p in REQUIRED_CONTEXT
-    }
+    try:
+        package = build_context(
+            root=root, task_id=args.task_id, source_revision=head,
+            required_paths=record["required_context"],
+            source_paths=record.get("context_paths", []),
+            allowed_patterns=record["scope"]["allowed"],
+            excluded_patterns=record["scope"]["excluded"],
+        )
+    except ContextBuildError as exc:
+        raise TaskError(f"Context build blocked: {exc}") from exc
+    record["context_package"] = package
+    all_documents = package["project_context"] + package["source_context"]
+    record["context_fingerprints"] = {item["path"]: item["sha256"] for item in all_documents}
     record["pre_change_fingerprints"] = file_fingerprints(root, record["scope"]["allowed"])
     record["state"] = "prepared"
     record["updated_at"] = now_iso()
     save_record(record, path)
-    print(f"Prepared task on {branch} at {head}. Verified {len(REQUIRED_CONTEXT)} required context files.")
+    print(
+        f"Prepared task on {branch} at {head}. Built context package "
+        f"{package['context_sha256'][:12]} with {len(package['project_context'])} project and "
+        f"{len(package['source_context'])} source documents."
+    )
 
 
 def command_impact(args: argparse.Namespace) -> None:
@@ -654,6 +671,8 @@ def build_parser() -> argparse.ArgumentParser:
     init.add_argument("--exclude", action="append", default=[])
     init.add_argument("--scope-reason", default="")
     init.add_argument("--check", action="append", default=[])
+    init.add_argument("--context", action="append", default=[], metavar="REPO_PATH",
+                      help="Explicit source file to include in agent context (repeatable).")
     init.set_defaults(func=command_init)
     for name, func, help_text in [
         ("prepare", command_prepare, "Load context and pin the clean branch baseline."),

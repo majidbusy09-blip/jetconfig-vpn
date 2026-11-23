@@ -23,6 +23,7 @@ python tools/task_orchestrator/task_orchestrator.py init \
   --allow "lib/**" \
   --allow "test/**" \
   --exclude "lib/generated/**" \
+  --context "lib/features.dart" \
   --check python-tooling-tests \
   --check flutter-analysis \
   --check flutter-tests
@@ -44,14 +45,24 @@ The example is illustrative: choose only checks appropriate to the actual task. 
 ## Commands
 
 - `init`: requires an initially clean worktree and explicit allowed paths and named checks. Repository-wide patterns (`*`, `**`, `**/*`) require `--risk high` and `--scope-reason`.
-- `prepare`: rejects main/master/the detected `origin/HEAD` default branch, detached HEAD, pre-existing changes, changed repository origin, and missing mandatory project context; pins the base SHA and working branch, rejects later branch/origin drift, and fingerprints context/source files.
+- `prepare`: rejects main/master/the detected `origin/HEAD` default branch, detached HEAD, pre-existing changes, and changed repository origin; pins the base SHA and working branch, then builds context from that exact Git revision. Required project documents are automatic; source files are explicitly selected with repeatable `--context REPO_PATH` options at `init`. Each selected source file must match the task allowlist and avoid exclusions.
 - `impact`: records hashes and availability of existing semantic/critical-path artifacts. The MVP does not independently prove freshness or complete path-specific impact.
 - `begin`: verifies that the pinned base has not moved before entering implementation.
 - `validate-scope`: compares committed, staged, unstaged, renamed, deleted, and untracked paths with the declared allow/exclude patterns.
 - `verify`: runs only fixed profiles declared at init; no shell command can be supplied by task text. The child process receives a restricted environment allowlist so arbitrary local API tokens are not forwarded. It fingerprints the changed source paths immediately before and after each check; if the path set or content changes while the check is running, that attempt is marked failed and cannot satisfy finalization.
 - `finalize`: requires passing scope validation, latest attempt for every planned check must be passing (an earlier pass cannot override a later failure), and explicit human confirmation that the complete diff was reviewed. It writes a Markdown handoff.
 
-Task records and handoffs are stored under `.agent/tasks/<task-id>/`. They contain hashes and check metadata, not environment variables, credentials, or raw command output.
+Task records and handoffs are stored under `.agent/tasks/<task-id>/`. The task record includes a bounded full-text context package (256 KB per file, 512 KB combined), package SHA-256, and pinned source revision. It contains no environment variables, credentials, or raw command output.
+
+## Deterministic Context Builder
+
+- `context_builder.py` reads required project documents and explicitly selected source files from the pinned Git commit, never from mutable working-tree contents.
+- Source selection is explicit via repeatable `--context`; this avoids copying the entire repository into the agent context by default.
+- Rejects path traversal, protected paths, missing or untracked paths, symlinks, submodules, non-UTF-8/binary content, and size overflow. It never silently truncates.
+- Produces reproducible full-text documents with per-file SHA-256 and a canonical package SHA-256. The package is persisted in the task record for future agent-envelope construction.
+- Repository text is untrusted data and cannot override the agent's safety or permission boundaries.
+- Local-only and provider-neutral: no source upload, model call, API key, or sandbox is involved.
+
 
 The integration suite uses temporary Git repositories and covers lifecycle, scope, branch/base pinning, rename/delete handling, symlink safety, timeouts, source mutation during verification, stale results, and retry ordering. A later failed attempt blocks finalization even if an earlier attempt passed.
 

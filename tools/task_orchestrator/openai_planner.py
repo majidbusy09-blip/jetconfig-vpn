@@ -49,19 +49,22 @@ def _task_projection(task_id: str, record: Any) -> dict[str, Any]:
     checks = record.get("planned_checks")
     if not isinstance(goal, str) or not goal.strip() or len(goal) > MAX_GOAL_CHARS:
         raise OpenAIPlannerError("Task goal must be non-empty text within the size limit.")
-    if not isinstance(capability, str) or not capability.strip():
-        raise OpenAIPlannerError("Task capability description is missing.")
-    if risk not in {"low", "medium", "high"}:
+    if not isinstance(capability, str) or not capability.strip() or len(capability) > 500:
+        raise OpenAIPlannerError("Task capability description is missing or oversized.")
+    if not isinstance(risk, str) or risk not in {"low", "medium", "high"}:
         raise OpenAIPlannerError("Task risk is invalid.")
     if not isinstance(scope, dict):
         raise OpenAIPlannerError("Task scope metadata is missing.")
     allowed, excluded = scope.get("allowed"), scope.get("excluded")
     if (not isinstance(allowed, list) or not allowed or
-            not all(isinstance(item, str) and item for item in allowed) or
-            not isinstance(excluded, list) or
-            not all(isinstance(item, str) and item for item in excluded)):
+            len(allowed) > 50 or
+            not all(isinstance(item, str) and item and len(item) <= 256 for item in allowed) or
+            not isinstance(excluded, list) or len(excluded) > 50 or
+            not all(isinstance(item, str) and item and len(item) <= 256 for item in excluded)):
         raise OpenAIPlannerError("Task allowlist or exclusions are invalid.")
-    if not isinstance(checks, list) or not all(isinstance(item, str) for item in checks):
+    if not isinstance(checks, list) or len(checks) > 12 or not all(
+        isinstance(item, str) and item and len(item) <= 128 for item in checks
+    ):
         raise OpenAIPlannerError("Task verification profile list is invalid.")
     # Intentionally omit repository origin, branch, base SHA, context package,
     # project documents, source paths/content, semantic artifacts and history.
@@ -112,7 +115,8 @@ def _validate_plan(raw: str) -> dict[str, Any]:
         raise OpenAIPlannerError("Plan summary is invalid.")
     for key, limit in (("plan", 8), ("assumptions", 8), ("questions", 5), ("risk_notes", 8)):
         items = value[key]
-        if not isinstance(items, list) or len(items) > limit or not all(
+        minimum = 1 if key == "plan" else 0
+        if not isinstance(items, list) or len(items) < minimum or len(items) > limit or not all(
             isinstance(item, str) and item.strip() and len(item) <= 2_000 for item in items
         ):
             raise OpenAIPlannerError(f"Plan field '{key}' is invalid.")

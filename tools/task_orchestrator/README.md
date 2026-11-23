@@ -175,4 +175,4 @@ python -m tools.task_orchestrator.github_lease_git claim \\
   --base-sha <full-pinned-git-sha> --minutes 60
 \`\`\`
 
-Renewal requires the same base SHA, the previous active claim ID, and a fresh new claim ID; release requires the current claim ID. The adapter fails closed on malformed state, stale refs, failed CAS, or an unverified final ref. CI uses mocked transport tests only; no live GitHub token or concurrent-claim race is exercised. The adapter is not yet connected to automatic provider dispatch. See \`docs/GITHUB_TASK_LEASES.md\`.
+Renewal requires the same base SHA, the previous active claim ID, and a fresh new claim ID; release requires the current claim ID. The adapter fails closed on malformed state, stale refs, failed CAS, or an unverified final ref. CI tests Git plumbing and stale compare-and-swap rejection against a local bare Git remote; it does not use a live GitHub token or claim a live GitHub race. The adapter is not yet connected to automatic provider dispatch. See \`docs/GITHUB_TASK_LEASES.md\`.

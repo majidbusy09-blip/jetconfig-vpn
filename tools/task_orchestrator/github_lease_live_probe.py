@@ -79,6 +79,8 @@ def run_probe() -> dict[str, object]:
     try:
         initial = _git(["push", "--no-verify", "--porcelain", "origin", base + ":" + ref],
                        check=False)
+        if initial.returncode == 0:
+            created = True
         after_initial = _remote_sha(ref)
         if after_initial == base:
             created = True

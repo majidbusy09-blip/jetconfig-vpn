@@ -14,7 +14,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: lease-live-cas-${{ github.ref }}
+  group: lease-live-cas-${{ github.run_id }}-${{ github.run_attempt }}
   cancel-in-progress: false
 
 jobs:

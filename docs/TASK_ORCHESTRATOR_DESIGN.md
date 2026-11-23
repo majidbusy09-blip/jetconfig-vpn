@@ -130,6 +130,20 @@ The MVP is ready for broader use only when:
 - Whether GitHub PR creation belongs in a later plugin/connector workflow rather than the local CLI; default proposal is defer it.
 
 
+## 9. Verified impact analysis
+
+The `impact` command now uses `tools/task_orchestrator/impact_analyzer.py` rather than merely recording artifact presence and hashes.
+
+- It calculates changed paths against the task's pinned base and excludes only orchestrator-owned task metadata.
+- It requires the analyzer-resolved index and critical-path report to share the exact same source manifest and supported schemas.
+- For each changed Dart file present in the index, it verifies the file's Git blob SHA against the pinned base before using declarations or call sites.
+- It reports changed declarations, call sites located in changed files, incoming call sites only when the index explicitly supplies a target path/element identifier, and curated critical paths whose reachable declarations include changed files.
+- Changed paths absent from the semantic index are reported as unknown. They are never treated as unaffected. Scope violations and analyzer-error flags are explicit.
+- It writes a deterministic-structure JSON report with source artifact hashes to the local task metadata directory and records a compact provenance summary in `task.json`.
+- Suggested verification profiles are advisory only; the task's explicit planned checks remain authoritative.
+
+This remains static analysis, not a runtime dependency proof. Dynamic dispatch, reflection, callback/event wiring, UI state dependencies, generated code, and native Java/Kotlin behavior may be missed. The analyzer does not edit application source, expand task scope, invoke a model, or run suggested checks.
+
 ## 8. Semantic context selection
 
 The selector consumes the existing analyzer-resolved index and curated critical-path report; it does not create a parallel parser or graph. It requires both artifacts to describe the same source-file manifest, then verifies every indexed Dart file's Git blob ID against the task's pinned base commit. It rejects stale/mixed artifacts, malformed manifests, protected paths, and source paths outside the verified index.

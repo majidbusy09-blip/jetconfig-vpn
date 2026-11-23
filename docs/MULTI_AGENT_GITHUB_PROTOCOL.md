@@ -91,3 +91,15 @@ This workflow is only a command bridge. It does not wake either model, start a r
 ## Live workflow verification
 
 On 2026-11-23, the complete Issue command bridge was exercised against temporary Issue [#24](https://github.com/majidbusy09-blip/jetconfig-vpn/issues/24): claim, renew, and release all completed successfully in separate GitHub Actions runs (45178623063, 45178678823, 45178732222). The final lock record was independently checked as released, and the test Issue was closed. This validates the GitHub command/lease workflow, but does not imply model wake-up or autonomous provider execution.
+
+
+## Submitting an implementation PR
+
+An agent PR must include this marker and exactly one fenced JSON envelope after it:
+
+    <!-- jet-agent-pr:v1 -->
+    ```json
+    {"schema_version":1,"task_issue":42,"owner":"chatgpt","claim_id":"<current-claim-id>"}
+    ```
+
+The read-only trusted-main PR guard checks the linked open task Issue, assignment, active lease and expiry, exact claim ID, pinned-base merge ancestor, and every changed path against allow/exclude patterns. Ordinary non-agent PRs are skipped. The guard never checks out or executes PR-head code and never writes to GitHub. Normal PR validation remains responsible for running tests; human review and explicit merge approval remain required.

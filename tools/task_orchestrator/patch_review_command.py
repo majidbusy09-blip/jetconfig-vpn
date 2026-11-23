@@ -80,6 +80,8 @@ def _base_is_ancestor(root: Path, base_sha: str, head_sha: str) -> bool:
 
 
 def _inside_task_directory(root: Path, task_dir: Path, supplied: Path) -> Path:
+    if supplied.is_symlink():
+        raise PatchReviewCommandError("Result and artifact paths must not be symlinks.")
     resolved = supplied.resolve(strict=True)
     try:
         resolved.relative_to(task_dir.resolve(strict=True))

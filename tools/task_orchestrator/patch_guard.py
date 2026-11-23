@@ -69,6 +69,7 @@ def validate_patch_text(patch_text: Any, envelope: dict, declared_paths: list[st
     paths: list[str] = []
     current: tuple[str, str] | None = None
     current_headers: set[str] = set()
+    current_null_headers: set[str] = set()
     current_hunk = False
 
     for line in lines:
@@ -83,25 +84,33 @@ def validate_patch_text(patch_text: Any, envelope: dict, declared_paths: list[st
         if line.startswith(("--- ", "+++ ")) and not current_hunk:
             if current is None:
                 _reject("file header appeared without a diff header")
+            marker = "---" if line.startswith("--- ") else "+++"
+            if marker in current_headers:
+                _reject("duplicate file header")
             raw = line[4:].split("\t", 1)[0]
             if raw == "/dev/null":
-                current_headers.add("---" if line.startswith("--- ") else "+++")
+                current_null_headers.add(marker)
+                current_headers.add(marker)
                 continue
-            prefix = "a/" if line.startswith("--- ") else "b/"
+            prefix = "a/" if marker == "---" else "b/"
             if not raw.startswith(prefix):
                 _reject("file header path does not use the expected side prefix")
             path = _safe_patch_path(raw[len(prefix):], envelope)
-            if path not in current:
-                _reject("file header path does not match diff header")
-            current_headers.add("---" if line.startswith("--- ") else "+++")
+            expected = current[0] if marker == "---" else current[1]
+            if path != expected:
+                _reject("file header path does not match its diff side")
+            current_headers.add(marker)
         elif line.startswith("diff --git "):
             match = _DIFF_HEADER.fullmatch(line)
             if not match:
                 _reject("malformed or unsupported diff header")
             left = _safe_patch_path(match.group(1), envelope)
             right = _safe_patch_path(match.group(2), envelope)
-            if current is not None and current_headers != {"---", "+++"}:
-                _reject("each file diff must contain matching --- and +++ headers")
+            if current is not None and (
+                current_headers != {"---", "+++"}
+                or current_null_headers == {"---", "+++"}
+            ):
+                _reject("each file diff must contain valid, matching --- and +++ headers")
             if left != right:
                 _reject("renames are not accepted in this phase")
             if left in paths:
@@ -109,12 +118,15 @@ def validate_patch_text(patch_text: Any, envelope: dict, declared_paths: list[st
             paths.append(left)
             current = (left, right)
             current_headers = set()
+            current_null_headers = set()
             current_hunk = False
         elif line.startswith("@@@"):
             _reject("combined diff hunks are not accepted")
-        elif line.startswith("@@ "):
+        elif line.startswith("@@"):
             if current is None:
                 _reject("hunk appeared without a diff header")
+            if not re.fullmatch(r"@@ -\d+(?:,\d+)? \+\d+(?:,\d+)? @@(?: .*)?", line):
+                _reject("malformed unified-diff hunk header")
             current_hunk = True
         elif line.startswith("new file mode ") or line.startswith("deleted file mode "):
             match = _MODE_HEADER.fullmatch(line)
@@ -125,8 +137,8 @@ def validate_patch_text(patch_text: Any, envelope: dict, declared_paths: list[st
 
     if not paths:
         _reject("patch contains no file changes")
-    if current_headers != {"---", "+++"}:
-        _reject("each file diff must contain matching --- and +++ headers")
+    if current_headers != {"---", "+++"} or current_null_headers == {"---", "+++"}:
+        _reject("each file diff must contain valid, matching --- and +++ headers")
     if not current_hunk:
         _reject("each file diff must contain a text hunk")
     if len(paths) > envelope["budgets"]["max_changed_files"]:

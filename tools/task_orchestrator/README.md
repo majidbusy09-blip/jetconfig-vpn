@@ -40,7 +40,7 @@ The example is illustrative: choose only checks appropriate to the actual task. 
 ## Commands
 
 - `init`: requires an initially clean worktree and explicit allowed paths and named checks. Repository-wide patterns (`*`, `**`, `**/*`) require `--risk high` and `--scope-reason`.
-- `prepare`: rejects main/master/the detected `origin/HEAD` default branch, detached HEAD, pre-existing changes, changed repository origin, and missing mandatory project context; pins the base SHA and fingerprints context/source files.
+- `prepare`: rejects main/master/the detected `origin/HEAD` default branch, detached HEAD, pre-existing changes, changed repository origin, and missing mandatory project context; pins the base SHA and working branch, rejects later branch/origin drift, and fingerprints context/source files.
 - `impact`: records hashes and availability of existing semantic/critical-path artifacts. The MVP does not independently prove freshness or complete path-specific impact.
 - `begin`: verifies that the pinned base has not moved before entering implementation.
 - `validate-scope`: compares committed, staged, unstaged, renamed, deleted, and untracked paths with the declared allow/exclude patterns.

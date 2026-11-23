@@ -45,7 +45,7 @@ Renew (must use the original pinned base SHA and a fresh claim ID):
 \`\`\`bash
 python -m tools.task_orchestrator.github_lease_git renew \\
   --task-id sample-task --owner chatgpt --claim-id fedcba9876543210 \\
-  --base-sha <same-pinned-git-sha> --minutes 60
+  --previous-claim-id 0123456789abcdef --base-sha <same-pinned-git-sha> --minutes 60
 \`\`\`
 
 Release:

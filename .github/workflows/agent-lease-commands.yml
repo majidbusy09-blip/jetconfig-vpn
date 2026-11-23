@@ -51,15 +51,15 @@ jobs:
             const payload = JSON.parse(fs.readFileSync(process.env.RESULT_FILE, 'utf8'));
             const result = payload.result;
             const lines = [
-              `**JET VPN lease ${payload.operation}: verified**`,
-              `Task: \`${payload.task_id}\``,
-              `Owner: \`${result.owner}\``,
-              `Claim ID: \`${result.claim_id}\``,
-              `Status: \`${result.status}\``,
-              `Lock branch: \`${result.lock_branch}\``,
-              `Lock commit: \`${result.lock_commit}\``,
+              '**JET VPN lease ' + payload.operation + ': verified**',
+              'Task: `' + payload.task_id + '`',
+              'Owner: `' + result.owner + '`',
+              'Claim ID: `' + result.claim_id + '`',
+              'Status: `' + result.status + '`',
+              'Lock branch: `' + result.lock_branch + '`',
+              'Lock commit: `' + result.lock_commit + '`',
             ];
-            if (result.base_sha) lines.push(`Pinned base SHA: \`${result.base_sha}\``);
+            if (result.base_sha) lines.push('Pinned base SHA: `' + result.base_sha + '`');
             lines.push('', 'This confirms lease ownership only. It does not start an agent or authorize merge, release, or deployment.');
             await github.rest.issues.createComment({
               owner: context.repo.owner,

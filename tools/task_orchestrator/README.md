@@ -44,7 +44,7 @@ The example is illustrative: choose only checks appropriate to the actual task. 
 - `impact`: records hashes and availability of existing semantic/critical-path artifacts. The MVP does not independently prove freshness or complete path-specific impact.
 - `begin`: verifies that the pinned base has not moved before entering implementation.
 - `validate-scope`: compares committed, staged, unstaged, renamed, deleted, and untracked paths with the declared allow/exclude patterns.
-- `verify`: runs only fixed profiles declared at init; no shell command can be supplied by task text. The child process receives a restricted environment allowlist so arbitrary local API tokens are not forwarded.
+- `verify`: runs only fixed profiles declared at init; no shell command can be supplied by task text. The child process receives a restricted environment allowlist so arbitrary local API tokens are not forwarded. It fingerprints the changed source paths immediately before and after each check; if the path set or content changes while the check is running, that attempt is marked failed and cannot satisfy finalization.
 - `finalize`: requires passing scope validation, latest passing attempt for every planned check, and explicit human confirmation that the complete diff was reviewed. It writes a Markdown handoff.
 
 Task records and handoffs are stored under `.agent/tasks/<task-id>/`. They contain hashes and check metadata, not environment variables, credentials, or raw command output.
@@ -56,7 +56,7 @@ Task records and handoffs are stored under `.agent/tasks/<task-id>/`. They conta
 - `flutter-analysis`
 - `lexical-memory-audit`
 
-Profiles use fixed argument vectors, bounded timeouts, `shell=False`, and a restricted environment allowlist. A missing executable, OS execution error, or timeout is recorded as failure. Repeated attempts append to the record; an earlier failure is not erased.
+Profiles use fixed argument vectors, bounded timeouts, `shell=False`, and a restricted environment allowlist. A missing executable, OS execution error, timeout, or source mutation during a check is recorded as failure. Repeated attempts append to the record; an earlier failure is not erased.
 
 ## Explicit non-goals
 

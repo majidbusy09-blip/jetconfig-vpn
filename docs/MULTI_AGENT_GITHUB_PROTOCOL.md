@@ -71,3 +71,18 @@ No model API key is required to use this Issue protocol or the Git lease transpo
 - Provider runtime integration and automatic ChatGPT/Grok wake-up: not implemented.
 - Until the live race test and provider runtime integration are complete, use the lease adapter explicitly and keep one active implementation agent per task. Read-only review by another agent is permitted.
 - Human review and explicit approval for merge/release/deploy remain mandatory.
+
+
+## Comment-based lease operations
+
+For an open task Issue carrying the \`agent-task\` label, an OWNER, MEMBER, or COLLABORATOR may issue one of these exact single-line comments:
+
+\`\`\`text
+/jet-agent claim chatgpt <claim-id> [minutes]
+/jet-agent renew chatgpt <previous-claim-id> <new-claim-id> [minutes]
+/jet-agent release chatgpt <claim-id>
+\`\`\`
+
+Replace \`chatgpt\` with \`grok\` when appropriate. The command owner must match \`assigned_agent\`, unless the task is assigned to \`any\`. The workflow validates the Issue payload and fixed command grammar, then uses the trusted default-branch lease adapter. A new claim pins the current \`main\` SHA; renewals preserve the base SHA already recorded in the lease. A result comment reports the verified lease details.
+
+This workflow is only a command bridge. It does not wake either model, start a runtime, run implementation commands, or transfer source files. Agents must verify the successful lease result and their own execution capabilities before editing.

@@ -160,12 +160,14 @@ def _push(remote: str, branch: str, commit_sha: str, expected_sha: str | None,
 
 
 def claim_or_renew(*, operation: str, task_id: str, owner: str, claim_id: str,
-                   base_sha: str, duration_minutes: int, now: str,
+                   base_sha: str | None, duration_minutes: int, now: str,
                    repository: str, token: str, previous_claim_id: str | None = None) -> dict[str, Any]:
     if operation not in {"claim", "renew"}:
         raise LeaseGitError("Operation must be claim or renew.")
-    if not SHA_RE.fullmatch(base_sha):
-        raise LeaseGitError("A full pinned base commit SHA is required.")
+    if operation == "claim" and (base_sha is None or not SHA_RE.fullmatch(base_sha)):
+        raise LeaseGitError("A full pinned base commit SHA is required for a new claim.")
+    if base_sha is not None and not SHA_RE.fullmatch(base_sha):
+        raise LeaseGitError("Pinned base commit SHA is invalid.")
     remote = _remote_url(repository)
     branch = lock_branch(task_id)
     observed = _remote_sha(remote, branch, token)
@@ -182,8 +184,12 @@ def claim_or_renew(*, operation: str, task_id: str, owner: str, claim_id: str,
             # The ref moved during observation; retry from a fresh read, never guess.
             raise LeaseGitError("Lock ref changed during read; retry the operation.")
         current = _read_lease(fetched, token)
-        if current["task_id"] != task_id or current["base_sha"] != base_sha:
-            raise LeaseGitError("Existing lease is bound to a different task or base commit.")
+        if current["task_id"] != task_id:
+            raise LeaseGitError("Existing lease is bound to a different task.")
+        if operation == "renew" and base_sha is None:
+            base_sha = current["base_sha"]
+        if current["base_sha"] != base_sha:
+            raise LeaseGitError("Existing lease is bound to a different pinned base commit.")
         proposed = make_lease(task_id=task_id, owner=owner, claim_id=claim_id,
                               base_sha=base_sha, now=now, duration_minutes=duration_minutes)
         if operation == "claim":
@@ -198,8 +204,8 @@ def claim_or_renew(*, operation: str, task_id: str, owner: str, claim_id: str,
     commit = _commit_record(parent, record, token)
     _push(remote, branch, commit, expected, token)
     return {"task_id": task_id, "owner": owner, "claim_id": claim_id,
-            "status": record["status"], "lock_branch": branch, "lock_commit": commit,
-            "verified": True}
+            "status": record["status"], "base_sha": record["base_sha"],
+            "lock_branch": branch, "lock_commit": commit, "verified": True}
 
 
 def release(*, task_id: str, owner: str, claim_id: str, now: str,
@@ -238,8 +244,8 @@ def main(argv: list[str] | None = None) -> int:
     now = args.now or _now()
     try:
         if args.operation in {"claim", "renew"}:
-            if not args.base_sha:
-                raise LeaseGitError("--base-sha is required for claim/renew.")
+            if args.operation == "claim" and not args.base_sha:
+                raise LeaseGitError("--base-sha is required for a new claim.")
             result = claim_or_renew(
                 operation=args.operation, task_id=args.task_id, owner=args.owner,
                 claim_id=args.claim_id, base_sha=args.base_sha,

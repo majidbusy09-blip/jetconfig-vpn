@@ -12,7 +12,7 @@ Create an Issue titled [JET-AGENT] followed by a short task title. Include the m
 
 <!-- jet-agent-task:v1 -->
 
-```json
+\`\`\`json
 {
   "schema_version": 1,
   "task_id": "smart-server-health",
@@ -25,7 +25,7 @@ Create an Issue titled [JET-AGENT] followed by a short task title. Include the m
   "scope_reason": "Keep the task within application logic and tests.",
   "verification_profiles": ["flutter-analysis", "flutter-tests"]
 }
-```
+\`\`\`
 
 Allowed values:
 - capability: implementation, bug_fix, refactor, documentation, investigation.
@@ -37,30 +37,36 @@ The validator rejects duplicate JSON keys, unknown fields, unsupported profiles,
 
 ## Agent operating procedure
 
-1. Read the Issue and validate its marked payload with python -m tools.task_orchestrator.github_task_protocol --body-file issue-body.md.
-2. Confirm the assigned agent is any or matches the current agent.
+1. Read the Issue and validate its marked payload with \`python -m tools.task_orchestrator.github_task_protocol --body-file issue-body.md\`.
+2. Confirm the assigned agent is \`any\` or matches the current agent.
 3. Read current project memory and latest task/branch state before implementation; never rely on an old conversation summary when repository state is available.
-4. Claim work visibly in the Issue before making changes. Include agent identity, task ID, intended branch, and timestamp. If another agent has already claimed or started the same task, do not work concurrently; coordinate or choose another task.
+4. Acquire the task's GitHub ref lease using \`github_lease_git.py\` before editing. Do not rely on an Issue comment as ownership proof. See [GITHUB_TASK_LEASES.md](GITHUB_TASK_LEASES.md).
 5. Create a dedicated task branch and keep all changes within the declared allowlist and outside exclusions.
-6. Run the declared fixed checks, record actual outcomes, and open a Draft PR with a concise handoff.
-7. Report verified facts separately from assumptions. Never claim a build, test, device check, or runtime behavior passed unless evidence exists.
-8. Do not merge, release, deploy, change production settings, or touch credentials/signing/payment paths without separate explicit user approval.
+6. Renew the lease before expiry with a fresh claim ID. If renewal fails or ownership cannot be verified, stop editing immediately.
+7. Run the declared fixed checks, record actual outcomes, and open a Draft PR with a concise handoff.
+8. Release the lease after the implementation is complete or abandoned.
+9. Report verified facts separately from assumptions. Never claim a build, test, device check, or runtime behavior passed unless evidence exists.
+10. Do not merge, release, deploy, change production settings, or touch credentials/signing/payment paths without separate explicit user approval.
 
 ## Concurrency and trust
 
-GitHub Issue comments are an audit trail, not an atomic distributed lock. Agents must check for an existing claim immediately before starting and stop if ownership is ambiguous. The Orchestrator must later add a compare-and-swap claim mechanism before unattended parallel execution is enabled. Until then, safe operating mode is one active implementation agent per task; other agents may perform independent read-only reviews.
+The lease transport uses Git's server-side \`--force-with-lease\` check to atomically compare the observed remote ref head during update. A first claim uses a non-force create-ref push. A failed or ambiguous operation is not ownership; agents must re-read state and must not edit task files until a successful lease result is verified.
+
+The lease owner field is a protocol identity label, not cryptographic proof of which model or human is operating. GitHub credentials must be independently authorized for contents write access. Read-only reviews do not require a lease, but reviewers must not modify task branches.
 
 A GitHub App installation or repository permission does not prove that an agent has shell access, Actions dispatch, or access to another agent's runtime. Never infer those capabilities from the word connected.
 
 ## Privacy and cost
 
-No API key is required to use this Issue protocol. The protocol itself does not call a model or transmit repository content outside the connected agent's normal GitHub integration. Each agent's own model/service usage remains subject to that provider's plan and limits. Do not add paid API calls, external sandboxes, secrets, or source uploads as part of this protocol.
+No model API key is required to use this Issue protocol or the Git lease transport. The protocol itself does not call a model or transmit repository content outside the connected agent's normal GitHub integration. The lease adapter sends Git ref/object operations to GitHub using the configured repository token; it does not upload source context to an external model or sandbox. Each agent's own model/service usage remains subject to that provider's plan and limits.
 
 ## Current rollout status
 
-- v1 payload schema and local validator: implemented.
-- Adversarial fixture tests: implemented.
-- GitHub Issue template and event-driven intake validation/artifact workflow: implemented; it does not dispatch an agent or claim a lease.
-- CAS lease state machine: implemented as local transition logic; authenticated GitHub adapter and real concurrent-claim test remain pending.
-- Automatic model/agent wake-up and multi-agent parallel execution: not implemented.
+- v1 payload schema and local validator: implemented and tested.
+- GitHub Issue template and event-driven intake validation/artifact workflow: active on the default branch; it validates and packages tasks but does not dispatch an agent.
+- Lease state machine: implemented and tested, including renewal.
+- Git transport adapter: implemented; it uses server-side force-with-lease CAS and verifies the resulting remote ref.
+- Live concurrent-claim race test: not yet performed. CI uses mocked transport and does not claim a live lock.
+- Provider runtime integration and automatic ChatGPT/Grok wake-up: not implemented.
+- Until the live race test and provider runtime integration are complete, use the lease adapter explicitly and keep one active implementation agent per task. Read-only review by another agent is permitted.
 - Human review and explicit approval for merge/release/deploy remain mandatory.

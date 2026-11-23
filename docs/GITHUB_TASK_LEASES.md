@@ -62,8 +62,8 @@ The timestamp defaults to current UTC; \`--now\` is available for deterministic 
 - Local lease schema/state-machine logic and adversarial tests are implemented.
 - The Git transport adapter and tests for its CAS push construction are implemented.
 - CI exercises Git commit construction and stale compare-and-swap rejection against a local bare Git remote. The trusted-main live probe passed on 2026-11-23 (Actions run `45176916962`): two concurrent writers used the same expected old SHA, exactly one push succeeded, the resulting ref matched that winner, and the disposable probe ref was deleted.
-- The adapter is not yet wired into the Issue intake workflow or either provider's execution runtime. No automatic ChatGPT/Grok wake-up or dispatch exists.
-- Until a live race test and provider runtime integration are completed, keep one active implementation agent per task. Read-only review by another agent is permitted.
+- The adapter is exposed through the trusted Issue-comment claim/renew/release workflow. Claim and renew also produce a lease-verified handoff artifact; neither action wakes a model or dispatches an implementation runtime.
+- No automatic ChatGPT/Grok wake-up or provider runtime dispatch exists. Keep one active implementation agent per task; read-only review by another agent is permitted.
 - The Issue intake workflow remains read-only (\`contents: read\`, \`issues: read\`) and only validates task payloads and uploads a task artifact. That artifact is not a lease or execution grant.
 - No paid model API, provider credential, private-source upload, or external sandbox is configured.
 
@@ -80,9 +80,9 @@ The trusted-main workflow \`.github/workflows/agent-lease-commands.yml\` accepts
 /jet-agent release chatgpt <claim-id>
 \`\`\`
 
-The commenter must be a repository OWNER, MEMBER, or COLLABORATOR, and the command owner must match the task's \`assigned_agent\` unless it is \`any\`. A new claim pins the current default-branch commit; renewal reads the existing lease and preserves its pinned base. The workflow posts the verified result on the Issue.
+The commenter must be a repository OWNER, MEMBER, or COLLABORATOR, and the command owner must match the task's \`assigned_agent\` unless it is \`any\`. A new claim pins the current default-branch commit; renewal reads the existing lease and preserves its pinned base. The workflow posts the verified result on the Issue. Successful claim/renew operations also create a 14-day lease-verified task handoff artifact containing the validated Issue payload, Issue-body digest, active lease identity/expiry, pinned base SHA, lock ref, and workflow run identity. Release operations do not create a handoff.
 
-The workflow checks out trusted \`main\`, uses a short-lived \`GITHUB_TOKEN\` with \`contents: write\` and \`issues: write\`, and treats Issue/comment text as data only. It never runs text from the Issue as shell input. This is a manual lease-control interface, not automatic ChatGPT/Grok dispatch or an implementation runner.
+The workflow checks out trusted \`main\`, uses a short-lived \`GITHUB_TOKEN\` with \`contents: write\` and \`issues: write\`, and treats Issue/comment text as data only. It never runs text from the Issue as shell input. This is a manual lease-control interface with a machine-readable handoff artifact, not automatic ChatGPT/Grok dispatch or an implementation runner.
 
 
 ## End-to-end command workflow evidence

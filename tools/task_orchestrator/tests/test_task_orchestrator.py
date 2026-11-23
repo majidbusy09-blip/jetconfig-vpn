@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hashlib
+import importlib.util
 import json
 import os
 import subprocess
@@ -7,6 +9,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from argparse import Namespace
 
 SCRIPT = Path(__file__).resolve().parents[1] / "task_orchestrator.py"
 REQUIRED = (
@@ -237,6 +240,50 @@ class OrchestratorIntegrationTests(unittest.TestCase):
         self.cli("validate-scope", "--task-id", self.task_id)
         self.cli("verify", "--task-id", self.task_id, "--profile", "python-tooling-tests")
         self.cli("finalize", "--task-id", self.task_id, expected=2)
+
+
+    def test_tracked_symlink_fingerprint_does_not_read_target(self) -> None:
+        external = Path(self.temp.name).parent / (Path(self.temp.name).name + "-outside-secret")
+        external.write_text("do-not-read-this-content", encoding="utf-8")
+        try:
+            link = self.root / "docs/external-link"
+            link.symlink_to(external)
+            git(self.root, "add", "docs/external-link")
+            git(self.root, "commit", "-m", "add symlink fixture")
+            spec = importlib.util.spec_from_file_location("task_orchestrator_under_test", SCRIPT)
+            module = importlib.util.module_from_spec(spec)
+            assert spec and spec.loader
+            spec.loader.exec_module(module)
+            actual = module.file_fingerprints(self.root, ["docs/**"])["docs/external-link"]
+            expected = hashlib.sha256(os.readlink(link).encode("utf-8")).hexdigest()
+            self.assertEqual(actual, expected)
+            self.assertNotEqual(actual, hashlib.sha256(external.read_bytes()).hexdigest())
+        finally:
+            external.unlink(missing_ok=True)
+
+    def test_timeout_is_recorded_as_failure_without_bytes_type_error(self) -> None:
+        self.prepared_task()
+        self.cli("begin", "--task-id", self.task_id)
+        spec = importlib.util.spec_from_file_location("task_orchestrator_timeout_test", SCRIPT)
+        module = importlib.util.module_from_spec(spec)
+        assert spec and spec.loader
+        spec.loader.exec_module(module)
+        old_cwd = Path.cwd()
+        try:
+            os.chdir(self.root)
+            module.PROFILES["python-tooling-tests"] = {
+                "argv": [sys.executable, "-c", "import time; time.sleep(2)"],
+                "timeout": 0.01,
+            }
+            with self.assertRaises(module.TaskError):
+                module.command_verify(Namespace(task_id=self.task_id, profile="python-tooling-tests"))
+        finally:
+            os.chdir(old_cwd)
+        record = json.loads(self.record.read_text(encoding="utf-8"))
+        attempt = record["check_attempts"][-1]
+        self.assertEqual(attempt["status"], "failed")
+        self.assertEqual(attempt["exit_code"], 124)
+        self.assertEqual(len(attempt["output_sha256"]), 64)
 
 
 if __name__ == "__main__":

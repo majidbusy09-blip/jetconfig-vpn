@@ -1,14 +1,17 @@
+import base64
 import io
 import json
 import tempfile
 import unittest
 import zipfile
 from pathlib import Path
+from unittest.mock import patch
 
 from tools.task_orchestrator.github_lease import make_lease
 from tools.task_orchestrator.github_task_handoff import build_task_handoff
 from tools.task_orchestrator.github_task_handoff_accept import (
     HandoffAcceptanceError, validate_handoff_for_acceptance, _read_json,
+    _read_current_lease,
 )
 
 REPOSITORY = "owner/repository"
@@ -163,6 +166,30 @@ class HandoffAcceptanceTests(unittest.TestCase):
             bad.write_bytes(payload.getvalue())
             with self.assertRaises(HandoffAcceptanceError):
                 _read_json(bad)
+
+
+    def test_remote_lease_read_is_bound_to_a_stable_ref_sha(self):
+        record = current_lease()
+        encoded = base64.b64encode(
+            json.dumps(record).encode("utf-8")
+        ).decode("ascii")
+        ref = {"object": {"sha": LOCK_COMMIT, "type": "commit"}}
+        content = {"encoding": "base64", "content": encoded}
+        with patch(
+            "tools.task_orchestrator.github_task_handoff_accept.api_get",
+            side_effect=[ref, content, ref],
+        ):
+            loaded, commit = _read_current_lease(REPOSITORY, TASK_ID, "read-token")
+        self.assertEqual(loaded, record)
+        self.assertEqual(commit, LOCK_COMMIT)
+
+        moved = {"object": {"sha": "d" * 40, "type": "commit"}}
+        with patch(
+            "tools.task_orchestrator.github_task_handoff_accept.api_get",
+            side_effect=[ref, content, moved],
+        ):
+            with self.assertRaisesRegex(HandoffAcceptanceError, "moved"):
+                _read_current_lease(REPOSITORY, TASK_ID, "read-token")
 
 
 if __name__ == "__main__":

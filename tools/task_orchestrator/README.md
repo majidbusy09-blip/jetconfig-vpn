@@ -95,3 +95,8 @@ Profiles use fixed argument vectors, bounded timeouts, `shell=False`, and a rest
 ## Explicit non-goals
 
 This MVP cannot create commits, push branches, call GitHub write APIs, open or merge PRs, create tags, publish releases, deploy, or dispatch the production workflow. It does not infer runtime/device success from static analysis, tests, or builds. Human review and explicit user approval remain mandatory for merge/release/deployment.
+
+
+## Continuous integration
+
+Changes to this orchestrator, its tests, or the adapter contract run `.github/workflows/task-orchestrator.yml`, which compiles the Python modules and executes the complete standard-library test suite on Python 3.12.

@@ -213,7 +213,7 @@ The trusted-main PR guard validates the linked Issue, lease, pinned base, and ch
 After downloading the `jet-agent-handoff-*.zip` artifact from a successful claim/renew workflow, create a dedicated local branch at the pinned base SHA shown in the Issue comment, then run:
 
 ```sh
-GITHUB_REPOSITORY=owner/repository GITHUB_TOKEN=<read-only-token> \
+GITHUB_REPOSITORY=owner/repository GITHUB_TOKEN="$GITHUB_TOKEN" \
   python -m tools.task_orchestrator.github_task_handoff_accept \
   --handoff-file /path/to/jet-agent-handoff.zip
 ```

@@ -84,8 +84,10 @@ Tests must run in the actual selected runtime on the supported CI host. Unit tes
 
 The non-production PR validation workflow runs two distinct checks:
 
-- `runtime_probe.py`: read-only inventory of runtime tools, namespaces, host Seccomp mode, user-namespace settings, cgroup v2 controllers, and the current process's cgroup v2 directory. It reads the current cgroup's `cpu.max`, `memory.max`, and `pids.max`, plus `cgroup.subtree_control`, and reports directory write-access indicators. It never writes cgroup files or creates a child cgroup.
+- `runtime_probe.py`: read-only inventory of runtime tools, namespaces, host Seccomp mode, user-namespace settings, cgroup v2 controllers, and the current process's cgroup v2 directory. It reads `cpu.max`, `memory.max`, `pids.max`, and `cgroup.subtree_control`, plus directory write-access indicators. It never writes cgroup files or creates a child cgroup.
 - `runtime_acceptance_probe.py`: controlled benign Bubblewrap test of selected namespaces, mount behavior, host-sentinel visibility, and outbound connectivity. It does not run agent-generated code.
+
+The inventory now also emits a **fail-closed preflight classification**. A host is blocked if the process is not non-root, Seccomp filter mode is not visible, delegated CPU/memory/PID cgroup controls are not indicated, or a Docker socket is present. Even a preflight candidate is not execution authorization: actual runtime enforcement, process-tree termination, network/filesystem isolation, and cleanup still require acceptance tests.
 
 Treat both outputs as reconnaissance/partial acceptance evidence only. Cgroup file visibility, a writable-directory indicator, or controller names do not prove delegated child-cgroup creation or enforceable resource limits. Tool presence, visible namespaces, a non-root UID, or cgroup files do not prove a secure worker. A Docker socket is a high-privilege host control surface and must never be mounted into an untrusted agent worker.
 
@@ -95,10 +97,19 @@ If the CI host cannot provide the required properties, stop and report the limit
 
 ## 6. CI reconnaissance result and candidate
 
-The latest verified Bubblewrap self-test passed five benign checks: separate network namespace, read-only source mount, writable scratch mount, hidden host sentinel, and denied outbound connectivity. The CI inventory also found Bubblewrap, Podman, Docker, `unshare`, cgroup v2, and unprivileged user namespaces. It found a Docker socket, which remains explicitly excluded. The job runs as a non-root UID; host Seccomp mode was reported as 0 (no filter visible in the inspected process).
+The latest verified Bubblewrap self-test passed five benign checks: separate network namespace, read-only source mount, writable scratch mount, hidden host sentinel, and denied outbound connectivity.
 
-The Bubblewrap result is **partial isolation evidence**, not a complete worker. Seccomp policy, cgroup CPU/memory/PID/disk limits, process-tree cancellation, image/runtime pinning, and cleanup guarantees still need separate proof. A blocked probe is reported as blocked rather than silently downgraded.
+The cgroup inventory on the hosted runner found:
 
-The cgroup inventory enhancement is read-only and reports whether the current cgroup directory appears writable and what limit files currently contain. This is only a clue for the next investigation; it does not attempt to impose limits or claim that the CI job can delegate a child cgroup.
+- cgroup v2 and CPU, memory, and PID controllers are visible.
+- The process runs under `/system.slice/hosted-compute-agent.service`.
+- The current cgroup directory is not writable; `cgroup.subtree_control` is empty.
+- `cpu.max` and `memory.max` report `max`; `pids.max` reports `17436`.
+- Host Seccomp mode is `0`; no filter is visible in the inspected process.
+- The conventional Docker socket path exists and is excluded from any worker.
+
+This means the current runner does **not** demonstrate delegated cgroup control or visible Seccomp filtering. The fail-closed preflight therefore classifies it as `blocked`. Do not try to bypass host ownership or alter the runner's parent cgroup. The next architectural choice is a separately provisioned worker/runner with explicit delegated resource controls and an enforced seccomp policy, or a managed isolated execution service whose controls can be independently tested.
+
+The Bubblewrap result remains **partial isolation evidence**, not a complete worker. It does not establish resource limits, process-tree cancellation, image/runtime pinning, or cleanup guarantees.
 
 This phase does not connect a model provider, fetch dependencies, execute agent code, apply patches, change application source, or grant repository/production write permissions. It does not authorize merging PR #20 or changing `main`.

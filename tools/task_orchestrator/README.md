@@ -156,10 +156,23 @@ python -m tools.task_orchestrator.github_task_protocol --body-file issue-body.md
 
 The validator is local-only: it performs no GitHub API call, model request, shell execution, or patch application. It enforces a strict schema, supported agent/capability/risk values, fixed verification profiles, bounded text, and protected-path rules. See `docs/MULTI_AGENT_GITHUB_PROTOCOL.md`.
 
-Important: Issue comments are not an atomic lock. Until compare-and-swap claims and automated dispatch are implemented, only one agent may actively implement a task; other agents may perform read-only review. This protocol does not imply that each GitHub App has the same write, shell, or Actions permissions.
+Important: Issue comments are not an atomic lock. Acquire a lease with `github_lease_git.py` before editing; until provider runtimes and automatic dispatch are connected, keep one active implementation agent per task. Other agents may perform read-only review. This protocol does not imply that each GitHub App has the same write, shell, or Actions permissions.
 
 ## GitHub Issue intake bridge
 
 Add the `agent-task` label to an open Issue containing the v1 marker and JSON payload. The `.github/workflows/agent-task-intake.yml` workflow validates the GitHub event with `github_issue_intake.py` and uploads a bounded JSON artifact for retrieval. The artifact binds the parsed task to the Issue URL, repository, issue number, and body digest.
 
 This is an intake/validation bridge only. It does not create a local task branch, claim a lease, invoke ChatGPT/Grok, call a model API, run implementation commands, apply patches, or upload source files. A validated artifact is marked `validated-awaiting-claim`; an agent must separately verify assignment, acquire a proven lease through a trusted CAS adapter, and prepare its isolated task workspace. Invalid or closed Issues fail closed.
+
+
+### Atomic GitHub task leases
+
+Use \`github_lease_git.py\` to claim, renew, or release a task's shared lock branch using Git server-side \`--force-with-lease\` compare-and-swap. It requires a checkout, Git, \`GITHUB_REPOSITORY\`, and a short-lived \`GITHUB_TOKEN\`/ \`GH_TOKEN\` with \`contents: write\`. The token is not stored in the repository or task artifact.
+
+\`\`\`bash
+python -m tools.task_orchestrator.github_lease_git claim \\
+  --task-id sample-task --owner chatgpt --claim-id 0123456789abcdef \\
+  --base-sha <full-pinned-git-sha> --minutes 60
+\`\`\`
+
+Renewal requires the same base SHA, the previous active claim ID, and a fresh new claim ID; release requires the current claim ID. The adapter fails closed on malformed state, stale refs, failed CAS, or an unverified final ref. CI tests Git plumbing and stale compare-and-swap rejection against a local bare Git remote. After merge, a trusted-main workflow performs a live GitHub CAS race on a disposable ref and cleans it up. The adapter is not yet connected to automatic provider dispatch. See \`docs/GITHUB_TASK_LEASES.md\`.

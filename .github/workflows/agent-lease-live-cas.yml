@@ -1,0 +1,43 @@
+name: JET VPN - Live GitHub Lease CAS Probe
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "tools/task_orchestrator/github_lease.py"
+      - "tools/task_orchestrator/github_lease_git.py"
+      - "tools/task_orchestrator/github_lease_live_probe.py"
+      - ".github/workflows/agent-lease-live-cas.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: lease-live-cas-${{ github.run_id }}-${{ github.run_attempt }}
+  cancel-in-progress: false
+
+jobs:
+  github-ref-cas:
+    name: Verify GitHub server-side compare-and-swap
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout trusted main commit
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Race two writers against the same GitHub ref head
+        env:
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
+          GITHUB_RUN_ATTEMPT: ${{ github.run_attempt }}
+        run: python -m tools.task_orchestrator.github_lease_live_probe

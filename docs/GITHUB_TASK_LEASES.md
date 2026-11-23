@@ -2,49 +2,69 @@
 
 ## Purpose
 
-Issue comments are audit records, not locks. A read-then-comment flow permits two agents to observe an unclaimed task and both begin implementation. Unattended parallel work must remain disabled until ownership uses a Git ref compare-and-swap (CAS).
+Issue comments are audit records, not locks. A read-then-comment flow permits two agents to observe an unclaimed task and both begin implementation. A task may have only one active implementation lease.
 
-## Lock storage and acquisition
+## Lock storage and atomicity
 
-Each task has one deterministic control-plane branch: agent-locks/<task_id>. Its tip commit contains a machine-readable lease at .agent-locks/lease.json. This branch is not an implementation branch and must never be merged into product code.
+Each task has one deterministic control-plane branch: \`agent-locks/<task_id>\`. Its tip commit contains a machine-readable lease at \`.agent-locks/lease.json\`. This branch is not an implementation branch and must never be merged into product code.
 
-1. Read and validate the task Issue.
-2. Read the deterministic lock ref. If absent, create it from the task's pinned base commit. GitHub's create-ref operation is the initial uniqueness gate: one concurrent creator wins. A losing creator must re-read the ref and must not assume ownership.
-3. The initial empty ref is not a claim. Read its exact head SHA, create a commit whose parent is that SHA and whose tree adds/replaces only .agent-locks/lease.json, then update the lock ref with force=true and expected_sha equal to the observed head. Only the successful CAS winner owns the lease.
-4. If the lock ref exists, validate its lease. An active, unexpired lease blocks other agents. A released or expired lease may be replaced only by a commit updated with expected_sha equal to the exact head just read. Concurrent claimants can prepare commits, but only one CAS update wins.
-5. The record binds task ID, owner (chatgpt or grok), unique claim ID, status, UTC claim/expiry timestamps, and pinned task base SHA. Duration is at most four hours.
-6. Renew before expiry using a fresh claim ID and CAS against the exact current lock head. If renewal loses or expires, stop implementation immediately.
-7. Release only with the current owner and claim ID, by committing status released and CAS-updating against the observed head. Never delete or force-reset a lock ref to release it.
+The transport adapter uses Git's server-side \`--force-with-lease=<ref>:<expected-old-sha>\` push option for updates. The Git receive-pack service checks the expected old object as part of the ref update; this is materially different from a client-side fetch-then-update check or a plain GitHub REST ref update.
 
-The CAS check is the critical property. Never implement this as fetch-then-push without expected-head checking. Never treat an Issue comment, branch name, or local lease JSON as proof of ownership.
+- First claim: create the lock ref with a normal, non-force push. If another claimant created it first, the push fails.
+- Existing claim: read the exact remote ref, fetch that ref, validate its lease, create a commit whose parent is the observed head, then push with \`--force-with-lease\` pinned to that exact head.
+- A successful push is followed by a remote ref read. The adapter reports success only if the remote still points to the exact commit it created.
+- A stale read, failed push, malformed lease, unknown result, or verification mismatch fails closed. The agent must not begin implementation.
 
-## Failure rules
+## Lease rules
 
-- Existing lock ref without a valid lease file is incomplete, not free. Fail closed.
-- Malformed lease, task/base mismatch, unknown owner, stale observation, API timeout with unknown outcome, or failed CAS means ownership is unknown. Re-read the ref and do not edit task files until ownership is proven.
-- Expiry alone does not grant ownership; takeover requires CAS.
-- A crashed agent's lease can expire; recovery uses a new claim ID and CAS.
-- Keep one active implementation lease per task. Read-only reviews do not require a lease, but reviewers must not modify task branches.
-- Keep task implementation branches separate from lock branches. Never merge lock branches into default branch or product releases.
+The record binds task ID, owner (\`chatgpt\` or \`grok\`), unique claim ID, status, UTC claim/expiry timestamps, and pinned task base SHA. Duration is at most four hours.
 
-## Local helper
+- An active, unexpired lease blocks a new claim by another agent.
+- Renew before expiry as the current owner, using a fresh claim ID and the same pinned base SHA. Renewal uses the same server-side compare-and-swap operation.
+- A released or expired lease may be replaced only through compare-and-swap against the exact observed lock head.
+- Release requires the current owner and claim ID, and changes the record to \`released\` through compare-and-swap. Never delete or force-reset a lock ref to release it.
+- Expiry alone does not grant ownership; takeover requires a successful atomic ref update.
+- A crashed agent's lease can expire; recovery uses a new claim ID and compare-and-swap.
 
-github_lease.py validates lease records and builds deterministic CAS plans without network calls:
+The owner field is a protocol identity label, not cryptographic proof of which model or human is operating. The token used by the adapter must be independently authorized for repository contents write access.
 
-    python -m tools.task_orchestrator.github_lease --task-id sample-task --owner chatgpt --claim-id 0123456789abcdef --base-sha <full-pinned-git-sha> --now 2026-11-23T10:00:00Z --minutes 60
+## Git transport adapter
 
-The authenticated GitHub adapter must still execute create-ref/update-ref operations, verify the final ref SHA, and report the winning claim. The local helper cannot claim ownership by itself.
+\`github_lease_git.py\` is the authenticated transport. It requires an existing checkout with Git installed, \`GITHUB_REPOSITORY=owner/repository\`, and a short-lived \`GITHUB_TOKEN\` (or \`GH_TOKEN\`) with \`contents: write\`. It derives the remote URL from the validated repository identity; it does not accept arbitrary hosts. It invokes Git with argument arrays and \`shell=False\`, uses the token only in a process-scoped HTTP authorization header, and suppresses raw Git stderr from user-facing errors.
 
-## Rollout boundary
+Claim:
 
-Lease record schema and deterministic state-transition rules are implemented and tested. An authenticated GitHub adapter wired into each provider runtime, autonomous agent wake-up, and automatic renewal are not yet implemented. The repository now contains an Issues-event validation workflow, but GitHub only activates that workflow after it exists on the default branch; because this PR remains unmerged, it is not active for live Issues yet. Until the adapter is implemented and exercised with concurrent claim attempts, retain one explicitly coordinated implementation agent per task; do not enable unattended parallel implementation.
+\`\`\`bash
+python -m tools.task_orchestrator.github_lease_git claim \\
+  --task-id sample-task --owner chatgpt --claim-id 0123456789abcdef \\
+  --base-sha <full-pinned-git-sha> --minutes 60
+\`\`\`
 
+Renew (must use the original pinned base SHA and a fresh claim ID):
 
-## Current practical operating boundary
+\`\`\`bash
+python -m tools.task_orchestrator.github_lease_git renew \\
+  --task-id sample-task --owner chatgpt --claim-id fedcba9876543210 \\
+  --previous-claim-id 0123456789abcdef --base-sha <same-pinned-git-sha> --minutes 60
+\`\`\`
 
-- On this PR branch, the Issue payload validator and event workflow can be reviewed and tested by CI.
-- The workflow is intentionally read-only: `contents: read`, `issues: read`; it only uploads a task JSON artifact.
-- After an authorized merge, create an Issue from the provided template and add/retain the `agent-task` label. Open, labeled, and edited events validate the payload and publish an artifact.
-- The artifact is not an execution grant. An agent must independently check `assigned_agent`, repository identity, issue/body digest, pinned base SHA, and lease ownership before preparing code changes.
-- GitHub ref CAS is only effective when the adapter uses the exact observed ref SHA as `expected_sha`. A plain REST ref update, Issue comment, workflow concurrency group, or local file is not a substitute for this CAS.
-- No shared, automatic ChatGPT/Grok wake-up is available from this workflow alone. No paid model API, provider credential, private-source upload, or external sandbox is configured.
+Release:
+
+\`\`\`bash
+python -m tools.task_orchestrator.github_lease_git release \\
+  --task-id sample-task --owner chatgpt --claim-id fedcba9876543210
+\`\`\`
+
+The timestamp defaults to current UTC; \`--now\` is available for deterministic tests. Never store a token in source, task JSON, Issue text, or a committed file.
+
+## Validation and remaining rollout boundary
+
+- Local lease schema/state-machine logic and adversarial tests are implemented.
+- The Git transport adapter and tests for its CAS push construction are implemented.
+- CI exercises Git commit construction and stale compare-and-swap rejection against a local bare Git remote. After this PR is merged, a separate trusted-main workflow will race two writers against a disposable GitHub ref and remove the probe ref. That live test is not run from PR code.
+- The adapter is not yet wired into the Issue intake workflow or either provider's execution runtime. No automatic ChatGPT/Grok wake-up or dispatch exists.
+- Until a live race test and provider runtime integration are completed, keep one active implementation agent per task. Read-only review by another agent is permitted.
+- The Issue intake workflow remains read-only (\`contents: read\`, \`issues: read\`) and only validates task payloads and uploads a task artifact. That artifact is not a lease or execution grant.
+- No paid model API, provider credential, private-source upload, or external sandbox is configured.
+
+See also [MULTI_AGENT_GITHUB_PROTOCOL.md](MULTI_AGENT_GITHUB_PROTOCOL.md).

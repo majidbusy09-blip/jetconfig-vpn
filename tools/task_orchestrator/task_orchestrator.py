@@ -405,7 +405,6 @@ def command_validate_scope(args: argparse.Namespace) -> None:
     if not base:
         raise TaskError("Task has no pinned base SHA.")
     paths = changed_paths(root, base)
-    metadata = (TASK_DIR / args.task_id / "task.json").as_posix()
     violations = []
     for item in paths:
         if is_task_metadata(item, args.task_id):

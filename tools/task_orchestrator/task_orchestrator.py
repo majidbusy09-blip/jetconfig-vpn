@@ -135,8 +135,9 @@ def status_paths(root: Path) -> list[str]:
 
 
 def is_task_metadata(path: str, task_id: str) -> bool:
-    prefix = (TASK_DIR / task_id).as_posix() + "/"
-    return path.startswith(prefix)
+    # Only the two orchestrator-owned files are exempt from user source scope.
+    base = (TASK_DIR / task_id).as_posix()
+    return path in {f"{base}/task.json", f"{base}/HANDOFF.md"}
 
 
 def clean_before_init(root: Path) -> None:
@@ -407,7 +408,7 @@ def command_validate_scope(args: argparse.Namespace) -> None:
     metadata = (TASK_DIR / args.task_id / "task.json").as_posix()
     violations = []
     for item in paths:
-        if item == metadata:
+        if is_task_metadata(item, args.task_id):
             continue
         if matches_any(item, record["scope"]["excluded"]):
             violations.append(f"excluded: {item}")
@@ -501,10 +502,12 @@ def command_finalize(args: argparse.Namespace) -> None:
     if missing:
         raise TaskError("Required checks are missing or not passing: " + ", ".join(missing))
     base = record["repository"]["base_sha"]
+    # Create the report path before snapshotting so the final inventory includes it.
+    handoff_path = path.parent / "HANDOFF.md"
+    handoff_path.touch(exist_ok=True)
     paths = changed_paths(root, base)
-    metadata = (TASK_DIR / args.task_id / "task.json").as_posix()
     violations = [
-        item for item in paths if item != metadata and (
+        item for item in paths if not is_task_metadata(item, args.task_id) and (
             matches_any(item, record["scope"]["excluded"])
             or not matches_any(item, record["scope"]["allowed"])
         )
@@ -534,7 +537,6 @@ def command_finalize(args: argparse.Namespace) -> None:
     record["finalized_at"] = now_iso()
     record["updated_at"] = now_iso()
     record["handoff"] = render_handoff(record)
-    handoff_path = path.parent / "HANDOFF.md"
     handoff_temp = handoff_path.with_suffix(".md.tmp")
     handoff_temp.write_text(record["handoff"], encoding="utf-8")
     handoff_temp.replace(handoff_path)
@@ -556,8 +558,9 @@ def render_handoff(record: dict[str, Any]) -> str:
         f"- **Final SHA:** {record.get('final_diff', {}).get('head_sha', 'not finalized')}",
         "", "## Changed paths",
     ]
-    lines.extend(f"- `{item}`" for item in record.get("changed_paths", []))
-    lines.extend(["", "## Verification"])
+    metadata_paths = set(record.get("final_diff", {}).get("task_metadata_paths", []))
+    lines.extend(f"- `{item}`" for item in record.get("changed_paths", []) if item not in metadata_paths)
+    lines.extend(["", "## Task metadata", "- Machine-readable task record and this handoff are stored under `.agent/tasks/<task-id>/`.", "", "## Verification"])
     for profile in record.get("planned_checks", []):
         attempt = latest.get(profile)
         if attempt:

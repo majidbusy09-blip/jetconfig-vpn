@@ -60,7 +60,7 @@ State transitions are one-way and explicit:
 
 `draft → prepared → implementation → verification → review_ready`
 
-A failed gate returns a nonzero `BLOCKED` result and leaves the task at its last successful state; failed verification attempts are recorded. The `begin` command is the only transition into implementation. A task cannot reach `review_ready` if scope validation failed, any latest required check is not passing, validated file contents changed after scope approval, or the final diff was not explicitly confirmed as reviewed. Re-running a check appends an attempt; it must not erase a previous failure.
+A failed gate returns a nonzero `BLOCKED` result and leaves the task at its last successful state; failed verification attempts are recorded. The `begin` command is the only transition into implementation. A task cannot reach `review_ready` if scope validation failed, any latest required check is not passing, validated file contents changed after scope approval, source paths or contents changed while a check was running, or the final diff was not explicitly confirmed as reviewed. Re-running a check appends an attempt; it must not erase a previous failure.
 
 ## 6. Fail-closed safety policy
 
@@ -83,7 +83,7 @@ The current integration suite covers:
 - dirty worktree and base-SHA drift rejection;
 - missing mandatory context;
 - allowed/unexpected path detection, including rename and delete cases;
-- content fingerprint changes after scope approval;
+- content fingerprint changes after scope approval and source mutation during a running verification check;
 - repository-wide wildcard justification;
 - remote URL credential/query-token redaction;
 - verification profile allowlist and append-only failure/retry attempts, including timeout handling;
@@ -99,7 +99,7 @@ CI should run the orchestrator's Python unit tests in the existing non-productio
 ## 8. Rollout plan
 
 - **Phase A — design:** documented in this PR.
-- **Phase B — local MVP:** implemented in this PR; latest implementation-head CI is still being validated.
+- **Phase B — local MVP:** implemented in this PR; latest implementation-head CI is being used to validate the added stable-source verification gate.
 - **Phase C — CI integration:** the Python suite is wired into existing non-production PR validation. Publishing task evidence as a CI artifact is deferred.
 - **Phase D — optional GitHub handoff:** only after the local MVP is stable, consider opening PRs through a narrowly scoped integration. Merge/release/deploy remain outside the orchestrator and require explicit user approval.
 

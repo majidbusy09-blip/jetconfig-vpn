@@ -3,6 +3,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from tools.task_orchestrator.dispatcher import DispatcherError
 from tools.task_orchestrator.local_dispatch_runner import run_fixture_dispatch
 from tools.task_orchestrator.patch_artifacts import LocalPatchArtifactStore
 from tools.task_orchestrator.provider_result_ingestion import (
@@ -73,7 +74,7 @@ class FixtureToIngestionIntegrationTests(unittest.TestCase):
         patch = patch_text().replace("lib/routing_policy.dart", "README.md")
         result = completed_result(env, patch)
         result["changed_paths"] = ["README.md"]
-        with self.assertRaises(Exception):
+        with self.assertRaises(DispatcherError):
             run_fixture_dispatch(env, result)
 
 

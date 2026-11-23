@@ -1,0 +1,69 @@
+name: JET VPN - Agent Lease Commands
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: write
+  issues: write
+
+jobs:
+  lease-command:
+    if: >-
+      github.event.issue.pull_request == null &&
+      github.event.issue.state == 'open' &&
+      contains(github.event.issue.labels.*.name, 'agent-task') &&
+      contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association) &&
+      startsWith(github.event.comment.body, '/jet-agent ')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout trusted default branch
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Validate and execute the fixed lease command
+        env:
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: >-
+          python -m tools.task_orchestrator.github_issue_lease_command
+          --event-file "$GITHUB_EVENT_PATH"
+          --output "$RUNNER_TEMP/lease-result.json"
+
+      - name: Report the verified lease result on the Issue
+        uses: actions/github-script@v7
+        env:
+          RESULT_FILE: ${{ runner.temp }}/lease-result.json
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            const payload = JSON.parse(fs.readFileSync(process.env.RESULT_FILE, 'utf8'));
+            const result = payload.result;
+            const lines = [
+              `**JET VPN lease ${payload.operation}: verified**`,
+              `Task: \`${payload.task_id}\``,
+              `Owner: \`${result.owner}\``,
+              `Claim ID: \`${result.claim_id}\``,
+              `Status: \`${result.status}\``,
+              `Lock branch: \`${result.lock_branch}\``,
+              `Lock commit: \`${result.lock_commit}\``,
+            ];
+            if (result.base_sha) lines.push(`Pinned base SHA: \`${result.base_sha}\``);
+            lines.push('', 'This confirms lease ownership only. It does not start an agent or authorize merge, release, or deployment.');
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: payload.issue_number,
+              body: lines.join('\n'),
+            });

@@ -27,8 +27,8 @@ def build_intake(event: Any) -> dict[str, Any]:
     if not isinstance(event, dict):
         raise IntakeError("GitHub event must be a JSON object.")
     action = event.get("action")
-    if action not in {"opened", "labeled"}:
-        raise IntakeError("Only opened or labeled Issues events are accepted.")
+    if action not in {"opened", "labeled", "edited"}:
+        raise IntakeError("Only opened, labeled, or edited Issues events are accepted.")
     issue = event.get("issue")
     if not isinstance(issue, dict) or issue.get("pull_request") is not None:
         raise IntakeError("Event must reference a GitHub Issue, not a pull request.")

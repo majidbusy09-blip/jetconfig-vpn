@@ -66,7 +66,7 @@ Task records and handoffs are stored under `.agent/tasks/<task-id>/`. The task r
 - Local-only and provider-neutral: `agent_input.json` duplicates bounded source text under the ignored local task-metadata directory; it is not uploaded, committed, or sent to a provider. No model call, API key, or sandbox is involved.
 
 
-The integration suite uses temporary Git repositories and covers lifecycle, scope, branch/base pinning, rename/delete handling, symlink safety, timeouts, source mutation during verification, stale results, and retry ordering. A later failed attempt blocks finalization even if an earlier attempt passed.
+The integration suite uses temporary Git repositories and covers lifecycle, scope, branch/base pinning, rename/delete handling, symlink safety, timeouts, source mutation during verification, stale results, and retry ordering. A later failed attempt blocks finalization even if an earlier attempt passed. The generated agent envelope is an additional local-only task artifact and is never committed or uploaded.
 
 ## Coding-agent contract validation (provider-neutral)
 

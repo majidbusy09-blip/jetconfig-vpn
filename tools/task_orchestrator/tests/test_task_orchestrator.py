@@ -296,5 +296,18 @@ class OrchestratorIntegrationTests(unittest.TestCase):
         extra.write_text("not an orchestrator-owned file", encoding="utf-8")
         self.cli("validate-scope", "--task-id", self.task_id, expected=2)
 
+    def test_operations_reject_branch_switch_after_prepare(self) -> None:
+        self.prepared_task()
+        self.cli("begin", "--task-id", self.task_id)
+        git(self.root, "switch", "-c", "other/task-branch")
+        self.cli("verify", "--task-id", self.task_id, "--profile", "python-tooling-tests", expected=2)
+        record = json.loads(self.record.read_text(encoding="utf-8"))
+        self.assertEqual(record["check_attempts"], [])
+
+    def test_operations_reject_detached_head_after_prepare(self) -> None:
+        self.prepared_task()
+        git(self.root, "checkout", "--detach")
+        self.cli("begin", "--task-id", self.task_id, expected=2)
+
 if __name__ == "__main__":
     unittest.main()

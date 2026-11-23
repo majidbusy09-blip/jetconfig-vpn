@@ -1,0 +1,310 @@
+"""Accept a lease-verified GitHub handoff into a local task envelope.
+
+This command rechecks the live Issue and lease through read-only GitHub APIs,
+requires a clean dedicated branch at the exact pinned base SHA, then uses the
+existing local Task Orchestrator to build its project-memory envelope. It does
+not dispatch a model, upload source, or write to GitHub.
+"""
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+import os
+import re
+import urllib.parse
+from argparse import Namespace
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any
+
+from . import task_orchestrator as orchestrator
+from .agent_contract import ContractValidationError
+from .envelope_builder import _repository_name
+from .github_lease import LeaseError, lock_branch, validate_lease
+from .github_task_pr_guard import GuardError, api_get, read_lease
+from .github_task_protocol import GitHubTaskError, validate_issue_body
+
+SHA_RE = re.compile(r"^(?:[0-9a-f]{40}|[0-9a-f]{64})$")
+DIGEST_RE = re.compile(r"^[0-9a-f]{64}$")
+
+
+class HandoffAcceptanceError(ValueError):
+    """A downloaded handoff is stale, mismatched, or unsafe to accept."""
+
+
+def _unique_object(pairs):
+    result = {}
+    for key, value in pairs:
+        if key in result:
+            raise HandoffAcceptanceError("Handoff JSON contains a duplicate key.")
+        result[key] = value
+    return result
+
+
+def _positive_int(value: Any, name: str) -> int:
+    if isinstance(value, bool) or not isinstance(value, int) or value < 1:
+        raise HandoffAcceptanceError(name + " must be a positive integer.")
+    return value
+
+
+def _timestamp(value: Any, name: str) -> datetime:
+    if not isinstance(value, str):
+        raise HandoffAcceptanceError(name + " must be timezone-aware ISO-8601 text.")
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise HandoffAcceptanceError(name + " is not valid ISO-8601 text.") from exc
+    if parsed.tzinfo is None or parsed.utcoffset() is None:
+        raise HandoffAcceptanceError(name + " must include a timezone.")
+    return parsed.astimezone(timezone.utc)
+
+
+def validate_handoff_for_acceptance(
+    manifest: Any,
+    issue_data: Any,
+    lease_record: Any,
+    lock_commit: str,
+    *,
+    repository: str,
+    now: str | None = None,
+) -> dict[str, Any]:
+    """Bind the downloaded manifest to the current Issue and remote lease."""
+    top_fields = {
+        "handoff_schema", "handoff_id", "source", "repository", "issue",
+        "task", "lease", "workflow", "execution",
+    }
+    if not isinstance(manifest, dict) or set(manifest) != top_fields:
+        raise HandoffAcceptanceError("Handoff manifest has unexpected or missing fields.")
+    if manifest["handoff_schema"] != 1 or isinstance(manifest["handoff_schema"], bool):
+        raise HandoffAcceptanceError("Unsupported handoff schema.")
+    if manifest["source"] != "github-issue" or manifest["repository"] != repository:
+        raise HandoffAcceptanceError("Handoff source or repository identity does not match.")
+    if not isinstance(manifest["task"], dict):
+        raise HandoffAcceptanceError("Handoff task payload is malformed.")
+    task_id = manifest["task"].get("task_id")
+    if not isinstance(task_id, str) or not orchestrator.TASK_ID_RE.fullmatch(task_id):
+        raise HandoffAcceptanceError("Handoff task ID is invalid.")
+
+    issue = manifest["issue"]
+    if not isinstance(issue, dict) or set(issue) != {"number", "url", "body_sha256"}:
+        raise HandoffAcceptanceError("Handoff Issue identity is malformed.")
+    issue_number = _positive_int(issue["number"], "issue number")
+    if not isinstance(issue["url"], str) or not issue["url"].startswith("https://github.com/"):
+        raise HandoffAcceptanceError("Handoff Issue URL is invalid.")
+    if not isinstance(issue["body_sha256"], str) or not DIGEST_RE.fullmatch(issue["body_sha256"]):
+        raise HandoffAcceptanceError("Handoff Issue-body digest is invalid.")
+    if not isinstance(issue_data, dict) or issue_data.get("number") != issue_number:
+        raise HandoffAcceptanceError("Current GitHub Issue number does not match the handoff.")
+    if issue_data.get("state") != "open" or issue_data.get("html_url") != issue["url"]:
+        raise HandoffAcceptanceError("The task Issue is no longer open or its URL changed.")
+    labels = issue_data.get("labels")
+    if not isinstance(labels, list) or not any(
+        isinstance(label, dict) and label.get("name") == "agent-task" for label in labels
+    ):
+        raise HandoffAcceptanceError("The current task Issue no longer has the agent-task label.")
+    body = issue_data.get("body")
+    if not isinstance(body, str) or hashlib.sha256(body.encode("utf-8")).hexdigest() != issue["body_sha256"]:
+        raise HandoffAcceptanceError("Current Issue body differs from the handoff snapshot.")
+    try:
+        task = validate_issue_body(body)
+    except GitHubTaskError as exc:
+        raise HandoffAcceptanceError("Current Issue task payload is invalid.") from exc
+    if task != manifest["task"]:
+        raise HandoffAcceptanceError("Handoff task payload differs from the current Issue body.")
+
+    workflow = manifest["workflow"]
+    if not isinstance(workflow, dict) or set(workflow) != {"run_id", "run_attempt"}:
+        raise HandoffAcceptanceError("Handoff workflow identity is malformed.")
+    run_id = _positive_int(workflow["run_id"], "workflow run ID")
+    run_attempt = _positive_int(workflow["run_attempt"], "workflow run attempt")
+    expected_handoff_id = (
+        "issue-" + str(issue_number) + "-run-" + str(run_id) +
+        "-attempt-" + str(run_attempt)
+    )
+    if manifest["handoff_id"] != expected_handoff_id:
+        raise HandoffAcceptanceError("Handoff ID does not match its Issue and workflow identity.")
+
+    execution = manifest["execution"]
+    expected_execution = {
+        "status": "ready-for-agent",
+        "agent_dispatched": False,
+        "model_called": False,
+        "source_uploaded": False,
+        "patch_applied": False,
+    }
+    if execution != expected_execution:
+        raise HandoffAcceptanceError("Handoff execution flags are invalid or indicate prior execution.")
+
+    lease = manifest["lease"]
+    lease_fields = {
+        "owner", "claim_id", "status", "expires_at", "base_sha",
+        "lock_branch", "lock_commit", "verified",
+    }
+    if not isinstance(lease, dict) or set(lease) != lease_fields:
+        raise HandoffAcceptanceError("Handoff lease record is malformed.")
+    try:
+        current_lease = validate_lease(lease_record)
+        expected_branch = lock_branch(task_id)
+    except LeaseError as exc:
+        raise HandoffAcceptanceError("Current remote lease record is invalid.") from exc
+    if (
+        lease["verified"] is not True
+        or lease["status"] != "active"
+        or lease["lock_branch"] != expected_branch
+        or lease["lock_commit"] != lock_commit
+        or not isinstance(lock_commit, str)
+        or not SHA_RE.fullmatch(lock_commit)
+    ):
+        raise HandoffAcceptanceError("Handoff does not identify the current verified lock ref.")
+    if (
+        current_lease["task_id"] != task_id
+        or current_lease["owner"] != lease["owner"]
+        or current_lease["claim_id"] != lease["claim_id"]
+        or current_lease["status"] != "active"
+        or current_lease["base_sha"] != lease["base_sha"]
+        or current_lease["expires_at"] != lease["expires_at"]
+    ):
+        raise HandoffAcceptanceError("Handoff lease differs from the current remote lease.")
+    if task["assigned_agent"] not in {"any", lease["owner"]}:
+        raise HandoffAcceptanceError("Task assignment does not match the active lease owner.")
+    moment = _timestamp(now or datetime.now(timezone.utc).isoformat(), "now")
+    if _timestamp(current_lease["expires_at"], "current lease expiry") <= moment:
+        raise HandoffAcceptanceError("Current remote lease has expired.")
+    if not isinstance(lease["base_sha"], str) or not SHA_RE.fullmatch(lease["base_sha"]):
+        raise HandoffAcceptanceError("Pinned task base SHA is invalid.")
+    return task
+
+
+def _read_json(path: Path) -> Any:
+    if path.is_symlink() or not path.is_file():
+        raise HandoffAcceptanceError("Handoff file must be a regular non-symlink file.")
+    raw = path.read_bytes()
+    if len(raw) > 1_000_000:
+        raise HandoffAcceptanceError("Handoff file exceeds the 1 MB safety limit.")
+    try:
+        return json.loads(raw.decode("utf-8"), object_pairs_hook=_unique_object)
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise HandoffAcceptanceError("Handoff file is not valid UTF-8 JSON.") from exc
+
+
+def accept_handoff(handoff_path: Path, *, token: str, repository: str) -> Path:
+    manifest = _read_json(handoff_path)
+    if not isinstance(manifest, dict) or not isinstance(manifest.get("issue"), dict):
+        raise HandoffAcceptanceError("Handoff manifest is missing its Issue identity.")
+    issue_number = _positive_int(manifest["issue"].get("number"), "issue number")
+    task = manifest.get("task")
+    task_id = task.get("task_id") if isinstance(task, dict) else None
+    if not isinstance(task_id, str) or not orchestrator.TASK_ID_RE.fullmatch(task_id):
+        raise HandoffAcceptanceError("Handoff task ID is invalid.")
+
+    issue_data = api_get(repository, "/issues/" + str(issue_number), token)
+    branch = lock_branch(task_id)
+    ref_path = "/git/ref/heads/" + urllib.parse.quote(branch, safe="/-")
+    ref = api_get(repository, ref_path, token)
+    try:
+        lock_commit = ref["object"]["sha"]
+        lock_type = ref["object"]["type"]
+    except (TypeError, KeyError) as exc:
+        raise HandoffAcceptanceError("Remote task lock ref is malformed.") from exc
+    if lock_type != "commit" or not isinstance(lock_commit, str) or not SHA_RE.fullmatch(lock_commit):
+        raise HandoffAcceptanceError("Remote task lock ref must point to a full commit SHA.")
+    lease_record = read_lease(repository, task_id, token)
+    task = validate_handoff_for_acceptance(
+        manifest, issue_data, lease_record, lock_commit, repository=repository
+    )
+
+    root = orchestrator.repository_root()
+    branch_name = orchestrator.current_branch(root)
+    origin = orchestrator.safe_remote_identity(
+        orchestrator.run_git(root, "remote", "get-url", "origin", check=False)
+    )
+    if _repository_name(origin) != repository:
+        raise HandoffAcceptanceError("Local Git origin does not match the handoff repository.")
+    head_sha = orchestrator.run_git(root, "rev-parse", "HEAD")
+    base_sha = manifest["lease"]["base_sha"]
+    if head_sha != base_sha:
+        raise HandoffAcceptanceError(
+            "Current branch HEAD must equal the handoff's pinned base SHA; create a fresh task branch from that exact commit."
+        )
+    dirty = orchestrator.status_paths(root)
+    if dirty:
+        raise HandoffAcceptanceError(
+            "Worktree must be clean before accepting a handoff: " + ", ".join(dirty[:12])
+        )
+    task_record_path = orchestrator.task_path(root, task_id)
+    if task_record_path.exists():
+        raise HandoffAcceptanceError("A local task with this ID already exists; refusing to overwrite it.")
+
+    try:
+        orchestrator.build_context(
+            root=root,
+            task_id=task_id,
+            source_revision=base_sha,
+            required_paths=list(orchestrator.REQUIRED_CONTEXT),
+            source_paths=[],
+            allowed_patterns=task["allow"],
+            excluded_patterns=task["exclude"],
+        )
+    except orchestrator.ContextBuildError as exc:
+        raise HandoffAcceptanceError("Required project context is unavailable at the pinned base.") from exc
+
+    init_args = Namespace(
+        task_id=task_id,
+        goal=task["goal"],
+        capability=task["capability"],
+        risk=task["risk"],
+        allow=task["allow"],
+        exclude=task["exclude"],
+        scope_reason=task["scope_reason"],
+        check=task["verification_profiles"],
+        context=[],
+    )
+    orchestrator.command_init(init_args)
+    orchestrator.command_prepare(Namespace(task_id=task_id))
+    record, record_path = orchestrator.load_record(root, task_id)
+    record["assigned_agent"] = task["assigned_agent"]
+    record["source"] = "github-issue"
+    record["github_handoff"] = {
+        "issue_number": issue_number,
+        "issue_url": manifest["issue"]["url"],
+        "issue_body_sha256": manifest["issue"]["body_sha256"],
+        "owner": manifest["lease"]["owner"],
+        "claim_id": manifest["lease"]["claim_id"],
+        "lease_expires_at": manifest["lease"]["expires_at"],
+        "base_sha": base_sha,
+        "lock_branch": manifest["lease"]["lock_branch"],
+        "lock_commit": manifest["lease"]["lock_commit"],
+        "workflow_run_id": manifest["workflow"]["run_id"],
+        "workflow_run_attempt": manifest["workflow"]["run_attempt"],
+    }
+    orchestrator.save_record(record, record_path)
+    orchestrator.command_build_envelope(Namespace(task_id=task_id))
+    output = record_path.parent / "agent_input.json"
+    print("Accepted handoff on local branch " + branch_name + ".")
+    print("Created local-only agent envelope: " + output.relative_to(root).as_posix())
+    print("No model was invoked, no source was uploaded, and no remote Git ref was modified.")
+    return output
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--handoff-file", required=True)
+    args = parser.parse_args(argv)
+    token = os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN") or ""
+    repository = os.environ.get("GITHUB_REPOSITORY", "")
+    try:
+        if not token:
+            raise HandoffAcceptanceError("A read-only GitHub token is required in GITHUB_TOKEN or GH_TOKEN.")
+        output = accept_handoff(Path(args.handoff_file), token=token, repository=repository)
+    except (
+        OSError, HandoffAcceptanceError, GuardError, LeaseError,
+        GitHubTaskError, orchestrator.TaskError,
+    ) as exc:
+        parser.error(str(exc))
+    print("Agent input ready: " + str(output))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

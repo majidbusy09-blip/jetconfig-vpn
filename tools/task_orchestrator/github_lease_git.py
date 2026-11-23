@@ -48,9 +48,15 @@ def _git(args: list[str], *, token: str, input_text: str | None = None,
     env = os.environ.copy()
     basic = base64.b64encode(("x-access-token:" + token).encode("utf-8")).decode("ascii")
     env.update({
-        "GIT_CONFIG_COUNT": "1",
+        "GIT_CONFIG_COUNT": "3",
         "GIT_CONFIG_KEY_0": "http.extraheader",
         "GIT_CONFIG_VALUE_0": "AUTHORIZATION: basic " + basic,
+        "GIT_CONFIG_KEY_1": "core.hooksPath",
+        "GIT_CONFIG_VALUE_1": "/dev/null",
+        "GIT_CONFIG_KEY_2": "credential.helper",
+        "GIT_CONFIG_VALUE_2": "",
+        "GIT_CONFIG_NOSYSTEM": "1",
+        "GIT_CONFIG_GLOBAL": os.devnull,
         "GIT_TERMINAL_PROMPT": "0",
         "GIT_AUTHOR_NAME": "JET VPN Agent Lease",
         "GIT_AUTHOR_EMAIL": "jet-agent-lease@users.noreply.github.com",
@@ -140,13 +146,13 @@ def _push(remote: str, branch: str, commit_sha: str, expected_sha: str | None,
     ref = "refs/heads/" + branch
     if expected_sha is None:
         # Initial creation is exclusive: a concurrent creator makes this push fail.
-        args = ["push", "--porcelain", remote, commit_sha + ":" + ref]
+        args = ["push", "--no-verify", "--porcelain", remote, commit_sha + ":" + ref]
     else:
         if not SHA_RE.fullmatch(expected_sha):
             raise LeaseGitError("Expected lock SHA is invalid.")
         # Git receive-pack enforces this old-object check atomically on the server.
         lease_arg = "--force-with-lease=" + ref + ":" + expected_sha
-        args = ["push", "--porcelain", lease_arg, remote, commit_sha + ":" + ref]
+        args = ["push", "--no-verify", "--porcelain", lease_arg, remote, commit_sha + ":" + ref]
     _git(args, token=token)
     actual = _remote_sha(remote, branch, token)
     if actual != commit_sha:

@@ -53,6 +53,17 @@ class GitHubLeaseTests(unittest.TestCase):
                        observed_ref_sha=BASE, owner="chatgpt", claim_id="a" * 16,
                        now="2026-11-23T10:30:00Z")
 
+
+    def test_renewal_rejects_released_record_and_backdated_claim_time(self):
+        released = dict(lease(claim="b" * 16, now="2026-11-23T10:30:00Z"), status="released")
+        with self.assertRaises(LeaseError):
+            renew_plan(lease(), released, observed_ref_sha=BASE, owner="chatgpt",
+                       claim_id="a" * 16, now="2026-11-23T10:30:00Z")
+        backdated = lease(claim="b" * 16, now="2026-11-23T09:59:00Z")
+        with self.assertRaises(LeaseError):
+            renew_plan(lease(), backdated, observed_ref_sha=BASE, owner="chatgpt",
+                       claim_id="a" * 16, now="2026-11-23T09:59:00Z")
+
     def test_release_requires_matching_owner(self):
         plan = release_plan(lease(), observed_ref_sha=BASE, owner="chatgpt",
                             claim_id="a" * 16, now=NOW)

@@ -137,3 +137,8 @@ The selector consumes the existing analyzer-resolved index and curated critical-
 Ranking is deterministic and explainable: request/task terms are matched against source paths, resolved declaration names, and call-site targets; matched curated critical paths add weighted evidence to their reachable declaration files. Results are filtered by the task's pre-existing allowlist/exclusions and bounded to 25 candidates. The query is data only and is never executed.
 
 The command writes a local suggestion artifact. It never modifies `context_paths`, expands allowed scope, changes source files, or calls a model. The output is advisory because static reachability is not runtime behavior and can miss UI state, callback/event wiring, dynamic dispatch, generated code, and native Java integration. Explicit path selection remains a separate decision.
+
+
+### Explicit suggestion acceptance
+
+A prepared task may accept a subset of suggestions through `accept-context`. The command requires the suggestion artifact to reside in that task's local metadata directory, match the task ID and pinned base SHA, and contain every explicitly selected path. It rechecks each selected Git blob ID and rebuilds the full-text context package through the existing context builder, which enforces path safety, allowlists, exclusions, UTF-8, and size bounds. It refuses to run after implementation begins or if an agent envelope already exists. It does not change task allowlists or accept unselected suggestions.

@@ -451,6 +451,95 @@ def command_build_envelope(args: argparse.Namespace) -> None:
     )
 
 
+def command_accept_context(args: argparse.Namespace) -> None:
+    root = repository_root()
+    record, task_record_path = load_record(root, args.task_id)
+    require_state(record, "prepared")
+    require_task_branch(root, record)
+    base_sha = record.get("repository", {}).get("base_sha")
+    if run_git(root, "rev-parse", "HEAD") != base_sha:
+        raise TaskError("Pinned base moved; prepare a fresh task before accepting context suggestions.")
+    suggestions_path = Path(args.suggestions)
+    if not suggestions_path.is_absolute():
+        suggestions_path = root / suggestions_path
+    if (suggestions_path.is_symlink() or not suggestions_path.is_file()
+            or suggestions_path.parent.resolve() != task_record_path.parent.resolve()):
+        raise TaskError("Suggestions file must be a regular local artifact inside this task's metadata directory.")
+    try:
+        raw = suggestions_path.read_bytes()
+        if len(raw) > 2_000_000:
+            raise TaskError("Suggestions artifact exceeds the 2 MB limit.")
+        def unique_object(pairs):
+            result = {}
+            for key, value in pairs:
+                if key in result:
+                    raise TaskError(f"Duplicate key in suggestions artifact: {key}")
+                result[key] = value
+            return result
+        suggestion_record = json.loads(raw.decode("utf-8"), object_pairs_hook=unique_object)
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise TaskError("Suggestions artifact is unreadable or invalid UTF-8 JSON.") from exc
+    if (not isinstance(suggestion_record, dict)
+            or suggestion_record.get("schema_version") != 1
+            or suggestion_record.get("task_id") != args.task_id
+            or suggestion_record.get("source_revision") != base_sha
+            or not isinstance(suggestion_record.get("suggestions"), list)):
+        raise TaskError("Suggestions artifact does not match this task and pinned base.")
+    suggestion_map = {}
+    for item in suggestion_record["suggestions"]:
+        if (not isinstance(item, dict) or not isinstance(item.get("path"), str)
+                or not isinstance(item.get("git_blob_sha"), str)
+                or item["path"] in suggestion_map):
+            raise TaskError("Suggestions artifact contains malformed or duplicate candidates.")
+        suggestion_map[item["path"]] = item["git_blob_sha"]
+    selected = args.path
+    if not selected or len(selected) != len(set(selected)):
+        raise TaskError("Choose one or more unique paths from the suggestion artifact.")
+    for relative in selected:
+        expected_sha = suggestion_map.get(relative)
+        if expected_sha is None:
+            raise TaskError(f"Selected path was not suggested: {relative}")
+        try:
+            actual_sha = run_git(root, "rev-parse", f"{base_sha}:{relative}")
+        except TaskError as exc:
+            raise TaskError(f"Selected path is not present at the pinned base: {relative}") from exc
+        if actual_sha != expected_sha:
+            raise TaskError(f"Suggested source fingerprint is stale or mismatched: {relative}")
+    existing = record.get("context_paths", [])
+    if not isinstance(existing, list) or not all(isinstance(item, str) for item in existing):
+        raise TaskError("Task source-context manifest is malformed.")
+    new_paths = sorted(set(existing) | set(selected))
+    if new_paths == sorted(set(existing)):
+        print("All selected context paths are already accepted; task context is unchanged.")
+        return
+    envelope_path = task_record_path.parent / "agent_input.json"
+    if envelope_path.exists() or envelope_path.is_symlink():
+        raise TaskError("An agent_input.json already exists. Refusing to invalidate or overwrite an existing envelope.")
+    try:
+        package = build_context(
+            root=root,
+            task_id=args.task_id,
+            source_revision=base_sha,
+            required_paths=record.get("required_context", []),
+            source_paths=new_paths,
+            allowed_patterns=record["scope"]["allowed"],
+            excluded_patterns=record["scope"]["excluded"],
+        )
+    except ContextBuildError as exc:
+        raise TaskError(f"Selected context blocked by source/scope validation: {exc}") from exc
+    record["context_paths"] = new_paths
+    record["context_package"] = package
+    record["context_selection"] = {
+        "suggestions_sha256": sha256_bytes(raw),
+        "accepted_paths": selected,
+        "accepted_at": now_iso(),
+        "note": "Explicitly selected suggestions; task scope was not changed.",
+    }
+    record["updated_at"] = now_iso()
+    save_record(record, task_record_path)
+    print(f"Accepted {len(selected)} source file(s) into the pinned context package. Scope unchanged.")
+
+
 def command_suggest_context(args: argparse.Namespace) -> None:
     root = repository_root()
     record, task_record_path = load_record(root, args.task_id)
@@ -780,6 +869,11 @@ def build_parser() -> argparse.ArgumentParser:
     init.add_argument("--context", action="append", default=[], metavar="REPO_PATH",
                       help="Explicit source file to include in agent context (repeatable).")
     init.set_defaults(func=command_init)
+    accept = sub.add_parser("accept-context", help="Add explicitly selected, suggested source files to a prepared task context.")
+    accept.add_argument("--task-id", required=True)
+    accept.add_argument("--suggestions", required=True, metavar="TASK_LOCAL_JSON")
+    accept.add_argument("--path", action="append", required=True, metavar="REPO_PATH")
+    accept.set_defaults(func=command_accept_context)
     suggest = sub.add_parser("suggest-context", help="Rank in-scope source files from verified semantic artifacts; advisory only.")
     suggest.add_argument("--task-id", required=True)
     suggest.add_argument("--query", required=True, help="Plain-language task request; treated only as search text.")

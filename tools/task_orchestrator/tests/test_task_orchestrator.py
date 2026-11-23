@@ -81,6 +81,93 @@ class OrchestratorIntegrationTests(unittest.TestCase):
         self.init_task()
         self.cli("prepare", "--task-id", self.task_id)
 
+    def test_accept_context_adds_only_explicit_suggested_paths(self) -> None:
+        source = self.root / "lib/feature.dart"
+        source.parent.mkdir(parents=True, exist_ok=True)
+        source.write_text("void feature() {}\n", encoding="utf-8")
+        git(self.root, "add", ".")
+        git(self.root, "commit", "-m", "add context source fixture")
+        self.cli(
+            "init", "--task-id", self.task_id, "--goal", "Select source context",
+            "--capability", "context selection", "--risk", "low",
+            "--allow", "lib/**", "--check", "python-tooling-tests",
+        )
+        self.cli("prepare", "--task-id", self.task_id)
+        record = json.loads(self.record.read_text(encoding="utf-8"))
+        base = record["repository"]["base_sha"]
+        blob = git(self.root, "rev-parse", f"{base}:lib/feature.dart")
+        suggestions = self.record.parent / "context_suggestions_fixture.json"
+        suggestions.write_text(json.dumps({
+            "schema_version": 1, "task_id": self.task_id,
+            "source_revision": base,
+            "suggestions": [{"path": "lib/feature.dart", "git_blob_sha": blob}],
+        }), encoding="utf-8")
+        relative_suggestions = suggestions.relative_to(self.root).as_posix()
+        self.cli(
+            "accept-context", "--task-id", self.task_id,
+            "--suggestions", relative_suggestions, "--path", "lib/feature.dart",
+        )
+        updated = json.loads(self.record.read_text(encoding="utf-8"))
+        self.assertEqual(updated["context_paths"], ["lib/feature.dart"])
+        self.assertEqual(updated["context_package"]["source_context"][0]["path"], "lib/feature.dart")
+        self.assertEqual(updated["scope"]["allowed"], ["lib/**"])
+        self.assertEqual(updated["context_selection"]["accepted_paths"], ["lib/feature.dart"])
+
+    def test_accept_context_rejects_paths_not_in_suggestion_artifact(self) -> None:
+        source = self.root / "lib/feature.dart"
+        source.parent.mkdir(parents=True, exist_ok=True)
+        source.write_text("void feature() {}\n", encoding="utf-8")
+        git(self.root, "add", ".")
+        git(self.root, "commit", "-m", "add context source fixture")
+        self.cli(
+            "init", "--task-id", self.task_id, "--goal", "Select source context",
+            "--capability", "context selection", "--risk", "low",
+            "--allow", "lib/**", "--check", "python-tooling-tests",
+        )
+        self.cli("prepare", "--task-id", self.task_id)
+        record = json.loads(self.record.read_text(encoding="utf-8"))
+        suggestions = self.record.parent / "context_suggestions_fixture.json"
+        suggestions.write_text(json.dumps({
+            "schema_version": 1, "task_id": self.task_id,
+            "source_revision": record["repository"]["base_sha"],
+            "suggestions": [{"path": "lib/feature.dart", "git_blob_sha":
+                git(self.root, "rev-parse", f"{record['repository']['base_sha']}:lib/feature.dart")}],
+        }), encoding="utf-8")
+        self.cli(
+            "accept-context", "--task-id", self.task_id,
+            "--suggestions", suggestions.relative_to(self.root).as_posix(),
+            "--path", "lib/not-suggested.dart", expected=2,
+        )
+        unchanged = json.loads(self.record.read_text(encoding="utf-8"))
+        self.assertEqual(unchanged["context_paths"], [])
+
+    def test_accept_context_rejects_stale_suggestion_fingerprint(self) -> None:
+        source = self.root / "lib/feature.dart"
+        source.parent.mkdir(parents=True, exist_ok=True)
+        source.write_text("void feature() {}\n", encoding="utf-8")
+        git(self.root, "add", ".")
+        git(self.root, "commit", "-m", "add context source fixture")
+        self.cli(
+            "init", "--task-id", self.task_id, "--goal", "Select source context",
+            "--capability", "context selection", "--risk", "low",
+            "--allow", "lib/**", "--check", "python-tooling-tests",
+        )
+        self.cli("prepare", "--task-id", self.task_id)
+        record = json.loads(self.record.read_text(encoding="utf-8"))
+        suggestions = self.record.parent / "context_suggestions_fixture.json"
+        suggestions.write_text(json.dumps({
+            "schema_version": 1, "task_id": self.task_id,
+            "source_revision": record["repository"]["base_sha"],
+            "suggestions": [{"path": "lib/feature.dart", "git_blob_sha": "0" * 40}],
+        }), encoding="utf-8")
+        self.cli(
+            "accept-context", "--task-id", self.task_id,
+            "--suggestions", suggestions.relative_to(self.root).as_posix(),
+            "--path", "lib/feature.dart", expected=2,
+        )
+        unchanged = json.loads(self.record.read_text(encoding="utf-8"))
+        self.assertEqual(unchanged["context_paths"], [])
+
     def test_end_to_end_review_ready(self) -> None:
         self.prepared_task()
         self.cli("impact", "--task-id", self.task_id)

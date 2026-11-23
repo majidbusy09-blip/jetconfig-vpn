@@ -9,18 +9,20 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import io
 import json
 import os
 import re
+import stat
 import urllib.parse
+import zipfile
 from argparse import Namespace
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 from . import task_orchestrator as orchestrator
-from .agent_contract import ContractValidationError
-from .envelope_builder import _repository_name
+from .envelope_builder import EnvelopeBuildError, _repository_name
 from .github_lease import LeaseError, lock_branch, validate_lease
 from .github_task_pr_guard import GuardError, api_get, read_lease
 from .github_task_protocol import GitHubTaskError, validate_issue_body
@@ -180,8 +182,23 @@ def _read_json(path: Path) -> Any:
     if path.is_symlink() or not path.is_file():
         raise HandoffAcceptanceError("Handoff file must be a regular non-symlink file.")
     raw = path.read_bytes()
+    if len(raw) > 2_000_000:
+        raise HandoffAcceptanceError("Handoff file exceeds the 2 MB safety limit.")
+    if raw.startswith(b"PK\\x03\\x04"):
+        try:
+            with zipfile.ZipFile(io.BytesIO(raw)) as archive:
+                files = [item for item in archive.infolist() if not item.is_dir()]
+                if len(files) != 1 or files[0].filename != "task-handoff.json":
+                    raise HandoffAcceptanceError("Artifact ZIP must contain exactly one task-handoff.json file.")
+                item = files[0]
+                mode = (item.external_attr >> 16) & 0o170000
+                if mode == stat.S_IFLNK or item.file_size > 1_000_000:
+                    raise HandoffAcceptanceError("Artifact entry is a symlink or exceeds the 1 MB limit.")
+                raw = archive.read(item)
+        except (zipfile.BadZipFile, OSError, RuntimeError) as exc:
+            raise HandoffAcceptanceError("Artifact ZIP is malformed or cannot be read safely.") from exc
     if len(raw) > 1_000_000:
-        raise HandoffAcceptanceError("Handoff file exceeds the 1 MB safety limit.")
+        raise HandoffAcceptanceError("Handoff JSON exceeds the 1 MB safety limit.")
     try:
         return json.loads(raw.decode("utf-8"), object_pairs_hook=_unique_object)
     except (UnicodeDecodeError, json.JSONDecodeError) as exc:
@@ -299,7 +316,7 @@ def main(argv: list[str] | None = None) -> int:
         output = accept_handoff(Path(args.handoff_file), token=token, repository=repository)
     except (
         OSError, HandoffAcceptanceError, GuardError, LeaseError,
-        GitHubTaskError, orchestrator.TaskError,
+        GitHubTaskError, orchestrator.TaskError, EnvelopeBuildError,
     ) as exc:
         parser.error(str(exc))
     print("Agent input ready: " + str(output))

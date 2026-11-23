@@ -1,10 +1,14 @@
-import hashlib
+import io
+import json
+import tempfile
 import unittest
+import zipfile
+from pathlib import Path
 
 from tools.task_orchestrator.github_lease import make_lease
 from tools.task_orchestrator.github_task_handoff import build_task_handoff
 from tools.task_orchestrator.github_task_handoff_accept import (
-    HandoffAcceptanceError, validate_handoff_for_acceptance,
+    HandoffAcceptanceError, validate_handoff_for_acceptance, _read_json,
 )
 
 REPOSITORY = "owner/repository"
@@ -141,6 +145,24 @@ class HandoffAcceptanceTests(unittest.TestCase):
                 payload, current_issue(), current_lease(), LOCK_COMMIT,
                 repository=REPOSITORY, now=NOW,
             )
+
+
+    def test_reads_single_file_github_artifact_zip_without_extracting_paths(self):
+        with tempfile.TemporaryDirectory() as folder:
+            good = Path(folder) / "handoff.zip"
+            payload = io.BytesIO()
+            with zipfile.ZipFile(payload, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+                archive.writestr("task-handoff.json", json.dumps({"handoff_schema": 1}))
+            good.write_bytes(payload.getvalue())
+            self.assertEqual(_read_json(good), {"handoff_schema": 1})
+
+            bad = Path(folder) / "unsafe.zip"
+            payload = io.BytesIO()
+            with zipfile.ZipFile(payload, "w") as archive:
+                archive.writestr("../task-handoff.json", "{}")
+            bad.write_bytes(payload.getvalue())
+            with self.assertRaises(HandoffAcceptanceError):
+                _read_json(bad)
 
 
 if __name__ == "__main__":

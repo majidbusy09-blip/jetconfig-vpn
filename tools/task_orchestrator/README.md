@@ -163,3 +163,16 @@ Important: Issue comments are not an atomic lock. Until compare-and-swap claims 
 Add the `agent-task` label to an open Issue containing the v1 marker and JSON payload. The `.github/workflows/agent-task-intake.yml` workflow validates the GitHub event with `github_issue_intake.py` and uploads a bounded JSON artifact for retrieval. The artifact binds the parsed task to the Issue URL, repository, issue number, and body digest.
 
 This is an intake/validation bridge only. It does not create a local task branch, claim a lease, invoke ChatGPT/Grok, call a model API, run implementation commands, apply patches, or upload source files. A validated artifact is marked `validated-awaiting-claim`; an agent must separately verify assignment, acquire a proven lease through a trusted CAS adapter, and prepare its isolated task workspace. Invalid or closed Issues fail closed.
+
+
+### Atomic GitHub task leases
+
+Use \`github_lease_git.py\` to claim, renew, or release a task's shared lock branch using Git server-side \`--force-with-lease\` compare-and-swap. It requires a checkout, Git, \`GITHUB_REPOSITORY\`, and a short-lived \`GITHUB_TOKEN\`/ \`GH_TOKEN\` with \`contents: write\`. The token is not stored in the repository or task artifact.
+
+\`\`\`bash
+python -m tools.task_orchestrator.github_lease_git claim \\
+  --task-id sample-task --owner chatgpt --claim-id 0123456789abcdef \\
+  --base-sha <full-pinned-git-sha> --minutes 60
+\`\`\`
+
+Renewal requires the same base SHA and a fresh claim ID; release requires the current claim ID. The adapter fails closed on malformed state, stale refs, failed CAS, or an unverified final ref. CI uses mocked transport tests only; no live GitHub token or concurrent-claim race is exercised. The adapter is not yet connected to automatic provider dispatch. See \`docs/GITHUB_TASK_LEASES.md\`.

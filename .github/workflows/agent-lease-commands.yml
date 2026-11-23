@@ -92,6 +92,7 @@ jobs:
         with:
           name: jet-agent-input-${{ github.event.issue.number }}-${{ github.run_id }}
           path: .agent/tasks/*/agent_input.json
+          include-hidden-files: true
           if-no-files-found: error
           retention-days: 14
 

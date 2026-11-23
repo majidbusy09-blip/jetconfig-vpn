@@ -317,3 +317,13 @@ Append-only record of meaningful project work. Each entry should include branch/
 - **Security boundary:** validator handles data only. No provider connection, command execution, patch retrieval/application, filesystem write access for an agent, or GitHub API permission was added. Patch artifact content must be parsed and independently gated in a later phase.
 - **Verification:** both pre-change CI workflows passed on the previous head (Project Memory Audit #45106590264; Non-production PR Validation #45106590252). New commits require fresh CI; do not claim these tests passed until the new head's workflows complete.
 - **Application boundary:** no Dart/Java/Kotlin app source, app version, signing, production workflow, bot, payment, backend, or server behavior changed.
+
+
+## 2026-11-23 — Read-only coding-agent adapter prototype
+
+- **Added:** `tools/task_orchestrator/readonly_adapter.py` with a minimal provider protocol and a fail-closed `run_readonly` boundary. It validates the task envelope before invoking a provider, exposes a recursively immutable context object, and validates the provider's structured result against the same task envelope.
+- **Added:** `tools/task_orchestrator/tests/test_readonly_adapter.py` covering valid fixture output, nested immutability, invalid input rejected before provider invocation, malformed output, provider exceptions, required interface, and caller-data integrity.
+- **No live integration:** the only included provider is a deterministic fixture. No SDK, API key, network client, shell, Git, filesystem handle, patch fetch/apply, or GitHub write capability was added.
+- **Security limitation:** this interface is not an OS sandbox and cannot constrain arbitrary behavior inside a provider implementation. Any real connector must be separately reviewed and run with explicit permission restrictions.
+- **CI baseline:** validator head `4dd6f8110bd9462fde73c7c9ab256a72c971c55e` passed Project Memory Audit [#45107836885](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45107836885) and Non-production PR Validation [#45107836882](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45107836882). Adapter commits are newer and require fresh CI.
+- **Application boundary:** no Dart/Java/Kotlin app source, app version, signing, production workflow, bot, payment, backend, or server behavior changed.

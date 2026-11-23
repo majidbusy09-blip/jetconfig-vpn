@@ -76,6 +76,37 @@ def build_cgroup_report(
     return result
 
 
+def assess_preflight(
+    *,
+    running_as_non_root: bool,
+    seccomp_mode: int | None,
+    cgroup_report: dict,
+    docker_socket_present: bool,
+) -> dict:
+    """Fail-closed preliminary gate; passing is not proof of a sandbox."""
+    blockers = []
+    if not running_as_non_root:
+        blockers.append("process_not_non_root")
+    if seccomp_mode != 2:
+        blockers.append("seccomp_filter_not_visible")
+    if not cgroup_report.get("delegation_candidate", False):
+        blockers.append("delegated_cgroup_controls_not_available")
+    if docker_socket_present:
+        blockers.append("docker_socket_present_on_host")
+
+    return {
+        "classification": "preflight_only_not_sandbox",
+        "status": "blocked" if blockers else "candidate_for_deeper_acceptance",
+        "eligible_for_untrusted_agent_execution": False,
+        "blockers": blockers,
+        "note": (
+            "Even a candidate result is not authorization or proof. "
+            "Runtime-level limit enforcement, process-tree termination, "
+            "network/filesystem isolation, and cleanup must still pass."
+        ),
+    }
+
+
 def build_report(
     *,
     tool_paths: dict[str, str | None],
@@ -99,15 +130,27 @@ def build_report(
                     pass
 
     controllers = cgroup_controllers.split() if cgroup_controllers else []
+    current_cgroup = cgroup_report or {
+        "delegation_candidate": False,
+        "reason": "not_inspected",
+    }
+    running_as_non_root = effective_uid is not None and effective_uid != 0
+    preflight = assess_preflight(
+        running_as_non_root=running_as_non_root,
+        seccomp_mode=seccomp_mode,
+        cgroup_report=current_cgroup,
+        docker_socket_present=docker_socket_present,
+    )
     return {
         "schema_version": 1,
         "classification": "inventory_only_not_sandbox",
         "eligible_for_untrusted_agent_execution": False,
+        "sandbox_preflight": preflight,
         "host": {
             "os": platform.system(),
             "kernel_release": kernel_release,
             "effective_uid": effective_uid,
-            "running_as_non_root": effective_uid is not None and effective_uid != 0,
+            "running_as_non_root": running_as_non_root,
         },
         "runtime_tool_paths": {name: tool_paths.get(name) for name in RUNTIME_TOOLS},
         "docker_socket_present": docker_socket_present,
@@ -115,10 +158,7 @@ def build_report(
         "seccomp_mode": seccomp_mode,
         "cgroup_v2_available": cgroup_controllers is not None,
         "cgroup_controllers": controllers,
-        "cgroup_current_process": cgroup_report or {
-            "delegation_candidate": False,
-            "reason": "not_inspected",
-        },
+        "cgroup_current_process": current_cgroup,
         "user_namespace": {
             "max_user_namespaces": userns_max,
             "unprivileged_userns_clone": unprivileged_userns_clone,

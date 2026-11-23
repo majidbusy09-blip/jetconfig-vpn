@@ -1,0 +1,34 @@
+name: JET VPN - Revalidate Agent PRs on Task Changes
+
+on:
+  issues:
+    types: [edited, closed, reopened, labeled, unlabeled, assigned, unassigned]
+
+permissions:
+  contents: read
+  issues: read
+  pull-requests: read
+
+jobs:
+  revalidate-linked-agent-prs:
+    if: contains(github.event.issue.labels.*.name, 'agent-task') || (github.event.action == 'unlabeled' && github.event.label.name == 'agent-task')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout trusted main only
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Revalidate every linked open agent PR
+        env:
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python -m tools.task_orchestrator.github_task_issue_revalidator --event-file "$GITHUB_EVENT_PATH"

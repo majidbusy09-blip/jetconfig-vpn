@@ -109,6 +109,15 @@ Changes to this orchestrator, its tests, or the adapter contract run `.github/wo
 Envelope provenance is checked against the pinned Git blobs immediately before serialization; a matching package hash alone is not treated as proof of source authenticity; the CLI also re-reads the pinned Git objects; fixture coverage uses the full six-document project-memory set.
 
 
+## Verified Impact Analyzer
+
+- Run `impact` after preparing the task and before implementation to establish a baseline; run it again after edits to refresh the report.
+- Example: `python tools/task_orchestrator/task_orchestrator.py impact --task-id smart-routing-audit --resolved-index docs/generated/jet_vpn_resolved_index.json --critical-paths docs/generated/jet_vpn_critical_paths.json`.
+- The report is stored at `.agent/tasks/<task-id>/impact_report.json`; the task record stores its digest, source revision, changed paths, impacted critical-path IDs, recommended profiles, and risk flags.
+- A task with no changed paths is reported as not applicable without requiring semantic artifacts. When changed paths exist, both semantic artifacts must be available, valid, and from the same source manifest; changed indexed files are checked against the pinned Git blob.
+- Files missing from the index are explicitly marked unknown. Out-of-scope changes and critical-path reachability are surfaced as risk flags. The analyzer does not silently widen scope or execute suggested tests.
+- The suggested profiles are advisory. Only the profiles declared in the task plan are required for finalization.
+
 ## Semantic Context Selector
 
 - The selector reuses the existing analyzer-resolved index and curated critical-path report; it does not introduce another Dart parser or call graph.

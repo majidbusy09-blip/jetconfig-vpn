@@ -2,7 +2,7 @@ name: JET VPN - GitHub Agent Task Intake
 
 on:
   issues:
-    types: [opened, labeled]
+    types: [opened, labeled, edited]
 
 permissions:
   contents: read

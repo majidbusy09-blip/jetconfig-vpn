@@ -487,11 +487,16 @@ def command_accept_context(args: argparse.Namespace) -> None:
         raise TaskError("Suggestions artifact does not match this task and pinned base.")
     suggestion_map = {}
     for item in suggestion_record["suggestions"]:
-        if (not isinstance(item, dict) or not isinstance(item.get("path"), str)
-                or not isinstance(item.get("git_blob_sha"), str)
-                or item["path"] in suggestion_map):
-            raise TaskError("Suggestions artifact contains malformed or duplicate candidates.")
-        suggestion_map[item["path"]] = item["git_blob_sha"]
+        relative = item.get("path") if isinstance(item, dict) else None
+        digest = item.get("git_blob_sha") if isinstance(item, dict) else None
+        if (not isinstance(relative, str) or not relative.startswith("lib/")
+                or not relative.endswith(".dart") or "\\" in relative
+                or any(part in {"", ".", ".."} for part in relative.split("/"))
+                or not isinstance(digest, str)
+                or not re.fullmatch(r"(?:[0-9a-f]{40}|[0-9a-f]{64})", digest)
+                or relative in suggestion_map):
+            raise TaskError("Suggestions artifact contains malformed, unsafe, or duplicate Dart candidates.")
+        suggestion_map[relative] = digest
     selected = args.path
     if not selected or len(selected) != len(set(selected)):
         raise TaskError("Choose one or more unique paths from the suggestion artifact.")

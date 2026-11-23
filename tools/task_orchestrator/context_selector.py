@@ -63,6 +63,8 @@ def _safe_index_path(value: Any) -> str:
         raise ContextSelectionError("Semantic index contains an invalid source path.")
     parts = value.split("/")
     protected = {".git", ".agent", ".secrets", "secrets", "credentials", "keystore", "signing", "release-assets"}
+    if parts[-1].casefold() in {"secrets.dart", "credentials.dart", "private_keys.dart"}:
+        raise ContextSelectionError(f"Protected source filename cannot enter agent context: {value}")
     if (value.startswith("/") or "\\" in value or any(p in {"", ".", ".."} for p in parts)
             or any(p.lower() in protected for p in parts)
             or any(ord(ch) < 32 for ch in value)):

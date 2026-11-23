@@ -36,6 +36,14 @@ except ImportError:
     except ImportError:
         from envelope_builder import EnvelopeBuildError, build_agent_envelope
 
+try:
+    from .context_selector import ContextSelectionError, select_context
+except ImportError:
+    try:
+        from tools.task_orchestrator.context_selector import ContextSelectionError, select_context
+    except ImportError:
+        from context_selector import ContextSelectionError, select_context
+
 SCHEMA_VERSION = 1
 REQUIRED_CONTEXT = (
     "AGENTS.md",
@@ -443,6 +451,43 @@ def command_build_envelope(args: argparse.Namespace) -> None:
     )
 
 
+def command_suggest_context(args: argparse.Namespace) -> None:
+    root = repository_root()
+    record, task_record_path = load_record(root, args.task_id)
+    require_state(record, "prepared", "implementation", "verification")
+    require_task_branch(root, record)
+    try:
+        result = select_context(
+            root=root,
+            task_record=record,
+            query=args.query,
+            resolved_index_path=Path(args.resolved_index),
+            critical_paths_path=Path(args.critical_paths),
+            limit=args.limit,
+        )
+    except ContextSelectionError as exc:
+        raise TaskError(f"Context selection blocked: {exc}") from exc
+    target_dir = task_record_path.parent
+    target = target_dir / f"context_suggestions_{result['query_sha256'][:12]}.json"
+    encoded = (json.dumps(result, ensure_ascii=False, indent=2) + "\\n").encode("utf-8")
+    if target.exists():
+        if target.is_symlink() or target.read_bytes() != encoded:
+            raise TaskError("An existing context-suggestion artifact differs; refusing to overwrite it.")
+        print(f"Context suggestions are already current: {target.relative_to(root)}")
+        return
+    target_dir.mkdir(parents=True, exist_ok=True)
+    temporary = target.with_suffix(".json.tmp")
+    temporary.write_bytes(encoded)
+    temporary.replace(target)
+    print(
+        f"Ranked {result['candidate_count']} in-scope source file(s); "
+        f"wrote {len(result['suggestions'])} suggestions to {target.relative_to(root)}. "
+        "Suggestions are advisory; task scope and context were not changed."
+    )
+    for item in result["suggestions"]:
+        print(f"  {item['score']:>3}  {item['path']}  [{', '.join(item['reasons'])}]")
+
+
 def command_impact(args: argparse.Namespace) -> None:
     root = repository_root()
     record, path = load_record(root, args.task_id)
@@ -735,6 +780,13 @@ def build_parser() -> argparse.ArgumentParser:
     init.add_argument("--context", action="append", default=[], metavar="REPO_PATH",
                       help="Explicit source file to include in agent context (repeatable).")
     init.set_defaults(func=command_init)
+    suggest = sub.add_parser("suggest-context", help="Rank in-scope source files from verified semantic artifacts; advisory only.")
+    suggest.add_argument("--task-id", required=True)
+    suggest.add_argument("--query", required=True, help="Plain-language task request; treated only as search text.")
+    suggest.add_argument("--resolved-index", required=True, metavar="JSON_PATH")
+    suggest.add_argument("--critical-paths", required=True, metavar="JSON_PATH")
+    suggest.add_argument("--limit", type=int, default=12)
+    suggest.set_defaults(func=command_suggest_context)
     envelope = sub.add_parser("build-envelope", help="Verify the pinned context and create a local v1.1 agent input envelope.")
     envelope.add_argument("--task-id", required=True)
     envelope.set_defaults(func=command_build_envelope)

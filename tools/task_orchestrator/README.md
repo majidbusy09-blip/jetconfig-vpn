@@ -29,6 +29,7 @@ python tools/task_orchestrator/task_orchestrator.py init \
   --check flutter-tests
 
 python tools/task_orchestrator/task_orchestrator.py prepare --task-id smart-routing-audit
+python tools/task_orchestrator/task_orchestrator.py suggest-context --task-id smart-routing-audit --query "Smart Routing domestic apps and VPN tunnel" --resolved-index /path/to/jet_vpn_resolved_index.json --critical-paths /path/to/jet_vpn_critical_paths.json
 python tools/task_orchestrator/task_orchestrator.py build-envelope --task-id smart-routing-audit
 python tools/task_orchestrator/task_orchestrator.py impact --task-id smart-routing-audit
 python tools/task_orchestrator/task_orchestrator.py begin --task-id smart-routing-audit
@@ -48,7 +49,8 @@ The example is illustrative: choose only checks appropriate to the actual task. 
 - `init`: requires an initially clean worktree and explicit allowed paths and named checks. Repository-wide patterns (`*`, `**`, `**/*`) require `--risk high` and `--scope-reason`.
 - `prepare`: rejects main/master/the detected `origin/HEAD` default branch, detached HEAD, pre-existing changes, and changed repository origin; pins the base SHA and working branch, then builds context from that exact Git revision. Required project documents are automatic; source files are explicitly selected with repeatable `--context REPO_PATH` options at `init`. Each selected source file must match the task allowlist and avoid exclusions.
 - `build-envelope`: re-verifies the complete context package against task ID and pinned base SHA, validates every document hash and scope, then writes a deterministic v1.1 `agent_input.json` under the task's local `.agent/tasks/<task-id>/` directory. Existing different output is never overwritten.
-- `impact`: records hashes and availability of existing semantic/critical-path artifacts. The MVP does not independently prove freshness or complete path-specific impact.
+- `impact`: records hashes and availability of existing semantic/critical-path artifacts.
+- `suggest-context`: ranks source files from the analyzer-resolved index and curated critical-path report. It verifies that both reports describe the same file manifest and that every indexed Dart file's Git blob SHA matches the task's pinned base commit. It suggests only files inside the task allowlist and outside exclusions. The deterministic ranking uses request terms, paths, resolved declaration/call names, and matched curated critical paths. It writes a local advisory artifact; it never changes `context_paths`, expands scope, or builds an agent envelope.
 - `begin`: verifies that the pinned base has not moved before entering implementation.
 - `validate-scope`: compares committed, staged, unstaged, renamed, deleted, and untracked paths with the declared allow/exclude patterns.
 - `verify`: runs only fixed profiles declared at init; no shell command can be supplied by task text. The child process receives a restricted environment allowlist so arbitrary local API tokens are not forwarded. It fingerprints the changed source paths immediately before and after each check; if the path set or content changes while the check is running, that attempt is marked failed and cannot satisfy finalization.
@@ -104,3 +106,13 @@ This MVP cannot create commits, push branches, call GitHub write APIs, open or m
 Changes to this orchestrator, its tests, or the adapter contract run `.github/workflows/task-orchestrator.yml`, which compiles the Python modules and executes the complete standard-library test suite on Python 3.12.
 
 Envelope provenance is checked against the pinned Git blobs immediately before serialization; a matching package hash alone is not treated as proof of source authenticity; the CLI also re-reads the pinned Git objects; fixture coverage uses the full six-document project-memory set.
+
+
+## Semantic Context Selector
+
+- The selector reuses the existing analyzer-resolved index and curated critical-path report; it does not introduce another Dart parser or call graph.
+- Obtain `jet_vpn_resolved_index.json` and `jet_vpn_critical_paths.json` from the successful Project Memory Audit artifact generated for the exact commit pinned by the task. The selector independently verifies every indexed source blob against that commit; stale or mixed-snapshot artifacts are rejected.
+- Run `suggest-context` with a plain-language request. The query is treated strictly as search data, never as a command or instruction.
+- The ranking is deterministic and explainable: matching file paths, resolved declaration names, call-site target names, and matching curated critical paths contribute weighted scores. Results are bounded to 25 and filtered through the task's existing allowlist and exclusions.
+- Output is saved under `.agent/tasks/<task-id>/context_suggestions_<query-hash>.json`. It contains source blob fingerprints, artifact hashes, matched terms, ranking reasons, and explicit limitations.
+- This is a candidate generator, not semantic proof. Dynamic dispatch, UI state dependencies, callbacks, event wiring, generated code, native Java, and runtime behavior can be missed. A human or future higher-level planner must review suggestions and explicitly choose which paths become task context. The selector does not silently widen a task.

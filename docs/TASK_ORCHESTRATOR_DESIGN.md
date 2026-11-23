@@ -24,7 +24,7 @@ Do not build a second Dart parser, call graph, or CI validation framework. Consu
 
 The first MVP is intentionally a single standard-library Python CLI to minimize duplicated abstractions and make its control flow auditable. It currently lives in `tools/task_orchestrator/task_orchestrator.py`, with integration tests in `tools/task_orchestrator/tests/` and usage documentation in `tools/task_orchestrator/README.md`. Split modules only when concrete complexity justifies it.
 
-Implemented commands: `init`, `prepare`, `impact`, `begin`, `validate-scope`, `verify`, and `finalize`.
+Implemented commands: `init`, `prepare`, `impact`, `suggest-context`, `build-envelope`, `begin`, `validate-scope`, `verify`, and `finalize`.
 
 Task records live under `.agent/tasks/<task-id>/` on the working branch. They contain metadata and hashes, not source contents, credentials, environment variables, or full command output.
 
@@ -128,3 +128,12 @@ The MVP is ready for broader use only when:
 - Whether task records should be committed with every PR or stored as CI artifacts for low-risk tasks; default proposal is committed records for material tasks and CI artifacts for transient diagnostics.
 - Whether impact analysis should initially require a fresh semantic artifact or allow a clearly marked unavailable state; default proposal is allow unavailable but block claims of complete impact analysis.
 - Whether GitHub PR creation belongs in a later plugin/connector workflow rather than the local CLI; default proposal is defer it.
+
+
+## 8. Semantic context selection
+
+The selector consumes the existing analyzer-resolved index and curated critical-path report; it does not create a parallel parser or graph. It requires both artifacts to describe the same source-file manifest, then verifies every indexed Dart file's Git blob ID against the task's pinned base commit. It rejects stale/mixed artifacts, malformed manifests, protected paths, and source paths outside the verified index.
+
+Ranking is deterministic and explainable: request/task terms are matched against source paths, resolved declaration names, and call-site targets; matched curated critical paths add weighted evidence to their reachable declaration files. Results are filtered by the task's pre-existing allowlist/exclusions and bounded to 25 candidates. The query is data only and is never executed.
+
+The command writes a local suggestion artifact. It never modifies `context_paths`, expands allowed scope, changes source files, or calls a model. The output is advisory because static reachability is not runtime behavior and can miss UI state, callback/event wiring, dynamic dispatch, generated code, and native Java integration. Explicit path selection remains a separate decision.

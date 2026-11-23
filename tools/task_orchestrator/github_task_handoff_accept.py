@@ -185,7 +185,7 @@ def _read_json(path: Path) -> Any:
     raw = path.read_bytes()
     if len(raw) > 2_000_000:
         raise HandoffAcceptanceError("Handoff file exceeds the 2 MB safety limit.")
-    if raw.startswith(b"PK\\x03\\x04"):
+    if raw.startswith(b"PK\x03\x04"):
         try:
             with zipfile.ZipFile(io.BytesIO(raw)) as archive:
                 files = [item for item in archive.infolist() if not item.is_dir()]

@@ -156,7 +156,7 @@ python -m tools.task_orchestrator.github_task_protocol --body-file issue-body.md
 
 The validator is local-only: it performs no GitHub API call, model request, shell execution, or patch application. It enforces a strict schema, supported agent/capability/risk values, fixed verification profiles, bounded text, and protected-path rules. See `docs/MULTI_AGENT_GITHUB_PROTOCOL.md`.
 
-Important: Issue comments are not an atomic lock. Until compare-and-swap claims and automated dispatch are implemented, only one agent may actively implement a task; other agents may perform read-only review. This protocol does not imply that each GitHub App has the same write, shell, or Actions permissions.
+Important: Issue comments are not an atomic lock. Acquire a lease with `github_lease_git.py` before editing; until provider runtimes and automatic dispatch are connected, keep one active implementation agent per task. Other agents may perform read-only review. This protocol does not imply that each GitHub App has the same write, shell, or Actions permissions.
 
 ## GitHub Issue intake bridge
 

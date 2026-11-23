@@ -2,6 +2,10 @@
 
 This standard-library-only Python tool records a task lifecycle and enforces a small set of safety gates. It is an evidence recorder and workflow guard, not an autonomous coding agent.
 
+## Next phase: coding-agent adapter
+
+The provider-neutral design contract is documented in [`docs/CODING_AGENT_ADAPTER_CONTRACT.md`](../../docs/CODING_AGENT_ADAPTER_CONTRACT.md). It specifies the future task/result envelope, isolated patch workflow, permission boundary, and validation gates. It is design only: this MVP does not connect a model provider or execute agent-generated patches.
+
 ## Requirements
 
 - Python 3.10 or newer (CI currently uses Python 3.12).

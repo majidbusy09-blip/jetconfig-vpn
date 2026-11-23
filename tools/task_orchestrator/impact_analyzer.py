@@ -13,9 +13,9 @@ from pathlib import Path
 from typing import Any
 
 try:
-    from .context_selector import REVISION_RE, _git_blob_sha, _read_json, _safe_index_path
+    from .context_selector import ContextSelectionError, REVISION_RE, _git_blob_sha, _read_json, _safe_index_path
 except ImportError:
-    from context_selector import REVISION_RE, _git_blob_sha, _read_json, _safe_index_path
+    from context_selector import ContextSelectionError, REVISION_RE, _git_blob_sha, _read_json, _safe_index_path
 
 MAX_CHANGED_PATHS = 500
 MAX_GRAPH_ENTRIES = 250_000
@@ -23,6 +23,27 @@ MAX_GRAPH_ENTRIES = 250_000
 
 class ImpactAnalysisError(ValueError):
     """Semantic evidence cannot safely support an impact report."""
+
+
+def _verified_read(path: Path, label: str):
+    try:
+        return _read_json(path, label)
+    except ContextSelectionError as exc:
+        raise ImpactAnalysisError(str(exc)) from exc
+
+
+def _verified_path(value: Any) -> str:
+    try:
+        return _safe_index_path(value)
+    except ContextSelectionError as exc:
+        raise ImpactAnalysisError(str(exc)) from exc
+
+
+def _verified_blob(root: Path, revision: str, path: str) -> str:
+    try:
+        return _git_blob_sha(root, revision, path)
+    except ContextSelectionError as exc:
+        raise ImpactAnalysisError(str(exc)) from exc
 
 
 def _valid_changed_path(value: Any) -> str:
@@ -56,8 +77,8 @@ def analyze_impact(*, root: Path, task_record: dict[str, Any],
             or not isinstance(excluded, list) or not all(isinstance(x, str) for x in excluded)):
         raise ImpactAnalysisError("Task scope metadata is malformed.")
 
-    index, index_raw = _read_json(resolved_index_path, "Resolved semantic index")
-    report, report_raw = _read_json(critical_paths_path, "Critical-path report")
+    index, index_raw = _verified_read(resolved_index_path, "Resolved semantic index")
+    report, report_raw = _verified_read(critical_paths_path, "Critical-path report")
     if (index.get("schema_version") != 2
             or index.get("analysis_mode") != "dart_analyzer_resolved_elements_multi_file"):
         raise ImpactAnalysisError("Unsupported or non-resolved semantic-index schema.")
@@ -76,12 +97,15 @@ def analyze_impact(*, root: Path, task_record: dict[str, Any],
     for item in files:
         if not isinstance(item, dict):
             raise ImpactAnalysisError("Resolved index contains a malformed file entry.")
-        path = _safe_index_path(item.get("path"))
+        path = _verified_path(item.get("path"))
         digest = item.get("git_blob_sha")
         if not isinstance(digest, str) or not re.fullmatch(r"(?:[0-9a-f]{40}|[0-9a-f]{64})", digest):
             raise ImpactAnalysisError(f"Invalid source fingerprint for {path}.")
         if path in by_path:
             raise ImpactAnalysisError(f"Duplicate source path in semantic index: {path}")
+        error_count = item.get("error_count", 0)
+        if not isinstance(error_count, int) or isinstance(error_count, bool) or error_count < 0:
+            raise ImpactAnalysisError(f"Invalid analyzer error count for {path}.")
         by_path[path] = item
 
     declarations, call_sites, critical = index.get("declarations"), index.get("call_sites"), report.get("paths")
@@ -105,7 +129,7 @@ def analyze_impact(*, root: Path, task_record: dict[str, Any],
                 reason = "outside_indexed_dart_source"
             unknown.append({"path": path, "reason": reason})
             continue
-        if _git_blob_sha(root, base_sha, path) != by_path[path]["git_blob_sha"]:
+        if _verified_blob(root, base_sha, path) != by_path[path]["git_blob_sha"]:
             raise ImpactAnalysisError(f"Semantic index is stale for changed source at pinned base: {path}")
         indexed_changed.append(path)
 
@@ -151,7 +175,7 @@ def analyze_impact(*, root: Path, task_record: dict[str, Any],
         for declaration in reachable:
             if not isinstance(declaration, dict):
                 raise ImpactAnalysisError("Critical path has malformed declaration metadata.")
-            source_path = _safe_index_path(declaration.get("source_path"))
+            source_path = _verified_path(declaration.get("source_path"))
             if source_path not in by_path:
                 raise ImpactAnalysisError(f"Critical path references an unindexed source: {source_path}")
             if source_path in changed_set:

@@ -602,21 +602,30 @@ def command_impact(args: argparse.Namespace) -> None:
         raise TaskError("Task has no pinned base SHA.")
     changed = [item for item in changed_paths(root, base_sha)
                if not is_task_metadata(item, args.task_id)]
-    try:
-        result = analyze_impact(
-            root=root, task_record=record, changed_paths=changed,
-            resolved_index_path=Path(args.resolved_index),
-            critical_paths_path=Path(args.critical_paths),
-        )
-    except ImpactAnalysisError as exc:
-        raise TaskError(f"Verified impact analysis blocked: {exc}") from exc
+    if not changed:
+        result = {
+            "schema_version": 1, "task_id": args.task_id, "source_revision": base_sha,
+            "status": "not_applicable_no_changed_paths", "changed_paths": [],
+            "indexed_changed_paths": [], "not_indexed_or_unknown": [],
+            "impacted_critical_paths": [], "recommended_verification_profiles": [],
+            "risk_flags": [], "limitations": ["No source or repository paths differ from the pinned base; semantic artifacts were not needed."],
+        }
+    else:
+        try:
+            result = analyze_impact(
+                root=root, task_record=record, changed_paths=changed,
+                resolved_index_path=Path(args.resolved_index),
+                critical_paths_path=Path(args.critical_paths),
+            )
+        except (ImpactAnalysisError, ContextSelectionError) as exc:
+            raise TaskError(f"Verified impact analysis blocked: {exc}") from exc
     target = task_record_path.parent / "impact_report.json"
     encoded = (json.dumps(result, ensure_ascii=False, indent=2) + "\\n").encode("utf-8")
     temporary = target.with_suffix(".json.tmp")
     temporary.write_bytes(encoded)
     temporary.replace(target)
     record["impact_analysis"] = {
-        "status": "completed_with_unknowns" if result["not_indexed_or_unknown"] else "completed",
+        "status": result.get("status") or ("completed_with_unknowns" if result["not_indexed_or_unknown"] else "completed"),
         "report_path": target.relative_to(root).as_posix(),
         "report_sha256": sha256_bytes(encoded),
         "source_revision": base_sha,
@@ -629,6 +638,7 @@ def command_impact(args: argparse.Namespace) -> None:
     record["updated_at"] = now_iso()
     save_record(record, task_record_path)
     print(f"Verified impact report: {target.relative_to(root)}")
+    print(f"Analysis status: {result.get('status', 'completed')}")
     print(f"Changed paths: {len(result['changed_paths'])}; indexed: {len(result['indexed_changed_paths'])}; unknown: {len(result['not_indexed_or_unknown'])}")
     print("Impacted critical paths: " + (", ".join(str(item["id"]) for item in result["impacted_critical_paths"]) or "none identified"))
     print("Suggested profiles (advisory): " + (", ".join(result["recommended_verification_profiles"]) or "none"))

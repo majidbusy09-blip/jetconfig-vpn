@@ -5,6 +5,7 @@ applies patches, or treats agent claims as verified facts.
 """
 from __future__ import annotations
 
+import fnmatch
 import json
 import re
 from pathlib import PurePosixPath
@@ -278,7 +279,6 @@ def validate_result(data: Any, envelope: dict) -> dict:
     if len(set(normalized)) != len(normalized):
         _fail("changed_paths contains duplicates")
     scope = envelope["scope"]
-    import fnmatch
     for path in normalized:
         if not any(_path_matches(path, pattern) for pattern in scope["allowed_paths"]):
             _fail(f"changed path is outside allowed scope: {path}")

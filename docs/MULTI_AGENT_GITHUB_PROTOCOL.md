@@ -66,7 +66,7 @@ No model API key is required to use this Issue protocol or the Git lease transpo
 - GitHub Issue template and event-driven intake validation/artifact workflow: active on the default branch; it validates and packages tasks but does not dispatch an agent.
 - Lease state machine: implemented and tested, including renewal.
 - Git transport adapter: implemented; CI verifies its commit construction and server-side force-with-lease behavior against a local bare remote. A live GitHub concurrent-claim test remains outstanding.
-- Live concurrent-claim race test against GitHub: not yet performed; CI validates Git CAS behavior against a local bare remote.
+- Live concurrent-claim race test against GitHub: implemented as a trusted-main push workflow, pending its first run after merge; PR code cannot invoke the write-enabled probe.
 - Provider runtime integration and automatic ChatGPT/Grok wake-up: not implemented.
 - Until the live race test and provider runtime integration are complete, use the lease adapter explicitly and keep one active implementation agent per task. Read-only review by another agent is permitted.
 - Human review and explicit approval for merge/release/deploy remain mandatory.

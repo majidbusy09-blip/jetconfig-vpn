@@ -61,7 +61,7 @@ The timestamp defaults to current UTC; \`--now\` is available for deterministic 
 
 - Local lease schema/state-machine logic and adversarial tests are implemented.
 - The Git transport adapter and tests for its CAS push construction are implemented.
-- CI exercises Git commit construction and stale compare-and-swap rejection against a local bare Git remote. After this PR is merged, a separate trusted-main workflow will race two writers against a disposable GitHub ref and remove the probe ref. That live test is not run from PR code.
+- CI exercises Git commit construction and stale compare-and-swap rejection against a local bare Git remote. The trusted-main live probe passed on 2026-11-23 (Actions run `45176916962`): two concurrent writers used the same expected old SHA, exactly one push succeeded, the resulting ref matched that winner, and the disposable probe ref was deleted.
 - The adapter is not yet wired into the Issue intake workflow or either provider's execution runtime. No automatic ChatGPT/Grok wake-up or dispatch exists.
 - Until a live race test and provider runtime integration are completed, keep one active implementation agent per task. Read-only review by another agent is permitted.
 - The Issue intake workflow remains read-only (\`contents: read\`, \`issues: read\`) and only validates task payloads and uploads a task artifact. That artifact is not a lease or execution grant.

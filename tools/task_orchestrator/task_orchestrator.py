@@ -258,6 +258,34 @@ def require_state(record: dict[str, Any], *states: str) -> None:
         raise TaskError(f"Operation requires state {', '.join(states)}; current state is {record.get('state')}.")
 
 
+def require_task_branch(root: Path, record: dict[str, Any]) -> None:
+    """Reject branch/remote drift after preparation while allowing commits on the pinned branch."""
+    repository = record.get("repository", {})
+    expected_branch = repository.get("branch")
+    if not expected_branch:
+        raise TaskError("Task has no pinned working branch.")
+    actual_branch = run_git(root, "branch", "--show-current")
+    if actual_branch != expected_branch:
+        raise TaskError(
+            f"Working branch changed from '{expected_branch}' to '{actual_branch or 'detached HEAD'}'; "
+            "return to the pinned branch before continuing."
+        )
+    actual_origin = safe_remote_identity(
+        run_git(root, "remote", "get-url", "origin", check=False)
+    )
+    if actual_origin != repository.get("origin"):
+        raise TaskError("Repository origin changed after preparation.")
+    base_sha = repository.get("base_sha")
+    head_sha = run_git(root, "rev-parse", "HEAD")
+    ancestor = subprocess.run(
+        ["git", "merge-base", "--is-ancestor", base_sha, head_sha],
+        cwd=root, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+        check=False, shell=False,
+    )
+    if ancestor.returncode != 0:
+        raise TaskError("Pinned base is no longer an ancestor of HEAD; re-prepare on a fresh task/branch.")
+
+
 def command_init(args: argparse.Namespace) -> None:
     root = repository_root()
     clean_before_init(root)
@@ -341,6 +369,7 @@ def command_impact(args: argparse.Namespace) -> None:
     root = repository_root()
     record, path = load_record(root, args.task_id)
     require_state(record, "prepared", "implementation", "verification")
+    require_task_branch(root, record)
     candidates = [
         "docs/generated/jet_vpn_resolved_index.json",
         "docs/generated/jet_vpn_critical_paths.json",
@@ -386,6 +415,7 @@ def command_begin(args: argparse.Namespace) -> None:
     root = repository_root()
     record, path = load_record(root, args.task_id)
     require_state(record, "prepared")
+    require_task_branch(root, record)
     current = run_git(root, "rev-parse", "HEAD")
     if current != record["repository"]["base_sha"]:
         raise TaskError("Base SHA moved since prepare; re-prepare on a fresh task/branch rather than silently rebasing.")
@@ -401,6 +431,7 @@ def command_validate_scope(args: argparse.Namespace) -> None:
     root = repository_root()
     record, path = load_record(root, args.task_id)
     require_state(record, "prepared", "implementation", "verification")
+    require_task_branch(root, record)
     base = record.get("repository", {}).get("base_sha")
     if not base:
         raise TaskError("Task has no pinned base SHA.")
@@ -431,6 +462,7 @@ def command_verify(args: argparse.Namespace) -> None:
     root = repository_root()
     record, path = load_record(root, args.task_id)
     require_state(record, "implementation", "verification")
+    require_task_branch(root, record)
     profile = args.profile
     if profile not in record["planned_checks"]:
         raise TaskError(f"Profile '{profile}' was not declared in the task plan.")
@@ -490,6 +522,7 @@ def command_finalize(args: argparse.Namespace) -> None:
     root = repository_root()
     record, path = load_record(root, args.task_id)
     require_state(record, "verification", "implementation")
+    require_task_branch(root, record)
     if not args.reviewed_diff:
         raise TaskError("Finalization requires explicit --reviewed-diff confirmation after reviewing the complete diff.")
     if record.get("scope_validation", {}).get("status") != "passed":

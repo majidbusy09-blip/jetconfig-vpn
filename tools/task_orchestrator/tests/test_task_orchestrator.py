@@ -94,6 +94,9 @@ class OrchestratorIntegrationTests(unittest.TestCase):
         self.assertEqual(record["scope_validation"]["status"], "passed")
         self.assertEqual(record["check_attempts"][-1]["status"], "passed")
         self.assertTrue((self.record.parent / "HANDOFF.md").is_file())
+        handoff_relative = (self.record.parent / "HANDOFF.md").relative_to(self.root).as_posix()
+        self.assertIn(handoff_relative, record["changed_paths"])
+        self.assertIn(handoff_relative, record["final_diff"]["untracked_paths"])
 
     def test_refuses_protected_main_branch(self) -> None:
         git(self.root, "branch", "-m", "main")
@@ -285,6 +288,13 @@ class OrchestratorIntegrationTests(unittest.TestCase):
         self.assertEqual(attempt["exit_code"], 124)
         self.assertEqual(len(attempt["output_sha256"]), 64)
 
+
+    def test_unexpected_file_inside_task_directory_is_not_metadata_exempt(self) -> None:
+        self.prepared_task()
+        self.cli("begin", "--task-id", self.task_id)
+        extra = self.record.parent / "unexpected.txt"
+        extra.write_text("not an orchestrator-owned file", encoding="utf-8")
+        self.cli("validate-scope", "--task-id", self.task_id, expected=2)
 
 if __name__ == "__main__":
     unittest.main()

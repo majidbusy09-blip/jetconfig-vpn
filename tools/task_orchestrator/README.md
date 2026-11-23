@@ -157,3 +157,9 @@ python -m tools.task_orchestrator.github_task_protocol --body-file issue-body.md
 The validator is local-only: it performs no GitHub API call, model request, shell execution, or patch application. It enforces a strict schema, supported agent/capability/risk values, fixed verification profiles, bounded text, and protected-path rules. See `docs/MULTI_AGENT_GITHUB_PROTOCOL.md`.
 
 Important: Issue comments are not an atomic lock. Until compare-and-swap claims and automated dispatch are implemented, only one agent may actively implement a task; other agents may perform read-only review. This protocol does not imply that each GitHub App has the same write, shell, or Actions permissions.
+
+## GitHub Issue intake bridge
+
+Add the `agent-task` label to an open Issue containing the v1 marker and JSON payload. The `.github/workflows/agent-task-intake.yml` workflow validates the GitHub event with `github_issue_intake.py` and uploads a bounded JSON artifact for retrieval. The artifact binds the parsed task to the Issue URL, repository, issue number, and body digest.
+
+This is an intake/validation bridge only. It does not create a local task branch, claim a lease, invoke ChatGPT/Grok, call a model API, run implementation commands, apply patches, or upload source files. A validated artifact is marked `validated-awaiting-claim`; an agent must separately verify assignment, acquire a proven lease through a trusted CAS adapter, and prepare its isolated task workspace. Invalid or closed Issues fail closed.

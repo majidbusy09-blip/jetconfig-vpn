@@ -66,7 +66,7 @@ A failed gate returns a nonzero `BLOCKED` result and leaves the task at its last
 
 - Reject direct operation on `main`, `master`, and the default branch advertised by `refs/remotes/origin/HEAD`; other protected branch names are not queried from GitHub by this local MVP.
 - Require an isolated branch and a clean worktree at preparation time.
-- Pin the base SHA; detect base movement and require explicit rebase/re-prepare rather than silently changing the baseline.
+- Pin the base SHA and working branch; every stateful operation rejects branch/origin drift and a base that is no longer an ancestor of HEAD. Require explicit re-prepare rather than silently changing the baseline.
 - Require explicit allowed paths; repository-wide patterns (`*`, `**`, `**/*`) require `--risk high` and a non-empty `--scope-reason`.
 - Treat secrets and user data as sensitive; sanitize remote URL credentials/query tokens before recording repository identity. Do not store environment values or raw command output. Verification subprocesses receive only an explicit environment allowlist (PATH, home/temp, locale, and required Flutter/Android/Java cache/tool variables), not arbitrary API tokens.
 - Use subprocess argument arrays with `shell=False`, fixed command profiles, bounded timeouts, and controlled working directories.
@@ -79,7 +79,7 @@ A failed gate returns a nonzero `BLOCKED` result and leaves the task at its last
 
 The current integration suite covers:
 
-- protected main/default branch rejection;
+- protected main/default branch rejection and branch/detached-HEAD drift after preparation;
 - dirty worktree and base-SHA drift rejection;
 - missing mandatory context;
 - allowed/unexpected path detection, including rename and delete cases;

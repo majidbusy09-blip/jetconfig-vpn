@@ -57,8 +57,8 @@ The integration suite uses temporary Git repositories and covers lifecycle, scop
 
 ## Coding-agent contract validation (provider-neutral)
 
-- `agent_contract.py` validates task envelopes and structured results against contract version `1.0`; it is data validation only and does not connect a provider, execute commands, fetch artifacts, or apply patches.
-- Rejects unknown/missing fields, duplicate JSON keys, malformed/oversized JSON, invalid enums/types, unsafe or protected paths, out-of-scope/excluded changes, unknown verification profiles, arbitrary URL/shell patch references, invalid budgets/usage, and stale or mismatched context fingerprints.
+- `agent_contract.py` validates task envelopes and structured results against contract version `1.1`; it is data validation only and does not connect a provider, execute commands, fetch artifacts, or apply patches.
+- Rejects unknown/missing fields, duplicate JSON keys, malformed/oversized JSON, invalid enums/types, unsafe or protected paths, out-of-scope/excluded changes, unknown verification profiles, arbitrary URL/shell patch references, invalid budgets/usage, and stale or mismatched context fingerprints, missing context text, content/hash mismatches, and per-file/total context-size limits.
 - Patch references are opaque `artifact:sha256:<64-hex>` identifiers only. The artifact itself still requires independent patch parsing and acceptance gates before any future application.
 - Agent status and assertions are not verification evidence. Non-completed statuses cannot carry a patch; only the orchestrator may later record actual check outcomes or advance task state.
 - Run the fixture suite with `python -m unittest discover -s tools/task_orchestrator/tests -p 'test_*.py'`.
@@ -66,6 +66,7 @@ The integration suite uses temporary Git repositories and covers lifecycle, scop
 ## Read-only adapter prototype
 
 - `readonly_adapter.py` defines a minimal provider protocol: a provider receives only a deeply immutable, validated task envelope and returns structured data that is validated against the same task contract.
+- Project and source context are passed as bounded full-text documents, not just hashes; each document's SHA-256 is checked before the provider is called. The result echoes only path/hash fingerprints.
 - A deterministic fixture provider supports local tests. No model SDK, API key, network client, shell, Git, filesystem handle, patch fetcher, or patch applier is included.
 - The boundary rejects invalid envelopes before calling the provider and rejects malformed or contract-invalid provider output. Provider exception text is not copied into diagnostics.
 - Important limitation: this Python interface is not an OS-level sandbox. It only constrains the capabilities passed through this interface; any real provider implementation must be separately trusted, permission-limited, and reviewed. No live provider is connected.

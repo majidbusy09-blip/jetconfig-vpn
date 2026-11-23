@@ -6,12 +6,13 @@ applies patches, or treats agent claims as verified facts.
 from __future__ import annotations
 
 import fnmatch
+import hashlib
 import json
 import re
 from pathlib import PurePosixPath
 from typing import Any
 
-CONTRACT_VERSION = "1.0"
+CONTRACT_VERSION = "1.1"
 ALLOWED_CAPABILITIES = {"implementation", "bug_fix", "refactor", "documentation", "investigation"}
 ALLOWED_RISKS = {"low", "medium", "high"}
 ALLOWED_STATUSES = {"completed", "needs_clarification", "blocked", "failed"}
@@ -20,6 +21,8 @@ ALLOWED_PROFILES = {
     "python-tooling-tests", "flutter-tests", "flutter-analysis", "lexical-memory-audit"
 }
 MAX_JSON_BYTES = 1_000_000
+MAX_CONTEXT_FILE_BYTES = 256_000
+MAX_CONTEXT_TOTAL_BYTES = 512_000
 MAX_TEXT = 12_000
 MAX_ITEMS = 200
 MAX_FILES = 100
@@ -174,6 +177,30 @@ def _fingerprints(value: Any, name: str) -> list[dict]:
     return entries
 
 
+def _context_documents(value: Any, name: str) -> list[dict]:
+    """Validate bounded full-text context documents and their exact content hashes."""
+    entries = _records(value, name, max_items=MAX_FILES)
+    seen: set[str] = set()
+    total_bytes = 0
+    for item in entries:
+        _object(item, f"{name} entry", {"path", "sha256", "content"})
+        path = _path(item["path"], f"{name}.path")
+        digest = _sha(item["sha256"], f"{name}.sha256")
+        content = _text(item["content"], f"{name}.content", MAX_CONTEXT_FILE_BYTES)
+        encoded = content.encode("utf-8")
+        if len(encoded) > MAX_CONTEXT_FILE_BYTES:
+            _fail(f"{name}.content exceeds the per-file byte limit")
+        total_bytes += len(encoded)
+        if total_bytes > MAX_CONTEXT_TOTAL_BYTES:
+            _fail(f"{name} exceeds the total context byte limit")
+        if hashlib.sha256(encoded).hexdigest() != digest:
+            _fail(f"{name} content hash does not match its fingerprint")
+        if path in seen:
+            _fail(f"{name} contains duplicate paths")
+        seen.add(path)
+    return entries
+
+
 def _budget(value: Any) -> dict:
     limits = {
         "max_wall_seconds": MAX_WALL_SECONDS,
@@ -225,8 +252,8 @@ def validate_envelope(data: Any) -> dict:
         _path(item, "scope.excluded_paths[]", pattern=True)
     _text(scope["scope_reason"], "scope.scope_reason", 2_000, empty=True)
 
-    _fingerprints(obj["project_context"], "project_context")
-    _fingerprints(obj["source_context"], "source_context")
+    _context_documents(obj["project_context"], "project_context")
+    _context_documents(obj["source_context"], "source_context")
     semantic = _object(obj["semantic_context"], "semantic_context",
                        {"status", "source_sha", "summary", "limitations"})
     _enum(semantic["status"], {"current", "stale", "unavailable"}, "semantic_context.status")

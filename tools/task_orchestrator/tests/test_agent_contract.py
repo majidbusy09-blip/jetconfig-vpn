@@ -1,4 +1,5 @@
 import copy
+import hashlib
 import json
 import unittest
 
@@ -12,11 +13,15 @@ from tools.task_orchestrator.agent_contract import (
 SHA_A = "a" * 64
 SHA_B = "b" * 64
 SHA_C = "c" * 64
+PROJECT_TEXT = "# Agent rules\\nFollow the repository safety contract.\\n"
+SOURCE_TEXT = "class RoutingPolicy {}\\n"
+PROJECT_SHA = hashlib.sha256(PROJECT_TEXT.encode()).hexdigest()
+SOURCE_SHA = hashlib.sha256(SOURCE_TEXT.encode()).hexdigest()
 
 
 def envelope():
     return {
-        "contract_version": "1.0",
+        "contract_version": "1.1",
         "task_id": "smart-routing-fix",
         "goal": "Fix the scoped Smart Routing regression safely.",
         "capability": "bug_fix",
@@ -32,8 +37,8 @@ def envelope():
             "excluded_paths": ["lib/generated/**"],
             "scope_reason": "",
         },
-        "project_context": [{"path": "AGENTS.md", "sha256": SHA_B}],
-        "source_context": [{"path": "lib/main.dart", "sha256": SHA_C}],
+        "project_context": [{"path": "AGENTS.md", "sha256": PROJECT_SHA, "content": PROJECT_TEXT}],
+        "source_context": [{"path": "lib/routing_policy.dart", "sha256": SOURCE_SHA, "content": SOURCE_TEXT}],
         "semantic_context": {
             "status": "current",
             "source_sha": SHA_A,
@@ -79,9 +84,10 @@ def result_for(env=None):
         "risks": ["Device-level VPN routing still needs physical validation."],
         "handoff_notes": "Review the patch and verify on a device.",
         "usage": {"wall_seconds": 60, "tokens": 1200, "tool_calls": 8, "patch_bytes": 4096},
-        "context_fingerprints": copy.deepcopy(
-            env["project_context"] + env["source_context"]
-        ),
+        "context_fingerprints": [
+            {"path": item["path"], "sha256": item["sha256"]}
+            for item in env["project_context"] + env["source_context"]
+        ],
     }
 
 
@@ -255,6 +261,31 @@ class AgentContractTests(unittest.TestCase):
         bad["assumptions"][0]["confidence"] = "certain"
         with self.assertRaises(ContractValidationError):
             validate_result(bad, envelope())
+
+    def test_context_documents_must_include_hash_matched_bounded_text(self):
+        bad = envelope()
+        bad["project_context"][0]["content"] = "tampered instructions"
+        with self.assertRaises(ContractValidationError):
+            validate_envelope(bad)
+
+        bad = envelope()
+        del bad["source_context"][0]["content"]
+        with self.assertRaises(ContractValidationError):
+            validate_envelope(bad)
+
+        bad = envelope()
+        bad["source_context"][0]["content"] = "x" * 256_001
+        bad["source_context"][0]["sha256"] = hashlib.sha256(
+            bad["source_context"][0]["content"].encode()
+        ).hexdigest()
+        with self.assertRaises(ContractValidationError):
+            validate_envelope(bad)
+
+    def test_context_documents_reject_duplicate_paths(self):
+        bad = envelope()
+        bad["project_context"].append(copy.deepcopy(bad["project_context"][0]))
+        with self.assertRaises(ContractValidationError):
+            validate_envelope(bad)
 
     def test_reject_stale_or_missing_context_fingerprints(self):
         for fingerprints in (

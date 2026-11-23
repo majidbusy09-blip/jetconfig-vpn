@@ -54,8 +54,9 @@ An adapter receives one immutable task envelope. Required fields:
 - `risk`: low, medium, or high.
 - `repository`: canonical repository identity, branch, pinned base SHA, and workspace root identifier.
 - `scope`: explicit allowed and excluded path patterns plus any approved scope reason.
-- `project_context`: required instruction/document excerpts and their SHA-256 fingerprints.
-- `source_context`: only relevant source excerpts/files and their blob/content fingerprints.
+- `project_context`: bounded full-text instruction/document content, path, and SHA-256 of the exact UTF-8 content supplied.
+- `source_context`: bounded full-text source files relevant to the task, with path and SHA-256 of the exact UTF-8 content supplied. Context files are capped at 256 KB each and 512 KB combined across each context collection; oversized files must be curated into explicit excerpts by the context builder, never silently truncated.
+- 
 - `semantic_context`: available AST/resolved-index/critical-path summaries with source SHA and explicit precision limitations; unavailable or stale artifacts must be marked as such.
 - `constraints`: invariants, prohibited paths/actions, compatibility requirements, and known risks.
 - `budgets`: maximum wall-clock time, model tokens, tool calls, changed files, and patch bytes.
@@ -132,7 +133,7 @@ The task record must distinguish agent assertions from orchestrator-verified fac
 ## 9. Rollout sequence
 
 1. **Contract only (this phase):** agree on input/output schema, permissions, and rejection behavior. No provider integration.
-2. **Schema and fixture tests (implemented on PR #20; latest CI pending):** `tools/task_orchestrator/agent_contract.py` validates envelope/result shape, enums, normalized paths, scope, protected paths, budgets, fixed profiles, opaque patch references, and context fingerprints. `tools/task_orchestrator/tests/test_agent_contract.py` exercises adversarial fixtures. This is validation-only and does not execute or apply anything.
+2. **Schema and fixture tests (implemented on PR #20; latest CI pending):** `tools/task_orchestrator/agent_contract.py` validates envelope/result shape, enums, normalized paths, scope, protected paths, budgets, fixed profiles, opaque patch references, and bounded full-text context with exact SHA-256 verification. `tools/task_orchestrator/tests/test_agent_contract.py` exercises adversarial fixtures. The read-only adapter now receives actual bounded project/source text, not only path/hash metadata. This is validation-only and does not execute or apply anything.
 3. **Read-only adapter prototype:** after this validator phase passes CI and review, connect one provider for context/reasoning only; no filesystem writes or patch application.
 4. **Sandboxed patch prototype:** allow patch production in a disposable workspace; test rejection and cleanup behavior.
 5. **Orchestrator integration:** accept validated patches, run scope and fixed verification gates, and generate handoff.

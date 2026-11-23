@@ -5,13 +5,13 @@ runs commands, or fetches an artifact.
 """
 from __future__ import annotations
 
-import fnmatch
 import re
 from typing import Any
 
 from tools.task_orchestrator.agent_contract import (
     ContractValidationError,
     _path,
+    _path_matches,
     validate_envelope,
 )
 
@@ -35,9 +35,9 @@ def _safe_patch_path(raw: str, envelope: dict) -> str:
         raise PatchValidationError(str(exc)) from exc
 
     scope = envelope["scope"]
-    if not any(fnmatch.fnmatchcase(path, pattern) for pattern in scope["allowed_paths"]):
+    if not any(_path_matches(path, pattern) for pattern in scope["allowed_paths"]):
         _reject(f"patch path is outside allowed scope: {path}")
-    if any(fnmatch.fnmatchcase(path, pattern) for pattern in scope["excluded_paths"]):
+    if any(_path_matches(path, pattern) for pattern in scope["excluded_paths"]):
         _reject(f"patch path is explicitly excluded: {path}")
     return path
 

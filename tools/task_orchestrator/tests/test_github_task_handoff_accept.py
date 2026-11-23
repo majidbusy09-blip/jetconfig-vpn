@@ -1,6 +1,8 @@
 import base64
 import io
 import json
+import os
+import subprocess
 import tempfile
 import unittest
 import zipfile
@@ -11,6 +13,7 @@ from tools.task_orchestrator.github_lease import make_lease
 from tools.task_orchestrator.github_task_handoff import build_task_handoff
 from tools.task_orchestrator.github_task_handoff_accept import (
     HandoffAcceptanceError, validate_handoff_for_acceptance, _read_json,
+    accept_handoff,
     _read_current_lease,
 )
 
@@ -190,6 +193,87 @@ class HandoffAcceptanceTests(unittest.TestCase):
         ):
             with self.assertRaisesRegex(HandoffAcceptanceError, "moved"):
                 _read_current_lease(REPOSITORY, TASK_ID, "read-token")
+
+
+    def test_accept_handoff_builds_local_envelope_on_exact_pinned_branch(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder) / "repository"
+            root.mkdir()
+            def git(*args):
+                return subprocess.run(
+                    ["git", *args], cwd=root, check=True, capture_output=True, text=True
+                ).stdout.strip()
+
+            git("init", "-q")
+            git("config", "user.name", "Handoff Acceptance Test")
+            git("config", "user.email", "handoff-test@example.invalid")
+            git("remote", "add", "origin", "https://github.com/owner/repository.git")
+            docs = {
+                "AGENTS.md": "Project agent instructions.\n",
+                "docs/PROJECT_CONTEXT.md": "Project context.\n",
+                "docs/CURRENT_STATUS.md": "Current status.\n",
+                "docs/NEXT_STEPS.md": "Next steps.\n",
+                "docs/TASK_TEMPLATE.md": "Task template.\n",
+                "docs/DEVELOPMENT_LOG.md": "Development log.\n",
+            }
+            for name, body in docs.items():
+                target = root / name
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_text(body, encoding="utf-8")
+            git("add", ".")
+            git("commit", "-m", "fixture base")
+            git("switch", "-c", "agent/sample-task")
+            base_sha = git("rev-parse", "HEAD")
+
+            event_payload = issue_event()
+            lease_record = make_lease(
+                task_id=TASK_ID, owner="chatgpt", claim_id=CLAIM,
+                base_sha=base_sha, now=NOW, duration_minutes=120,
+            )
+            lease_payload = {
+                "operation": "claim", "task_id": TASK_ID, "issue_number": 42,
+                "issue_url": "https://github.com/owner/repository/issues/42",
+                "result": {
+                    "task_id": TASK_ID, "owner": "chatgpt", "claim_id": CLAIM,
+                    "status": "active", "base_sha": base_sha,
+                    "expires_at": lease_record["expires_at"],
+                    "lock_branch": "agent-locks/" + TASK_ID,
+                    "lock_commit": LOCK_COMMIT, "verified": True,
+                },
+            }
+            handoff = build_task_handoff(
+                event_payload, lease_payload, run_id=123, run_attempt=1, now=NOW
+            )
+            artifact = Path(folder) / "task-handoff.json"
+            artifact.write_text(json.dumps(handoff), encoding="utf-8")
+            issue = current_issue()
+            previous = Path.cwd()
+            try:
+                os.chdir(root)
+                with patch(
+                    "tools.task_orchestrator.github_task_handoff_accept.api_get",
+                    return_value=issue,
+                ), patch(
+                    "tools.task_orchestrator.github_task_handoff_accept._read_current_lease",
+                    return_value=(lease_record, LOCK_COMMIT),
+                ):
+                    output = accept_handoff(
+                        artifact, token="read-token", repository=REPOSITORY
+                    )
+            finally:
+                os.chdir(previous)
+
+            self.assertTrue(output.is_file())
+            envelope = json.loads(output.read_text(encoding="utf-8"))
+            self.assertEqual(envelope["task_id"], TASK_ID)
+            self.assertEqual(len(envelope["project_context"]), 6)
+            self.assertEqual(envelope["source_context"], [])
+            record = json.loads(
+                (root / ".agent" / "tasks" / TASK_ID / "task.json").read_text(encoding="utf-8")
+            )
+            self.assertEqual(record["github_handoff"]["issue_number"], 42)
+            self.assertEqual(record["github_handoff"]["claim_id"], CLAIM)
+            self.assertEqual(git("rev-parse", "HEAD"), base_sha)
 
 
 if __name__ == "__main__":

@@ -156,6 +156,14 @@ class PatchGuardTests(unittest.TestCase):
         with self.assertRaises(PatchValidationError):
             validate_patch_text(patch, envelope(), ["tools/example.py"])
 
+    def test_rejects_file_diff_without_hunk_before_next_file(self):
+        first_without_hunk = diff().split("@@", 1)[0]
+        patch = first_without_hunk + diff("tools/second.py")
+        with self.assertRaises(PatchValidationError):
+            validate_patch_text(
+                patch, envelope(), ["tools/example.py", "tools/second.py"]
+            )
+
     def test_rejects_non_text_input(self):
         with self.assertRaises(PatchValidationError):
             validate_patch_text(b"not text", envelope(), ["tools/example.py"])

@@ -144,13 +144,14 @@ class HandoffAcceptanceTests(unittest.TestCase):
                 manifest(), current_issue(), lease, LOCK_COMMIT,
                 repository=REPOSITORY, now=NOW,
             )
-        payload = manifest()
-        payload["execution"]["model_called"] = True
-        with self.assertRaises(HandoffAcceptanceError):
-            validate_handoff_for_acceptance(
-                payload, current_issue(), current_lease(), LOCK_COMMIT,
-                repository=REPOSITORY, now=NOW,
-            )
+        for invalid_flag in (True, 0, "false"):
+            payload = manifest()
+            payload["execution"]["model_called"] = invalid_flag
+            with self.subTest(invalid_flag=invalid_flag), self.assertRaises(HandoffAcceptanceError):
+                validate_handoff_for_acceptance(
+                    payload, current_issue(), current_lease(), LOCK_COMMIT,
+                    repository=REPOSITORY, now=NOW,
+                )
 
 
     def test_reads_single_file_github_artifact_zip_without_extracting_paths(self):

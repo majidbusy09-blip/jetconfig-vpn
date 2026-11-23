@@ -344,6 +344,29 @@ class OrchestratorIntegrationTests(unittest.TestCase):
             attempt["verified_path_fingerprints"],
         )
 
+    def test_finalize_rejects_latest_failed_attempt_even_if_older_attempt_passed(self) -> None:
+        self.prepared_task()
+        self.cli("begin", "--task-id", self.task_id)
+        target = self.root / "docs/new-note.md"
+        target.write_text("implementation\\n", encoding="utf-8")
+        self.cli("validate-scope", "--task-id", self.task_id)
+        self.cli("verify", "--task-id", self.task_id, "--profile", "python-tooling-tests")
+        record = json.loads(self.record.read_text(encoding="utf-8"))
+        self.assertEqual(record["check_attempts"][-1]["status"], "passed")
+        failed_attempt = dict(record["check_attempts"][-1])
+        failed_attempt.update({
+            "status": "failed",
+            "exit_code": 1,
+            "output_sha256": "simulated-later-failure",
+            "finished_at": "2099-01-01T00:00:00+00:00",
+        })
+        record["check_attempts"].append(failed_attempt)
+        self.record.write_text(json.dumps(record, indent=2) + "\\n", encoding="utf-8")
+        self.cli("finalize", "--task-id", self.task_id, "--reviewed-diff", expected=2)
+        record = json.loads(self.record.read_text(encoding="utf-8"))
+        self.assertEqual(record["state"], "verification")
+        self.assertEqual(record["check_attempts"][-1]["status"], "failed")
+
     def test_finalize_rejects_checks_stale_after_scope_revalidation(self) -> None:
         self.prepared_task()
         self.cli("begin", "--task-id", self.task_id)

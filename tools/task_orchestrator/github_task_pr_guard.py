@@ -84,10 +84,11 @@ def read_lease(repository, task_id, token):
     ref = api_get(repository, "/git/ref/heads/" + urllib.parse.quote(branch, safe="/-"), token)
     try:
         lock_sha = ref["object"]["sha"]
+        lock_type = ref["object"]["type"]
     except (TypeError, KeyError) as exc:
         raise GuardError("Task lock ref is malformed.") from exc
-    if not isinstance(lock_sha, str) or not SHA_RE.fullmatch(lock_sha):
-        raise GuardError("Task lock ref SHA is invalid.")
+    if lock_type != "commit" or not isinstance(lock_sha, str) or not SHA_RE.fullmatch(lock_sha):
+        raise GuardError("Task lock ref must point to a full commit SHA.")
     query = urllib.parse.urlencode({"ref": lock_sha})
     item = api_get(repository, "/contents/.agent-locks/lease.json?" + query, token)
     if not isinstance(item, dict) or item.get("encoding") != "base64" or not isinstance(item.get("content"), str):
@@ -117,10 +118,14 @@ def changed_files(repository, number, token):
 def validate_paths(files, allow, exclude):
     if not isinstance(files, list) or not files:
         raise GuardError("Agent PR must contain at least one changed file.")
+    if len(files) > 100:
+        raise GuardError("Agent PR exceeds the 100-file contract limit.")
     paths = []
     for item in files:
         if not isinstance(item, dict) or not isinstance(item.get("filename"), str):
             raise GuardError("Changed-file entry is malformed.")
+        if item.get("status") not in {"added", "modified", "removed", "renamed"}:
+            raise GuardError("Unsupported changed-file status.")
         candidates = [item["filename"]]
         if item.get("status") == "renamed":
             old = item.get("previous_filename")
@@ -143,8 +148,8 @@ def validate_paths(files, allow, exclude):
 
 
 def validate_agent_pr(event, *, token, repository, now=None):
-    if not isinstance(event, dict) or not isinstance(event.get("pull_request"), dict):
-        raise GuardError("Pull request event is malformed.")
+    if not isinstance(event, dict) or event.get("action") not in {"opened", "synchronize", "reopened", "ready_for_review"} or not isinstance(event.get("pull_request"), dict):
+        raise GuardError("Pull request event is malformed or unsupported.")
     pr = event["pull_request"]
     envelope = parse_pr_envelope(pr.get("body"))
     if envelope is None:
@@ -154,22 +159,22 @@ def validate_agent_pr(event, *, token, repository, now=None):
     if not isinstance(event.get("repository"), dict) or event["repository"].get("full_name") != repository:
         raise GuardError("Event repository mismatch.")
     base, head = pr.get("base"), pr.get("head")
-    if not isinstance(base, dict) or not isinstance(head, dict) or base.get("ref") != "main":
-        raise GuardError("Agent PR must target main.")
+    if not isinstance(base, dict) or not isinstance(head, dict) or base.get("ref") != "main" or pr.get("state") != "open":
+        raise GuardError("Agent PR must be open and target main.")
     if not isinstance(base.get("repo"), dict) or base["repo"].get("full_name") != repository:
         raise GuardError("PR base repository mismatch.")
     if not isinstance(head.get("repo"), dict) or head["repo"].get("full_name") != repository:
         raise GuardError("Agent PR head must be in this repository.")
-    head_sha = head.get("sha")
-    if not isinstance(head_sha, str) or not SHA_RE.fullmatch(head_sha):
-        raise GuardError("PR head SHA is invalid.")
+    base_sha, head_sha = base.get("sha"), head.get("sha")
+    if not isinstance(base_sha, str) or not SHA_RE.fullmatch(base_sha) or not isinstance(head_sha, str) or not SHA_RE.fullmatch(head_sha):
+        raise GuardError("PR base/head SHA is invalid.")
     number = pr.get("number")
     if isinstance(number, bool) or not isinstance(number, int) or number < 1:
         raise GuardError("PR number is invalid.")
 
     issue = api_get(repository, "/issues/" + str(envelope["task_issue"]), token)
-    if not isinstance(issue, dict) or issue.get("state") != "open":
-        raise GuardError("Linked task Issue must be open.")
+    if not isinstance(issue, dict) or issue.get("state") != "open" or issue.get("number") != envelope["task_issue"]:
+        raise GuardError("Linked task Issue must be open and match the PR envelope.")
     labels = issue.get("labels")
     if not isinstance(labels, list) or not any(isinstance(x, dict) and x.get("name") == TASK_LABEL for x in labels):
         raise GuardError("Linked Issue is missing agent-task label.")
@@ -181,7 +186,7 @@ def validate_agent_pr(event, *, token, repository, now=None):
         raise GuardError("PR owner does not match task assignment.")
 
     lease = read_lease(repository, task["task_id"], token)
-    if lease["owner"] != envelope["owner"] or lease["claim_id"] != envelope["claim_id"] or lease["status"] != "active":
+    if lease["task_id"] != task["task_id"] or lease["owner"] != envelope["owner"] or lease["claim_id"] != envelope["claim_id"] or lease["status"] != "active":
         raise GuardError("PR does not match the active task lease.")
     moment = datetime.fromisoformat((now or datetime.now(timezone.utc).isoformat()).replace("Z", "+00:00"))
     expires = datetime.fromisoformat(lease["expires_at"].replace("Z", "+00:00"))

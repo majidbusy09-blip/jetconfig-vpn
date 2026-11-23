@@ -142,6 +142,10 @@ Context-selection integration tests verify explicit acceptance, rejection of pat
 - Responses are size-bounded, schema-validated (including requiring at least one planning step), and errors are sanitized. There are no automatic retries. This does not yet connect the planner to the orchestrator lifecycle or authorize sending source context.
 
 
+## GitHub task ownership leases (v1)
+
+The shared Issue protocol now has a deterministic lease record/state machine in `github_lease.py`, with adversarial tests. See `docs/GITHUB_TASK_LEASES.md` for the Git-ref compare-and-swap acquisition, renewal, release, expiry, and failure rules. The local helper validates and plans transitions only; it does not call GitHub or prove ownership. A connected GitHub adapter must execute create-ref and update-ref with an exact expected head SHA. Until that adapter is implemented and concurrency-tested, do not enable unattended parallel implementation.
+
 ## Shared GitHub multi-agent task inbox (v1)
 
 GitHub Issues can carry provider-neutral commands for ChatGPT, Grok, and future connected agents. Create an Issue using `.github/ISSUE_TEMPLATE/agent-task.md`; the marked JSON payload is validated by `github_task_protocol.py`:

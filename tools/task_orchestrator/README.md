@@ -191,3 +191,6 @@ On an open Issue with the \`agent-task\` label and a valid v1 task payload, a re
 Use \`grok\` instead of \`chatgpt\` for the other agent. Claim IDs are 16-64 lowercase hexadecimal characters; lease duration defaults to 60 minutes and is capped at 240. The workflow verifies the task assignment, uses the trusted default-branch code and short-lived GitHub token, and posts the verified lock ref/base SHA back to the Issue. A claim pins the current \`main\` commit; renewal reads and preserves that original base. Issue text is parsed as data and never run as shell input.
 
 This is a manual lease-control bridge, not an agent wake-up mechanism. It does not invoke ChatGPT/Grok or start implementation. The provider runtime must still be active and independently verify the returned lease before editing.
+
+
+The live Issue command workflow was end-to-end tested on temporary Issue #24: claim, renew, and release succeeded, the final lease record was verified as released, and the test Issue was closed. Evidence: Actions runs 45178623063, 45178678823, 45178732222.

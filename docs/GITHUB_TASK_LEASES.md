@@ -83,3 +83,8 @@ The trusted-main workflow \`.github/workflows/agent-lease-commands.yml\` accepts
 The commenter must be a repository OWNER, MEMBER, or COLLABORATOR, and the command owner must match the task's \`assigned_agent\` unless it is \`any\`. A new claim pins the current default-branch commit; renewal reads the existing lease and preserves its pinned base. The workflow posts the verified result on the Issue.
 
 The workflow checks out trusted \`main\`, uses a short-lived \`GITHUB_TOKEN\` with \`contents: write\` and \`issues: write\`, and treats Issue/comment text as data only. It never runs text from the Issue as shell input. This is a manual lease-control interface, not automatic ChatGPT/Grok dispatch or an implementation runner.
+
+
+## End-to-end command workflow evidence
+
+The trusted-main Issue command workflow passed a full live claim/renew/release cycle on temporary Issue [#24](https://github.com/majidbusy09-blip/jetconfig-vpn/issues/24), which was closed after the test. Claim, renewal, and release runs succeeded (Actions runs 45178623063, 45178678823, and 45178732222). The final remote lease record was independently read and showed status = released, the renewed claim ID, and the original pinned base SHA. The lock branch is intentionally retained as a released audit record.

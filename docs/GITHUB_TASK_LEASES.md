@@ -61,7 +61,7 @@ The timestamp defaults to current UTC; \`--now\` is available for deterministic 
 
 - Local lease schema/state-machine logic and adversarial tests are implemented.
 - The Git transport adapter and tests for its CAS push construction are implemented.
-- CI validates the adapter code; it does not use a live GitHub token and does not perform a real concurrent-claim test.
+- CI exercises Git commit construction and stale compare-and-swap rejection against a local bare Git remote. It does not use a live GitHub token or perform a real concurrent-claim test.
 - The adapter is not yet wired into the Issue intake workflow or either provider's execution runtime. No automatic ChatGPT/Grok wake-up or dispatch exists.
 - Until a live race test and provider runtime integration are completed, keep one active implementation agent per task. Read-only review by another agent is permitted.
 - The Issue intake workflow remains read-only (\`contents: read\`, \`issues: read\`) and only validates task payloads and uploads a task artifact. That artifact is not a lease or execution grant.

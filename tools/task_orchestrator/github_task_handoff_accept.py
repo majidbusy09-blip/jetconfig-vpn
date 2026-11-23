@@ -8,6 +8,7 @@ not dispatch a model, upload source, or write to GitHub.
 from __future__ import annotations
 
 import argparse
+import base64
 import hashlib
 import io
 import json
@@ -24,7 +25,7 @@ from typing import Any
 from . import task_orchestrator as orchestrator
 from .envelope_builder import EnvelopeBuildError, _repository_name
 from .github_lease import LeaseError, lock_branch, validate_lease
-from .github_task_pr_guard import GuardError, api_get, read_lease
+from .github_task_pr_guard import GuardError, api_get
 from .github_task_protocol import GitHubTaskError, validate_issue_body
 
 SHA_RE = re.compile(r"^(?:[0-9a-f]{40}|[0-9a-f]{64})$")
@@ -205,6 +206,38 @@ def _read_json(path: Path) -> Any:
         raise HandoffAcceptanceError("Handoff file is not valid UTF-8 JSON.") from exc
 
 
+
+def _read_current_lease(repository: str, task_id: str, token: str) -> tuple[dict[str, Any], str]:
+    """Read lease contents at one observed ref SHA and reject ref movement."""
+    branch = lock_branch(task_id)
+    ref_path = "/git/ref/heads/" + urllib.parse.quote(branch, safe="/-")
+    before = api_get(repository, ref_path, token)
+    try:
+        lock_commit = before["object"]["sha"]
+        lock_type = before["object"]["type"]
+    except (TypeError, KeyError) as exc:
+        raise HandoffAcceptanceError("Remote task lock ref is malformed.") from exc
+    if lock_type != "commit" or not isinstance(lock_commit, str) or not SHA_RE.fullmatch(lock_commit):
+        raise HandoffAcceptanceError("Remote task lock ref must point to a full commit SHA.")
+    query = urllib.parse.urlencode({"ref": lock_commit})
+    item = api_get(repository, "/contents/.agent-locks/lease.json?" + query, token)
+    if not isinstance(item, dict) or item.get("encoding") != "base64" or not isinstance(item.get("content"), str):
+        raise HandoffAcceptanceError("Remote lease content response is malformed.")
+    try:
+        raw = base64.b64decode("".join(item["content"].split()), validate=True)
+        record = validate_lease(json.loads(raw.decode("utf-8")))
+    except (ValueError, UnicodeDecodeError, json.JSONDecodeError, LeaseError) as exc:
+        raise HandoffAcceptanceError("Remote lease record is invalid.") from exc
+    after = api_get(repository, ref_path, token)
+    try:
+        after_sha = after["object"]["sha"]
+    except (TypeError, KeyError) as exc:
+        raise HandoffAcceptanceError("Remote task lock ref changed or became malformed.") from exc
+    if after_sha != lock_commit:
+        raise HandoffAcceptanceError("Remote lease ref moved during acceptance; retry with the newest handoff.")
+    return record, lock_commit
+
+
 def accept_handoff(handoff_path: Path, *, token: str, repository: str) -> Path:
     manifest = _read_json(handoff_path)
     if not isinstance(manifest, dict) or not isinstance(manifest.get("issue"), dict):
@@ -216,17 +249,7 @@ def accept_handoff(handoff_path: Path, *, token: str, repository: str) -> Path:
         raise HandoffAcceptanceError("Handoff task ID is invalid.")
 
     issue_data = api_get(repository, "/issues/" + str(issue_number), token)
-    branch = lock_branch(task_id)
-    ref_path = "/git/ref/heads/" + urllib.parse.quote(branch, safe="/-")
-    ref = api_get(repository, ref_path, token)
-    try:
-        lock_commit = ref["object"]["sha"]
-        lock_type = ref["object"]["type"]
-    except (TypeError, KeyError) as exc:
-        raise HandoffAcceptanceError("Remote task lock ref is malformed.") from exc
-    if lock_type != "commit" or not isinstance(lock_commit, str) or not SHA_RE.fullmatch(lock_commit):
-        raise HandoffAcceptanceError("Remote task lock ref must point to a full commit SHA.")
-    lease_record = read_lease(repository, task_id, token)
+    lease_record, lock_commit = _read_current_lease(repository, task_id, token)
     task = validate_handoff_for_acceptance(
         manifest, issue_data, lease_record, lock_commit, repository=repository
     )

@@ -140,3 +140,16 @@ Context-selection integration tests verify explicit acceptance, rejection of pat
 - It requires `OPENAI_API_KEY` and `OPENAI_MODEL` in the environment. Set `OPENAI_MODEL` to a model enabled for the API project; the adapter intentionally does not guess a model entitlement. Neither setting is stored in the repository or task record. The API endpoint is fixed to OpenAI over HTTPS; the adapter does not accept a custom base URL. Standard Python HTTPS proxy environment settings may still affect network routing. A missing setting fails before any request.
 - This command is explicitly opt-in and may incur API usage charges when invoked: `python -m tools.task_orchestrator.openai_planner --task-id <task-id>`. Do not run it until the owner has separately configured an API key and approved the intended request. No key is present in CI and CI tests use a fake transport only.
 - Responses are size-bounded, schema-validated (including requiring at least one planning step), and errors are sanitized. There are no automatic retries. This does not yet connect the planner to the orchestrator lifecycle or authorize sending source context.
+
+
+## Shared GitHub multi-agent task inbox (v1)
+
+GitHub Issues can carry provider-neutral commands for ChatGPT, Grok, and future connected agents. Create an Issue using `.github/ISSUE_TEMPLATE/agent-task.md`; the marked JSON payload is validated by `github_task_protocol.py`:
+
+```bash
+python -m tools.task_orchestrator.github_task_protocol --body-file issue-body.md
+```
+
+The validator is local-only: it performs no GitHub API call, model request, shell execution, or patch application. It enforces a strict schema, supported agent/capability/risk values, fixed verification profiles, bounded text, and protected-path rules. See `docs/MULTI_AGENT_GITHUB_PROTOCOL.md`.
+
+Important: Issue comments are not an atomic lock. Until compare-and-swap claims and automated dispatch are implemented, only one agent may actively implement a task; other agents may perform read-only review. This protocol does not imply that each GitHub App has the same write, shell, or Actions permissions.

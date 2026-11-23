@@ -104,6 +104,8 @@ def renew_plan(current: dict[str, Any], proposed: dict[str, Any], *,
     moment = _utc(now)
     if prior["status"] != "active" or _utc(prior["expires_at"]) <= moment:
         raise LeaseError("Only an unexpired active lease can be renewed.")
+    if next_record["status"] != "active" or moment < _utc(prior["claimed_at"]):
+        raise LeaseError("Renewal must remain active and cannot move claim time backwards.")
     if prior["owner"] != owner or prior["claim_id"] != claim_id:
         raise LeaseError("Only the current lease owner may renew this claim.")
     if next_record["owner"] != owner or next_record["task_id"] != prior["task_id"]:

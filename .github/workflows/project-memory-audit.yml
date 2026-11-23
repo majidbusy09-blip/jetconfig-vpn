@@ -100,6 +100,59 @@ jobs:
           cmp "$RUNNER_TEMP/resolved-index-first.json" ../../../docs/generated/jet_vpn_resolved_index.json
           cmp "$RUNNER_TEMP/critical-paths-first.json" ../../../docs/generated/jet_vpn_critical_paths.json
 
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Smoke-test task intelligence against the real generated source index
+        if: ${{ hashFiles('tools/task_orchestrator/context_selector.py', 'tools/task_orchestrator/impact_analyzer.py') != '' }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import subprocess
+          from pathlib import Path
+
+          from tools.task_orchestrator.context_selector import select_context
+          from tools.task_orchestrator.impact_analyzer import analyze_impact
+
+          root = Path.cwd()
+          revision = subprocess.run(
+              ["git", "rev-parse", "HEAD"], cwd=root, check=True,
+              text=True, capture_output=True,
+          ).stdout.strip()
+          resolved = root / "docs/generated/jet_vpn_resolved_index.json"
+          critical = root / "docs/generated/jet_vpn_critical_paths.json"
+          index = json.loads(resolved.read_text(encoding="utf-8"))
+          files = index.get("source", {}).get("files", [])
+          if not files:
+              raise SystemExit("Real-data smoke test blocked: resolved index has no source files.")
+          changed_path = files[0]["path"]
+          task = {
+              "task_id": "ci-real-semantic-smoke",
+              "goal": "Verify VPN connection and routing context against the current source tree.",
+              "capability_improved": "Accurate source selection and impact mapping.",
+              "repository": {"base_sha": revision},
+              "scope": {"allowed": ["lib/**"], "excluded": ["lib/generated/**"]},
+          }
+          selection = select_context(
+              root=root, task_record=task, query="VPN connection routing",
+              resolved_index_path=resolved, critical_paths_path=critical, limit=5,
+          )
+          impact = analyze_impact(
+              root=root, task_record=task, changed_paths=[changed_path],
+              resolved_index_path=resolved, critical_paths_path=critical,
+          )
+          if impact["indexed_changed_paths"] != [changed_path]:
+              raise SystemExit("Impact analyzer did not verify the selected real source file.")
+          if not isinstance(selection.get("suggestions"), list):
+              raise SystemExit("Context selector returned an invalid suggestions collection.")
+          print(f"Real-data semantic smoke passed at {revision[:12]}.")
+          print(f"Verified source files: {len(files)}; context suggestions: {len(selection['suggestions'])}.")
+          print(f"Impact analyzer verified: {changed_path}.")
+          PY
+
       - name: Upload semantic AST index
         if: always()
         uses: actions/upload-artifact@v4
@@ -113,11 +166,6 @@ jobs:
             tools/project_memory/semantic/pubspec.lock
           if-no-files-found: warn
           retention-days: 30
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
 
       - name: Verify lexical code index
         run: |

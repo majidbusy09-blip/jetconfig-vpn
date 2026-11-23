@@ -254,3 +254,76 @@ Append-only record of meaningful project work. Each entry should include branch/
 - **Application boundary:** No `lib/` files, native tunnel Java/Kotlin, DNS/routing implementation, app version, signing, production release workflow, bot, payment, backend, or server configuration changed. No release or deployment occurred.
 - **Device evidence:** User reported the Build 104 validation APK appeared to work in testing. This remains user-reported evidence; no broad Android/device/network compatibility claim is inferred.
 - **Memory maintenance:** This PR #18 refresh updates operational snapshots to main commit `abdff3a59b89419e869c98d7dbb4ac91512fe950` and records PR #19. Historical entries remain preserved; no older event is rewritten.
+
+
+## 2026-11-23 — PR #18 merged; task-orchestrator design started
+
+- **Main before merge:** `abdff3a59b89419e869c98d7dbb4ac91512fe950`.
+- **PR:** #18, `docs/refresh-authoritative-memory-20261122`; merged by Squash at `a09cdb0be35e3072be29973f7ae8df66ab44d07f`.
+- **Post-merge verification:** Project Memory Audit [#45069210457](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45069210457) completed successfully on the merge commit. Application regression tests, AST/resolved-index tests, critical-path tests and generation, deterministic comparisons, lexical index freshness, and artifact uploads passed.
+- **Next-stage finding:** current `AGENTS.md`, `docs/CURRENT_STATUS.md`, and `docs/NEXT_STEPS.md` still referenced the pre-PR-18 main SHA or described PR #18 as pending. This branch corrects that snapshot and records the current task-orchestrator design.
+- **Design:** `docs/TASK_ORCHESTRATOR_DESIGN.md` specifies a Python 3.12 standard-library-only local MVP, explicit lifecycle/state record, fail-closed scope and branch gates, reuse of existing semantic tooling, fixed verification profiles, and no GitHub write/merge/release/deploy capabilities.
+- **Branch:** `design/task-execution-orchestrator-20261123`, based on current main `a09cdb0be35e3072be29973f7ae8df66ab44d07f`.
+- **Scope:** documentation/design only. No Dart/Java/Kotlin application code, dependency, app version, signing, production release workflow, bot, payment, backend, or server behavior changed.
+- **Checks:** post-merge Project Memory Audit passed; this design branch's CI is pending/not yet run at the time of this entry. No implementation tests are claimed.
+- **Approval boundary:** branch only; no merge, release, or deployment.
+
+
+## 2026-11-23 — PR #20: local task orchestrator MVP (implementation in review)
+
+- **Base main:** `a09cdb0be35e3072be29973f7ae8df66ab44d07f`.
+- **Branch:** `design/task-execution-orchestrator-20261123`.
+- **Design-only checkpoint:** head `f7d9fa028d99e62e5d7c1ef453578440055e5cc9`; Project Memory Audit [#45070004438](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45070004438) and Non-production PR Validation [#45070004449](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45070004449) both succeeded. This checkpoint predates the implementation commits and does not validate them.
+- **Added:** `tools/task_orchestrator/task_orchestrator.py` (standard-library CLI), `tools/task_orchestrator/tests/test_task_orchestrator.py` (temporary-Git-repository integration tests), and `tools/task_orchestrator/README.md`.
+- **Implemented lifecycle:** `init → prepare → impact → begin → validate-scope → verify → finalize`; task JSON and handoff live under `.agent/tasks/<task-id>/`.
+- **Safety gates:** clean worktree at init; protected-branch and dirty-worktree rejection; mandatory context fingerprints; pinned base SHA; explicit allow/exclude patterns; full tracked/untracked/rename/delete path validation; content fingerprints bind approval to exact validated contents; fixed named verification profiles, subprocess `shell=False`, bounded timeouts, append-only check attempts, and explicit reviewed-diff confirmation.
+- **Impact limitation:** current MVP records presence/hash of existing semantic and critical-path artifacts and labels them `present_unverified`; it does not claim fresh or complete path-specific semantic analysis.
+- **CI:** extended only the non-production PR validation workflow to run the orchestrator test suite under Python 3.12. No new required branch-protection check was added.
+- **Explicit non-goals:** no GitHub write API, commit/push, PR creation, merge, tag, release, deploy, or production workflow dispatch capability.
+- **Scope:** developer tooling, its tests/docs, and non-production CI only. No Dart/Java/Kotlin app source, app version, signing, production release workflow, bot, payment, backend, or server behavior changed.
+- **Verification of implementation commits:** pending CI on the latest branch head; no implementation test result is claimed yet.
+- **Approval:** PR #20 remains Draft; no merge/release/deploy.
+
+
+## 2026-11-23 — PR #20 verification stability hardening
+
+- **Finding:** the orchestrator compared the post-check source fingerprint with the finalization fingerprint, but did not prove that the worktree remained stable during the check itself. A file could change while a test process was running, making the resulting pass ambiguous.
+- **Change:** `verify` now snapshots the complete changed-path set and fingerprints immediately before and after each fixed verification profile. If either differs, the attempt is recorded as failed (exit code 125 when the check itself returned success) and cannot satisfy finalization. Both snapshots and the stability flag are retained in the task record.
+- **Regression test:** added an integration test that deliberately mutates a source file during the check and asserts that the attempt is rejected.
+- **Documentation:** updated the orchestrator README and design invariants to describe stable-source verification.
+- **CI:** previous runs [#45100960414](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45100960414) and [#45100960755](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45100960755) passed before this hardening. New runs [#45101712631](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45101712631) and [#45101712642](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45101712642) are validating the updated code and are still in progress at this entry.
+- **Boundary:** PR #20 remains Draft and unmerged. No production app, bot, payment, backend, server, release, or deployment behavior was changed.
+
+
+## 2026-11-23 — PR #20 orchestrator hardening verified; coding-agent adapter contract drafted
+
+- **Branch:** `design/task-execution-orchestrator-20261123`.
+- **Verified implementation head:** `c4acaf8c32a5c70cea2919b9eb5f2c68303b3559`.
+- **CI:** Project Memory Audit [#45105873991](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45105873991) and Non-production PR Validation [#45105874008](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45105874008) both completed successfully. The PR validation job passed the Orchestrator integration suite, validation tooling tests, Flutter analysis, application tests, debug APK smoke build, and ARM64 validation APK build. This is CI/build evidence, not a physical-device VPN runtime test.
+- **Regression correction:** fixed the latest-attempt ordering test to write a valid JSON newline rather than a literal backslash-n sequence. Both workflows passed on the corrected implementation head.
+- **Added:** `docs/CODING_AGENT_ADAPTER_CONTRACT.md`, a provider-neutral contract for task envelopes, structured agent results, sandbox permissions, patch acceptance/rejection gates, failure/retry semantics, audit/privacy, and phased rollout.
+- **Updated:** `docs/NEXT_STEPS.md` to mark the local MVP's CI verification complete and prioritize schema/fixture tests followed by a read-only provider adapter.
+- **Design boundary:** no provider is connected; no agent patch execution, GitHub write permission, commit/push, PR creation, merge, release, deployment, or production workflow dispatch is implemented or authorized.
+- **Application boundary:** no Dart/Java/Kotlin app source, app version, signing, production release workflow, bot, payment, backend, or server behavior changed.
+- **PR state:** PR #20 remains Draft and unmerged. New documentation changes require fresh CI on the updated branch head.
+
+
+## 2026-11-23 — PR #20 coding-agent contract schema validator and security fixtures
+
+- **Branch:** `design/task-execution-orchestrator-20261123`; PR #20 remains Draft/open/unmerged.
+- **Added:** `tools/task_orchestrator/agent_contract.py`, a Python-standard-library validator for immutable task envelopes and structured agent results (contract version 1.0). It enforces exact object fields, enums/types, repository and branch identity, normalized repository-relative paths, protected-path rejection, declared allow/exclude scope, context SHA-256 fingerprints, fixed verification-profile allowlist, bounded budgets/usage, opaque SHA-256 artifact references, and consistent non-completed/failure semantics. JSON parsing rejects duplicate keys, malformed input, non-object roots, and oversized payloads.
+- **Added:** `tools/task_orchestrator/tests/test_agent_contract.py` with fixtures and adversarial cases for malformed/missing/extra fields, wrong types, traversal/absolute/Windows paths, protected/excluded/out-of-scope paths, invalid glob scopes, budget overflow, arbitrary profile/command/URL injection, patch reference errors, task mismatch, stale fingerprints, and blocked/clarification states.
+- **Updated:** Orchestrator README, verified file map, and next-step roadmap.
+- **Security boundary:** validator handles data only. No provider connection, command execution, patch retrieval/application, filesystem write access for an agent, or GitHub API permission was added. Patch artifact content must be parsed and independently gated in a later phase.
+- **Verification:** both pre-change CI workflows passed on the previous head (Project Memory Audit #45106590264; Non-production PR Validation #45106590252). New commits require fresh CI; do not claim these tests passed until the new head's workflows complete.
+- **Application boundary:** no Dart/Java/Kotlin app source, app version, signing, production workflow, bot, payment, backend, or server behavior changed.
+
+
+## 2026-11-23 — Read-only coding-agent adapter prototype
+
+- **Added:** `tools/task_orchestrator/readonly_adapter.py` with a minimal provider protocol and a fail-closed `run_readonly` boundary. It validates the task envelope before invoking a provider, exposes a recursively immutable context object, and validates the provider's structured result against the same task envelope.
+- **Added:** `tools/task_orchestrator/tests/test_readonly_adapter.py` covering valid fixture output, nested immutability, invalid input rejected before provider invocation, malformed output, provider exceptions, required interface, and caller-data integrity.
+- **No live integration:** the only included provider is a deterministic fixture. No SDK, API key, network client, shell, Git, filesystem handle, patch fetch/apply, or GitHub write capability was added.
+- **Security limitation:** this interface is not an OS sandbox and cannot constrain arbitrary behavior inside a provider implementation. Any real connector must be separately reviewed and run with explicit permission restrictions.
+- **CI baseline:** validator head `4dd6f8110bd9462fde73c7c9ab256a72c971c55e` passed Project Memory Audit [#45107836885](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45107836885) and Non-production PR Validation [#45107836882](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45107836882). Adapter commits are newer and require fresh CI.
+- **Application boundary:** no Dart/Java/Kotlin app source, app version, signing, production workflow, bot, payment, backend, or server behavior changed.

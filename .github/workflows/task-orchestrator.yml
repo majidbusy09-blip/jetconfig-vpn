@@ -1,0 +1,38 @@
+name: JET VPN - Task Orchestrator Tests
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "tools/task_orchestrator/**"
+      - "docs/CODING_AGENT_ADAPTER_CONTRACT.md"
+      - ".github/workflows/task-orchestrator.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: task-orchestrator-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  python-tests:
+    name: Context builder and orchestrator tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Compile orchestrator modules
+        run: python -m compileall -q tools/task_orchestrator
+
+      - name: Run orchestrator test suite
+        run: python -m unittest discover -s tools/task_orchestrator/tests -p "test_*.py" -v

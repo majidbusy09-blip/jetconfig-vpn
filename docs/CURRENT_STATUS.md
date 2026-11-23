@@ -19,9 +19,10 @@
 ## Current engineering boundaries
 
 - Primary objective: build a reliable, independent programming collaborator with durable project memory and safe execution.
-- PR #20 (`design/task-execution-orchestrator-20261123`) remains Draft/open/unmerged, based on main SHA `a09cdb0be35e3072be29973f7ae8df66ab44d07f`. The local orchestrator implementation passed Project Memory Audit [#45105873991](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45105873991) and Non-production PR Validation [#45105874008](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45105874008) on implementation head `c4acaf8c32a5c70cea2919b9eb5f2c68303b3559`.
-- PR #20 now also contains `docs/CODING_AGENT_ADAPTER_CONTRACT.md`, a provider-neutral design only; it does not connect a model provider or implement agent patch execution.
-- The latest documentation head at the time of this snapshot is `9bf6048572d823d7773d4f9472b72edf02f4beee`; its Project Memory Audit and Non-production PR Validation are in progress. Do not treat this newer head as CI-verified until both finish successfully.
+- PR #20 (`design/task-execution-orchestrator-20261123`) remains Draft/open/unmerged, based on main SHA `a09cdb0be35e3072be29973f7ae8df66ab44d07f`.
+- Latest fully CI-verified pre-validator head `a2e04ebe203e79896ad6e13420b4bc4d1fc2f746`: Project Memory Audit [#45106590264](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45106590264) and Non-production PR Validation [#45106590252](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45106590252) both succeeded. The latter included the orchestrator integration suite, Flutter analysis/tests, debug APK smoke build, and ARM64 validation APK build.
+- Added provider-neutral design contract `docs/CODING_AGENT_ADAPTER_CONTRACT.md` and schema validator `tools/task_orchestrator/agent_contract.py` with adversarial fixture tests `tools/task_orchestrator/tests/test_agent_contract.py`. Validator implementation and test commits are newer than the verified head; fresh CI is pending and must pass before this validator phase is marked verified.
+- No model provider is connected; no agent-generated patch is fetched or applied. No Dart/Java/Kotlin application source, app version, signing, production release workflow, bot, payment, backend, or server behavior changed.
 - Work on isolated branches; inspect complete diffs; run relevant checks; open PRs; never merge, release, deploy, or dispatch the production release workflow without explicit user approval.
 - Telegram bot, payment, backend and server work are deferred unless a concrete issue appears or the user changes priority.
 - JET VPN TV and حسابگر من are separate repositories; do not infer their implementation from this repository.

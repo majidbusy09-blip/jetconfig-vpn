@@ -290,6 +290,41 @@ class HandoffAcceptanceTests(unittest.TestCase):
                 task_id=TASK_ID, owner="chatgpt", claim_id=renewed_claim,
                 base_sha=base_sha, now=renewed_now, duration_minutes=120,
             )
+            wrong_renewal_event = issue_event("renew", renewed_claim, "f" * 16)
+            wrong_renewal_result = {
+                "operation": "renew", "task_id": TASK_ID, "issue_number": 42,
+                "issue_url": "https://github.com/owner/repository/issues/42",
+                "result": {
+                    "task_id": TASK_ID, "owner": "chatgpt", "claim_id": renewed_claim,
+                    "status": "active", "base_sha": base_sha,
+                    "expires_at": renewed_lease["expires_at"],
+                    "lock_branch": "agent-locks/" + TASK_ID,
+                    "lock_commit": renewed_lock, "verified": True,
+                },
+            }
+            wrong_handoff = build_task_handoff(
+                wrong_renewal_event, wrong_renewal_result,
+                run_id=124, run_attempt=1, now=renewed_now,
+            )
+            artifact.write_text(json.dumps(wrong_handoff), encoding="utf-8")
+            previous = Path.cwd()
+            try:
+                os.chdir(root)
+                with patch(
+                    "tools.task_orchestrator.github_task_handoff_accept.api_get",
+                    return_value=issue,
+                ), patch(
+                    "tools.task_orchestrator.github_task_handoff_accept._read_current_lease",
+                    return_value=(renewed_lease, renewed_lock),
+                ):
+                    with self.assertRaisesRegex(HandoffAcceptanceError, "exact claim"):
+                        accept_handoff(
+                            artifact, token="read-token", repository=REPOSITORY,
+                            refresh_existing=True,
+                        )
+            finally:
+                os.chdir(previous)
+
             renewed_event = issue_event("renew", renewed_claim, CLAIM)
             renewed_result = {
                 "operation": "renew", "task_id": TASK_ID, "issue_number": 42,

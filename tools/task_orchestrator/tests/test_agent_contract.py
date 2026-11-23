@@ -15,8 +15,8 @@ SHA_B = "b" * 64
 SHA_C = "c" * 64
 PROJECT_TEXT = "# Agent rules\\nFollow the repository safety contract.\\n"
 SOURCE_TEXT = "class RoutingPolicy {}\\n"
-PROJECT_SHA = hashlib.sha256(PROJECT_TEXT.encode()).hexdigest()
-SOURCE_SHA = hashlib.sha256(SOURCE_TEXT.encode()).hexdigest()
+PROJECT_SHA = "371ffdfd69786710a8682d1b89ef26c7c399919e639c99ed06a6f8111544839f"
+SOURCE_SHA = "3cec9734081d2119601b9ff0188955417f781444edcfb673f2c0a66b25427192"
 
 
 def envelope():
@@ -65,7 +65,7 @@ def envelope():
 def result_for(env=None):
     env = env or envelope()
     return {
-        "contract_version": "1.0",
+        "contract_version": "1.1",
         "task_id": env["task_id"],
         "provider": "fixture-provider",
         "model": "fixture-model",

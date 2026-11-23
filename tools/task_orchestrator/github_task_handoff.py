@@ -133,6 +133,8 @@ def build_task_handoff(
         },
         "task": task,
         "lease": {
+            "operation": operation,
+            "previous_claim_id": command.get("previous_claim_id"),
             "owner": result["owner"],
             "claim_id": result["claim_id"],
             "status": result["status"],

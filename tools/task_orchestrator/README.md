@@ -129,3 +129,14 @@ Envelope provenance is checked against the pinned Git blobs immediately before s
 
 
 Context-selection integration tests verify explicit acceptance, rejection of paths not present in the suggestion artifact, and rejection of stale Git-blob fingerprints and unsafe source paths. The accepted context package is rebuilt from the pinned commit; the allowlist is never modified.
+
+
+## Limited OpenAI planning adapter (opt-in; no source upload)
+
+- `openai_planner.py` uses the OpenAI Responses API through Python's standard library; importing it performs no network request and installs no SDK.
+- It is a planning-only adapter. The request contains only the task ID, user goal, capability description, risk, allow/exclude path patterns, scope reason, and declared verification-profile names.
+- It deliberately excludes repository identity, branch/base identifiers, project-memory documents, source files, context packages, semantic indexes, Git history, credentials, and prior conversation content. No source code is uploaded.
+- No tools are declared or enabled. The model cannot access the filesystem, shell, Git, GitHub, secrets, or patch application through this adapter. Its output is a bounded JSON plan, not an implementation patch or verification evidence.
+- It requires `OPENAI_API_KEY` and `OPENAI_MODEL` in the environment. Neither is stored in the repository or task record. The API endpoint is fixed to OpenAI over HTTPS; there is no configurable proxy/base URL. A missing setting fails before any request.
+- This command is explicitly opt-in and may incur API usage charges when invoked: `python -m tools.task_orchestrator.openai_planner --task-id <task-id>`. Do not run it until the owner has separately configured an API key and approved the intended request. No key is present in CI and CI tests use a fake transport only.
+- Responses are size-bounded, schema-validated, and errors are sanitized. There are no automatic retries. This does not yet connect the planner to the orchestrator lifecycle or authorize sending source context.

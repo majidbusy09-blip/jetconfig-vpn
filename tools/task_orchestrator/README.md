@@ -23,7 +23,6 @@ python tools/task_orchestrator/task_orchestrator.py init \
   --allow "lib/**" \
   --allow "test/**" \
   --exclude "lib/generated/**" \
-  --context "lib/features.dart" \
   --check python-tooling-tests \
   --check flutter-analysis \
   --check flutter-tests
@@ -118,3 +117,6 @@ Envelope provenance is checked against the pinned Git blobs immediately before s
 - The ranking is deterministic and explainable: matching file paths, resolved declaration names, call-site target names, and matching curated critical paths contribute weighted scores. Results are bounded to 25 and filtered through the task's existing allowlist and exclusions.
 - Output is saved under `.agent/tasks/<task-id>/context_suggestions_<query-hash>.json`. It contains source blob fingerprints, artifact hashes, matched terms, ranking reasons, and explicit limitations.
 - This is a candidate generator, not semantic proof. Dynamic dispatch, UI state dependencies, callbacks, event wiring, generated code, native Java, and runtime behavior can be missed. A human or higher-level planner must explicitly choose which paths become task context using `accept-context --path`. The selector does not silently widen a task. The acceptance command is a local metadata-only operation, restricted to the prepared state, and re-verifies selected source blobs and task scope before changing the context package. The selector's Python tests run in the dedicated Task Orchestrator CI workflow, including exact NUL-delimited Git-tree provenance checks, including the metadata tab separator and Unicode token normalization and common-language stop-word filtering.
+
+
+Context-selection integration tests verify explicit acceptance, rejection of paths not present in the suggestion artifact, and rejection of stale Git-blob fingerprints. The accepted context package is rebuilt from the pinned commit; the allowlist is never modified.

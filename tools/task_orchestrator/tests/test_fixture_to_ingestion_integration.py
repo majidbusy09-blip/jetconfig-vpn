@@ -74,8 +74,20 @@ class FixtureToIngestionIntegrationTests(unittest.TestCase):
         patch = patch_text().replace("lib/routing_policy.dart", "README.md")
         result = completed_result(env, patch)
         result["changed_paths"] = ["README.md"]
-        with self.assertRaises(DispatcherError):
-            run_fixture_dispatch(env, result)
+        dispatch = run_fixture_dispatch(env, result)
+        # The dispatcher records adapter/contract rejection as a failed audit
+        # record rather than throwing; failed records must never reach ingestion.
+        self.assertEqual(dispatch["status"], "failed")
+        self.assertFalse(dispatch["result_validated"])
+        self.assertEqual(dispatch["patch_validation"], "not-run")
+        self.assertFalse(dispatch["patch_applied"])
+
+        with tempfile.TemporaryDirectory() as directory:
+            task_dir = Path(directory)
+            self._prepare_task(task_dir, env, result, patch)
+            with self.assertRaises(ProviderResultIngestionError):
+                ingest_provider_result(task_dir, env)
+            self.assertFalse((task_dir / "agent_result.json").exists())
 
 
 if __name__ == "__main__":

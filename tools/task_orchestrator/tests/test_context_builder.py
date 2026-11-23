@@ -158,7 +158,7 @@ class ContextBuilderTests(unittest.TestCase):
         envelope = json.loads((self.root / ".agent/tasks/context-test/agent_input.json").read_text())
         self.assertEqual(envelope["repository"]["name"], "owner/repo")
         self.assertEqual(envelope["repository"]["base_sha"], self.revision)
-        self.assertEqual(envelope["source_context"][0]["content"], "void main() { print('pinned'); }\\n")
+        self.assertEqual(envelope["source_context"][0]["content"], "void main() { print('pinned'); }\n")
         # The generated local metadata file is exempt from source scope validation.
         result = subprocess.run(base + ["validate-scope", "--task-id", "context-test"], cwd=self.root,
                                 text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE,

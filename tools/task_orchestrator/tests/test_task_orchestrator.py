@@ -309,6 +309,41 @@ class OrchestratorIntegrationTests(unittest.TestCase):
         git(self.root, "checkout", "--detach")
         self.cli("begin", "--task-id", self.task_id, expected=2)
 
+    def test_verify_rejects_source_changes_during_check(self) -> None:
+        self.prepared_task()
+        self.cli("begin", "--task-id", self.task_id)
+        target = self.root / "docs/new-note.md"
+        target.write_text("before check\\n", encoding="utf-8")
+        spec = importlib.util.spec_from_file_location("task_orchestrator_race_test", SCRIPT)
+        module = importlib.util.module_from_spec(spec)
+        assert spec and spec.loader
+        spec.loader.exec_module(module)
+        old_cwd = Path.cwd()
+        try:
+            os.chdir(self.root)
+            module.PROFILES["python-tooling-tests"] = {
+                "argv": [
+                    sys.executable, "-c",
+                    "from pathlib import Path; Path('docs/new-note.md').write_text('changed during check\\n')",
+                ],
+                "timeout": 10,
+            }
+            with self.assertRaises(module.TaskError):
+                module.command_verify(
+                    Namespace(task_id=self.task_id, profile="python-tooling-tests")
+                )
+        finally:
+            os.chdir(old_cwd)
+        record = json.loads(self.record.read_text(encoding="utf-8"))
+        attempt = record["check_attempts"][-1]
+        self.assertEqual(attempt["status"], "failed")
+        self.assertEqual(attempt["exit_code"], 125)
+        self.assertFalse(attempt["source_stable_during_check"])
+        self.assertNotEqual(
+            attempt["verification_input_path_fingerprints"],
+            attempt["verified_path_fingerprints"],
+        )
+
     def test_finalize_rejects_checks_stale_after_scope_revalidation(self) -> None:
         self.prepared_task()
         self.cli("begin", "--task-id", self.task_id)

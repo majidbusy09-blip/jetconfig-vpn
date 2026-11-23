@@ -242,7 +242,75 @@ def _read_current_lease(repository: str, task_id: str, token: str) -> tuple[dict
     return record, lock_commit
 
 
-def accept_handoff(handoff_path: Path, *, token: str, repository: str) -> Path:
+def _handoff_metadata(manifest: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "issue_number": manifest["issue"]["number"],
+        "issue_url": manifest["issue"]["url"],
+        "issue_body_sha256": manifest["issue"]["body_sha256"],
+        "owner": manifest["lease"]["owner"],
+        "claim_id": manifest["lease"]["claim_id"],
+        "lease_expires_at": manifest["lease"]["expires_at"],
+        "base_sha": manifest["lease"]["base_sha"],
+        "lock_branch": manifest["lease"]["lock_branch"],
+        "lock_commit": manifest["lease"]["lock_commit"],
+        "workflow_run_id": manifest["workflow"]["run_id"],
+        "workflow_run_attempt": manifest["workflow"]["run_attempt"],
+    }
+
+
+def _refresh_existing_task(
+    root: Path,
+    task_id: str,
+    task: dict[str, Any],
+    manifest: dict[str, Any],
+    branch_name: str,
+) -> Path:
+    record, record_path = orchestrator.load_record(root, task_id)
+    if record.get("state") not in {"prepared", "implementation", "verification", "review_ready"}:
+        raise HandoffAcceptanceError("Only an already prepared task can refresh its lease handoff.")
+    orchestrator.require_task_branch(root, record)
+    repository_record = record.get("repository")
+    scope = record.get("scope")
+    old_handoff = record.get("github_handoff")
+    if not isinstance(repository_record, dict) or not isinstance(scope, dict) or not isinstance(old_handoff, dict):
+        raise HandoffAcceptanceError("Existing task is not linked to a verified GitHub handoff.")
+    base_sha = manifest["lease"]["base_sha"]
+    if (
+        repository_record.get("base_sha") != base_sha
+        or repository_record.get("branch") != branch_name
+        or record.get("source") != "github-issue"
+        or record.get("assigned_agent") != task["assigned_agent"]
+        or record.get("goal") != task["goal"]
+        or record.get("capability_improved") != task["capability"]
+        or record.get("risk") != task["risk"]
+        or record.get("planned_checks") != task["verification_profiles"]
+        or scope.get("allowed") != sorted(set(task["allow"]))
+        or scope.get("excluded") != sorted(set(task["exclude"]))
+        or scope.get("reason") != task["scope_reason"]
+    ):
+        raise HandoffAcceptanceError("Renewed handoff no longer matches the existing local task definition.")
+    stable_fields = ("issue_number", "issue_url", "issue_body_sha256", "owner", "base_sha", "lock_branch")
+    new_metadata = _handoff_metadata(manifest)
+    if any(old_handoff.get(key) != new_metadata[key] for key in stable_fields):
+        raise HandoffAcceptanceError("Renewed handoff belongs to a different Issue, owner, body, or pinned base.")
+    output = record_path.parent / "agent_input.json"
+    if output.is_symlink() or not output.is_file():
+        raise HandoffAcceptanceError("Existing local agent_input.json is missing or unsafe; refusing to refresh lease metadata.")
+    record["github_handoff"] = new_metadata
+    record["updated_at"] = orchestrator.now_iso()
+    orchestrator.save_record(record, record_path)
+    print("Refreshed lease handoff metadata on local branch " + branch_name + ".")
+    print("Existing source changes and agent_input.json were not modified.")
+    return output
+
+
+def accept_handoff(
+    handoff_path: Path,
+    *,
+    token: str,
+    repository: str,
+    refresh_existing: bool = False,
+) -> Path:
     manifest = _read_json(handoff_path)
     if not isinstance(manifest, dict) or not isinstance(manifest.get("issue"), dict):
         raise HandoffAcceptanceError("Handoff manifest is missing its Issue identity.")
@@ -265,8 +333,18 @@ def accept_handoff(handoff_path: Path, *, token: str, repository: str) -> Path:
     )
     if _repository_name(origin) != repository:
         raise HandoffAcceptanceError("Local Git origin does not match the handoff repository.")
-    head_sha = orchestrator.run_git(root, "rev-parse", "HEAD")
     base_sha = manifest["lease"]["base_sha"]
+    task_record_path = orchestrator.task_path(root, task_id)
+    if task_record_path.exists() or task_record_path.is_symlink():
+        if not refresh_existing:
+            raise HandoffAcceptanceError(
+                "A local task with this ID already exists; use --refresh-existing only for a verified lease renewal."
+            )
+        return _refresh_existing_task(root, task_id, task, manifest, branch_name)
+    if refresh_existing:
+        raise HandoffAcceptanceError("--refresh-existing requires an existing prepared local task.")
+
+    head_sha = orchestrator.run_git(root, "rev-parse", "HEAD")
     if head_sha != base_sha:
         raise HandoffAcceptanceError(
             "Current branch HEAD must equal the handoff's pinned base SHA; create a fresh task branch from that exact commit."
@@ -276,9 +354,6 @@ def accept_handoff(handoff_path: Path, *, token: str, repository: str) -> Path:
         raise HandoffAcceptanceError(
             "Worktree must be clean before accepting a handoff: " + ", ".join(dirty[:12])
         )
-    task_record_path = orchestrator.task_path(root, task_id)
-    if task_record_path.exists():
-        raise HandoffAcceptanceError("A local task with this ID already exists; refusing to overwrite it.")
 
     try:
         orchestrator.build_context(
@@ -309,19 +384,7 @@ def accept_handoff(handoff_path: Path, *, token: str, repository: str) -> Path:
     record, record_path = orchestrator.load_record(root, task_id)
     record["assigned_agent"] = task["assigned_agent"]
     record["source"] = "github-issue"
-    record["github_handoff"] = {
-        "issue_number": issue_number,
-        "issue_url": manifest["issue"]["url"],
-        "issue_body_sha256": manifest["issue"]["body_sha256"],
-        "owner": manifest["lease"]["owner"],
-        "claim_id": manifest["lease"]["claim_id"],
-        "lease_expires_at": manifest["lease"]["expires_at"],
-        "base_sha": base_sha,
-        "lock_branch": manifest["lease"]["lock_branch"],
-        "lock_commit": manifest["lease"]["lock_commit"],
-        "workflow_run_id": manifest["workflow"]["run_id"],
-        "workflow_run_attempt": manifest["workflow"]["run_attempt"],
-    }
+    record["github_handoff"] = _handoff_metadata(manifest)
     orchestrator.save_record(record, record_path)
     orchestrator.command_build_envelope(Namespace(task_id=task_id))
     output = record_path.parent / "agent_input.json"
@@ -334,13 +397,18 @@ def accept_handoff(handoff_path: Path, *, token: str, repository: str) -> Path:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--handoff-file", required=True)
+    parser.add_argument("--refresh-existing", action="store_true",
+                        help="Refresh only the lease metadata of an already prepared task after renewal.")
     args = parser.parse_args(argv)
     token = os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN") or ""
     repository = os.environ.get("GITHUB_REPOSITORY", "")
     try:
         if not token:
             raise HandoffAcceptanceError("A read-only GitHub token is required in GITHUB_TOKEN or GH_TOKEN.")
-        output = accept_handoff(Path(args.handoff_file), token=token, repository=repository)
+        output = accept_handoff(
+            Path(args.handoff_file), token=token, repository=repository,
+            refresh_existing=args.refresh_existing,
+        )
     except (
         OSError, HandoffAcceptanceError, GuardError, LeaseError,
         GitHubTaskError, orchestrator.TaskError, EnvelopeBuildError,

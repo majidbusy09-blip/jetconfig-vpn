@@ -202,7 +202,9 @@ def file_fingerprints(root: Path, patterns: list[str]) -> dict[str, str]:
     for relative in tracked_files(root):
         if matches_any(relative, patterns):
             file = root / relative
-            if file.is_file():
+            if file.is_symlink():
+                result[relative] = sha256_bytes(os.readlink(file).encode("utf-8"))
+            elif file.is_file():
                 result[relative] = sha256_bytes(file.read_bytes())
     return result
 
@@ -213,10 +215,10 @@ def path_fingerprints(root: Path, paths: list[str], task_id: str) -> dict[str, s
         if is_task_metadata(relative, task_id):
             continue
         target = root / relative
-        if target.is_file():
-            result[relative] = sha256_bytes(target.read_bytes())
-        elif target.is_symlink():
+        if target.is_symlink():
             result[relative] = sha256_bytes(os.readlink(target).encode("utf-8"))
+        elif target.is_file():
+            result[relative] = sha256_bytes(target.read_bytes())
         else:
             result[relative] = "deleted"
     return result
@@ -458,7 +460,9 @@ def command_verify(args: argparse.Namespace) -> None:
     except FileNotFoundError as exc:
         exit_code, status, output = 127, "failed", str(exc)
     except subprocess.TimeoutExpired as exc:
-        exit_code, status, output = 124, "failed", str(exc)
+        # TimeoutExpired may carry bytes even when text=True was requested.
+        # Store only a stable diagnostic string; never persist raw child output.
+        exit_code, status, output = 124, "failed", f"Verification timed out after {definition['timeout']} seconds."
     except OSError as exc:
         exit_code, status, output = 126, "failed", str(exc)
     duration = round(time.monotonic() - started, 3)

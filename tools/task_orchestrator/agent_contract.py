@@ -63,6 +63,12 @@ def _object(value: Any, name: str, required: set[str], optional: set[str] = set(
     return value
 
 
+def _enum(value: Any, allowed: set[str], name: str) -> str:
+    if not isinstance(value, str) or value not in allowed:
+        _fail(f"{name} must be one of the allowed string values")
+    return value
+
+
 def _text(value: Any, name: str, limit: int = MAX_TEXT, *, empty: bool = False) -> str:
     if not isinstance(value, str) or len(value) > limit or (not empty and not value.strip()):
         _fail(f"{name} must be a {'possibly empty ' if empty else ''}string of at most {limit} characters")
@@ -164,10 +170,8 @@ def validate_envelope(data: Any) -> dict:
     if not isinstance(obj["task_id"], str) or not TASK_ID_RE.fullmatch(obj["task_id"]):
         _fail("invalid task_id")
     _text(obj["goal"], "goal", 8_000)
-    if obj["capability"] not in ALLOWED_CAPABILITIES:
-        _fail("invalid capability")
-    if obj["risk"] not in ALLOWED_RISKS:
-        _fail("invalid risk")
+    _enum(obj["capability"], ALLOWED_CAPABILITIES, "capability")
+    _enum(obj["risk"], ALLOWED_RISKS, "risk")
 
     repo = _object(obj["repository"], "repository",
                    {"name", "branch", "base_sha", "workspace_id"})
@@ -193,8 +197,7 @@ def validate_envelope(data: Any) -> dict:
     _fingerprints(obj["source_context"], "source_context")
     semantic = _object(obj["semantic_context"], "semantic_context",
                        {"status", "source_sha", "summary", "limitations"})
-    if semantic["status"] not in {"current", "stale", "unavailable"}:
-        _fail("invalid semantic_context.status")
+    _enum(semantic["status"], {"current", "stale", "unavailable"}, "semantic_context.status")
     if semantic["source_sha"] is not None:
         _sha(semantic["source_sha"], "semantic_context.source_sha")
     _text(semantic["summary"], "semantic_context.summary", 8_000, empty=True)
@@ -227,8 +230,7 @@ def validate_result(data: Any, envelope: dict) -> dict:
         _fail("result contract version or task_id does not match the envelope")
     _text(obj["provider"], "provider", 128)
     _text(obj["model"], "model", 256)
-    if obj["status"] not in ALLOWED_STATUSES:
-        _fail("invalid result status")
+    _enum(obj["status"], ALLOWED_STATUSES, "result status")
     _text(obj["summary"], "summary", 8_000)
     _strings(obj["plan"], "plan", maximum=100)
 
@@ -236,8 +238,7 @@ def validate_result(data: Any, envelope: dict) -> dict:
     for item in assumptions:
         _object(item, "assumption", {"text", "confidence"})
         _text(item["text"], "assumption.text", 2_000)
-        if item["confidence"] not in ALLOWED_ASSUMPTIONS:
-            _fail("invalid assumption confidence")
+        _enum(item["confidence"], ALLOWED_ASSUMPTIONS, "assumption confidence")
 
     paths = obj["changed_paths"]
     if not isinstance(paths, list) or len(paths) > envelope["budgets"]["max_changed_files"]:
@@ -275,7 +276,8 @@ def validate_result(data: Any, envelope: dict) -> dict:
     requests = _records(obj["verification_requests"], "verification_requests")
     for item in requests:
         _object(item, "verification request", {"profile", "rationale"})
-        if item["profile"] not in ALLOWED_PROFILES or item["profile"] not in envelope["verification_profiles"]:
+        profile = _enum(item["profile"], ALLOWED_PROFILES, "verification request profile")
+        if profile not in envelope["verification_profiles"]:
             _fail("verification request is not in the task's fixed profile allowlist")
         _text(item["rationale"], "verification rationale", 2_000)
 

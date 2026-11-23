@@ -60,6 +60,7 @@ No API key is required to use this Issue protocol. The protocol itself does not 
 
 - v1 payload schema and local validator: implemented.
 - Adversarial fixture tests: implemented.
-- GitHub Issue template and automated event listener: not yet enabled.
-- Atomic claim/lease, automatic dispatch, and multi-agent parallel execution: not implemented.
+- GitHub Issue template and event-driven intake validation/artifact workflow: implemented; it does not dispatch an agent or claim a lease.
+- CAS lease state machine: implemented as local transition logic; authenticated GitHub adapter and real concurrent-claim test remain pending.
+- Automatic model/agent wake-up and multi-agent parallel execution: not implemented.
 - Human review and explicit approval for merge/release/deploy remain mandatory.

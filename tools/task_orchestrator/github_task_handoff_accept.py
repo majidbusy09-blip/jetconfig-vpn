@@ -145,8 +145,8 @@ def validate_handoff_for_acceptance(
 
     lease = manifest["lease"]
     lease_fields = {
-        "owner", "claim_id", "status", "expires_at", "base_sha",
-        "lock_branch", "lock_commit", "verified",
+        "operation", "previous_claim_id", "owner", "claim_id", "status",
+        "expires_at", "base_sha", "lock_branch", "lock_commit", "verified",
     }
     if not isinstance(lease, dict) or set(lease) != lease_fields:
         raise HandoffAcceptanceError("Handoff lease record is malformed.")
@@ -156,7 +156,14 @@ def validate_handoff_for_acceptance(
     except LeaseError as exc:
         raise HandoffAcceptanceError("Current remote lease record is invalid.") from exc
     if (
-        lease["verified"] is not True
+        lease["operation"] not in {"claim", "renew"}
+        or (lease["operation"] == "claim" and lease["previous_claim_id"] is not None)
+        or (lease["operation"] == "renew" and (
+            not isinstance(lease["previous_claim_id"], str)
+            or not re.fullmatch(r"[a-f0-9]{16,64}", lease["previous_claim_id"])
+            or lease["previous_claim_id"] == lease["claim_id"]
+        ))
+        or lease["verified"] is not True
         or lease["status"] != "active"
         or lease["lock_branch"] != expected_branch
         or lease["lock_commit"] != lock_commit
@@ -247,6 +254,8 @@ def _handoff_metadata(manifest: dict[str, Any]) -> dict[str, Any]:
         "issue_number": manifest["issue"]["number"],
         "issue_url": manifest["issue"]["url"],
         "issue_body_sha256": manifest["issue"]["body_sha256"],
+        "operation": manifest["lease"]["operation"],
+        "previous_claim_id": manifest["lease"]["previous_claim_id"],
         "owner": manifest["lease"]["owner"],
         "claim_id": manifest["lease"]["claim_id"],
         "lease_expires_at": manifest["lease"]["expires_at"],
@@ -291,6 +300,8 @@ def _refresh_existing_task(
         raise HandoffAcceptanceError("Renewed handoff no longer matches the existing local task definition.")
     stable_fields = ("issue_number", "issue_url", "issue_body_sha256", "owner", "base_sha", "lock_branch")
     new_metadata = _handoff_metadata(manifest)
+    if new_metadata["operation"] != "renew" or old_handoff.get("claim_id") != new_metadata["previous_claim_id"]:
+        raise HandoffAcceptanceError("Lease refresh must renew the exact claim recorded in this local task.")
     if any(old_handoff.get(key) != new_metadata[key] for key in stable_fields):
         raise HandoffAcceptanceError("Renewed handoff belongs to a different Issue, owner, body, or pinned base.")
     output = record_path.parent / "agent_input.json"

@@ -11,9 +11,11 @@ from typing import Any
 
 MAX_CONTEXT_FILE_BYTES = 256_000
 MAX_CONTEXT_TOTAL_BYTES = 512_000
+MAX_CONTEXT_FILES = 100
 REVISION_RE = re.compile(r"^(?:[0-9a-f]{40}|[0-9a-f]{64})$")
 PROTECTED_PARTS = {".git", ".agent", ".secrets", "secrets", "credentials", "keystore", "signing", "release-assets"}
-PROTECTED_NAMES = {".env", ".env.local", ".env.production", "key.properties", "upload-keystore.jks", "release.keystore", "google-services.json"}
+PROTECTED_NAMES = {".env", ".env.local", ".env.production", ".npmrc", ".pypirc", "key.properties", "upload-keystore.jks", "release.keystore", "google-services.json", "credentials.json", "id_rsa", "id_ed25519"}
+PROTECTED_SUFFIXES = {".pem", ".p12", ".pfx", ".jks", ".keystore", ".mobileprovision"}
 
 
 class ContextBuildError(ValueError):
@@ -30,7 +32,8 @@ def _safe_path(value: str) -> str:
         raise ContextBuildError(f"Unsafe path segment in context path: {value!r}")
     if any(part.lower() in PROTECTED_PARTS for part in parts):
         raise ContextBuildError(f"Protected path cannot enter agent context: {value}")
-    if PurePosixPath(value).name.lower() in PROTECTED_NAMES:
+    filename = PurePosixPath(value).name.lower()
+    if filename in PROTECTED_NAMES or filename.startswith(".env") or PurePosixPath(filename).suffix in PROTECTED_SUFFIXES:
         raise ContextBuildError(f"Protected file cannot enter agent context: {value}")
     if any(ord(char) < 32 for char in value):
         raise ContextBuildError("Control characters are not allowed in context paths.")
@@ -86,6 +89,8 @@ def build_context(*, root, task_id: str, source_revision: str, required_paths: l
     selected_paths = [_safe_path(item) for item in source_paths]
     if len(set(project_paths)) != len(project_paths) or len(set(selected_paths)) != len(selected_paths):
         raise ContextBuildError("Context paths must not contain duplicates.")
+    if len(project_paths) + len(selected_paths) > MAX_CONTEXT_FILES:
+        raise ContextBuildError(f"Context package cannot contain more than {MAX_CONTEXT_FILES} files.")
     overlap = set(project_paths) & set(selected_paths)
     if overlap:
         raise ContextBuildError("Path cannot be both project and source context: " + ", ".join(sorted(overlap)))

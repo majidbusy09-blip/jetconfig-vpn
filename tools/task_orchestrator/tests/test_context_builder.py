@@ -122,6 +122,10 @@ class ContextBuilderTests(unittest.TestCase):
         with self.assertRaises(ContextBuildError):
             self.build(paths)
 
+    def test_rejects_too_many_context_files(self):
+        with self.assertRaises(ContextBuildError):
+            self.build([f"lib/file-{index}.dart" for index in range(101)])
+
     def test_rejects_unknown_revision(self):
         with self.assertRaises(ContextBuildError):
             build_context(root=self.root, task_id="context-test", source_revision="0" * 40,

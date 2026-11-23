@@ -143,3 +143,18 @@ Each phase requires its own PR and CI evidence. Do not skip directly to broad ag
 ## 10. Explicit non-goals
 
 This contract does not choose a provider, expose secrets, create an unrestricted autonomous loop, grant production access, or authorize merge/release/deployment. It does not claim the current Orchestrator can yet accept or execute this contract. PR #20 remains a local workflow MVP until a separate adapter implementation is built, tested, and reviewed.
+
+
+## Context Builder package (local implementation, schema 1)
+
+The Orchestrator's `prepare` command now creates a deterministic, immutable-by-convention context package at the task's pinned `base_sha`. The package has:
+
+- `schema_version`, `task_id`, and `source_revision` (full Git commit SHA).
+- `project_context`: the required project instruction/status documents.
+- `source_context`: full-text source documents explicitly selected by repeatable `init --context REPO_PATH` options.
+- Each document has exactly `path`, `sha256`, and UTF-8 `content`.
+- `total_bytes` and `context_sha256`, where the latter hashes canonical JSON before the digest field is added.
+
+Selection is deliberately explicit: every source path must be inside the task's declared allowlist and outside exclusions. The builder reads Git tree/blob objects at the pinned revision, not working-tree files. It rejects traversal, protected path components and common secret/key files, symlinks, submodules, missing/untracked paths, invalid UTF-8, NUL bytes, more than 100 documents, files over 256,000 bytes, and packages over 512,000 bytes. It does not truncate.
+
+The package is persisted in `.agent/tasks/<task-id>/task.json` for later adapter-envelope construction. Repository content remains untrusted data; this package format does not grant its contents authority over system safety policy. The builder is local-only and does not upload source code or call a model provider.

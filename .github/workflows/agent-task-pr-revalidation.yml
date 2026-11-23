@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   revalidate-linked-agent-prs:
-    if: contains(github.event.issue.labels.*.name, 'agent-task')
+    if: contains(github.event.issue.labels.*.name, 'agent-task') || (github.event.action == 'unlabeled' && github.event.label.name == 'agent-task')
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:

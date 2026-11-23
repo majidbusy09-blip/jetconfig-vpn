@@ -42,6 +42,19 @@ class TaskIssueRevalidatorTests(unittest.TestCase):
         self.assertEqual(result["status"], "not-agent-task")
         api.assert_not_called()
 
+    def test_unlabeling_agent_task_still_revalidates_linked_prs(self):
+        event = issue_event("unlabeled")
+        event["issue"]["labels"] = []
+        event["label"] = {"name": "agent-task"}
+        with patch(
+            "tools.task_orchestrator.github_task_issue_revalidator.api_get",
+            return_value=[],
+        ) as api:
+            result = revalidate_issue_event(event, token="read-token", repository=REPOSITORY)
+        self.assertEqual(result["status"], "revalidated")
+        self.assertEqual(result["checked_prs"], 0)
+        api.assert_called_once()
+
     def test_issue_event_revalidates_only_prs_linked_by_envelope(self):
         from tools.task_orchestrator.github_task_pr_guard import MARKER
         import json

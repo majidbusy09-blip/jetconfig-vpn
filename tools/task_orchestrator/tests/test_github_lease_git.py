@@ -7,7 +7,7 @@ from pathlib import Path
 
 from tools.task_orchestrator.github_lease import make_lease
 from tools.task_orchestrator.github_lease_git import (
-    LeaseGitError, _remote_url, _push, _commit_record,
+    LeaseGitError, _remote_url, _push, _commit_record, claim_or_renew,
 )
 
 
@@ -103,6 +103,33 @@ class GitHubLeaseTransportTests(unittest.TestCase):
                     _push(str(bare), branch, stale_commit, first_commit, "test-token")
             finally:
                 os.chdir(previous)
+
+
+    def test_renewal_reads_and_preserves_the_existing_pinned_base(self):
+        from unittest.mock import patch
+        current = make_lease(task_id="sample-task", owner="chatgpt",
+                             claim_id="a" * 16, base_sha="c" * 40,
+                             now="2026-11-23T10:00:00Z", duration_minutes=60)
+        lock_sha = "d" * 40
+        new_commit = "e" * 40
+        with patch("tools.task_orchestrator.github_lease_git._remote_sha",
+                   side_effect=[lock_sha, new_commit]), \
+             patch("tools.task_orchestrator.github_lease_git._fetch_head",
+                   return_value=lock_sha), \
+             patch("tools.task_orchestrator.github_lease_git._read_lease",
+                   return_value=current), \
+             patch("tools.task_orchestrator.github_lease_git._commit_record",
+                   return_value=new_commit), \
+             patch("tools.task_orchestrator.github_lease_git._push") as push:
+            result = claim_or_renew(
+                operation="renew", task_id="sample-task", owner="chatgpt",
+                claim_id="b" * 16, base_sha=None, duration_minutes=60,
+                previous_claim_id="a" * 16, now="2026-11-23T10:30:00Z",
+                repository="owner/repository", token="test-token",
+            )
+        self.assertEqual(result["base_sha"], "c" * 40)
+        self.assertEqual(result["claim_id"], "b" * 16)
+        self.assertEqual(push.call_args.args[3], lock_sha)
 
 
 if __name__ == "__main__":

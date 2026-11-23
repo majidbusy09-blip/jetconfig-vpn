@@ -82,10 +82,12 @@ Tests must run in the actual selected runtime on the supported CI host. Unit tes
 
 ## 5. Runtime selection gate
 
-The non-production PR validation workflow now runs `tools/task_orchestrator/runtime_probe.py`. This is deliberately a read-only inventory: it reports discoverable runtime tools, selected namespace/cgroup/seccomp metadata, user-namespace settings, and whether the conventional Docker socket path exists. It does not invoke Docker, Podman, bubblewrap, `unshare`, or any other runtime; it does not attempt privileged operations or network tests.
+The non-production PR validation workflow runs two distinct checks:
 
-Treat the output as reconnaissance only. Tool presence, visible namespaces, a non-root UID, or cgroup files do not prove a secure worker. In particular, a Docker socket is a high-privilege host control surface and must never be mounted into an untrusted agent worker.
+- `runtime_probe.py`: read-only inventory of runtime tools, namespaces, host Seccomp mode, user-namespace settings, cgroup v2 controllers, and the current process's cgroup v2 directory. It reads the current cgroup's `cpu.max`, `memory.max`, and `pids.max`, plus `cgroup.subtree_control`, and reports directory write-access indicators. It never writes cgroup files or creates a child cgroup.
+- `runtime_acceptance_probe.py`: controlled benign Bubblewrap test of selected namespaces, mount behavior, host-sentinel visibility, and outbound connectivity. It does not run agent-generated code.
 
+Treat both outputs as reconnaissance/partial acceptance evidence only. Cgroup file visibility, a writable-directory indicator, or controller names do not prove delegated child-cgroup creation or enforceable resource limits. Tool presence, visible namespaces, a non-root UID, or cgroup files do not prove a secure worker. A Docker socket is a high-privilege host control surface and must never be mounted into an untrusted agent worker.
 
 Do not select Docker, Podman, bubblewrap, a hosted runner, or another mechanism by convenience alone. Before implementation, compare availability on the target CI environment, rootless operation, network isolation, filesystem mount controls, process-tree termination, resource limits, image pinning, and cleanup observability.
 
@@ -93,11 +95,10 @@ If the CI host cannot provide the required properties, stop and report the limit
 
 ## 6. CI reconnaissance result and candidate
 
-The current hosted runner inventory found Bubblewrap, Podman, Docker, `unshare`, cgroup v2, and unprivileged user namespaces. It also found a Docker socket, so that socket is explicitly excluded from any worker design. The job runs as a non-root UID, but host Seccomp mode was reported as 0 (no filter visible in the inspected process).
+The latest verified Bubblewrap self-test passed five benign checks: separate network namespace, read-only source mount, writable scratch mount, hidden host sentinel, and denied outbound connectivity. The CI inventory also found Bubblewrap, Podman, Docker, `unshare`, cgroup v2, and unprivileged user namespaces. It found a Docker socket, which remains explicitly excluded. The job runs as a non-root UID; host Seccomp mode was reported as 0 (no filter visible in the inspected process).
 
-A controlled Bubblewrap self-test now checks only benign properties: separate user/PID/network namespaces, a read-only source mount, a writable scratch mount, invisibility of a host sentinel outside the mounted paths, and failed outbound connectivity. It uses a minimal filesystem view and clears the inherited environment. It does not mount the host root, home directory, or Docker socket, and it does not execute agent-generated code.
+The Bubblewrap result is **partial isolation evidence**, not a complete worker. Seccomp policy, cgroup CPU/memory/PID/disk limits, process-tree cancellation, image/runtime pinning, and cleanup guarantees still need separate proof. A blocked probe is reported as blocked rather than silently downgraded.
 
-Even if these checks pass, Bubblewrap is only a **candidate building block**, not a complete worker: seccomp policy, cgroup CPU/memory/PID/disk limits, process-tree cancellation, image/runtime pinning, and cleanup guarantees still need separate proof. A blocked probe is reported as blocked rather than silently downgraded.
-
+The cgroup inventory enhancement is read-only and reports whether the current cgroup directory appears writable and what limit files currently contain. This is only a clue for the next investigation; it does not attempt to impose limits or claim that the CI job can delegate a child cgroup.
 
 This phase does not connect a model provider, fetch dependencies, execute agent code, apply patches, change application source, or grant repository/production write permissions. It does not authorize merging PR #20 or changing `main`.

@@ -63,6 +63,14 @@ The integration suite uses temporary Git repositories and covers lifecycle, scop
 - Agent status and assertions are not verification evidence. Non-completed statuses cannot carry a patch; only the orchestrator may later record actual check outcomes or advance task state.
 - Run the fixture suite with `python -m unittest discover -s tools/task_orchestrator/tests -p 'test_*.py'`.
 
+## Read-only adapter prototype
+
+- `readonly_adapter.py` defines a minimal provider protocol: a provider receives only a deeply immutable, validated task envelope and returns structured data that is validated against the same task contract.
+- A deterministic fixture provider supports local tests. No model SDK, API key, network client, shell, Git, filesystem handle, patch fetcher, or patch applier is included.
+- The boundary rejects invalid envelopes before calling the provider and rejects malformed or contract-invalid provider output. Provider exception text is not copied into diagnostics.
+- Important limitation: this Python interface is not an OS-level sandbox. It only constrains the capabilities passed through this interface; any real provider implementation must be separately trusted, permission-limited, and reviewed. No live provider is connected.
+- Run all orchestrator tests with `python -m unittest discover -s tools/task_orchestrator/tests -p 'test_*.py'`.
+
 ## Fixed verification profiles
 
 - `python-tooling-tests`

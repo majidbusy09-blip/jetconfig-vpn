@@ -86,6 +86,8 @@ def transition_plan(current: dict[str, Any] | None, proposed: dict[str, Any],
     prior = validate_lease(current)
     if prior["task_id"] != next_record["task_id"]:
         raise LeaseError("Task ID mismatch.")
+    if prior["base_sha"] != next_record["base_sha"]:
+        raise LeaseError("Task base SHA mismatch.")
     if observed_ref_sha is None or not re.fullmatch(r"(?:[0-9a-f]{40}|[0-9a-f]{64})", observed_ref_sha):
         raise LeaseError("A full observed lock-ref SHA is required for compare-and-swap.")
     if prior["status"] == "active" and _utc(prior["expires_at"]) > _utc(now):
@@ -93,6 +95,28 @@ def transition_plan(current: dict[str, Any] | None, proposed: dict[str, Any],
     if next_record["owner"] == prior["owner"] and next_record["claim_id"] == prior["claim_id"]:
         raise LeaseError("Renewal must use a fresh claim_id to avoid replay.")
     return {"operation": "compare-and-swap", "branch": lock_branch(next_record["task_id"]),
+            "record": next_record, "expected_sha": observed_ref_sha}
+
+
+def renew_plan(current: dict[str, Any], proposed: dict[str, Any], *,
+               observed_ref_sha: str, owner: str, claim_id: str, now: str) -> dict[str, Any]:
+    prior, next_record = validate_lease(current), validate_lease(proposed)
+    moment = _utc(now)
+    if prior["status"] != "active" or _utc(prior["expires_at"]) <= moment:
+        raise LeaseError("Only an unexpired active lease can be renewed.")
+    if prior["owner"] != owner or prior["claim_id"] != claim_id:
+        raise LeaseError("Only the current lease owner may renew this claim.")
+    if next_record["owner"] != owner or next_record["task_id"] != prior["task_id"]:
+        raise LeaseError("Renewal owner or task ID mismatch.")
+    if next_record["base_sha"] != prior["base_sha"]:
+        raise LeaseError("Renewal cannot change the pinned task base SHA.")
+    if next_record["claim_id"] == claim_id:
+        raise LeaseError("Renewal requires a fresh claim_id to prevent replay.")
+    if _utc(next_record["claimed_at"]) != moment:
+        raise LeaseError("Renewal claimed_at must equal the supplied current time.")
+    if not re.fullmatch(r"(?:[0-9a-f]{40}|[0-9a-f]{64})", observed_ref_sha):
+        raise LeaseError("A full observed lock-ref SHA is required.")
+    return {"operation": "compare-and-swap", "branch": lock_branch(prior["task_id"]),
             "record": next_record, "expected_sha": observed_ref_sha}
 
 

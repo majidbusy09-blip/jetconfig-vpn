@@ -194,3 +194,15 @@ This is a manual lease-control bridge, not an agent wake-up mechanism. It does n
 
 
 The live Issue command workflow was end-to-end tested on temporary Issue #24: claim, renew, and release succeeded, the final lease record was verified as released, and the test Issue was closed. Evidence: Actions runs 45178623063, 45178678823, 45178732222.
+
+
+### Agent implementation PR envelope
+
+Include the following after the PR description when submitting a leased task:
+
+    <!-- jet-agent-pr:v1 -->
+    ```json
+    {"schema_version":1,"task_issue":42,"owner":"chatgpt","claim_id":"<current-claim-id>"}
+    ```
+
+The trusted-main PR guard validates the linked Issue, lease, pinned base, and changed paths using read-only API access. It does not execute PR code or merge the PR.

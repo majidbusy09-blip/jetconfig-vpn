@@ -9,7 +9,7 @@ from tools.task_orchestrator.tests.test_agent_contract import envelope, result_f
 
 
 def patch_text():
-    path = "tools/example.py"
+    path = "lib/routing_policy.dart"
     return (
         f"diff --git a/{path} b/{path}\n"
         "index 1111111..2222222 100644\n"
@@ -23,7 +23,7 @@ def completed_result(env, patch):
     raw = patch.encode("utf-8")
     result["patch_ref"] = "artifact:sha256:" + hashlib.sha256(raw).hexdigest()
     result["usage"]["patch_bytes"] = len(raw)
-    result["changed_paths"] = ["tools/example.py"]
+    result["changed_paths"] = ["lib/routing_policy.dart"]
     return result
 
 
@@ -35,7 +35,7 @@ class PatchPipelineTests(unittest.TestCase):
         summary = validate_completed_patch(result, env, patch)
         self.assertEqual(summary["status"], "validated_for_human_review")
         self.assertFalse(summary["applied"])
-        self.assertEqual(summary["patch_validation"]["changed_paths"], ["tools/example.py"])
+        self.assertEqual(summary["patch_validation"]["changed_paths"], ["lib/routing_policy.dart"])
 
     def test_rejects_patch_digest_mismatch(self):
         env = envelope()
@@ -54,9 +54,9 @@ class PatchPipelineTests(unittest.TestCase):
 
     def test_rejects_out_of_scope_patch_even_with_matching_digest(self):
         env = envelope()
-        patch = patch_text().replace("tools/example.py", "lib/main.dart")
+        patch = patch_text().replace("lib/routing_policy.dart", "README.md")
         result = completed_result(env, patch)
-        result["changed_paths"] = ["lib/main.dart"]
+        result["changed_paths"] = ["README.md"]
         with self.assertRaises(PatchPipelineError):
             validate_completed_patch(result, env, patch)
 
@@ -64,7 +64,7 @@ class PatchPipelineTests(unittest.TestCase):
         env = envelope()
         patch = patch_text()
         result = completed_result(env, patch)
-        result["changed_paths"] = ["tools/other.py"]
+        result["changed_paths"] = ["lib/other.dart"]
         with self.assertRaises(PatchPipelineError):
             validate_completed_patch(result, env, patch)
 

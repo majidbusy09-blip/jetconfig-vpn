@@ -91,6 +91,13 @@ Do not select Docker, Podman, bubblewrap, a hosted runner, or another mechanism 
 
 If the CI host cannot provide the required properties, stop and report the limitation. Do not silently downgrade to a temporary directory or ordinary Git worktree and call it a sandbox.
 
-## 6. Explicit non-goals
+## 6. CI reconnaissance result and candidate
+
+The current hosted runner inventory found Bubblewrap, Podman, Docker, `unshare`, cgroup v2, and unprivileged user namespaces. It also found a Docker socket, so that socket is explicitly excluded from any worker design. The job runs as a non-root UID, but host Seccomp mode was reported as 0 (no filter visible in the inspected process).
+
+A controlled Bubblewrap self-test now checks only benign properties: separate user/PID/network namespaces, a read-only source mount, a writable scratch mount, invisibility of a host sentinel outside the mounted paths, and failed outbound connectivity. It uses a minimal filesystem view and clears the inherited environment. It does not mount the host root, home directory, or Docker socket, and it does not execute agent-generated code.
+
+Even if these checks pass, Bubblewrap is only a **candidate building block**, not a complete worker: seccomp policy, cgroup CPU/memory/PID/disk limits, process-tree cancellation, image/runtime pinning, and cleanup guarantees still need separate proof. A blocked probe is reported as blocked rather than silently downgraded.
+
 
 This phase does not connect a model provider, fetch dependencies, execute agent code, apply patches, change application source, or grant repository/production write permissions. It does not authorize merging PR #20 or changing `main`.

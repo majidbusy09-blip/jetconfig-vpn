@@ -94,7 +94,7 @@ def read_lease(repository, task_id, token):
     if not isinstance(item, dict) or item.get("encoding") != "base64" or not isinstance(item.get("content"), str):
         raise GuardError("Lease content response is malformed.")
     try:
-        record = json.loads(base64.b64decode(item["content"], validate=True).decode("utf-8"))
+        record = json.loads(base64.b64decode("".join(item["content"].split()), validate=True).decode("utf-8"))
         return validate_lease(record)
     except (ValueError, UnicodeDecodeError, json.JSONDecodeError, LeaseError) as exc:
         raise GuardError("Lease record is invalid.") from exc

@@ -3,31 +3,35 @@ import unittest
 from pathlib import Path
 
 from tools.task_orchestrator.runtime_probe import (
-    RUNTIME_TOOLS, build_cgroup_report, build_report,
+    RUNTIME_TOOLS, assess_preflight, build_cgroup_report, build_report,
 )
 
 
 class RuntimeProbeTests(unittest.TestCase):
-    def test_report_is_explicitly_inventory_only(self):
+    def test_report_is_explicitly_inventory_only_and_fails_closed(self):
         report = build_report(
             tool_paths={name: None for name in RUNTIME_TOOLS},
             effective_uid=1001,
             kernel_release="test-kernel",
-            proc_status="Name:\tpython\nSeccomp:\t2",
+            proc_status="Name:\tpython\nSeccomp:\t0",
             namespace_names=["mnt", "net", "user"],
             cgroup_controllers="cpu memory pids",
             userns_max="65536",
             unprivileged_userns_clone="1",
-            docker_socket_present=False,
+            docker_socket_present=True,
             cgroup_report={"delegation_candidate": False},
         )
         self.assertEqual(report["classification"], "inventory_only_not_sandbox")
         self.assertFalse(report["eligible_for_untrusted_agent_execution"])
         self.assertTrue(report["host"]["running_as_non_root"])
-        self.assertEqual(report["seccomp_mode"], 2)
+        self.assertEqual(report["seccomp_mode"], 0)
         self.assertEqual(report["cgroup_controllers"], ["cpu", "memory", "pids"])
         self.assertEqual(report["namespaces_visible"], ["mnt", "net", "user"])
         self.assertFalse(report["cgroup_current_process"]["delegation_candidate"])
+        self.assertEqual(report["sandbox_preflight"]["status"], "blocked")
+        self.assertIn("seccomp_filter_not_visible", report["sandbox_preflight"]["blockers"])
+        self.assertIn("delegated_cgroup_controls_not_available", report["sandbox_preflight"]["blockers"])
+        self.assertIn("docker_socket_present_on_host", report["sandbox_preflight"]["blockers"])
 
     def test_missing_host_features_are_reported_as_unknown_or_unavailable(self):
         report = build_report(
@@ -48,6 +52,8 @@ class RuntimeProbeTests(unittest.TestCase):
         self.assertFalse(report["eligible_for_untrusted_agent_execution"])
         self.assertIn("docker", report["runtime_tool_paths"])
         self.assertIsNone(report["runtime_tool_paths"]["podman"])
+        self.assertEqual(report["sandbox_preflight"]["status"], "blocked")
+        self.assertIn("process_not_non_root", report["sandbox_preflight"]["blockers"])
 
     def test_cgroup_report_reads_delegation_indicators_without_writing(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -78,6 +84,35 @@ class RuntimeProbeTests(unittest.TestCase):
             )
             self.assertFalse(report["directory_visible"])
             self.assertFalse(report["delegation_candidate"])
+
+    def test_preflight_candidate_is_not_execution_authorization(self):
+        report = assess_preflight(
+            running_as_non_root=True,
+            seccomp_mode=2,
+            cgroup_report={"delegation_candidate": True},
+            docker_socket_present=False,
+        )
+        self.assertEqual(report["status"], "candidate_for_deeper_acceptance")
+        self.assertFalse(report["eligible_for_untrusted_agent_execution"])
+
+    def test_preflight_blocks_each_missing_security_requirement(self):
+        report = assess_preflight(
+            running_as_non_root=False,
+            seccomp_mode=0,
+            cgroup_report={"delegation_candidate": False},
+            docker_socket_present=True,
+        )
+        self.assertEqual(report["status"], "blocked")
+        self.assertCountEqual(
+            report["blockers"],
+            [
+                "process_not_non_root",
+                "seccomp_filter_not_visible",
+                "delegated_cgroup_controls_not_available",
+                "docker_socket_present_on_host",
+            ],
+        )
+        self.assertFalse(report["eligible_for_untrusted_agent_execution"])
 
 
 if __name__ == "__main__":

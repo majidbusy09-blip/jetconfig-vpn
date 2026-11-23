@@ -13,8 +13,8 @@ from tools.task_orchestrator.agent_contract import (
 SHA_A = "a" * 64
 SHA_B = "b" * 64
 SHA_C = "c" * 64
-PROJECT_TEXT = "# Agent rules\\nFollow the repository safety contract.\\n"
-SOURCE_TEXT = "class RoutingPolicy {}\\n"
+PROJECT_TEXT = "# Agent rules\nFollow the repository safety contract.\n"
+SOURCE_TEXT = "class RoutingPolicy {}\n"
 PROJECT_SHA = "371ffdfd69786710a8682d1b89ef26c7c399919e639c99ed06a6f8111544839f"
 SOURCE_SHA = "3cec9734081d2119601b9ff0188955417f781444edcfb673f2c0a66b25427192"
 

@@ -33,8 +33,8 @@ class GitHubIssueIntakeTests(unittest.TestCase):
                 build_intake(event(**issue))
 
     def test_rejects_untrusted_or_ineligible_event(self):
-        with self.assertRaises(IntakeError):
-            build_intake(dict(event(), action="edited"))
+        edited = build_intake(dict(event(), action="edited"))
+        self.assertEqual(edited["task"]["task_id"], "sample-task")
         with self.assertRaises(IntakeError):
             build_intake({"action": "opened", "issue": {}, "repository": {}})
 

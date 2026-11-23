@@ -293,3 +293,16 @@ Append-only record of meaningful project work. Each entry should include branch/
 - **Documentation:** updated the orchestrator README and design invariants to describe stable-source verification.
 - **CI:** previous runs [#45100960414](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45100960414) and [#45100960755](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45100960755) passed before this hardening. New runs [#45101712631](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45101712631) and [#45101712642](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45101712642) are validating the updated code and are still in progress at this entry.
 - **Boundary:** PR #20 remains Draft and unmerged. No production app, bot, payment, backend, server, release, or deployment behavior was changed.
+
+
+## 2026-11-23 — PR #20 orchestrator hardening verified; coding-agent adapter contract drafted
+
+- **Branch:** `design/task-execution-orchestrator-20261123`.
+- **Verified implementation head:** `c4acaf8c32a5c70cea2919b9eb5f2c68303b3559`.
+- **CI:** Project Memory Audit [#45105873991](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45105873991) and Non-production PR Validation [#45105874008](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45105874008) both completed successfully. The PR validation job passed the Orchestrator integration suite, validation tooling tests, Flutter analysis, application tests, debug APK smoke build, and ARM64 validation APK build. This is CI/build evidence, not a physical-device VPN runtime test.
+- **Regression correction:** fixed the latest-attempt ordering test to write a valid JSON newline rather than a literal backslash-n sequence. Both workflows passed on the corrected implementation head.
+- **Added:** `docs/CODING_AGENT_ADAPTER_CONTRACT.md`, a provider-neutral contract for task envelopes, structured agent results, sandbox permissions, patch acceptance/rejection gates, failure/retry semantics, audit/privacy, and phased rollout.
+- **Updated:** `docs/NEXT_STEPS.md` to mark the local MVP's CI verification complete and prioritize schema/fixture tests followed by a read-only provider adapter.
+- **Design boundary:** no provider is connected; no agent patch execution, GitHub write permission, commit/push, PR creation, merge, release, deployment, or production workflow dispatch is implemented or authorized.
+- **Application boundary:** no Dart/Java/Kotlin app source, app version, signing, production release workflow, bot, payment, backend, or server behavior changed.
+- **PR state:** PR #20 remains Draft and unmerged. New documentation changes require fresh CI on the updated branch head.

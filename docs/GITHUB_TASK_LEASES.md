@@ -37,4 +37,14 @@ The authenticated GitHub adapter must still execute create-ref/update-ref operat
 
 ## Rollout boundary
 
-Lease record schema and deterministic state-transition rules are implemented and tested. An authenticated GitHub adapter, automated Issue listener, autonomous agent wake-up, and automatic renewal are not yet implemented. Until the adapter is implemented and exercised with concurrent claim attempts, retain one explicitly coordinated implementation agent per task; do not enable unattended parallel implementation.
+Lease record schema and deterministic state-transition rules are implemented and tested. An authenticated GitHub adapter wired into each provider runtime, autonomous agent wake-up, and automatic renewal are not yet implemented. The repository now contains an Issues-event validation workflow, but GitHub only activates that workflow after it exists on the default branch; because this PR remains unmerged, it is not active for live Issues yet. Until the adapter is implemented and exercised with concurrent claim attempts, retain one explicitly coordinated implementation agent per task; do not enable unattended parallel implementation.
+
+
+## Current practical operating boundary
+
+- On this PR branch, the Issue payload validator and event workflow can be reviewed and tested by CI.
+- The workflow is intentionally read-only: `contents: read`, `issues: read`; it only uploads a task JSON artifact.
+- After an authorized merge, create an Issue from the provided template and add/retain the `agent-task` label. Open, labeled, and edited events validate the payload and publish an artifact.
+- The artifact is not an execution grant. An agent must independently check `assigned_agent`, repository identity, issue/body digest, pinned base SHA, and lease ownership before preparing code changes.
+- GitHub ref CAS is only effective when the adapter uses the exact observed ref SHA as `expected_sha`. A plain REST ref update, Issue comment, workflow concurrency group, or local file is not a substitute for this CAS.
+- No shared, automatic ChatGPT/Grok wake-up is available from this workflow alone. No paid model API, provider credential, private-source upload, or external sandbox is configured.

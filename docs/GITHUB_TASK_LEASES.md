@@ -68,3 +68,18 @@ The timestamp defaults to current UTC; \`--now\` is available for deterministic 
 - No paid model API, provider credential, private-source upload, or external sandbox is configured.
 
 See also [MULTI_AGENT_GITHUB_PROTOCOL.md](MULTI_AGENT_GITHUB_PROTOCOL.md).
+
+
+## Issue comment command bridge
+
+The trusted-main workflow \`.github/workflows/agent-lease-commands.yml\` accepts only fixed, single-line commands on open Issues labeled \`agent-task\`:
+
+\`\`\`text
+/jet-agent claim chatgpt <claim-id> [minutes]
+/jet-agent renew chatgpt <previous-claim-id> <new-claim-id> [minutes]
+/jet-agent release chatgpt <claim-id>
+\`\`\`
+
+The commenter must be a repository OWNER, MEMBER, or COLLABORATOR, and the command owner must match the task's \`assigned_agent\` unless it is \`any\`. A new claim pins the current default-branch commit; renewal reads the existing lease and preserves its pinned base. The workflow posts the verified result on the Issue.
+
+The workflow checks out trusted \`main\`, uses a short-lived \`GITHUB_TOKEN\` with \`contents: write\` and \`issues: write\`, and treats Issue/comment text as data only. It never runs text from the Issue as shell input. This is a manual lease-control interface, not automatic ChatGPT/Grok dispatch or an implementation runner.

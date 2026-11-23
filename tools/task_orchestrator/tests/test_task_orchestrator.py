@@ -361,7 +361,7 @@ class OrchestratorIntegrationTests(unittest.TestCase):
             "finished_at": "2099-01-01T00:00:00+00:00",
         })
         record["check_attempts"].append(failed_attempt)
-        self.record.write_text(json.dumps(record, indent=2) + "\\n", encoding="utf-8")
+        self.record.write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
         self.cli("finalize", "--task-id", self.task_id, "--reviewed-diff", expected=2)
         record = json.loads(self.record.read_text(encoding="utf-8"))
         self.assertEqual(record["state"], "verification")

@@ -45,7 +45,7 @@ Then run the acceptance command with a read-only GitHub token (contents:read and
 
 ```bash
 GITHUB_REPOSITORY=owner/repository \
-GITHUB_TOKEN=<read-only-token> \
+GITHUB_TOKEN="$GITHUB_TOKEN" \
 python -m tools.task_orchestrator.github_task_handoff_accept \
   --handoff-file /path/to/jet-agent-handoff.zip
 ```

@@ -15,7 +15,7 @@ class DispatcherTests(unittest.TestCase):
         env = envelope()
         result = result_for(env)
         provider = FixtureReadOnlyProvider(result)
-        record = dispatch_task(env, provider_name="fixture", providers={"fixture": provider})
+        record = dispatch_task(env, provider_name="fixture-provider", providers={"fixture-provider": provider})
         self.assertEqual(record["status"], "completed")
         self.assertTrue(record["result_validated"])
         self.assertTrue(provider.called)
@@ -31,7 +31,7 @@ class DispatcherTests(unittest.TestCase):
                 return {}
         provider = NeverCall()
         with self.assertRaises(DispatcherError):
-            dispatch_task(envelope(), provider_name="unregistered", providers={"fixture": provider})
+            dispatch_task(envelope(), provider_name="unregistered", providers={"fixture-provider": provider})
         self.assertFalse(provider.called)
 
     def test_rejects_invalid_envelope_before_invocation(self):
@@ -44,7 +44,7 @@ class DispatcherTests(unittest.TestCase):
         env = envelope()
         env["scope"]["allowed_paths"] = ["../escape"]
         with self.assertRaises(DispatcherError):
-            dispatch_task(env, provider_name="fixture", providers={"fixture": provider})
+            dispatch_task(env, provider_name="fixture-provider", providers={"fixture-provider": provider})
         self.assertFalse(provider.called)
 
     def test_rejects_result_provider_spoofing(self):
@@ -53,13 +53,13 @@ class DispatcherTests(unittest.TestCase):
         supplied["provider"] = "other-provider"
         provider = FixtureReadOnlyProvider(supplied)
         with self.assertRaises(DispatcherError):
-            dispatch_task(env, provider_name="fixture", providers={"fixture": provider})
+            dispatch_task(env, provider_name="fixture-provider", providers={"fixture-provider": provider})
 
     def test_audit_contains_no_source_text_or_raw_goal(self):
         env = envelope()
         record = dispatch_task(
-            env, provider_name="fixture",
-            providers={"fixture": FixtureReadOnlyProvider(result_for(env))},
+            env, provider_name="fixture-provider",
+            providers={"fixture-provider": FixtureReadOnlyProvider(result_for(env))},
         )
         serialized = str(record)
         self.assertNotIn(env["goal"], serialized)
@@ -70,16 +70,16 @@ class DispatcherTests(unittest.TestCase):
         env = envelope()
         before = copy.deepcopy(env)
         dispatch_task(
-            env, provider_name="fixture",
-            providers={"fixture": FixtureReadOnlyProvider(result_for(env))},
+            env, provider_name="fixture-provider",
+            providers={"fixture-provider": FixtureReadOnlyProvider(result_for(env))},
         )
         self.assertEqual(env, before)
 
     def test_audit_rejects_claim_that_patch_was_applied(self):
         env = envelope()
         record = dispatch_task(
-            env, provider_name="fixture",
-            providers={"fixture": FixtureReadOnlyProvider(result_for(env))},
+            env, provider_name="fixture-provider",
+            providers={"fixture-provider": FixtureReadOnlyProvider(result_for(env))},
         )
         record["patch_applied"] = True
         with self.assertRaises(DispatcherError):

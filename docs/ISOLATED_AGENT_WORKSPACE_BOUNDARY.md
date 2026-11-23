@@ -82,6 +82,11 @@ Tests must run in the actual selected runtime on the supported CI host. Unit tes
 
 ## 5. Runtime selection gate
 
+The non-production PR validation workflow now runs `tools/task_orchestrator/runtime_probe.py`. This is deliberately a read-only inventory: it reports discoverable runtime tools, selected namespace/cgroup/seccomp metadata, user-namespace settings, and whether the conventional Docker socket path exists. It does not invoke Docker, Podman, bubblewrap, `unshare`, or any other runtime; it does not attempt privileged operations or network tests.
+
+Treat the output as reconnaissance only. Tool presence, visible namespaces, a non-root UID, or cgroup files do not prove a secure worker. In particular, a Docker socket is a high-privilege host control surface and must never be mounted into an untrusted agent worker.
+
+
 Do not select Docker, Podman, bubblewrap, a hosted runner, or another mechanism by convenience alone. Before implementation, compare availability on the target CI environment, rootless operation, network isolation, filesystem mount controls, process-tree termination, resource limits, image pinning, and cleanup observability.
 
 If the CI host cannot provide the required properties, stop and report the limitation. Do not silently downgrade to a temporary directory or ordinary Git worktree and call it a sandbox.

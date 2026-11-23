@@ -72,6 +72,8 @@ class TaskHandoffTests(unittest.TestCase):
         self.assertEqual(result["handoff_schema"], 1)
         self.assertEqual(result["issue"]["number"], 42)
         self.assertEqual(result["lease"]["base_sha"], BASE)
+        self.assertEqual(result["lease"]["operation"], "claim")
+        self.assertIsNone(result["lease"]["previous_claim_id"])
         self.assertEqual(result["lease"]["lock_commit"], LOCK)
         self.assertEqual(result["execution"]["status"], "ready-for-agent")
         self.assertFalse(result["execution"]["agent_dispatched"])
@@ -86,6 +88,8 @@ class TaskHandoffTests(unittest.TestCase):
             now="2029-12-31T23:00:00Z",
         )
         self.assertEqual(result["lease"]["claim_id"], CLAIM)
+        self.assertEqual(result["lease"]["operation"], "renew")
+        self.assertEqual(result["lease"]["previous_claim_id"], "d" * 16)
         with self.assertRaises(TaskHandoffError):
             build_task_handoff(
                 event("release"), lease_result("release"), run_id=1, run_attempt=1,

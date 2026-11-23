@@ -221,3 +221,6 @@ GITHUB_REPOSITORY=owner/repository GITHUB_TOKEN="$GITHUB_TOKEN" \
 The acceptance command rechecks the live Issue and lock ref through read-only GitHub APIs, verifies the body digest and active claim/expiry, checks that the local origin and HEAD match the repository and pinned base, and requires a clean worktree on a non-default branch. It then creates the local task record and contract v1.1 `agent_input.json` with the six required project-memory documents. The downloaded ZIP is read without extracting its contents to disk.
 
 This prepares a local agent envelope; it does not invoke ChatGPT/Grok, execute agent code, upload source, create/push branches, modify the lease, or apply patches. Source context remains empty until an agent explicitly selects in-scope files through the existing context-selection workflow.
+
+
+If the lease is renewed after the local task has already been accepted, download the newest artifact and rerun the same command with `--refresh-existing`. This updates only the verified lease metadata in the local task record; it does not rebuild the envelope or touch implementation files. Refresh is allowed only for the same Issue body, task definition, owner, and pinned base SHA.

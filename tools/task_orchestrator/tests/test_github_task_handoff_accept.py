@@ -26,7 +26,7 @@ NOW = "2029-12-31T23:00:00Z"
 EXPIRES = "2030-01-01T01:00:00Z"
 
 
-def issue_event():
+def issue_event(operation="claim", claim_id=CLAIM, previous_claim_id=CLAIM):
     import json
     task = {
         "schema_version": 1, "task_id": TASK_ID,
@@ -44,7 +44,7 @@ def issue_event():
             "html_url": "https://github.com/owner/repository/issues/42",
             "labels": [{"name": "agent-task"}],
         },
-        "comment": {"body": f"/jet-agent claim chatgpt {CLAIM}", "author_association": "OWNER"},
+        "comment": {"body": (f"/jet-agent claim chatgpt {claim_id}" if operation == "claim" else f"/jet-agent renew chatgpt {previous_claim_id} {claim_id}"), "author_association": "OWNER"},
     }
 
 
@@ -275,6 +275,62 @@ class HandoffAcceptanceTests(unittest.TestCase):
             self.assertEqual(record["github_handoff"]["issue_number"], 42)
             self.assertEqual(record["github_handoff"]["claim_id"], CLAIM)
             self.assertEqual(git("rev-parse", "HEAD"), base_sha)
+
+            # Simulate implementation progress before a lease renewal.
+            (root / "docs" / "work-in-progress.md").write_text("Local implementation work.\\n", encoding="utf-8")
+            git("add", "docs/work-in-progress.md")
+            git("commit", "-m", "work in progress")
+            branch_head = git("rev-parse", "HEAD")
+            original_envelope = output.read_bytes()
+
+            renewed_claim = "d" * 16
+            renewed_now = "2029-12-31T23:30:00Z"
+            renewed_lock = "e" * 40
+            renewed_lease = make_lease(
+                task_id=TASK_ID, owner="chatgpt", claim_id=renewed_claim,
+                base_sha=base_sha, now=renewed_now, duration_minutes=120,
+            )
+            renewed_event = issue_event("renew", renewed_claim, CLAIM)
+            renewed_result = {
+                "operation": "renew", "task_id": TASK_ID, "issue_number": 42,
+                "issue_url": "https://github.com/owner/repository/issues/42",
+                "result": {
+                    "task_id": TASK_ID, "owner": "chatgpt", "claim_id": renewed_claim,
+                    "status": "active", "base_sha": base_sha,
+                    "expires_at": renewed_lease["expires_at"],
+                    "lock_branch": "agent-locks/" + TASK_ID,
+                    "lock_commit": renewed_lock, "verified": True,
+                },
+            }
+            renewed_handoff = build_task_handoff(
+                renewed_event, renewed_result, run_id=124, run_attempt=1, now=renewed_now
+            )
+            artifact.write_text(json.dumps(renewed_handoff), encoding="utf-8")
+            previous = Path.cwd()
+            try:
+                os.chdir(root)
+                with patch(
+                    "tools.task_orchestrator.github_task_handoff_accept.api_get",
+                    return_value=issue,
+                ), patch(
+                    "tools.task_orchestrator.github_task_handoff_accept._read_current_lease",
+                    return_value=(renewed_lease, renewed_lock),
+                ):
+                    refreshed = accept_handoff(
+                        artifact, token="read-token", repository=REPOSITORY,
+                        refresh_existing=True,
+                    )
+            finally:
+                os.chdir(previous)
+
+            self.assertEqual(refreshed, output)
+            self.assertEqual(output.read_bytes(), original_envelope)
+            renewed_record = json.loads(
+                (root / ".agent" / "tasks" / TASK_ID / "task.json").read_text(encoding="utf-8")
+            )
+            self.assertEqual(renewed_record["github_handoff"]["claim_id"], renewed_claim)
+            self.assertEqual(renewed_record["github_handoff"]["lock_commit"], renewed_lock)
+            self.assertEqual(git("rev-parse", "HEAD"), branch_head)
 
 
 if __name__ == "__main__":

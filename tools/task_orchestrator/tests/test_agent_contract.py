@@ -110,6 +110,37 @@ class AgentContractTests(unittest.TestCase):
             with self.subTest(field=field), self.assertRaises(ContractValidationError):
                 validate_envelope(bad)
 
+    def test_reject_non_string_enum_values_without_leaking_type_errors(self):
+        for field, value in (
+            ("capability", []), ("capability", {}),
+            ("risk", []), ("risk", {}),
+        ):
+            bad = envelope()
+            bad[field] = value
+            with self.subTest(field=field, value=value), self.assertRaises(ContractValidationError):
+                validate_envelope(bad)
+
+        for value in ([], {}):
+            bad = envelope()
+            bad["semantic_context"]["status"] = value
+            with self.subTest(semantic_status=value), self.assertRaises(ContractValidationError):
+                validate_envelope(bad)
+
+            bad_result = result_for()
+            bad_result["status"] = value
+            with self.subTest(result_status=value), self.assertRaises(ContractValidationError):
+                validate_result(bad_result, envelope())
+
+            bad_result = result_for()
+            bad_result["assumptions"][0]["confidence"] = value
+            with self.subTest(confidence=value), self.assertRaises(ContractValidationError):
+                validate_result(bad_result, envelope())
+
+            bad_result = result_for()
+            bad_result["verification_requests"][0]["profile"] = value
+            with self.subTest(profile=value), self.assertRaises(ContractValidationError):
+                validate_result(bad_result, envelope())
+
     def test_reject_invalid_task_and_contract_versions(self):
         for field, value in (("task_id", "../escape"), ("contract_version", "99")):
             bad = envelope()

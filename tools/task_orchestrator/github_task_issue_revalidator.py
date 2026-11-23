@@ -59,10 +59,19 @@ def revalidate_issue_event(event: dict, *, token: str, repository: str) -> dict:
     number = issue.get("number")
     if isinstance(number, bool) or not isinstance(number, int) or number < 1:
         raise RevalidationError("Issue number is invalid.")
+
     labels = issue.get("labels")
-    if not isinstance(labels, list) or not any(
+    has_task_label = isinstance(labels, list) and any(
         isinstance(item, dict) and item.get("name") == TASK_LABEL for item in labels
-    ):
+    )
+    removed_task_label = (
+        event.get("action") == "unlabeled"
+        and isinstance(event.get("label"), dict)
+        and event["label"].get("name") == TASK_LABEL
+    )
+    # GitHub's unlabeled event carries the removed label separately. Continue
+    # revalidation even though the Issue's current labels no longer include it.
+    if not has_task_label and not removed_task_label:
         return {"status": "not-agent-task", "issue_number": number, "checked_prs": 0}
     try:
         task = validate_issue_body(issue.get("body"))

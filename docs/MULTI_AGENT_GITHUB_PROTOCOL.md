@@ -86,3 +86,8 @@ For an open task Issue carrying the \`agent-task\` label, an OWNER, MEMBER, or C
 Replace \`chatgpt\` with \`grok\` when appropriate. The command owner must match \`assigned_agent\`, unless the task is assigned to \`any\`. The workflow validates the Issue payload and fixed command grammar, then uses the trusted default-branch lease adapter. A new claim pins the current \`main\` SHA; renewals preserve the base SHA already recorded in the lease. A result comment reports the verified lease details.
 
 This workflow is only a command bridge. It does not wake either model, start a runtime, run implementation commands, or transfer source files. Agents must verify the successful lease result and their own execution capabilities before editing.
+
+
+## Live workflow verification
+
+On 2026-11-23, the complete Issue command bridge was exercised against temporary Issue [#24](https://github.com/majidbusy09-blip/jetconfig-vpn/issues/24): claim, renew, and release all completed successfully in separate GitHub Actions runs (45178623063, 45178678823, 45178732222). The final lock record was independently checked as released, and the test Issue was closed. This validates the GitHub command/lease workflow, but does not imply model wake-up or autonomous provider execution.

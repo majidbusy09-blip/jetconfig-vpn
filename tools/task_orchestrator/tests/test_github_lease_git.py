@@ -129,6 +129,7 @@ class GitHubLeaseTransportTests(unittest.TestCase):
             )
         self.assertEqual(result["base_sha"], "c" * 40)
         self.assertEqual(result["claim_id"], "b" * 16)
+        self.assertEqual(result["expires_at"], "2026-11-23T11:30:00Z")
         self.assertEqual(push.call_args.args[3], lock_sha)
 
 

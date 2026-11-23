@@ -205,6 +205,7 @@ def claim_or_renew(*, operation: str, task_id: str, owner: str, claim_id: str,
     _push(remote, branch, commit, expected, token)
     return {"task_id": task_id, "owner": owner, "claim_id": claim_id,
             "status": record["status"], "base_sha": record["base_sha"],
+            "expires_at": record["expires_at"],
             "lock_branch": branch, "lock_commit": commit, "verified": True}
 
 

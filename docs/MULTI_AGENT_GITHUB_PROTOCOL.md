@@ -65,11 +65,12 @@ No model API key is required to use this Issue protocol or the Git lease transpo
 - v1 payload schema and local validator: implemented and tested.
 - GitHub Issue template and event-driven intake validation/artifact workflow: active on the default branch; it validates and packages tasks but does not dispatch an agent.
 - Lease state machine: implemented and tested, including renewal.
-- Git transport adapter: implemented; CI verifies its commit construction and server-side force-with-lease behavior against a local bare remote. A live GitHub concurrent-claim test remains outstanding.
+- Git transport adapter: implemented; CI verifies its commit construction and server-side force-with-lease behavior against a local bare remote.
 - Live GitHub ref-CAS race: passed on 2026-11-23 (Actions run `45176916962`); exactly one of two concurrent writers won and the probe branch was removed.
+- Lease command workflow: claim, renew, and release are available through trusted Issue comments.
+- Lease-verified handoff artifact: successful claim/renew creates a 14-day GitHub Actions artifact binding the validated task payload, Issue-body digest, active lease, pinned base SHA, and workflow run identity.
 - Provider runtime integration and automatic ChatGPT/Grok wake-up: not implemented.
-- Provider runtime integration and automatic ChatGPT/Grok wake-up: not implemented.
-- Until the live race test and provider runtime integration are complete, use the lease adapter explicitly and keep one active implementation agent per task. Read-only review by another agent is permitted.
+- Until provider runtime integration and isolated execution are complete, agents must still obtain the handoff artifact and verify current lease/context before editing. Keep one active implementation agent per task; read-only review by another agent is permitted.
 - Human review and explicit approval for merge/release/deploy remain mandatory.
 
 
@@ -85,7 +86,7 @@ For an open task Issue carrying the \`agent-task\` label, an OWNER, MEMBER, or C
 
 Replace \`chatgpt\` with \`grok\` when appropriate. The command owner must match \`assigned_agent\`, unless the task is assigned to \`any\`. The workflow validates the Issue payload and fixed command grammar, then uses the trusted default-branch lease adapter. A new claim pins the current \`main\` SHA; renewals preserve the base SHA already recorded in the lease. A result comment reports the verified lease details.
 
-This workflow is only a command bridge. It does not wake either model, start a runtime, run implementation commands, or transfer source files. Agents must verify the successful lease result and their own execution capabilities before editing.
+This workflow remains a command bridge, not an agent runtime. Successful claim/renew also creates a bounded lease-verified task handoff artifact in the same GitHub Actions run; it does not wake either model, start a runtime, run implementation commands, or transfer repository source files. Agents must verify the current lease and their own execution capabilities before editing.
 
 
 ## Live workflow verification

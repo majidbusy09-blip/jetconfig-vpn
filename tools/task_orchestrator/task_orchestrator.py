@@ -573,7 +573,7 @@ def command_suggest_context(args: argparse.Namespace) -> None:
         raise TaskError(f"Context selection blocked: {exc}") from exc
     target_dir = task_record_path.parent
     target = target_dir / f"context_suggestions_{result['query_sha256'][:12]}.json"
-    encoded = (json.dumps(result, ensure_ascii=False, indent=2) + "\\n").encode("utf-8")
+    encoded = (json.dumps(result, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
     if target.exists():
         if target.is_symlink() or target.read_bytes() != encoded:
             raise TaskError("An existing context-suggestion artifact differs; refusing to overwrite it.")

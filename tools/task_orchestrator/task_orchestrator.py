@@ -402,7 +402,23 @@ def command_build_envelope(args: argparse.Namespace) -> None:
     require_state(record, "prepared", "implementation", "verification")
     require_task_branch(root, record)
     try:
+        package_from_git = build_context(
+            root=root,
+            task_id=args.task_id,
+            source_revision=record["repository"]["base_sha"],
+            required_paths=record.get("required_context", []),
+            source_paths=record.get("context_paths", []),
+            allowed_patterns=record["scope"]["allowed"],
+            excluded_patterns=record["scope"]["excluded"],
+        )
+        if package_from_git != record.get("context_package"):
+            raise TaskError(
+                "Persisted context package differs from the exact blobs at the pinned Git revision; "
+                "do not hand it to an agent. Re-prepare on a fresh task."
+            )
         envelope = build_agent_envelope(record)
+    except ContextBuildError as exc:
+        raise TaskError(f"Pinned context re-verification blocked: {exc}") from exc
     except EnvelopeBuildError as exc:
         raise TaskError(f"Agent envelope blocked: {exc}") from exc
     target = task_record_path.parent / "agent_input.json"

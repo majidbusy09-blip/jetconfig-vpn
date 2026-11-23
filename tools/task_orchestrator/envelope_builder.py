@@ -15,6 +15,11 @@ except ImportError:
 PACKAGE_FIELDS = {"schema_version", "task_id", "source_revision", "project_context",
                   "source_context", "total_bytes", "context_sha256"}
 MAX_PACKAGE_BYTES = 512_000
+MAX_CONTEXT_FILES = 100
+REQUIRED_PROJECT_CONTEXT = [
+    "AGENTS.md", "docs/PROJECT_CONTEXT.md", "docs/CURRENT_STATUS.md",
+    "docs/NEXT_STEPS.md", "docs/TASK_TEMPLATE.md", "docs/DEVELOPMENT_LOG.md",
+]
 
 
 class EnvelopeBuildError(ValueError):
@@ -77,6 +82,10 @@ def _verify_package(package: Any, task_id: str, base_sha: str) -> dict:
     sources = package.get("source_context")
     if not isinstance(docs, list) or not isinstance(sources, list):
         raise EnvelopeBuildError("Context package document collections must be lists.")
+    if len(docs) + len(sources) > MAX_CONTEXT_FILES:
+        raise EnvelopeBuildError("Context package exceeds the maximum document count.")
+    if [item.get("path") for item in docs if isinstance(item, dict)] != REQUIRED_PROJECT_CONTEXT:
+        raise EnvelopeBuildError("Project context must contain exactly the six required project-memory documents in canonical order.")
     total = 0
     seen = set()
     for collection in (docs, sources):
@@ -114,6 +123,13 @@ def build_agent_envelope(record: dict, *, repository_name: str | None = None) ->
     if not isinstance(branch, str) or not branch or branch in {"main", "master"}:
         raise EnvelopeBuildError("Task branch is missing or protected.")
     package = _verify_package(record.get("context_package"), task_id, base_sha)
+    if record.get("required_context") != REQUIRED_PROJECT_CONTEXT:
+        raise EnvelopeBuildError("Task required-context manifest differs from the orchestrator's fixed project-memory set.")
+    expected_sources = record.get("context_paths")
+    if not isinstance(expected_sources, list) or not all(isinstance(path, str) for path in expected_sources):
+        raise EnvelopeBuildError("Task explicit source-context manifest is missing or malformed.")
+    if [item["path"] for item in package["source_context"]] != expected_sources:
+        raise EnvelopeBuildError("Source context paths do not exactly match the task's explicit --context selections.")
 
     allowed = scope.get("allowed")
     excluded = scope.get("excluded")

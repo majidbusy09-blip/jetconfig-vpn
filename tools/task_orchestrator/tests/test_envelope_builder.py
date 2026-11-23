@@ -27,7 +27,7 @@ def package(task_id="sample-task", revision="a" * 40):
             "path": "lib/routing.py", "content": source_text,
             "sha256": hashlib.sha256(source_text.encode()).hexdigest(),
         }],
-        "total_bytes": len(project_text.encode()) + len(source_text.encode()),
+        "total_bytes": sum(len(item["content"].encode()) for item in project_context) + len(source_text.encode()),
     }
     canonical = json.dumps(result, ensure_ascii=False, sort_keys=True,
                            separators=(",", ":")).encode()
@@ -48,6 +48,11 @@ def task_record():
         },
         "scope": {"allowed": ["lib/**"], "excluded": ["lib/generated/**"], "reason": None},
         "planned_checks": ["python-tooling-tests"],
+        "required_context": [
+            "AGENTS.md", "docs/PROJECT_CONTEXT.md", "docs/CURRENT_STATUS.md",
+            "docs/NEXT_STEPS.md", "docs/TASK_TEMPLATE.md", "docs/DEVELOPMENT_LOG.md",
+        ],
+        "context_paths": ["lib/routing.py"],
         "context_package": package(revision=base),
         "semantic_artifacts": {"status": "not_collected"},
     }
@@ -89,6 +94,22 @@ class EnvelopeBuilderTests(unittest.TestCase):
         record = task_record()
         record["scope"]["allowed"] = ["docs/**"]
         record["context_package"] = package(revision=record["repository"]["base_sha"])
+        with self.assertRaises(EnvelopeBuildError):
+            build_agent_envelope(record)
+
+    def test_rejects_extra_source_documents_even_when_inside_allowlist(self):
+        record = task_record()
+        extra = "malicious context text"
+        record["context_package"]["source_context"].append({
+            "path": "lib/extra.py", "content": extra,
+            "sha256": hashlib.sha256(extra.encode()).hexdigest(),
+        })
+        record["context_package"]["total_bytes"] += len(extra.encode())
+        unsigned = {k: v for k, v in record["context_package"].items()
+                    if k != "context_sha256"}
+        record["context_package"]["context_sha256"] = hashlib.sha256(
+            json.dumps(unsigned, ensure_ascii=False, sort_keys=True,
+                       separators=(",", ":")).encode()).hexdigest()
         with self.assertRaises(EnvelopeBuildError):
             build_agent_envelope(record)
 

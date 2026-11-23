@@ -7,7 +7,7 @@
 - Post-merge Project Memory Audit [#45069210457](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45069210457) succeeded on the current main commit.
 - App version remains `2.4.5+284`; `lib/main.dart`, native tunnel implementation, production release workflow, bot, payment, backend, and server behavior remain outside this PR.
 - PR #20 is Draft/open/unmerged on `design/task-execution-orchestrator-20261123`, based on the pinned main SHA above. No merge/release/deployment is authorized.
-- Latest verified Non-production PR Validation [#45116058927](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45116058927) succeeded on `aec5bf4354cd7cff59d00b7483f561e38da942fc`, including the controlled Bubblewrap self-test. The subsequent cgroup-inventory changes are newer and require fresh CI.
+- Project Memory Audit [#45116989181](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45116989181) and Non-production PR Validation [#45116989320](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45116989320) both succeeded on `9161ff33bbaf13775944b8ce7a1291146c468678`. The validation included Flutter analysis/tests and debug/ARM64 APK validation builds.
 
 Priority is measured against the goal of a reliable, independent programming collaborator with durable project memory and safe execution.
 
@@ -19,12 +19,14 @@ Priority is measured against the goal of a reliable, independent programming col
 4. **Implemented:** read-only provider interface with immutable task envelope and validated structured response. Fixture only; no live provider, SDK, API key, network, shell, or filesystem capability. This interface is not an OS sandbox.
 5. **Implemented:** unified-diff patch guard and a result-to-patch integrity pipeline. It checks exact SHA-256, reported byte count, allowed/excluded paths, protected paths, diff structure, and exact agreement with agent-declared changed paths. A pass means only `validated_for_human_review`; the patch is never applied.
 6. **CI-verified:** segment-aware scope matching shared by the agent contract and patch guard, with regression tests. Project Memory Audit #45113429133 and Non-production PR Validation #45113429119 succeeded on `363fe8066358646ce696baecaf876a4222bf8149`.
-7. **Implemented:** `docs/ISOLATED_AGENT_WORKSPACE_BOUNDARY.md` defines OS-level isolation requirements, threat boundaries, patch handoff, adversarial acceptance tests, and runtime-selection criteria. It is a design contract only; no complete sandbox or live provider exists.
-8. **Implemented and CI-executed:** read-only CI isolation inventory for runtime-tool discovery and selected kernel/user-namespace/cgroup/seccomp metadata. This is reconnaissance, not sandbox proof.
-9. **CI-verified:** controlled benign Bubblewrap self-test passed five checks on run #45116058927: separate network namespace, read-only source mount, writable scratch mount, hidden host sentinel, and denied outbound connectivity. It does not execute agent code or prove a complete sandbox.
-10. **Implemented, awaiting fresh CI:** read-only cgroup v2 inventory now inspects the current process cgroup path, controller names, `cpu.max`, `memory.max`, `pids.max`, `cgroup.subtree_control`, and directory write-access indicators. It does not write cgroup files, create child cgroups, or prove resource-limit enforcement.
-11. **Next:** use the new CI inventory to decide whether the runner actually delegates child cgroups. Then separately validate seccomp policy, CPU/memory/PID/disk enforcement, process-tree cancellation, and cleanup. Do not enable untrusted agent code until every required control is demonstrated.
-12. Keep model execution outside GitHub write permissions. No direct commit/push/PR/merge/release/deploy capability; no production workflow dispatch.
+7. **Implemented:** `docs/ISOLATED_AGENT_WORKSPACE_BOUNDARY.md` defines OS-level isolation requirements, threat boundaries, patch handoff, adversarial acceptance tests, and runtime-selection criteria.
+8. **Implemented and CI-executed:** read-only CI isolation inventory for runtime-tool discovery and selected kernel/user-namespace/cgroup/seccomp metadata.
+9. **CI-verified:** controlled benign Bubblewrap self-test passed five checks on run #45116989320: separate network namespace, read-only source mount, writable scratch mount, hidden host sentinel, and denied outbound connectivity. It does not execute agent code or prove a complete sandbox.
+10. **CI-verified:** read-only cgroup v2 inventory and tests. The runner's process cgroup is not writable; `cgroup.subtree_control` is empty; `cpu.max` and `memory.max` are `max`; `pids.max` is `17436`.
+11. **Implemented, awaiting fresh CI:** fail-closed sandbox preflight reports blockers for non-root status, visible Seccomp filtering, delegated cgroup controls, and Docker socket presence. Passing this preliminary gate is explicitly not authorization to execute untrusted code.
+12. **Current environment decision:** hosted runner reports Seccomp mode 0, no delegated cgroup write access, and a Docker socket on the host. Do not bypass these restrictions or try to change the parent cgroup. This runner is unsuitable for the intended untrusted-code worker under the current boundary.
+13. **Next:** evaluate a separately provisioned ephemeral worker/runner with explicit cgroup delegation, enforced seccomp policy, no host credentials/socket, and testable cleanup; alternatively evaluate a managed isolated execution service. Compare actual enforceable controls, not product claims. Do not enable untrusted agent code until all adversarial acceptance tests pass.
+14. Keep model execution outside GitHub write permissions. No direct commit/push/PR/merge/release/deploy capability; no production workflow dispatch.
 
 ## P1 — Reconcile outstanding draft work
 

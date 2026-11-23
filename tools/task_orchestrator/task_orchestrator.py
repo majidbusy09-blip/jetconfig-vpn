@@ -28,6 +28,14 @@ except ImportError:
     except ImportError:
         from context_builder import ContextBuildError, build_context
 
+try:
+    from .envelope_builder import EnvelopeBuildError, build_agent_envelope
+except ImportError:
+    try:
+        from tools.task_orchestrator.envelope_builder import EnvelopeBuildError, build_agent_envelope
+    except ImportError:
+        from envelope_builder import EnvelopeBuildError, build_agent_envelope
+
 SCHEMA_VERSION = 1
 REQUIRED_CONTEXT = (
     "AGENTS.md",
@@ -145,7 +153,7 @@ def status_paths(root: Path) -> list[str]:
 def is_task_metadata(path: str, task_id: str) -> bool:
     # Only the two orchestrator-owned files are exempt from user source scope.
     base = (TASK_DIR / task_id).as_posix()
-    return path in {f"{base}/task.json", f"{base}/HANDOFF.md"}
+    return path in {f"{base}/task.json", f"{base}/HANDOFF.md", f"{base}/agent_input.json"}
 
 
 def clean_before_init(root: Path) -> None:
@@ -385,6 +393,37 @@ def command_prepare(args: argparse.Namespace) -> None:
         f"Prepared task on {branch} at {head}. Built context package "
         f"{package['context_sha256'][:12]} with {len(package['project_context'])} project and "
         f"{len(package['source_context'])} source documents."
+    )
+
+
+def command_build_envelope(args: argparse.Namespace) -> None:
+    root = repository_root()
+    record, task_record_path = load_record(root, args.task_id)
+    require_state(record, "prepared", "implementation", "verification")
+    require_task_branch(root, record)
+    try:
+        envelope = build_agent_envelope(record)
+    except EnvelopeBuildError as exc:
+        raise TaskError(f"Agent envelope blocked: {exc}") from exc
+    target = task_record_path.parent / "agent_input.json"
+    encoded = (json.dumps(envelope, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
+    if target.exists():
+        try:
+            existing = target.read_bytes()
+        except OSError as exc:
+            raise TaskError("Existing agent envelope cannot be read safely.") from exc
+        if existing != encoded:
+            raise TaskError("An agent_input.json already exists with different content; refusing to overwrite it.")
+        print(f"Agent envelope is already current: {target.relative_to(root)}")
+        return
+    temporary = target.with_suffix(".json.tmp")
+    temporary.write_bytes(encoded)
+    temporary.replace(target)
+    print(
+        f"Built contract v1.1 envelope for {args.task_id}: "
+        f"{len(envelope['project_context'])} project and "
+        f"{len(envelope['source_context'])} source documents. "
+        "Local-only; no provider was called and no source was uploaded."
     )
 
 
@@ -680,6 +719,9 @@ def build_parser() -> argparse.ArgumentParser:
     init.add_argument("--context", action="append", default=[], metavar="REPO_PATH",
                       help="Explicit source file to include in agent context (repeatable).")
     init.set_defaults(func=command_init)
+    envelope = sub.add_parser("build-envelope", help="Verify the pinned context and create a local v1.1 agent input envelope.")
+    envelope.add_argument("--task-id", required=True)
+    envelope.set_defaults(func=command_build_envelope)
     for name, func, help_text in [
         ("prepare", command_prepare, "Load context and pin the clean branch baseline."),
         ("impact", command_impact, "Record available semantic and critical-path artifacts."),

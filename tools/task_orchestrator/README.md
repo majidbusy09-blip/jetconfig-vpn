@@ -29,6 +29,7 @@ python tools/task_orchestrator/task_orchestrator.py init \
   --check flutter-tests
 
 python tools/task_orchestrator/task_orchestrator.py prepare --task-id smart-routing-audit
+python tools/task_orchestrator/task_orchestrator.py build-envelope --task-id smart-routing-audit
 python tools/task_orchestrator/task_orchestrator.py impact --task-id smart-routing-audit
 python tools/task_orchestrator/task_orchestrator.py begin --task-id smart-routing-audit
 python tools/task_orchestrator/task_orchestrator.py validate-scope --task-id smart-routing-audit
@@ -46,6 +47,7 @@ The example is illustrative: choose only checks appropriate to the actual task. 
 
 - `init`: requires an initially clean worktree and explicit allowed paths and named checks. Repository-wide patterns (`*`, `**`, `**/*`) require `--risk high` and `--scope-reason`.
 - `prepare`: rejects main/master/the detected `origin/HEAD` default branch, detached HEAD, pre-existing changes, and changed repository origin; pins the base SHA and working branch, then builds context from that exact Git revision. Required project documents are automatic; source files are explicitly selected with repeatable `--context REPO_PATH` options at `init`. Each selected source file must match the task allowlist and avoid exclusions.
+- `build-envelope`: re-verifies the complete context package against task ID and pinned base SHA, validates every document hash and scope, then writes a deterministic v1.1 `agent_input.json` under the task's local `.agent/tasks/<task-id>/` directory. Existing different output is never overwritten.
 - `impact`: records hashes and availability of existing semantic/critical-path artifacts. The MVP does not independently prove freshness or complete path-specific impact.
 - `begin`: verifies that the pinned base has not moved before entering implementation.
 - `validate-scope`: compares committed, staged, unstaged, renamed, deleted, and untracked paths with the declared allow/exclude patterns.
@@ -59,9 +61,9 @@ Task records and handoffs are stored under `.agent/tasks/<task-id>/`. The task r
 - `context_builder.py` reads required project documents and explicitly selected source files from the pinned Git commit, never from mutable working-tree contents.
 - Source selection is explicit via repeatable `--context`; this avoids copying the entire repository into the agent context by default.
 - Rejects path traversal, protected paths, missing or untracked paths, symlinks, submodules, non-UTF-8/binary content, and size overflow. It never silently truncates.
-- Produces reproducible full-text documents with per-file SHA-256 and a canonical package SHA-256. The package is persisted in the task record for future agent-envelope construction.
+- Produces reproducible full-text documents with per-file SHA-256 and a canonical package SHA-256. The package is persisted in the task record. `build-envelope` converts it into the exact v1.1 contract only after recomputing the package digest, checking task/base identity, document hashes, byte totals, and source-path scope.
 - Repository text is untrusted data and cannot override the agent's safety or permission boundaries.
-- Local-only and provider-neutral: no source upload, model call, API key, or sandbox is involved.
+- Local-only and provider-neutral: `agent_input.json` duplicates bounded source text under the ignored local task-metadata directory; it is not uploaded, committed, or sent to a provider. No model call, API key, or sandbox is involved.
 
 
 The integration suite uses temporary Git repositories and covers lifecycle, scope, branch/base pinning, rename/delete handling, symlink safety, timeouts, source mutation during verification, stale results, and retry ordering. A later failed attempt blocks finalization even if an earlier attempt passed.

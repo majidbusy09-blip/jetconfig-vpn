@@ -133,6 +133,7 @@ class ContextBuilderTests(unittest.TestCase):
                 allowed_patterns=["lib/**"], excluded_patterns=[])
 
     def test_prepare_persists_context_package(self):
+        git(self.root, "remote", "add", "origin", "https://github.com/owner/repo.git")
         script = Path(__file__).resolve().parents[1] / "task_orchestrator.py"
         base = [sys.executable, str(script)]
         init = ["init", "--task-id", "context-test", "--goal", "context test",
@@ -150,6 +151,19 @@ class ContextBuilderTests(unittest.TestCase):
         self.assertEqual(package["source_revision"], self.revision)
         self.assertEqual(package["source_context"][0]["path"], "lib/main.dart")
         self.assertIn("pinned", package["source_context"][0]["content"])
+        result = subprocess.run(base + ["build-envelope", "--task-id", "context-test"], cwd=self.root,
+                                text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                check=False, shell=False)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        envelope = json.loads((self.root / ".agent/tasks/context-test/agent_input.json").read_text())
+        self.assertEqual(envelope["repository"]["name"], "owner/repo")
+        self.assertEqual(envelope["repository"]["base_sha"], self.revision)
+        self.assertEqual(envelope["source_context"][0]["content"], "void main() { print('pinned'); }\\n")
+        # The generated local metadata file is exempt from source scope validation.
+        result = subprocess.run(base + ["validate-scope", "--task-id", "context-test"], cwd=self.root,
+                                text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                check=False, shell=False)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
 
 if __name__ == "__main__":

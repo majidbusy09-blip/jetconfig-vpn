@@ -158,3 +158,22 @@ The Orchestrator's `prepare` command now creates a deterministic, immutable-by-c
 Selection is deliberately explicit: every source path must be inside the task's declared allowlist and outside exclusions. The builder reads Git tree/blob objects at the pinned revision, not working-tree files. It rejects traversal, protected path components and common secret/key files, symlinks, submodules, missing/untracked paths, invalid UTF-8, NUL bytes, more than 100 documents, files over 256,000 bytes, and packages over 512,000 bytes. It does not truncate.
 
 The package is persisted in `.agent/tasks/<task-id>/task.json` for later adapter-envelope construction. Repository content remains untrusted data; this package format does not grant its contents authority over system safety policy. The builder is local-only and does not upload source code or call a model provider.
+
+
+## Deterministic Envelope Builder (local implementation)
+
+`tools/task_orchestrator/envelope_builder.py` transforms the persisted context package into the exact v1.1 task-envelope schema. The CLI command is:
+
+```sh
+python tools/task_orchestrator/task_orchestrator.py build-envelope --task-id <task-id>
+```
+
+Before writing, it fails closed unless:
+- The package schema, task ID, and source revision match the task record and pinned `base_sha`.
+- The canonical package SHA-256, every document SHA-256, UTF-8 content, and aggregate byte count recompute exactly.
+- Every source-context path remains within the task allowlist and outside exclusions.
+- Repository identity, branch, scope, risk, task goal, and fixed verification profiles pass the v1.1 validator.
+
+The builder derives only a deterministic workspace identifier; it does not create a workspace. Ambiguous capability descriptions map conservatively to `investigation`. Semantic context is marked unavailable (or stale when explicitly recorded as unverified); it is never promoted to current by inference. The output is written atomically to `.agent/tasks/<task-id>/agent_input.json`. A different existing output is not overwritten. This file duplicates source text and is local-only task metadata; it must not be committed or uploaded to a model provider.
+
+A fixture-only test passes the generated envelope through `readonly_adapter.py` and verifies that invalid input is rejected before the fixture provider is called. Repository content remains untrusted data. No live model/provider, network, shell, filesystem handle, sandbox, patch production, or patch application is involved.

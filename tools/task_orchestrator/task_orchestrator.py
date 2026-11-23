@@ -44,6 +44,14 @@ except ImportError:
     except ImportError:
         from context_selector import ContextSelectionError, select_context
 
+try:
+    from .impact_analyzer import ImpactAnalysisError, analyze_impact
+except ImportError:
+    try:
+        from tools.task_orchestrator.impact_analyzer import ImpactAnalysisError, analyze_impact
+    except ImportError:
+        from impact_analyzer import ImpactAnalysisError, analyze_impact
+
 SCHEMA_VERSION = 1
 REQUIRED_CONTEXT = (
     "AGENTS.md",
@@ -161,7 +169,9 @@ def status_paths(root: Path) -> list[str]:
 def is_task_metadata(path: str, task_id: str) -> bool:
     # Only the two orchestrator-owned files are exempt from user source scope.
     base = (TASK_DIR / task_id).as_posix()
-    return path in {f"{base}/task.json", f"{base}/HANDOFF.md", f"{base}/agent_input.json"}
+    if path in {f"{base}/task.json", f"{base}/HANDOFF.md", f"{base}/agent_input.json", f"{base}/impact_report.json"}:
+        return True
+    return path.startswith(f"{base}/context_suggestions_") and path.endswith(".json")
 
 
 def clean_before_init(root: Path) -> None:
@@ -584,48 +594,48 @@ def command_suggest_context(args: argparse.Namespace) -> None:
 
 def command_impact(args: argparse.Namespace) -> None:
     root = repository_root()
-    record, path = load_record(root, args.task_id)
+    record, task_record_path = load_record(root, args.task_id)
     require_state(record, "prepared", "implementation", "verification")
     require_task_branch(root, record)
-    candidates = [
-        "docs/generated/jet_vpn_resolved_index.json",
-        "docs/generated/jet_vpn_critical_paths.json",
-        "docs/critical_paths.json",
-    ]
-    artifacts = {}
-    summaries = []
-    for relative in candidates:
-        file = root / relative
-        if not file.is_file():
-            artifacts[relative] = {"status": "unavailable"}
-            continue
-        raw = file.read_bytes()
-        entry: dict[str, Any] = {"status": "present_unverified", "sha256": sha256_bytes(raw)}
-        try:
-            parsed = json.loads(raw)
-            if relative.endswith("jet_vpn_critical_paths.json"):
-                paths = parsed.get("paths", []) if isinstance(parsed, dict) else []
-                summaries.extend(
-                    {"id": item.get("id"), "summary": item.get("summary")}
-                    for item in paths if isinstance(item, dict)
-                )
-            elif relative.endswith("critical_paths.json"):
-                configured = parsed.get("paths", []) if isinstance(parsed, dict) else []
-                entry["configured_path_ids"] = [
-                    item.get("id") for item in configured if isinstance(item, dict)
-                ]
-        except (json.JSONDecodeError, AttributeError):
-            entry["status"] = "present_invalid_json"
-        artifacts[relative] = entry
-    record["semantic_artifacts"] = {
-        "collected_at": now_iso(),
-        "artifacts": artifacts,
-        "critical_path_summaries": summaries,
-        "limitation": "Presence and file hashes are recorded; freshness and path-specific semantic impact are not independently established by this MVP.",
+    base_sha = record.get("repository", {}).get("base_sha")
+    if not isinstance(base_sha, str):
+        raise TaskError("Task has no pinned base SHA.")
+    changed = [item for item in changed_paths(root, base_sha)
+               if not is_task_metadata(item, args.task_id)]
+    try:
+        result = analyze_impact(
+            root=root, task_record=record, changed_paths=changed,
+            resolved_index_path=Path(args.resolved_index),
+            critical_paths_path=Path(args.critical_paths),
+        )
+    except ImpactAnalysisError as exc:
+        raise TaskError(f"Verified impact analysis blocked: {exc}") from exc
+    target = task_record_path.parent / "impact_report.json"
+    encoded = (json.dumps(result, ensure_ascii=False, indent=2) + "\\n").encode("utf-8")
+    temporary = target.with_suffix(".json.tmp")
+    temporary.write_bytes(encoded)
+    temporary.replace(target)
+    record["impact_analysis"] = {
+        "status": "completed_with_unknowns" if result["not_indexed_or_unknown"] else "completed",
+        "report_path": target.relative_to(root).as_posix(),
+        "report_sha256": sha256_bytes(encoded),
+        "source_revision": base_sha,
+        "changed_paths": result["changed_paths"],
+        "impacted_critical_path_ids": [item["id"] for item in result["impacted_critical_paths"]],
+        "recommended_verification_profiles": result["recommended_verification_profiles"],
+        "risk_flags": result["risk_flags"],
+        "analyzed_at": now_iso(),
     }
     record["updated_at"] = now_iso()
-    save_record(record, path)
-    print("Recorded semantic artifact availability. This is not a claim of complete impact analysis.")
+    save_record(record, task_record_path)
+    print(f"Verified impact report: {target.relative_to(root)}")
+    print(f"Changed paths: {len(result['changed_paths'])}; indexed: {len(result['indexed_changed_paths'])}; unknown: {len(result['not_indexed_or_unknown'])}")
+    print("Impacted critical paths: " + (", ".join(str(item["id"]) for item in result["impacted_critical_paths"]) or "none identified"))
+    print("Suggested profiles (advisory): " + (", ".join(result["recommended_verification_profiles"]) or "none"))
+    if result["risk_flags"]:
+        print("Risk flags: " + ", ".join(result["risk_flags"]))
+    if result["not_indexed_or_unknown"]:
+        print("WARNING: Some changed paths are not covered by the semantic index; review them manually.")
 
 
 def command_begin(args: argparse.Namespace) -> None:
@@ -891,13 +901,17 @@ def build_parser() -> argparse.ArgumentParser:
     envelope.set_defaults(func=command_build_envelope)
     for name, func, help_text in [
         ("prepare", command_prepare, "Load context and pin the clean branch baseline."),
-        ("impact", command_impact, "Record available semantic and critical-path artifacts."),
         ("begin", command_begin, "Enter the implementation state."),
         ("validate-scope", command_validate_scope, "Validate every changed path against declared scope."),
     ]:
         item = sub.add_parser(name, help=help_text)
         item.add_argument("--task-id", required=True)
         item.set_defaults(func=func)
+    impact = sub.add_parser("impact", help="Analyze changed paths against verified semantic and critical-path artifacts.")
+    impact.add_argument("--task-id", required=True)
+    impact.add_argument("--resolved-index", default="docs/generated/jet_vpn_resolved_index.json")
+    impact.add_argument("--critical-paths", default="docs/generated/jet_vpn_critical_paths.json")
+    impact.set_defaults(func=command_impact)
     verify = sub.add_parser("verify", help="Run one declared, fixed verification profile.")
     verify.add_argument("--task-id", required=True)
     verify.add_argument("--profile", required=True, choices=sorted(PROFILES))

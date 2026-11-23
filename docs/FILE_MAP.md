@@ -10,6 +10,8 @@
 | `docs/CODING_AGENT_ADAPTER_CONTRACT.md` | Provider-neutral future adapter contract: task/result envelopes, sandbox permissions, patch gates, audit, and phased rollout; design only, no provider connected. |
 | `tools/task_orchestrator/task_orchestrator.py` | Local fail-closed CLI for task records, context/base pinning, scope validation, fixed verification profiles, and handoff; currently under PR #20 review, not yet on main. |
 | `tools/task_orchestrator/tests/test_task_orchestrator.py` | Temporary-Git-repository integration tests for lifecycle and safety gates; currently under PR #20 review. |
+| `tools/task_orchestrator/agent_contract.py` | Strict provider-neutral validation for task envelopes, agent results, paths, budgets, fixed verification profiles, patch references, and context fingerprints; validation only, no provider or patch execution. |
+| `tools/task_orchestrator/tests/test_agent_contract.py` | Fixture/security tests for malformed payloads, path traversal, protected paths, scope, budgets, profile injection, patch references, stale context, and failure states. |
 | `tools/task_orchestrator/README.md` | Local MVP usage, fixed profiles, and explicit non-goals; currently under PR #20 review. |
 | `tools/validation/align_validation_android.py` | Aligns the temporary validation Android scaffold with production SDK/package-visibility settings. |
 | `tools/validation/test_align_validation_android.py` | Unit tests for validation Android parity and idempotency. |

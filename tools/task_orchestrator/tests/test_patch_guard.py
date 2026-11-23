@@ -134,8 +134,8 @@ class PatchGuardTests(unittest.TestCase):
 
     def test_rejects_duplicate_file_headers(self):
         patch = diff().replace(
-            "--- a/tools/example.py\\n",
-            "--- a/tools/example.py\\n--- a/tools/example.py\\n",
+            "--- a/tools/example.py\n",
+            "--- a/tools/example.py\n--- a/tools/example.py\n",
         )
         with self.assertRaises(PatchValidationError):
             validate_patch_text(patch, envelope(), ["tools/example.py"])

@@ -132,8 +132,8 @@ The task record must distinguish agent assertions from orchestrator-verified fac
 ## 9. Rollout sequence
 
 1. **Contract only (this phase):** agree on input/output schema, permissions, and rejection behavior. No provider integration.
-2. **Schema and fixture tests:** validate envelopes/results, malformed data, path traversal, protected paths, budget limits, stale context, and failure states using local fixtures.
-3. **Read-only adapter prototype:** connect one provider for context/reasoning only; no filesystem writes or patch application.
+2. **Schema and fixture tests (implemented on PR #20; latest CI pending):** `tools/task_orchestrator/agent_contract.py` validates envelope/result shape, enums, normalized paths, scope, protected paths, budgets, fixed profiles, opaque patch references, and context fingerprints. `tools/task_orchestrator/tests/test_agent_contract.py` exercises adversarial fixtures. This is validation-only and does not execute or apply anything.
+3. **Read-only adapter prototype:** after this validator phase passes CI and review, connect one provider for context/reasoning only; no filesystem writes or patch application.
 4. **Sandboxed patch prototype:** allow patch production in a disposable workspace; test rejection and cleanup behavior.
 5. **Orchestrator integration:** accept validated patches, run scope and fixed verification gates, and generate handoff.
 6. **Operational evaluation:** compare multiple real tasks against human-reviewed outcomes before considering broader permissions.

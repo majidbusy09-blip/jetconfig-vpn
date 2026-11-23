@@ -109,8 +109,9 @@ def validate_patch_text(patch_text: Any, envelope: dict, declared_paths: list[st
             if current is not None and (
                 current_headers != {"---", "+++"}
                 or current_null_headers == {"---", "+++"}
+                or not current_hunk
             ):
-                _reject("each file diff must contain valid, matching --- and +++ headers")
+                _reject("each file diff must contain valid headers and at least one hunk")
             if left != right:
                 _reject("renames are not accepted in this phase")
             if left in paths:

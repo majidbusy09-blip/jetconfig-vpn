@@ -161,7 +161,7 @@ def _push(remote: str, branch: str, commit_sha: str, expected_sha: str | None,
 
 def claim_or_renew(*, operation: str, task_id: str, owner: str, claim_id: str,
                    base_sha: str, duration_minutes: int, now: str,
-                   repository: str, token: str) -> dict[str, Any]:
+                   repository: str, token: str, previous_claim_id: str | None = None) -> dict[str, Any]:
     if operation not in {"claim", "renew"}:
         raise LeaseGitError("Operation must be claim or renew.")
     if not SHA_RE.fullmatch(base_sha):
@@ -190,8 +190,10 @@ def claim_or_renew(*, operation: str, task_id: str, owner: str, claim_id: str,
             plan = transition_plan(current, proposed, observed_ref_sha=fetched, now=now)
         else:
             from .github_lease import renew_plan
+            if previous_claim_id is None:
+                raise LeaseGitError("Renewal requires --previous-claim-id for the active claim.")
             plan = renew_plan(current, proposed, observed_ref_sha=fetched,
-                              owner=owner, claim_id=current["claim_id"], now=now)
+                              owner=owner, claim_id=previous_claim_id, now=now)
         record, parent, expected = plan["record"], fetched, plan["expected_sha"]
     commit = _commit_record(parent, record, token)
     _push(remote, branch, commit, expected, token)
@@ -226,6 +228,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--task-id", required=True)
     parser.add_argument("--owner", choices=("chatgpt", "grok"), required=True)
     parser.add_argument("--claim-id", required=True)
+    parser.add_argument("--previous-claim-id")
     parser.add_argument("--base-sha")
     parser.add_argument("--minutes", type=int, default=60)
     parser.add_argument("--now", default=None)
@@ -241,7 +244,7 @@ def main(argv: list[str] | None = None) -> int:
                 operation=args.operation, task_id=args.task_id, owner=args.owner,
                 claim_id=args.claim_id, base_sha=args.base_sha,
                 duration_minutes=args.minutes, now=now, repository=repository,
-                token=token or "",
+                token=token or "", previous_claim_id=args.previous_claim_id,
             )
         else:
             result = release(task_id=args.task_id, owner=args.owner,

@@ -68,6 +68,33 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+      - name: Prepare local agent input envelope
+        id: accept_handoff
+        if: >-
+          success() &&
+          (startsWith(github.event.comment.body, '/jet-agent claim ') ||
+           startsWith(github.event.comment.body, '/jet-agent renew '))
+        env:
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: >-
+          python -m tools.task_orchestrator.github_task_handoff_accept
+          --handoff-file "$RUNNER_TEMP/task-handoff.json"
+          --create-branch
+
+      - name: Upload prepared local agent input
+        id: upload_agent_input
+        if: >-
+          success() &&
+          (startsWith(github.event.comment.body, '/jet-agent claim ') ||
+           startsWith(github.event.comment.body, '/jet-agent renew '))
+        uses: actions/upload-artifact@v4
+        with:
+          name: jet-agent-input-${{ github.event.issue.number }}-${{ github.run_id }}
+          path: .agent/tasks/*/agent_input.json
+          if-no-files-found: error
+          retention-days: 14
+
       - name: Report the verified lease result on the Issue
         if: always() && steps.lease.outcome == 'success'
         uses: actions/github-script@v7
@@ -75,6 +102,8 @@ jobs:
           RESULT_FILE: ${{ runner.temp }}/lease-result.json
           HANDOFF_BUILD_OUTCOME: ${{ steps.build_handoff.outcome }}
           HANDOFF_UPLOAD_OUTCOME: ${{ steps.upload_handoff.outcome }}
+          ACCEPT_HANDOFF_OUTCOME: ${{ steps.accept_handoff.outcome }}
+          AGENT_INPUT_UPLOAD_OUTCOME: ${{ steps.upload_agent_input.outcome }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -98,11 +127,25 @@ jobs:
                 lines.push(
                   '',
                   '**Execution handoff artifact created.**',
-                  'Open this workflow run and download `jet-agent-handoff-' +
-                    payload.issue_number + '-' + context.runId + '` from Artifacts.',
-                  'https://github.com/' + context.repo.owner + '/' + context.repo.repo +
-                    '/actions/runs/' + context.runId
+                  'Download `jet-agent-handoff-' + payload.issue_number + '-' + context.runId +
+                    '` from this run: https://github.com/' + context.repo.owner + '/' +
+                    context.repo.repo + '/actions/runs/' + context.runId
                 );
+                if (process.env.ACCEPT_HANDOFF_OUTCOME === 'success' &&
+                    process.env.AGENT_INPUT_UPLOAD_OUTCOME === 'success') {
+                  lines.push(
+                    '',
+                    '**Local agent input envelope prepared.**',
+                    'Download `jet-agent-input-' + payload.issue_number + '-' + context.runId +
+                      '` from the same workflow run.'
+                  );
+                } else {
+                  lines.push(
+                    '',
+                    '**WARNING:** The lease and handoff are valid, but local agent-input preparation or upload failed.',
+                    'The handoff artifact is available; retry acceptance in a clean branch before dispatch.'
+                  );
+                }
               } else {
                 lines.push(
                   '',

@@ -59,6 +59,7 @@ def api_responses(*, lease_status="active", expires="2026-11-23T11:00:00Z",
     lease["status"] = lease_status
     lease["expires_at"] = expires
     encoded = base64.b64encode((json.dumps(lease) + "\n").encode()).decode()
+    encoded = encoded[:24] + "\n" + encoded[24:]
     def api(repository, path, token):
         if path == "/issues/42":
             return {"number": 42, "state": "open", "labels": [{"name": "agent-task"}],

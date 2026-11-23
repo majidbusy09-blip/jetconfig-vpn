@@ -7,6 +7,7 @@
 | `AGENTS.md` | Mandatory operating instructions for AI agents/contributors. |
 | `docs/TASK_TEMPLATE.md` | Required structured record for non-trivial engineering and maintenance tasks. |
 | `docs/TASK_ORCHESTRATOR_DESIGN.md` | Design and safety contract for the local task execution orchestrator. |
+| `docs/CODING_AGENT_ADAPTER_CONTRACT.md` | Provider-neutral future adapter contract: task/result envelopes, sandbox permissions, patch gates, audit, and phased rollout; design only, no provider connected. |
 | `tools/task_orchestrator/task_orchestrator.py` | Local fail-closed CLI for task records, context/base pinning, scope validation, fixed verification profiles, and handoff; currently under PR #20 review, not yet on main. |
 | `tools/task_orchestrator/tests/test_task_orchestrator.py` | Temporary-Git-repository integration tests for lifecycle and safety gates; currently under PR #20 review. |
 | `tools/task_orchestrator/README.md` | Local MVP usage, fixed profiles, and explicit non-goals; currently under PR #20 review. |

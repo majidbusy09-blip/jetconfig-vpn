@@ -10,15 +10,14 @@
 
 Priority is measured against the goal of a reliable, independent programming collaborator with durable project memory and safe execution.
 
-## P0 — Implement and validate the task execution orchestrator
+## P0 — Build and validate the coding-agent collaborator
 
-1. **Completed:** the design was documented in `docs/TASK_ORCHESTRATOR_DESIGN.md`; the design-only PR head passed both Project Memory Audit and Non-production PR Validation.
-2. **In progress:** a local Python standard-library MVP now exists under `tools/task_orchestrator/`: task record, clean-branch/context preparation, base-SHA pinning, scope gates, artifact availability recording, fixed verification profiles, append-only check attempts, and final handoff.
-3. **Verification pending:** run its temporary-Git-repository integration tests in CI on the latest implementation head; review/fix every failure before treating the MVP as usable.
-4. **Still required:** test missing context, rename/delete scope handling, timeout behavior, stale semantic artifact labeling, and a full test pass; then inspect the complete PR diff and update the task docs.
-5. CI integration is currently in the existing non-production PR validation workflow. Do not add a required branch-protection check until reliability is demonstrated.
-6. GitHub PR creation remains a later optional phase. The orchestrator must not merge, release, tag, deploy, or dispatch the production workflow.
-
+1. **Completed:** documented the local orchestrator design and implemented its standard-library MVP under `tools/task_orchestrator/`.
+2. **Completed:** branch/origin/base pinning, declared-scope enforcement, fixed verification profiles, stable-source checks, append-only attempts, latest-attempt semantics, and human-reviewed handoff are implemented and covered by integration tests.
+3. **Verified on implementation head `c4acaf8c32a5c70cea2919b9eb5f2c68303b3559`:** Project Memory Audit [#45105873991](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45105873991) and Non-production PR Validation [#45105874008](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45105874008) both succeeded. The latter ran the orchestrator integration suite, app analysis/tests, and debug/ARM64 validation builds.
+4. **Completed:** `docs/CODING_AGENT_ADAPTER_CONTRACT.md` defines a provider-neutral input/output contract, sandbox permissions, patch acceptance gates, audit requirements, and phased rollout. It is a design contract only; no model provider is connected yet.
+5. **Next:** add schema validation and fixture tests for task envelopes/results, malformed output, path traversal, protected paths, budget limits, stale context, and retry/failure states. Then build a read-only provider adapter before permitting sandboxed patch generation.
+6. Keep all provider/model execution outside GitHub write permissions. No direct commit/push/PR/merge/release/deploy capability; no production workflow dispatch.
 ## P1 — Reconcile outstanding draft work
 
 - Review existing draft PRs for overlap, stale base SHAs, and whether their changes are already represented in main. Do not merge blindly.

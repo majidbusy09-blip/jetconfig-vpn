@@ -69,7 +69,7 @@ class TaskHandoffTests(unittest.TestCase):
             event(), lease_result(), run_id=12345, run_attempt=2,
             now="2029-12-31T23:00:00Z",
         )
-        self.assertEqual(result["handoff_schema"], 1)
+        self.assertEqual(result["handoff_schema"], 2)
         self.assertEqual(result["issue"]["number"], 42)
         self.assertEqual(result["lease"]["base_sha"], BASE)
         self.assertEqual(result["lease"]["operation"], "claim")

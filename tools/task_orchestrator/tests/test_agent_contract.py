@@ -181,6 +181,14 @@ class AgentContractTests(unittest.TestCase):
             with self.assertRaises(ContractValidationError):
                 validate_result(bad, envelope())
 
+    def test_scope_wildcard_does_not_cross_directory_boundary(self):
+        env = envelope()
+        env["scope"]["allowed_paths"] = ["lib/*.dart"]
+        bad = result_for()
+        bad["changed_paths"] = ["lib/nested/file.dart"]
+        with self.assertRaises(ContractValidationError):
+            validate_result(bad, env)
+
     def test_reject_glob_as_concrete_changed_path(self):
         bad = result_for()
         bad["changed_paths"] = ["lib/**"]

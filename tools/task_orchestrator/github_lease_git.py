@@ -73,7 +73,6 @@ def _git(args: list[str], *, token: str, input_text: str | None = None,
     except OSError as exc:
         raise LeaseGitError("Git executable could not be started.") from exc
     if result.returncode != 0:
-        # Do not forward stderr: it may contain remote or credential diagnostics.
         raise LeaseGitError("Git operation failed: " + args[0] + " (exit " + str(result.returncode) + ").")
     return result.stdout.strip()
 
@@ -145,12 +144,10 @@ def _push(remote: str, branch: str, commit_sha: str, expected_sha: str | None,
           token: str) -> None:
     ref = "refs/heads/" + branch
     if expected_sha is None:
-        # Initial creation is exclusive: a concurrent creator makes this push fail.
         args = ["push", "--no-verify", "--porcelain", remote, commit_sha + ":" + ref]
     else:
         if not SHA_RE.fullmatch(expected_sha):
             raise LeaseGitError("Expected lock SHA is invalid.")
-        # Git receive-pack enforces this old-object check atomically on the server.
         lease_arg = "--force-with-lease=" + ref + ":" + expected_sha
         args = ["push", "--no-verify", "--porcelain", lease_arg, remote, commit_sha + ":" + ref]
     _git(args, token=token)
@@ -181,7 +178,6 @@ def claim_or_renew(*, operation: str, task_id: str, owner: str, claim_id: str,
     else:
         fetched = _fetch_head(remote, branch, token)
         if fetched != observed:
-            # The ref moved during observation; retry from a fresh read, never guess.
             raise LeaseGitError("Lock ref changed during read; retry the operation.")
         current = _read_lease(fetched, token)
         if current["task_id"] != task_id:
@@ -205,6 +201,7 @@ def claim_or_renew(*, operation: str, task_id: str, owner: str, claim_id: str,
     _push(remote, branch, commit, expected, token)
     return {"task_id": task_id, "owner": owner, "claim_id": claim_id,
             "status": record["status"], "base_sha": record["base_sha"],
+            "expires_at": record["expires_at"],
             "lock_branch": branch, "lock_commit": commit, "verified": True}
 
 

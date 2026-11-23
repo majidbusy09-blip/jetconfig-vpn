@@ -306,3 +306,14 @@ Append-only record of meaningful project work. Each entry should include branch/
 - **Design boundary:** no provider is connected; no agent patch execution, GitHub write permission, commit/push, PR creation, merge, release, deployment, or production workflow dispatch is implemented or authorized.
 - **Application boundary:** no Dart/Java/Kotlin app source, app version, signing, production release workflow, bot, payment, backend, or server behavior changed.
 - **PR state:** PR #20 remains Draft and unmerged. New documentation changes require fresh CI on the updated branch head.
+
+
+## 2026-11-23 — PR #20 coding-agent contract schema validator and security fixtures
+
+- **Branch:** `design/task-execution-orchestrator-20261123`; PR #20 remains Draft/open/unmerged.
+- **Added:** `tools/task_orchestrator/agent_contract.py`, a Python-standard-library validator for immutable task envelopes and structured agent results (contract version 1.0). It enforces exact object fields, enums/types, repository and branch identity, normalized repository-relative paths, protected-path rejection, declared allow/exclude scope, context SHA-256 fingerprints, fixed verification-profile allowlist, bounded budgets/usage, opaque SHA-256 artifact references, and consistent non-completed/failure semantics. JSON parsing rejects duplicate keys, malformed input, non-object roots, and oversized payloads.
+- **Added:** `tools/task_orchestrator/tests/test_agent_contract.py` with fixtures and adversarial cases for malformed/missing/extra fields, wrong types, traversal/absolute/Windows paths, protected/excluded/out-of-scope paths, invalid glob scopes, budget overflow, arbitrary profile/command/URL injection, patch reference errors, task mismatch, stale fingerprints, and blocked/clarification states.
+- **Updated:** Orchestrator README, verified file map, and next-step roadmap.
+- **Security boundary:** validator handles data only. No provider connection, command execution, patch retrieval/application, filesystem write access for an agent, or GitHub API permission was added. Patch artifact content must be parsed and independently gated in a later phase.
+- **Verification:** both pre-change CI workflows passed on the previous head (Project Memory Audit #45106590264; Non-production PR Validation #45106590252). New commits require fresh CI; do not claim these tests passed until the new head's workflows complete.
+- **Application boundary:** no Dart/Java/Kotlin app source, app version, signing, production workflow, bot, payment, backend, or server behavior changed.

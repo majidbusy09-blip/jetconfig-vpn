@@ -55,6 +55,14 @@ Task records and handoffs are stored under `.agent/tasks/<task-id>/`. They conta
 
 The integration suite uses temporary Git repositories and covers lifecycle, scope, branch/base pinning, rename/delete handling, symlink safety, timeouts, source mutation during verification, stale results, and retry ordering. A later failed attempt blocks finalization even if an earlier attempt passed.
 
+## Coding-agent contract validation (provider-neutral)
+
+- `agent_contract.py` validates task envelopes and structured results against contract version `1.0`; it is data validation only and does not connect a provider, execute commands, fetch artifacts, or apply patches.
+- Rejects unknown/missing fields, duplicate JSON keys, malformed/oversized JSON, invalid enums/types, unsafe or protected paths, out-of-scope/excluded changes, unknown verification profiles, arbitrary URL/shell patch references, invalid budgets/usage, and stale or mismatched context fingerprints.
+- Patch references are opaque `artifact:sha256:<64-hex>` identifiers only. The artifact itself still requires independent patch parsing and acceptance gates before any future application.
+- Agent status and assertions are not verification evidence. Non-completed statuses cannot carry a patch; only the orchestrator may later record actual check outcomes or advance task state.
+- Run the fixture suite with `python -m unittest discover -s tools/task_orchestrator/tests -p 'test_*.py'`.
+
 ## Fixed verification profiles
 
 - `python-tooling-tests`

@@ -321,6 +321,7 @@ def accept_handoff(
     token: str,
     repository: str,
     refresh_existing: bool = False,
+    create_branch: bool = False,
 ) -> Path:
     manifest = _read_json(handoff_path)
     if not isinstance(manifest, dict) or not isinstance(manifest.get("issue"), dict):
@@ -338,13 +339,28 @@ def accept_handoff(
     )
 
     root = orchestrator.repository_root()
-    branch_name = orchestrator.current_branch(root)
     origin = orchestrator.safe_remote_identity(
         orchestrator.run_git(root, "remote", "get-url", "origin", check=False)
     )
     if _repository_name(origin) != repository:
         raise HandoffAcceptanceError("Local Git origin does not match the handoff repository.")
     base_sha = manifest["lease"]["base_sha"]
+    current_branch = orchestrator.run_git(root, "branch", "--show-current")
+    if create_branch:
+        if refresh_existing:
+            raise HandoffAcceptanceError("--create-branch cannot be combined with --refresh-existing.")
+        if current_branch in orchestrator.PROTECTED_BRANCHES or not current_branch:
+            dirty_before_switch = orchestrator.status_paths(root)
+            if dirty_before_switch:
+                raise HandoffAcceptanceError(
+                    "Worktree must be clean before creating the task branch: " +
+                    ", ".join(dirty_before_switch[:12])
+                )
+            new_branch = "agent/" + task_id
+            if orchestrator.run_git(root, "branch", "--list", new_branch):
+                raise HandoffAcceptanceError("Local task branch already exists; refusing to reuse it.")
+            orchestrator.run_git(root, "switch", "-c", new_branch, base_sha)
+    branch_name = orchestrator.current_branch(root)
     task_record_path = orchestrator.task_path(root, task_id)
     if task_record_path.exists() or task_record_path.is_symlink():
         if not refresh_existing:
@@ -410,6 +426,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--handoff-file", required=True)
     parser.add_argument("--refresh-existing", action="store_true",
                         help="Refresh only the lease metadata of an already prepared task after renewal.")
+    parser.add_argument("--create-branch", action="store_true",
+                        help="Create agent/<task-id> locally from the exact pinned base SHA when on the default branch.")
     args = parser.parse_args(argv)
     token = os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN") or ""
     repository = os.environ.get("GITHUB_REPOSITORY", "")
@@ -419,6 +437,7 @@ def main(argv: list[str] | None = None) -> int:
         output = accept_handoff(
             Path(args.handoff_file), token=token, repository=repository,
             refresh_existing=args.refresh_existing,
+            create_branch=args.create_branch,
         )
     except (
         OSError, HandoffAcceptanceError, GuardError, LeaseError,

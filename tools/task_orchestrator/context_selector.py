@@ -88,7 +88,7 @@ def _git_blob_sha(root: Path, revision: str, relative: str) -> str:
 
 def _tokens(value: str) -> set[str]:
     normalized = value.casefold().replace("ي", "ی").replace("ك", "ک").replace("ۀ", "ه")
-    return {token for token in re.findall(r"[^\\W_]+", normalized, flags=re.UNICODE)
+    return {token for token in re.findall(r"[^\W_]+", normalized, flags=re.UNICODE)
             if len(token) >= 2}
 
 

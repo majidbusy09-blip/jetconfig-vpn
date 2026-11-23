@@ -9,7 +9,7 @@ The handoff artifact binds a validated GitHub task Issue to the exact, remotely 
 - A successful `/jet-agent claim` creates a handoff artifact.
 - A successful `/jet-agent renew` creates a replacement handoff artifact with the new claim ID and expiry.
 - A `/jet-agent release` does not create a handoff.
-- The workflow uploads the JSON artifact to the same GitHub Actions run for 14 days and links that run in its Issue comment.
+- The workflow uploads the JSON handoff artifact to the same GitHub Actions run for 14 days, then automatically accepts it in a clean local runner workspace and uploads a second `jet-agent-input` artifact containing the prepared contract v1.1 agent envelope. Both artifacts are linked from the Issue comment.
 
 ## Contents and integrity
 
@@ -33,25 +33,22 @@ The artifact is an execution handoff, not proof that a model has been awakened o
 
 Artifacts are retained for 14 days by default. The GitHub lease ref remains the authoritative ownership record; the artifact is an immutable snapshot for handoff and audit, not a lock.
 
-## Accepting the artifact locally
+## Local acceptance and recovery
 
-Download the artifact ZIP from the linked GitHub Actions run. In a clean clone, create a dedicated branch from the exact pinned base SHA shown in the Issue comment:
+The normal claim/renew workflow automatically creates the local agent-input envelope and uploads it as `jet-agent-input-<issue>-<run>`. Download that artifact when handing the task to an agent. The separate `jet-agent-handoff-<issue>-<run>` artifact preserves the lease and Issue provenance.
 
-```bash
-TASK_ID="your-task-id"
-BASE_SHA="full-pinned-commit-sha"
-git switch -c "agent/$TASK_ID" "$BASE_SHA"
-```
-
-Then run the acceptance command with a read-only GitHub token (contents:read and issues:read):
+If automatic preparation fails, or an agent is running in a separate local clone, download the handoff ZIP. The acceptance command re-fetches the current Issue and lease and can create the task branch itself from the exact pinned base SHA:
 
 ```bash
 GITHUB_REPOSITORY=owner/repository \
 GITHUB_TOKEN="$GITHUB_TOKEN" \
 python -m tools.task_orchestrator.github_task_handoff_accept \
-  --handoff-file /path/to/jet-agent-handoff.zip
+  --handoff-file /path/to/jet-agent-handoff.zip \
+  --create-branch
 ```
 
-The command reads the ZIP in memory without extracting paths, re-fetches the current Issue and lease, verifies the Issue-body digest, task payload, current claim ID, lock commit, expiry, repository identity, local origin, clean worktree, dedicated branch, and exact HEAD/base SHA match. It then initializes the existing local Task Orchestrator, builds the six required project-memory documents, and writes a contract v1.1 `agent_input.json` under the ignored local `.agent/tasks/<task-id>/` directory.
+Use a read-only token with `contents:read` and `issues:read`. The command reads the ZIP in memory without extracting paths, verifies the Issue-body digest, task payload, current claim ID, lock commit, expiry, repository identity, local origin, clean worktree, and exact pinned base SHA. It then initializes the existing local Task Orchestrator, builds the six required project-memory documents, and writes a contract v1.1 `agent_input.json` under the ignored local `.agent/tasks/<task-id>/` directory.
 
-The command does not create or push a branch, modify the remote lease, invoke a model, upload source, or apply a patch. Source files are not automatically added to context; use the existing advisory `suggest-context` and explicit `accept-context --path` commands when relevant. If the lease has been renewed after the local task was prepared, download the newest artifact and rerun the command with `--refresh-existing`; it updates only lease provenance in the local task record and leaves the agent envelope and working files untouched. Refresh is accepted only when the Issue body, owner, task definition, pinned base, and exact previous claim ID all match. If the lease was released, expired, or changed incompatibly, acceptance is rejected.
+The command does not push the branch, modify the remote lease, invoke a model, upload source, or apply a patch. Source files are not automatically added to context; use the existing advisory `suggest-context` and explicit `accept-context --path` commands when relevant.
+
+If the lease is renewed after the local task was prepared, download the newest handoff artifact and rerun with `--refresh-existing`; it updates only lease provenance in the local task record and leaves the agent envelope and working files untouched. Refresh is accepted only when the Issue body, owner, task definition, pinned base, and exact previous claim ID all match. If the lease was released, expired, or changed incompatibly, acceptance is rejected.

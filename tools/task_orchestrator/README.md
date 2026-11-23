@@ -210,12 +210,12 @@ The trusted-main PR guard validates the linked Issue, lease, pinned base, and ch
 
 ## Accept a lease-verified GitHub task handoff
 
-After downloading the `jet-agent-handoff-*.zip` artifact from a successful claim/renew workflow, create a dedicated local branch at the pinned base SHA shown in the Issue comment, then run:
+Successful claim/renew workflows now automatically prepare and upload a `jet-agent-input-*.zip` artifact. For manual recovery or a separate local clone, download the `jet-agent-handoff-*.zip` artifact and run:
 
 ```sh
 GITHUB_REPOSITORY=owner/repository GITHUB_TOKEN="$GITHUB_TOKEN" \
   python -m tools.task_orchestrator.github_task_handoff_accept \
-  --handoff-file /path/to/jet-agent-handoff.zip
+  --handoff-file /path/to/jet-agent-handoff.zip --create-branch
 ```
 
 The acceptance command rechecks the live Issue and lock ref through read-only GitHub APIs, verifies the body digest and active claim/expiry, checks that the local origin and HEAD match the repository and pinned base, and requires a clean worktree on a non-default branch. It then creates the local task record and contract v1.1 `agent_input.json` with the six required project-memory documents. The downloaded ZIP is read without extracting its contents to disk.

@@ -147,7 +147,7 @@ This contract does not choose a provider, expose secrets, create an unrestricted
 
 ## Context Builder package (local implementation, schema 1)
 
-The Orchestrator's `prepare` command now creates a deterministic, immutable-by-convention context package at the task's pinned `base_sha`. The package has:
+The Orchestrator's `prepare` command now creates a deterministic, immutable-by-convention context package at the task's pinned `base_sha` (a 40-character SHA-1 or 64-character SHA-256 Git object ID). The package has:
 
 - `schema_version`, `task_id`, and `source_revision` (full Git commit SHA).
 - `project_context`: the required project instruction/status documents.
@@ -177,3 +177,6 @@ Before writing, it fails closed unless:
 The builder derives only a deterministic workspace identifier; it does not create a workspace. Ambiguous capability descriptions map conservatively to `investigation`. Semantic context is marked unavailable (or stale when explicitly recorded as unverified); it is never promoted to current by inference. The output is written atomically to `.agent/tasks/<task-id>/agent_input.json`. A different existing output is not overwritten. This file duplicates source text and is local-only task metadata. The repository ignores `.agent/tasks/` by default; do not force-add or upload this file to a model provider.
 
 A fixture-only test passes the generated envelope through `readonly_adapter.py` and verifies that invalid input is rejected before the fixture provider is called. Repository content remains untrusted data. No live model/provider, network, shell, filesystem handle, sandbox, patch production, or patch application is involved.
+
+
+The contract distinguishes Git object IDs from content fingerprints: repository base/source revisions accept valid 40-character SHA-1 or 64-character SHA-256 Git object IDs. File-content fingerprints and context-package digests remain strict 64-character SHA-256 hashes.

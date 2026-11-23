@@ -127,6 +127,12 @@ def _sha(value: Any, name: str) -> str:
     return value
 
 
+def _git_sha(value: Any, name: str) -> str:
+    if not isinstance(value, str) or not re.fullmatch(r"(?:[0-9a-f]{40}|[0-9a-f]{64})", value):
+        _fail(f"{name} must be a 40- or 64-character lowercase Git object ID")
+    return value
+
+
 def _path(value: Any, name: str, *, pattern: bool = False) -> str:
     raw = _text(value, name, 512)
     if raw.startswith("/") or "\\" in raw or re.match(r"^[A-Za-z]:", raw):
@@ -239,7 +245,7 @@ def validate_envelope(data: Any) -> dict:
     _text(repo["branch"], "repository.branch", 255)
     if repo["branch"] in {"main", "master"}:
         _fail("agent workspace cannot target a protected branch")
-    _sha(repo["base_sha"], "repository.base_sha")
+    _git_sha(repo["base_sha"], "repository.base_sha")
     if not isinstance(repo["workspace_id"], str) or not re.fullmatch(r"[a-zA-Z0-9_-]{8,80}", repo["workspace_id"]):
         _fail("invalid repository.workspace_id")
 
@@ -258,7 +264,7 @@ def validate_envelope(data: Any) -> dict:
                        {"status", "source_sha", "summary", "limitations"})
     _enum(semantic["status"], {"current", "stale", "unavailable"}, "semantic_context.status")
     if semantic["source_sha"] is not None:
-        _sha(semantic["source_sha"], "semantic_context.source_sha")
+        _git_sha(semantic["source_sha"], "semantic_context.source_sha")
     _text(semantic["summary"], "semantic_context.summary", 8_000, empty=True)
     _strings(semantic["limitations"], "semantic_context.limitations")
 

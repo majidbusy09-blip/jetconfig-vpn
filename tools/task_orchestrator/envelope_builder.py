@@ -109,7 +109,7 @@ def build_agent_envelope(record: dict, *, repository_name: str | None = None) ->
         raise EnvelopeBuildError("Task record is missing repository or scope metadata.")
     base_sha = repository.get("base_sha")
     branch = repository.get("branch")
-    if not isinstance(base_sha, str) or not re.fullmatch(r"[0-9a-f]{40}", base_sha):
+    if not isinstance(base_sha, str) or not re.fullmatch(r"(?:[0-9a-f]{40}|[0-9a-f]{64})", base_sha):
         raise EnvelopeBuildError("Task record has no valid pinned base SHA.")
     if not isinstance(branch, str) or not branch or branch in {"main", "master"}:
         raise EnvelopeBuildError("Task branch is missing or protected.")

@@ -154,6 +154,18 @@ class AgentContractTests(unittest.TestCase):
             with self.subTest(field=field), self.assertRaises(ContractValidationError):
                 validate_envelope(bad)
 
+    def test_accepts_git_sha1_commit_ids_and_rejects_malformed_git_ids(self):
+        env = envelope()
+        env["repository"]["base_sha"] = "a" * 40
+        self.assertIs(validate_envelope(env), env)
+        env["semantic_context"]["source_sha"] = "b" * 40
+        self.assertIs(validate_envelope(env), env)
+        for value in ("a" * 39, "A" * 40, "g" * 40):
+            bad = envelope()
+            bad["repository"]["base_sha"] = value
+            with self.subTest(value=value), self.assertRaises(ContractValidationError):
+                validate_envelope(bad)
+
     def test_reject_protected_default_branch_and_bad_repository(self):
         for mutate in (
             lambda x: x["repository"].update(branch="main"),

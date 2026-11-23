@@ -498,6 +498,9 @@ def command_verify(args: argparse.Namespace) -> None:
     except OSError as exc:
         exit_code, status, output = 126, "failed", str(exc)
     duration = round(time.monotonic() - started, 3)
+    base_sha = record.get("repository", {}).get("base_sha")
+    verification_paths = changed_paths(root, base_sha) if base_sha else []
+    verification_fingerprints = path_fingerprints(root, verification_paths, args.task_id)
     attempt = {
         "profile": profile,
         "status": status,
@@ -508,6 +511,8 @@ def command_verify(args: argparse.Namespace) -> None:
         "output_sha256": sha256_bytes(output.encode("utf-8", errors="replace")),
         "argv": definition["argv"],
         "timeout_seconds": definition["timeout"],
+        "verified_paths": verification_paths,
+        "verified_path_fingerprints": verification_fingerprints,
     }
     record["check_attempts"].append(attempt)
     record["state"] = "verification"
@@ -549,6 +554,19 @@ def command_finalize(args: argparse.Namespace) -> None:
     current_fingerprints = path_fingerprints(root, paths, args.task_id)
     if current_fingerprints != record["scope_validation"].get("path_fingerprints", {}):
         raise TaskError("Files changed after scope validation; rerun validate-scope and review the complete diff.")
+    stale_checks = []
+    for profile in record["planned_checks"]:
+        attempt = latest[profile]
+        verified = attempt.get("verified_path_fingerprints")
+        if verified is None:
+            stale_checks.append(profile)
+        elif verified != current_fingerprints:
+            stale_checks.append(profile)
+    if stale_checks:
+        raise TaskError(
+            "Source files changed after the latest successful verification for: "
+            + ", ".join(stale_checks) + ". Rerun those checks before finalization."
+        )
     diff = run_git(root, "diff", "--stat", base, "--")
     tracked = set(tracked_files(root))
     untracked = [item for item in status_paths(root) if item not in tracked]

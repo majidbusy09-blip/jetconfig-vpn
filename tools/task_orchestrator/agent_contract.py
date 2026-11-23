@@ -47,6 +47,37 @@ class ContractValidationError(ValueError):
     """A contract payload failed a fail-closed validation rule."""
 
 
+def _path_matches(path: str, pattern: str) -> bool:
+    """Match repository paths without allowing '*' to cross '/' boundaries.
+
+    A complete '**' segment matches zero or more path segments.
+    """
+    path_parts = path.split("/")
+    pattern_parts = pattern.split("/")
+    memo: dict[tuple[int, int], bool] = {}
+
+    def match(path_index: int, pattern_index: int) -> bool:
+        key = (path_index, pattern_index)
+        if key in memo:
+            return memo[key]
+        if pattern_index == len(pattern_parts):
+            result = path_index == len(path_parts)
+        elif pattern_parts[pattern_index] == "**":
+            result = match(path_index, pattern_index + 1) or (
+                path_index < len(path_parts) and match(path_index + 1, pattern_index)
+            )
+        else:
+            result = (
+                path_index < len(path_parts)
+                and fnmatch.fnmatchcase(path_parts[path_index], pattern_parts[pattern_index])
+                and match(path_index + 1, pattern_index + 1)
+            )
+        memo[key] = result
+        return result
+
+    return match(0, 0)
+
+
 def _fail(message: str) -> None:
     raise ContractValidationError(message)
 
@@ -249,9 +280,9 @@ def validate_result(data: Any, envelope: dict) -> dict:
     scope = envelope["scope"]
     import fnmatch
     for path in normalized:
-        if not any(fnmatch.fnmatchcase(path, pattern) for pattern in scope["allowed_paths"]):
+        if not any(_path_matches(path, pattern) for pattern in scope["allowed_paths"]):
             _fail(f"changed path is outside allowed scope: {path}")
-        if any(fnmatch.fnmatchcase(path, pattern) for pattern in scope["excluded_paths"]):
+        if any(_path_matches(path, pattern) for pattern in scope["excluded_paths"]):
             _fail(f"changed path is explicitly excluded: {path}")
 
     patch_ref = obj["patch_ref"]

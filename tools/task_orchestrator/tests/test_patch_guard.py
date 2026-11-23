@@ -76,6 +76,16 @@ class PatchGuardTests(unittest.TestCase):
         with self.assertRaises(PatchValidationError):
             validate_patch_text(diff("lib/main.dart"), envelope(), ["lib/main.dart"])
 
+    def test_scope_wildcard_does_not_cross_directory_boundary(self):
+        env = envelope()
+        env["scope"]["allowed_paths"] = ["tools/*.py"]
+        with self.assertRaises(PatchValidationError):
+            validate_patch_text(
+                diff("tools/nested/example.py"),
+                env,
+                ["tools/nested/example.py"],
+            )
+
     def test_rejects_excluded_path(self):
         with self.assertRaises(PatchValidationError):
             validate_patch_text(diff("tools/generated/output.py"), envelope(), ["tools/generated/output.py"])

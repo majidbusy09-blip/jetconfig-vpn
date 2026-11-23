@@ -283,3 +283,13 @@ Append-only record of meaningful project work. Each entry should include branch/
 - **Scope:** developer tooling, its tests/docs, and non-production CI only. No Dart/Java/Kotlin app source, app version, signing, production release workflow, bot, payment, backend, or server behavior changed.
 - **Verification of implementation commits:** pending CI on the latest branch head; no implementation test result is claimed yet.
 - **Approval:** PR #20 remains Draft; no merge/release/deploy.
+
+
+## 2026-11-23 — PR #20 verification stability hardening
+
+- **Finding:** the orchestrator compared the post-check source fingerprint with the finalization fingerprint, but did not prove that the worktree remained stable during the check itself. A file could change while a test process was running, making the resulting pass ambiguous.
+- **Change:** `verify` now snapshots the complete changed-path set and fingerprints immediately before and after each fixed verification profile. If either differs, the attempt is recorded as failed (exit code 125 when the check itself returned success) and cannot satisfy finalization. Both snapshots and the stability flag are retained in the task record.
+- **Regression test:** added an integration test that deliberately mutates a source file during the check and asserts that the attempt is rejected.
+- **Documentation:** updated the orchestrator README and design invariants to describe stable-source verification.
+- **CI:** previous runs [#45100960414](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45100960414) and [#45100960755](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45100960755) passed before this hardening. New runs [#45101712631](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45101712631) and [#45101712642](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45101712642) are validating the updated code and are still in progress at this entry.
+- **Boundary:** PR #20 remains Draft and unmerged. No production app, bot, payment, backend, server, release, or deployment behavior was changed.

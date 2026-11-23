@@ -13,16 +13,23 @@ from tools.task_orchestrator.readonly_adapter import FixtureReadOnlyProvider, Re
 
 
 def package(task_id="sample-task", revision="a" * 40):
-    project_text = "# project rules\n"
+    project_paths = [
+        "AGENTS.md", "docs/PROJECT_CONTEXT.md", "docs/CURRENT_STATUS.md",
+        "docs/NEXT_STEPS.md", "docs/TASK_TEMPLATE.md", "docs/DEVELOPMENT_LOG.md",
+    ]
+    project_context = []
+    for path in project_paths:
+        content = f"# {path}\n"
+        project_context.append({
+            "path": path, "content": content,
+            "sha256": hashlib.sha256(content.encode()).hexdigest(),
+        })
     source_text = "def route(): return True\n"
     result = {
         "schema_version": 1,
         "task_id": task_id,
         "source_revision": revision,
-        "project_context": [{
-            "path": "AGENTS.md", "content": project_text,
-            "sha256": hashlib.sha256(project_text.encode()).hexdigest(),
-        }],
+        "project_context": project_context,
         "source_context": [{
             "path": "lib/routing.py", "content": source_text,
             "sha256": hashlib.sha256(source_text.encode()).hexdigest(),

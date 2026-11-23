@@ -45,9 +45,11 @@ The example is illustrative: choose only checks appropriate to the actual task. 
 - `begin`: verifies that the pinned base has not moved before entering implementation.
 - `validate-scope`: compares committed, staged, unstaged, renamed, deleted, and untracked paths with the declared allow/exclude patterns.
 - `verify`: runs only fixed profiles declared at init; no shell command can be supplied by task text. The child process receives a restricted environment allowlist so arbitrary local API tokens are not forwarded. It fingerprints the changed source paths immediately before and after each check; if the path set or content changes while the check is running, that attempt is marked failed and cannot satisfy finalization.
-- `finalize`: requires passing scope validation, latest passing attempt for every planned check, and explicit human confirmation that the complete diff was reviewed. It writes a Markdown handoff.
+- `finalize`: requires passing scope validation, latest attempt for every planned check must be passing (an earlier pass cannot override a later failure), and explicit human confirmation that the complete diff was reviewed. It writes a Markdown handoff.
 
 Task records and handoffs are stored under `.agent/tasks/<task-id>/`. They contain hashes and check metadata, not environment variables, credentials, or raw command output.
+
+The integration suite uses temporary Git repositories and covers lifecycle, scope, branch/base pinning, rename/delete handling, symlink safety, timeouts, source mutation during verification, stale results, and retry ordering. A later failed attempt blocks finalization even if an earlier attempt passed.
 
 ## Fixed verification profiles
 

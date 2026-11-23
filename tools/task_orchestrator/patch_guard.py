@@ -16,7 +16,7 @@ from tools.task_orchestrator.agent_contract import (
 )
 
 _DIFF_HEADER = re.compile(r"^diff --git a/(.+) b/(.+)$")
-_MODE_HEADER = re.compile(r"^(?:new file mode|deleted file mode) (\\d{6})$")
+_MODE_HEADER = re.compile(r"^(?:new file mode|deleted file mode) (\d{6})$")
 _MAX_PATCH_BYTES_HARD = 2_000_000
 
 
@@ -59,7 +59,7 @@ def validate_patch_text(patch_text: Any, envelope: dict, declared_paths: list[st
     limit = min(envelope["budgets"]["max_patch_bytes"], _MAX_PATCH_BYTES_HARD)
     if not encoded or len(encoded) > limit:
         _reject(f"patch size must be between 1 and {limit} bytes")
-    if "\\x00" in patch_text:
+    if "\x00" in patch_text:
         _reject("patch contains a NUL byte")
 
     if not isinstance(declared_paths, list) or any(not isinstance(item, str) for item in declared_paths):
@@ -83,7 +83,7 @@ def validate_patch_text(patch_text: Any, envelope: dict, declared_paths: list[st
         if line.startswith(("--- ", "+++ ")) and not current_hunk:
             if current is None:
                 _reject("file header appeared without a diff header")
-            raw = line[4:].split("\\t", 1)[0]
+            raw = line[4:].split("\t", 1)[0]
             if raw == "/dev/null":
                 current_headers.add("---" if line.startswith("--- ") else "+++")
                 continue

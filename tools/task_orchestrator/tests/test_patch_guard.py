@@ -52,13 +52,13 @@ def envelope():
 
 def diff(path="tools/example.py", body="+value = 1"):
     return (
-        f"diff --git a/{path} b/{path}\\n"
-        "index 1111111..2222222 100644\\n"
-        "--- a/" + path + "\\n"
-        "+++ b/" + path + "\\n"
-        "@@ -1 +1 @@\\n"
-        "-value = 0\\n"
-        f"{body}\\n"
+        f"diff --git a/{path} b/{path}\n"
+        "index 1111111..2222222 100644\n"
+        "--- a/" + path + "\n"
+        "+++ b/" + path + "\n"
+        "@@ -1 +1 @@\n"
+        "-value = 0\n"
+        f"{body}\n"
     )
 
 
@@ -86,23 +86,23 @@ class PatchGuardTests(unittest.TestCase):
 
     def test_rejects_binary_patch(self):
         with self.assertRaises(PatchValidationError):
-            validate_patch_text(diff() + "GIT binary patch\\n", envelope(), ["tools/example.py"])
+            validate_patch_text(diff() + "GIT binary patch\n", envelope(), ["tools/example.py"])
 
     def test_rejects_rename(self):
         patch = (
-            "diff --git a/tools/old.py b/tools/new.py\\n"
-            "similarity index 90%\\nrename from tools/old.py\\n"
-            "rename to tools/new.py\\n"
+            "diff --git a/tools/old.py b/tools/new.py\n"
+            "similarity index 90%\nrename from tools/old.py\n"
+            "rename to tools/new.py\n"
         )
         with self.assertRaises(PatchValidationError):
             validate_patch_text(patch, envelope(), ["tools/old.py"])
 
     def test_rejects_symlink_mode(self):
         patch = (
-            "diff --git a/tools/link b/tools/link\\n"
-            "new file mode 120000\\n"
-            "--- /dev/null\\n+++ b/tools/link\\n"
-            "@@ -0,0 +1 @@\\n+target\\n"
+            "diff --git a/tools/link b/tools/link\n"
+            "new file mode 120000\n"
+            "--- /dev/null\n+++ b/tools/link\n"
+            "@@ -0,0 +1 @@\n+target\n"
         )
         with self.assertRaises(PatchValidationError):
             validate_patch_text(patch, envelope(), ["tools/link"])

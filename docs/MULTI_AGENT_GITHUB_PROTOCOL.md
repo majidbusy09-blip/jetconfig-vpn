@@ -65,7 +65,7 @@ No model API key is required to use this Issue protocol or the Git lease transpo
 - v1 payload schema and local validator: implemented and tested.
 - GitHub Issue template and event-driven intake validation/artifact workflow: active on the default branch; it validates and packages tasks but does not dispatch an agent.
 - Lease state machine: implemented and tested, including renewal.
-- Git transport adapter: implemented; it uses server-side force-with-lease CAS and verifies the resulting remote ref.
+- Git transport adapter: implemented; CI verifies its commit construction and server-side force-with-lease behavior against a local bare remote. A live GitHub concurrent-claim test remains outstanding.
 - Live concurrent-claim race test: not yet performed. CI uses mocked transport and does not claim a live lock.
 - Provider runtime integration and automatic ChatGPT/Grok wake-up: not implemented.
 - Until the live race test and provider runtime integration are complete, use the lease adapter explicitly and keep one active implementation agent per task. Read-only review by another agent is permitted.

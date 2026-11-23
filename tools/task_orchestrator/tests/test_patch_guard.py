@@ -132,6 +132,30 @@ class PatchGuardTests(unittest.TestCase):
         with self.assertRaises(PatchValidationError):
             validate_patch_text(patch, envelope(), ["tools/example.py"])
 
+    def test_rejects_duplicate_file_headers(self):
+        patch = diff().replace(
+            "--- a/tools/example.py\\n",
+            "--- a/tools/example.py\\n--- a/tools/example.py\\n",
+        )
+        with self.assertRaises(PatchValidationError):
+            validate_patch_text(patch, envelope(), ["tools/example.py"])
+
+    def test_rejects_both_sides_as_dev_null(self):
+        patch = diff().replace(
+            "--- a/tools/example.py",
+            "--- /dev/null",
+        ).replace(
+            "+++ b/tools/example.py",
+            "+++ /dev/null",
+        )
+        with self.assertRaises(PatchValidationError):
+            validate_patch_text(patch, envelope(), ["tools/example.py"])
+
+    def test_rejects_malformed_hunk_header(self):
+        patch = diff().replace("@@ -1 +1 @@", "@@ malformed @@")
+        with self.assertRaises(PatchValidationError):
+            validate_patch_text(patch, envelope(), ["tools/example.py"])
+
     def test_rejects_non_text_input(self):
         with self.assertRaises(PatchValidationError):
             validate_patch_text(b"not text", envelope(), ["tools/example.py"])

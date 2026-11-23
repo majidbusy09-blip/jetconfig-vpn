@@ -97,7 +97,9 @@ def validate_handoff_for_acceptance(
         raise HandoffAcceptanceError("Handoff Issue URL is invalid.")
     if not isinstance(issue["body_sha256"], str) or not DIGEST_RE.fullmatch(issue["body_sha256"]):
         raise HandoffAcceptanceError("Handoff Issue-body digest is invalid.")
-    if not isinstance(issue_data, dict) or issue_data.get("number") != issue_number:
+    if not isinstance(issue_data, dict):
+        raise HandoffAcceptanceError("Current GitHub Issue response is malformed.")
+    if _positive_int(issue_data.get("number"), "current Issue number") != issue_number:
         raise HandoffAcceptanceError("Current GitHub Issue number does not match the handoff.")
     if issue_data.get("state") != "open" or issue_data.get("html_url") != issue["url"]:
         raise HandoffAcceptanceError("The task Issue is no longer open or its URL changed.")
@@ -129,14 +131,16 @@ def validate_handoff_for_acceptance(
         raise HandoffAcceptanceError("Handoff ID does not match its Issue and workflow identity.")
 
     execution = manifest["execution"]
-    expected_execution = {
-        "status": "ready-for-agent",
-        "agent_dispatched": False,
-        "model_called": False,
-        "source_uploaded": False,
-        "patch_applied": False,
+    expected_execution_fields = {
+        "status", "agent_dispatched", "model_called", "source_uploaded", "patch_applied"
     }
-    if execution != expected_execution:
+    if (
+        not isinstance(execution, dict)
+        or set(execution) != expected_execution_fields
+        or execution.get("status") != "ready-for-agent"
+        or any(type(execution.get(key)) is not bool or execution[key] is not False
+               for key in ("agent_dispatched", "model_called", "source_uploaded", "patch_applied"))
+    ):
         raise HandoffAcceptanceError("Handoff execution flags are invalid or indicate prior execution.")
 
     lease = manifest["lease"]

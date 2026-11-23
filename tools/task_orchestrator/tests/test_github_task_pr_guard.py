@@ -94,7 +94,7 @@ class TaskPRGuardTests(unittest.TestCase):
             parse_pr_envelope(invalid)
 
     def test_changed_paths_enforce_allow_exclude_and_protected_paths(self):
-        self.assertEqual(validate_paths([{"filename": "docs/guide.md"}], ["docs/**"], []),
+        self.assertEqual(validate_paths([{"filename": "docs/guide.md", "status": "modified"}], ["docs/**"], []),
                          ["docs/guide.md"])
         for filename, allow, exclude in (
             ("lib/main.dart", ["docs/**"], []),

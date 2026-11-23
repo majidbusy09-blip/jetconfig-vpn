@@ -223,7 +223,6 @@ class HandoffAcceptanceTests(unittest.TestCase):
                 target.write_text(body, encoding="utf-8")
             git("add", ".")
             git("commit", "-m", "fixture base")
-            git("switch", "-c", "agent/sample-task")
             base_sha = git("rev-parse", "HEAD")
 
             event_payload = issue_event()
@@ -259,7 +258,8 @@ class HandoffAcceptanceTests(unittest.TestCase):
                     return_value=(lease_record, LOCK_COMMIT),
                 ):
                     output = accept_handoff(
-                        artifact, token="read-token", repository=REPOSITORY
+                        artifact, token="read-token", repository=REPOSITORY,
+                        create_branch=True,
                     )
             finally:
                 os.chdir(previous)
@@ -267,6 +267,7 @@ class HandoffAcceptanceTests(unittest.TestCase):
             self.assertTrue(output.is_file())
             envelope = json.loads(output.read_text(encoding="utf-8"))
             self.assertEqual(envelope["task_id"], TASK_ID)
+            self.assertEqual(git("branch", "--show-current"), "agent/" + TASK_ID)
             self.assertEqual(len(envelope["project_context"]), 6)
             self.assertEqual(envelope["source_context"], [])
             record = json.loads(

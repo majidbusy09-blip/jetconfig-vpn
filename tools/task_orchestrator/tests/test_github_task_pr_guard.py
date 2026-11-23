@@ -40,8 +40,10 @@ def pr_body():
 
 def event():
     return {
+        "action": "opened",
         "repository": {"full_name": REPOSITORY},
         "pull_request": {
+            "state": "open",
             "number": 7,
             "body": pr_body(),
             "base": {"ref": "main", "sha": "e" * 40, "repo": {"full_name": REPOSITORY}},
@@ -59,10 +61,10 @@ def api_responses(*, lease_status="active", expires="2026-11-23T11:00:00Z",
     encoded = base64.b64encode((json.dumps(lease) + "\n").encode()).decode()
     def api(repository, path, token):
         if path == "/issues/42":
-            return {"state": "open", "labels": [{"name": "agent-task"}],
+            return {"number": 42, "state": "open", "labels": [{"name": "agent-task"}],
                     "body": task_body(assigned)}
         if path == "/git/ref/heads/agent-locks/sample-task":
-            return {"object": {"sha": LOCK}}
+            return {"object": {"sha": LOCK, "type": "commit"}}
         if path.startswith("/contents/.agent-locks/lease.json?"):
             return {"encoding": "base64", "content": encoded}
         if path.startswith("/compare/"):

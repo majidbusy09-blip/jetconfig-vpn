@@ -38,7 +38,9 @@ Artifacts are retained for 14 days by default. The GitHub lease ref remains the 
 Download the artifact ZIP from the linked GitHub Actions run. In a clean clone, create a dedicated branch from the exact pinned base SHA shown in the Issue comment:
 
 ```bash
-git switch -c agent/<task-id> <pinned-base-sha>
+TASK_ID="your-task-id"
+BASE_SHA="full-pinned-commit-sha"
+git switch -c "agent/$TASK_ID" "$BASE_SHA"
 ```
 
 Then run the acceptance command with a read-only GitHub token (contents:read and issues:read):

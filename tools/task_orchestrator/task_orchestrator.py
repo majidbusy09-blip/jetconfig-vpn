@@ -20,7 +20,13 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
 
-from context_builder import ContextBuildError, build_context
+try:
+    from .context_builder import ContextBuildError, build_context
+except ImportError:
+    try:
+        from tools.task_orchestrator.context_builder import ContextBuildError, build_context
+    except ImportError:
+        from context_builder import ContextBuildError, build_context
 
 SCHEMA_VERSION = 1
 REQUIRED_CONTEXT = (

@@ -86,10 +86,11 @@ The current integration suite covers:
 - content fingerprint changes after scope approval;
 - repository-wide wildcard justification;
 - remote URL credential/query-token redaction;
-- verification profile allowlist and append-only failure/retry attempts;
+- verification profile allowlist and append-only failure/retry attempts, including timeout handling;
+- symlink-safe content fingerprints that hash link targets rather than dereferencing external files;
 - explicit diff-review confirmation and end-to-end handoff creation.
 
-Additional hardening tests still desirable include timeout handling, malformed task-record schema, excluded-path combinations, and safe rendering under unusual filenames.
+Additional hardening tests still desirable include malformed task-record schema, excluded-path combinations, and safe rendering under unusual filenames.
 
 Integration tests should create a temporary Git repository and exercise `init → prepare → scope validation → verify fixture profile → finalize`. Tests must not need GitHub credentials, network access, Flutter installation, or production secrets.
 

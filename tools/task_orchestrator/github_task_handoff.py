@@ -119,7 +119,7 @@ def build_task_handoff(
     body_digest = hashlib.sha256(body.encode("utf-8")).hexdigest()
 
     return {
-        "handoff_schema": 1,
+        "handoff_schema": 2,
         "handoff_id": (
             "issue-" + str(request["issue_number"]) +
             "-run-" + str(run_id) + "-attempt-" + str(run_attempt)

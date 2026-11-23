@@ -73,10 +73,10 @@ def _git_blob_sha(root: Path, revision: str, relative: str) -> str:
     )
     if result.returncode:
         raise ContextSelectionError("Git could not verify semantic-index provenance at the pinned revision.")
-    entries = [entry for entry in result.stdout.split(b"\\0") if entry]
+    entries = [entry for entry in result.stdout.split(b"\0") if entry]
     if len(entries) != 1 or b"\\t" not in entries[0]:
         raise ContextSelectionError(f"Indexed source is missing or ambiguous at pinned revision: {relative}")
-    metadata, returned_path = entries[0].split(b"\\t", 1)
+    metadata, returned_path = entries[0].split(b"\t", 1)
     fields = metadata.decode("ascii", errors="strict").split()
     if len(fields) != 3 or returned_path.decode("utf-8", errors="strict") != relative:
         raise ContextSelectionError(f"Git returned an unexpected tree entry for: {relative}")

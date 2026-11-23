@@ -79,7 +79,7 @@ def validate_handoff_for_acceptance(
     }
     if not isinstance(manifest, dict) or set(manifest) != top_fields:
         raise HandoffAcceptanceError("Handoff manifest has unexpected or missing fields.")
-    if manifest["handoff_schema"] != 1 or isinstance(manifest["handoff_schema"], bool):
+    if manifest["handoff_schema"] != 2 or isinstance(manifest["handoff_schema"], bool):
         raise HandoffAcceptanceError("Unsupported handoff schema.")
     if manifest["source"] != "github-issue" or manifest["repository"] != repository:
         raise HandoffAcceptanceError("Handoff source or repository identity does not match.")

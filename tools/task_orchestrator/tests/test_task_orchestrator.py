@@ -309,5 +309,22 @@ class OrchestratorIntegrationTests(unittest.TestCase):
         git(self.root, "checkout", "--detach")
         self.cli("begin", "--task-id", self.task_id, expected=2)
 
+    def test_finalize_rejects_checks_stale_after_scope_revalidation(self) -> None:
+        self.prepared_task()
+        self.cli("begin", "--task-id", self.task_id)
+        target = self.root / "docs/new-note.md"
+        target.write_text("first implementation\\n", encoding="utf-8")
+        self.cli("validate-scope", "--task-id", self.task_id)
+        self.cli("verify", "--task-id", self.task_id, "--profile", "python-tooling-tests")
+        target.write_text("changed after successful verification\\n", encoding="utf-8")
+        self.cli("validate-scope", "--task-id", self.task_id)
+        self.cli("finalize", "--task-id", self.task_id, "--reviewed-diff", expected=2)
+        record = json.loads(self.record.read_text(encoding="utf-8"))
+        self.assertEqual(record["check_attempts"][-1]["status"], "passed")
+        self.cli("verify", "--task-id", self.task_id, "--profile", "python-tooling-tests")
+        self.cli("finalize", "--task-id", self.task_id, "--reviewed-diff")
+        record = json.loads(self.record.read_text(encoding="utf-8"))
+        self.assertEqual(record["state"], "review_ready")
+
 if __name__ == "__main__":
     unittest.main()

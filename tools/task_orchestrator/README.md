@@ -176,3 +176,18 @@ python -m tools.task_orchestrator.github_lease_git claim \\
 \`\`\`
 
 Renewal requires the same base SHA, the previous active claim ID, and a fresh new claim ID; release requires the current claim ID. The adapter fails closed on malformed state, stale refs, failed CAS, or an unverified final ref. CI tests Git plumbing and stale compare-and-swap rejection against a local bare Git remote. The trusted-main live GitHub CAS probe passed (Actions run `45176916962`): exactly one of two concurrent writers won, the final ref was verified, and the temporary ref was deleted. The adapter is not yet connected to automatic provider dispatch. See \`docs/GITHUB_TASK_LEASES.md\`.
+
+
+### Issue-comment lease controls
+
+On an open Issue with the \`agent-task\` label and a valid v1 task payload, a repository owner/member/collaborator can operate its shared lease with a comment:
+
+\`\`\`text
+/jet-agent claim chatgpt <claim-id> [minutes]
+/jet-agent renew chatgpt <previous-claim-id> <new-claim-id> [minutes]
+/jet-agent release chatgpt <claim-id>
+\`\`\`
+
+Use \`grok\` instead of \`chatgpt\` for the other agent. Claim IDs are 16-64 lowercase hexadecimal characters; lease duration defaults to 60 minutes and is capped at 240. The workflow verifies the task assignment, uses the trusted default-branch code and short-lived GitHub token, and posts the verified lock ref/base SHA back to the Issue. A claim pins the current \`main\` commit; renewal reads and preserves that original base. Issue text is parsed as data and never run as shell input.
+
+This is a manual lease-control bridge, not an agent wake-up mechanism. It does not invoke ChatGPT/Grok or start implementation. The provider runtime must still be active and independently verify the returned lease before editing.

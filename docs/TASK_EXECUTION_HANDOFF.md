@@ -1,4 +1,4 @@
-# Lease-Verified Task Handoff (v1)
+# Lease-Verified Task Handoff (v2)
 
 ## Purpose
 
@@ -17,7 +17,7 @@ The manifest contains:
 - Repository identity and Issue number/URL.
 - SHA-256 digest of the exact Issue body used for validation.
 - The fully validated task payload, including goal, capability, risk, assigned agent, allow/exclude paths, and fixed verification profiles.
-- Lease owner, fresh claim ID, active status, expiry, pinned base SHA, lock branch, and lock commit SHA.
+- Lease owner, fresh claim ID, active status, expiry, pinned base SHA, lock branch, and lock commit SHA. Renewal handoffs also carry the exact previous claim ID so a local workspace can prove continuity.
 - GitHub Actions run ID and attempt.
 - Explicit execution flags showing that no model was dispatched or called, no source was uploaded, and no patch was applied.
 
@@ -52,4 +52,4 @@ python -m tools.task_orchestrator.github_task_handoff_accept \
 
 The command reads the ZIP in memory without extracting paths, re-fetches the current Issue and lease, verifies the Issue-body digest, task payload, current claim ID, lock commit, expiry, repository identity, local origin, clean worktree, dedicated branch, and exact HEAD/base SHA match. It then initializes the existing local Task Orchestrator, builds the six required project-memory documents, and writes a contract v1.1 `agent_input.json` under the ignored local `.agent/tasks/<task-id>/` directory.
 
-The command does not create or push a branch, modify the remote lease, invoke a model, upload source, or apply a patch. Source files are not automatically added to context; use the existing advisory `suggest-context` and explicit `accept-context --path` commands when relevant. If the lease has been renewed after the local task was prepared, download the newest artifact and rerun the command with `--refresh-existing`; it updates only lease provenance in the local task record and leaves the agent envelope and working files untouched. Refresh is accepted only when the Issue body, owner, task definition, and pinned base still match. If the lease was released, expired, or changed incompatibly, acceptance is rejected.
+The command does not create or push a branch, modify the remote lease, invoke a model, upload source, or apply a patch. Source files are not automatically added to context; use the existing advisory `suggest-context` and explicit `accept-context --path` commands when relevant. If the lease has been renewed after the local task was prepared, download the newest artifact and rerun the command with `--refresh-existing`; it updates only lease provenance in the local task record and leaves the agent envelope and working files untouched. Refresh is accepted only when the Issue body, owner, task definition, pinned base, and exact previous claim ID all match. If the lease was released, expired, or changed incompatibly, acceptance is rejected.

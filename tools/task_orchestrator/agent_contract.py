@@ -98,7 +98,7 @@ def _path(value: Any, name: str, *, pattern: bool = False) -> str:
     if pattern and any(part == "**" for part in parts[:-1]):
         # ** is allowed only as a complete path segment.
         pass
-    if any(part.lower() in PROTECTED_PARTS for part in parts):
+    if any(part.lower() in PROTECTED_PARTS for part in parts) or PurePosixPath(raw).name.lower() in {"key.properties", "upload-keystore.jks", "release.keystore"}:
         _fail(f"{name} targets a protected path")
     normalized = PurePosixPath(raw).as_posix()
     if normalized in PROTECTED_EXACT or normalized.startswith(".github/workflows/"):

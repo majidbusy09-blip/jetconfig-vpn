@@ -18,8 +18,10 @@ Priority is measured against the goal of a reliable, independent programming col
 3. **Implemented:** provider-neutral coding-agent contract and strict task-envelope/result schema validation with adversarial fixtures.
 4. **Implemented:** read-only provider interface with immutable task envelope and validated structured response. Fixture only; no live provider, SDK, API key, network, shell, or filesystem capability. This interface is not an OS sandbox.
 5. **Implemented:** unified-diff patch guard and a result-to-patch integrity pipeline. It checks exact SHA-256, reported byte count, allowed/excluded paths, protected paths, diff structure, and exact agreement with agent-declared changed paths. A pass means only `validated_for_human_review`; the patch is never applied.
-6. **Current gate:** run fresh CI on the complete current head and inspect all jobs. Do not infer success from earlier commits.
-7. **Next after CI:** review patch-parser edge cases and connect a real provider only after selecting a provider and a separately permission-limited execution boundary. The provider must not receive filesystem, shell, GitHub write, secret, or production credentials.
+6. **Verified on patch-guard/scope head:** Project Memory Audit #45113429133 and Non-production PR Validation #45113429119 both succeeded on `363fe8066358646ce696baecaf876a4222bf8149`.
+7. **Implemented after that CI head:** segment-aware scope matching shared by the agent contract and patch guard, with regression tests. Fresh CI is required on the newest head before these later commits are treated as verified.
+8. **Implemented:** `docs/ISOLATED_AGENT_WORKSPACE_BOUNDARY.md` defines OS-level isolation requirements, threat boundaries, patch handoff, adversarial acceptance tests, and runtime-selection criteria. It is a design contract only; no sandbox or live provider exists.
+9. **Next:** select and verify an isolation runtime on the actual CI host against the adversarial acceptance tests. Do not substitute a temporary directory or ordinary Git worktree and call it a sandbox. Implement a disposable worker only after runtime isolation passes; provider selection/integration remains later and separately permission-limited.
 8. Keep model execution outside GitHub write permissions. No direct commit/push/PR/merge/release/deploy capability; no production workflow dispatch.
 
 ## P1 — Reconcile outstanding draft work

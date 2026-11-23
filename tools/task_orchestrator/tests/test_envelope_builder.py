@@ -98,9 +98,12 @@ class EnvelopeBuilderTests(unittest.TestCase):
         record["context_package"]["source_context"][0]["content"] = hostile
         record["context_package"]["source_context"][0]["sha256"] = hashlib.sha256(
             hostile.encode()).hexdigest()
+        record["context_package"]["total_bytes"] = sum(
+            len(item["content"].encode())
+            for item in record["context_package"]["project_context"] + record["context_package"]["source_context"]
+        )
         unsigned = {k: v for k, v in record["context_package"].items()
                     if k != "context_sha256"}
-        record["context_package"]["total_bytes"] = sum(len(item["content"].encode()) for item in record["context_package"]["project_context"] + record["context_package"]["source_context"])
         record["context_package"]["context_sha256"] = hashlib.sha256(
             json.dumps(unsigned, ensure_ascii=False, sort_keys=True,
                        separators=(",", ":")).encode()).hexdigest()

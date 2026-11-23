@@ -20,13 +20,15 @@ class ReadOnlyAdapterTests(unittest.TestCase):
     def test_provider_receives_deeply_immutable_envelope(self):
         env = envelope()
 
+        testcase = self
+
         class MutatingProvider:
             def complete(self, supplied):
-                with self.assertRaises(TypeError):
+                with testcase.assertRaises(TypeError):
                     supplied["goal"] = "mutated"
-                with self.assertRaises(TypeError):
+                with testcase.assertRaises(TypeError):
                     supplied["repository"]["branch"] = "main"
-                with self.assertRaises((AttributeError, TypeError)):
+                with testcase.assertRaises((AttributeError, TypeError)):
                     supplied["verification_profiles"].append("shell")
                 return result_for(env)
 

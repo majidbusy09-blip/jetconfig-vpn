@@ -1,6 +1,6 @@
 # JET VPN — Verified Repository File Map
 
-> Current source snapshot: `main` at `1438d0a047523a22fee26e72ae12cf34cebbb95e`, 2026-11-24. PR #20, PRs #38–#44, PR #46–#51 are merged. App version `2.4.5+284`; `lib/main.dart` blob `3d28693b7be8bfe309a850923599830e1a65ab59`.
+> Current source snapshot: `main` at `440569f769fd0d6871ac370d7923417637f90dc8`, 2026-11-24. PR #20, PRs #38–#44, PR #46–#52 are merged. App version `2.4.5+284`; `lib/main.dart` blob `3d28693b7be8bfe309a850923599830e1a65ab59`.
 
 | Path | Verified purpose |
 |---|---|
@@ -22,6 +22,7 @@
 | `tools/task_orchestrator/patch_review_command.py` | Read-only command that gathers live GitHub/lease and local Git observations before invoking the patch review gate. |
 | `tools/task_orchestrator/sandbox_contract.py` | Provider-neutral synthetic-only sandbox protocol, resource/capability validation, runtime snapshot checks, lifecycle state machine, bounded artifact verification, and mandatory destruction confirmation; no live provider. |
 | `tools/task_orchestrator/sandbox_acceptance.py` | Strict signed-report verifier; requires exact 20-probe raw evidence inventory and recomputes SHA-256; injected signature verifier only, never authorizes execution. |
+| `tools/task_orchestrator/sandbox_trust.py` | Canonical trust-store parser, out-of-band digest pinning, minimum-version floor, Ed25519 key-shape/status/validity policy; injected crypto backend, no private key or production crypto implementation. |
 | `tools/task_orchestrator/runtime_acceptance_probe.py` | Limited benign Bubblewrap self-check for selected namespace/mount/egress properties; not a production sandbox acceptance suite. |
 | `tools/task_orchestrator/runtime_probe.py` | Read-only host runtime/cgroup/Seccomp inventory and preflight; does not launch or validate a sandbox. |
 | `tools/task_orchestrator/tests/test_sandbox_contract.py` | Fake-provider tests for fail-closed capabilities, egress/credential/socket checks, limits, timeout, artifact integrity, cleanup failure, and interruption cleanup. |

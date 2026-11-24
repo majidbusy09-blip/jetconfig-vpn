@@ -465,3 +465,20 @@ Append-only record of meaningful project work. Each entry should include branch/
 - Tests cover happy path/idempotency, rollback and conflict, malformed/oversized values, expiry/digest mismatch, CAS races, invalid prior state, and storage/audit failures. Fakes are test-only.
 - Final-head CI: Task Orchestrator Tests `45361973408` success; Project Memory Audit `45361973336` success; Non-production PR Validation `45361973411` success; `validate-agent-pr` check `138334033651` success.
 - Explicit non-deliverables: no production root key/verifier, persistent monotonic store, atomic audit backend, KMS/HSM, provider, network client, VM, or untrusted execution. Runtime flags remain false.
+
+
+## 2026-11-24 — PR #67 runtime probe contract and CI path optimization
+
+- PR #67 squash-merged as `b0b0b80515f17c01836f558ff5700189c9a7bf32`; final head `e216f2d7d9eab51f62b34733b630fd02af6c6973`.
+- Added `tools/task_orchestrator/runtime_probe_manifest.json`, `docs/SANDBOX_RUNTIME_PROBE_SPEC.md`, and manifest inventory/trust-boundary tests for all 20 required probes.
+- Added a tested path classifier so tooling-only PRs keep Python safety checks while avoiding unnecessary Java/Flutter setup, app analysis/tests and APK builds. App/build-affecting changes retain full validation. Hash-locked dependency installation from PR #63 is preserved.
+- Final-head CI: Task Orchestrator Tests `45371950918`, Project Memory Audit `45371951039`, Non-production PR Validation `45371950980` — all success.
+
+## 2026-11-24 — PR #68 host evidence collector contract
+
+- PR #68 squash-merged as `90dd9f848998ebb0c18b6c584938fee148d6fced`; final head `f76cdf060a2d7166639f6469bbcdf453d52b539b`.
+- Added `tools/task_orchestrator/sandbox_host_evidence.py` and `tools/task_orchestrator/tests/test_sandbox_host_evidence.py`.
+- Collector validates the manifest-defined observer domains, explicit observer-ID allowlists, attempt/runtime/policy digest binding, monotonic offsets, UTC freshness, duplicate/missing observations, bounded raw payloads and aggregate evidence size. It serializes deterministic per-probe evidence and recomputes payload SHA-256; a failed observer remains a failed probe.
+- Added `docs/SANDBOX_HOST_EVIDENCE_COLLECTOR.md` and README documentation.
+- A first CI run exposed an assertion-order issue in the duplicate-observer test; it was corrected. The final exact head passed Task Orchestrator Tests `45376199406`, Project Memory Audit `45376199527`, and Non-production PR Validation `45376199739`.
+- No VM, process, guest, socket, network request, provider, identity root, signing key, or untrusted code was used. The collector is not a runtime controller and does not cryptographically authenticate its caller-supplied observer identities.

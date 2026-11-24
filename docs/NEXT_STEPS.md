@@ -125,3 +125,16 @@ Keep `execution_authorized: false` and `eligible_for_untrusted_execution: false`
 4. **Supply-chain hardening:** add hash-locked wheel requirements and provenance verification for `cryptography`, `cffi`, and `pycparser`; verify binary-wheel installation reproducibility and document any provenance gaps.
 5. **Production trust control plane remains blocked:** separately design/provision an offline root trust ceremony, audited root verifier, durable transactional monotonic CAS plus append-only audit, key rotation/revocation, recovery, and independent security review.
 6. Keep `execution_authorized: false` and `eligible_for_untrusted_execution: false`. No paid provider, VM, KMS/HSM, API key, private-source transfer, or untrusted execution without separate explicit approval.
+
+
+## Current next steps after PR #68 (supersedes older sequencing above)
+
+1. **Host-controller lifecycle contract, fake-only:** define immutable run context, fixed allowlisted probe IDs, bounded observer adapter interfaces, monotonic deadline handling, cancellation/cleanup states, and deterministic failure transitions. Do not accept task-supplied shell commands or dynamic probe code.
+2. **Evidence authenticity design:** specify out-of-band observer identity provisioning/rotation and authenticated host-to-canary evidence transport. The current collector validates IDs against caller-supplied allowlists but does not authenticate them.
+3. **Evidence/report integration tests:** connect assembled raw evidence to the existing signed-report verifier using fake signature backends only; preserve attempt/runtime/policy binding and ensure the result never changes execution flags.
+4. **Artifact collector contract:** design path allowlisting, symlink/device rejection, size limits, host-side digest recomputation, and bounded retention; tests use in-memory fixtures only.
+5. **Independent threat-model review:** examine host/guest/canary separation, provider metadata, IPv4/IPv6/DNS/QUIC egress, resource enforcement, timeout/kill, cleanup, and cross-attempt residue.
+6. **Supply-chain:** preserve SHA-256 hash-locked binary-wheel installation; review provenance and reproducibility for all pinned dependencies.
+7. **Operational pilot remains gated:** a real VM/provider, account, API key, private-source transfer, KMS/HSM, paid service, or spend requires separate explicit approval and independent security review.
+
+The host evidence collector is not a runner and no runtime probes have been executed. Keep `execution_authorized: false` and `eligible_for_untrusted_execution: false`.

@@ -104,3 +104,15 @@ This section supersedes the earlier PR #53 baseline above.
   - `validate-agent-pr` check `138334033651`
 - Important limitations: root verifier is injected and no production root key is provisioned; no production durable monotonic store or atomic audit implementation exists; no live provider/network client/KMS/HSM/VM was introduced.
 - `execution_authorized: false` and `eligible_for_untrusted_execution: false` remain unchanged. PR #59 does not authorize untrusted code execution.
+
+
+## Latest authoritative snapshot — PR #68 merged (2026-11-24)
+
+- Current main includes PR #67 merge `b0b0b80515f17c01836f558ff5700189c9a7bf32` and PR #68 merge `90dd9f848998ebb0c18b6c584938fee148d6fced`. PR #68 final head: `f76cdf060a2d7166639f6469bbcdf453d52b539b`.
+- PR #67 final-head CI passed: Task Orchestrator Tests `45371950918`, Project Memory Audit `45371951039`, Non-production PR Validation `45371950980`.
+- PR #68 final-head CI passed: Task Orchestrator Tests `45376199406`, Project Memory Audit `45376199527`, Non-production PR Validation `45376199739`.
+- The 20 runtime probes are now specified in `tools/task_orchestrator/runtime_probe_manifest.json`; this is a contract inventory, not executable probes.
+- `tools/task_orchestrator/sandbox_host_evidence.py` implements deterministic, fail-closed evidence assembly from typed observations. It validates exact probe/observer inventory, trusted observer ID allowlists supplied by the caller, attempt/runtime/policy binding, monotonic offsets, UTC freshness, payload bounds, deterministic evidence serialization, and host-side SHA-256 digests. Failed outcomes remain failed.
+- The collector is not a host runtime controller: it cannot launch or inspect a VM, process, guest, filesystem, network, or provider; it does not cryptographically authenticate observer IDs or sign acceptance reports. Out-of-band identity provisioning remains unimplemented.
+- PR #67 also adds a unit-tested CI path classifier. Tooling-only changes retain Python safety checks and can skip Flutter/Android APK build steps; application/build-affecting paths still trigger full app validation.
+- No production Sandbox or untrusted-code execution was enabled. `execution_authorized: false` and `eligible_for_untrusted_execution: false` remain mandatory.

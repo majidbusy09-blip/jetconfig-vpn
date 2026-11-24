@@ -134,3 +134,17 @@ This module is not production-ready and must not be described as an operational 
 - The acceptance API may be used for deterministic reference behavior and tests only until real root trust and durable storage are separately implemented, reviewed, and provisioned.
 - Any production adapter must prove atomic CAS plus append-only audit, crash consistency, rollback resistance, key lifecycle, and recovery behavior.
 - `execution_authorized: false` and `eligible_for_untrusted_execution: false` remain mandatory. Passing module tests cannot enable untrusted execution.
+
+
+## D-015 — Host evidence assembly is a non-production contract (2026-11-24)
+
+**Status:** Accepted for deterministic evidence validation only; operational runtime implementation pending.
+
+PR #68 adds `tools/task_orchestrator/sandbox_host_evidence.py` and its tests. The collector binds each observation to a pinned attempt, runtime ID and policy digest; requires the observer domains declared by the 20-probe manifest; validates caller-configured observer IDs, UTC freshness, monotonic offsets and payload bounds; rejects missing/duplicate/untrusted observations; and produces deterministic evidence bytes with host-recomputed payload digests.
+
+**Limits and consequences**
+- The collector does not execute probes, start processes, provision or inspect VMs, perform network requests, collect guest files, authenticate observer identities cryptographically, sign reports, or authorize code execution.
+- Observer identity configuration must eventually be provisioned and rotated through a protected out-of-band trust mechanism. Test identities are fixtures only.
+- A successful unit test or assembled evidence bundle is not proof of isolation and cannot authorize untrusted execution.
+- Next work may implement a fixed host-controller adapter/lifecycle contract with fake observers only, plus a separately designed external-canary trust boundary. Real runtime/provider provisioning and spend require separate approval.
+- `execution_authorized: false` and `eligible_for_untrusted_execution: false` remain mandatory.

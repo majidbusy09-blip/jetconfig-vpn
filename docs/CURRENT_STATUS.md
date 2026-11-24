@@ -282,7 +282,7 @@ This section supersedes the earlier PR #53 baseline above.
 - This validates ChatGPT's GitHub connector path only. Grok's separate GitHub integration still needs an independent capability/review pilot. No API key, paid model API, source upload, untrusted execution, merge, or production action was used.
 
 
-## Latest PR #89 validation checkpoint — 2026-11-24
+## Prior PR #89 validation checkpoint — head 731496b (2026-11-24)
 
 - Candidate head `731496b745e9f708cb82d2b9911a956090776a9a`, base `dcb9d1c01a50974d9ef38bdf5f0e4aaf744b409e`.
 - Task Orchestrator Tests run `45462003973`: success, 359 tests.
@@ -290,3 +290,10 @@ This section supersedes the earlier PR #53 baseline above.
 - Agent PR Scope Guard run `45461997027`: success.
 - Non-production PR Validation run `45462004191`: cancelled before a job was created; this is not a pass or a test failure. A fresh exact-head run is required after the next documentation commit.
 - PR #89 remains Draft/open/unmerged. No merge, release, deployment, production resource, or execution authorization was changed.
+
+
+## Final PR #89 exact-head validation — 2026-11-24
+
+- Candidate head `cc602e31f5920b7304a3de50a10f1f940502a292` passed all four checks: Task Orchestrator Tests `45462594178` (359 tests), Non-production PR Validation `45462594228`, Project Memory Audit `45462594156`, and Agent PR Lease/Scope Guard `45462594006`.
+- Project Memory Audit passed deterministic semantic index generation, real-source task-intelligence smoke (4 source files and 4 context suggestions), lexical index verification, and the exact PR memory gate: `Project-memory update gate passed (7 required documents updated).`
+- PR #89 remains Draft/open/unmerged; exact-head CI is evidence, not merge authorization.

@@ -1,4 +1,7 @@
 import unittest
+import subprocess
+import tempfile
+from pathlib import Path
 
 from tools.project_memory.verify_change_memory import (
     CORE_MEMORY,
@@ -51,6 +54,37 @@ class ProjectMemoryChangeGateTests(unittest.TestCase):
     def test_package_and_native_app_changes_are_implementation_sensitive(self):
         self.assertEqual(required_memory_paths(["pubspec.lock"]), set(CORE_MEMORY))
         self.assertEqual(required_memory_paths(["android/app/src/main/AndroidManifest.xml"]), set(CORE_MEMORY))
+        self.assertEqual(required_memory_paths(["tools/v2ray_notif_patch/V2rayVPNService.java"]), set(CORE_MEMORY))
+
+    def test_changed_paths_are_read_from_exact_git_base_and_head(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            subprocess.run(["git", "init", "-q"], cwd=root, check=True)
+            subprocess.run(["git", "config", "user.name", "Memory Gate Test"], cwd=root, check=True)
+            subprocess.run(["git", "config", "user.email", "memory-gate@example.invalid"], cwd=root, check=True)
+            (root / "README.md").write_text("base\\n", encoding="utf-8")
+            subprocess.run(["git", "add", "README.md"], cwd=root, check=True)
+            subprocess.run(["git", "commit", "-qm", "base"], cwd=root, check=True)
+            base = subprocess.run(
+                ["git", "rev-parse", "HEAD"], cwd=root, check=True,
+                text=True, capture_output=True,
+            ).stdout.strip()
+            source = root / "tools" / "task_orchestrator" / "example.py"
+            source.parent.mkdir(parents=True)
+            source.write_text("value = 1\\n", encoding="utf-8")
+            (root / "docs").mkdir()
+            (root / "docs" / "CURRENT_STATUS.md").write_text("updated\\n", encoding="utf-8")
+            subprocess.run(["git", "add", "."], cwd=root, check=True)
+            subprocess.run(["git", "commit", "-qm", "implementation and memory"], cwd=root, check=True)
+            head = subprocess.run(
+                ["git", "rev-parse", "HEAD"], cwd=root, check=True,
+                text=True, capture_output=True,
+            ).stdout.strip()
+            from tools.project_memory.verify_change_memory import changed_paths_between
+            self.assertEqual(
+                set(changed_paths_between(root, base, head)),
+                {"tools/task_orchestrator/example.py", "docs/CURRENT_STATUS.md"},
+            )
 
 
 if __name__ == "__main__":

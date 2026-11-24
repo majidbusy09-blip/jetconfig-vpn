@@ -96,7 +96,7 @@ On 2026-11-23, the complete Issue command bridge was exercised against temporary
 
 ## Submitting an implementation PR
 
-An agent PR must include this marker and exactly one fenced JSON envelope after it:
+An agent PR must include this marker and exactly one fenced JSON envelope after it. The marker and JSON fence must be the final content in the PR body; do not place the marker at the beginning and do not add trailing prose:
 
     <!-- jet-agent-pr:v1 -->
     ```json
@@ -130,3 +130,7 @@ The active implementation route is the user's existing ChatGPT and Grok chat ses
 - The lease owner value is a protocol label, not cryptographic proof of which model or human is operating. The user chooses which chat is activated and controls the claim command. Never describe the owner string as provider authentication.
 
 This section supersedes older instructions in this document that require a separate provider runtime, external model API adapter, source upload, or isolated execution environment before ChatGPT/Grok can perform GitHub-based implementation.
+
+## Verified ChatGPT connector pilot — 2026-11-24
+
+The documentation-only pilot completed on Issue #90 and PR #91. The ChatGPT GitHub integration in this session successfully read the Issue/comments and lease ref, posted the Issue claim/release comments, created a remote branch from the exact pinned base SHA, committed an in-scope Markdown file, and opened a Draft PR. The lock was independently read before/after claim and showed a stable ref; the release workflow then wrote and verified status=released. PR #91 head `652e3d38a594adfb4b0784971c25010b5a5e3382` passed the trusted PR guard (`45461329913`), Non-production PR Validation (`45461334216`), and Project Memory Audit (`45461334389`). PR #91 remains Draft/open/unmerged. The first guard attempt rejected a marker placed at the start of the PR body; moving the marker and JSON block to the very end made the guard pass. Grok's separate connector capabilities have not yet been verified.

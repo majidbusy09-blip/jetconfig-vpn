@@ -8,15 +8,21 @@ from typing import Any
 from urllib.parse import urlsplit
 
 try:
-    from .agent_contract import ContractValidationError, validate_envelope, _path_matches, CONTRACT_VERSION, REQUIRED_PROJECT_CONTEXT
+    from .agent_contract import (
+        ContractValidationError, validate_envelope, _path_matches, CONTRACT_VERSION,
+        REQUIRED_PROJECT_CONTEXT as CANONICAL_PROJECT_CONTEXT,
+    )
 except ImportError:
-    from agent_contract import ContractValidationError, validate_envelope, _path_matches, CONTRACT_VERSION, REQUIRED_PROJECT_CONTEXT
+    from agent_contract import (
+        ContractValidationError, validate_envelope, _path_matches, CONTRACT_VERSION,
+        REQUIRED_PROJECT_CONTEXT as CANONICAL_PROJECT_CONTEXT,
+    )
 
 PACKAGE_FIELDS = {"schema_version", "task_id", "source_revision", "project_context",
                   "source_context", "total_bytes", "context_sha256"}
 MAX_PACKAGE_BYTES = 512_000
 MAX_CONTEXT_FILES = 100
-REQUIRED_PROJECT_CONTEXT = list(REQUIRED_PROJECT_CONTEXT)
+REQUIRED_PROJECT_CONTEXT = list(CANONICAL_PROJECT_CONTEXT)
 
 
 class EnvelopeBuildError(ValueError):

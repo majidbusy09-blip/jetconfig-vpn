@@ -526,3 +526,14 @@ Append-only record of meaningful project work. Each entry should include branch/
 - Initial CI found three test/logic issues (runtime expectation not bound, missing provenance detected too late, and an overly specific test regex). Fixed all three and reran exact final head.
 - Final-head CI: Task Orchestrator Tests `45384423673` (355 tests), Non-production PR Validation `45384423800`, Project Memory Audit `45384423642` — all success.
 - No report signer, private key, raw-envelope storage, durable replay store, TLS, VM, provider, network, or untrusted code was used.
+
+
+## 2026-11-24 — PR #78 durable observer replay-store design
+
+- PR #78 squash-merged as `74a5b2b760362494711949b799031dc628612671`; final head `156511739d82de7dac02adedb31aebc4e3ce4adb`.
+- Expanded `ObserverReplayStore.consume` to receive observer/domain, attempt/runtime/policy/probe, registry digest/version, key ID, nonce/envelope digests, sequence, challenge expiry, and trusted acceptance timestamp.
+- The verifier commits those values only after all envelope checks pass. Challenge expiry uses whole UTC-second precision; host acceptance time retains microseconds.
+- Strengthened the in-memory fake to reject duplicate nonce/envelope digests and non-increasing per-observer sequence while retaining full audit context.
+- Added `docs/SANDBOX_REPLAY_STORE_DESIGN.md` covering atomic serializable transactions, compare-and-swap sequence updates, uniqueness, audit, stable identity through key rotation, fencing, anti-rollback checkpoint, retention, failover, restore, and failure test matrix.
+- Final-head CI: Task Orchestrator Tests `45385761279`, Non-production PR Validation `45385761459`, Project Memory Audit `45385761392` — all success.
+- No durable DB/service, credentials, network, VM, provider, or untrusted execution was implemented or used.

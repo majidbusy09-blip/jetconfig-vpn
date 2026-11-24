@@ -208,3 +208,20 @@ PR #76 adds `sandbox_acceptance_provenance.py` with a schema-v2 verifier while l
 - V1 remains valid for legacy evidence but is not observer-authenticated. Consumers that require observer authenticity must explicitly require schema v2 and must not silently downgrade.
 - The v2 verifier does not sign reports, create private keys, run probes, authorize patch application, or enable untrusted execution.
 - Keep `execution_authorized: false` and `eligible_for_untrusted_execution: false`.
+
+
+## D-020 — Durable observer replay storage requires atomic audit and anti-rollback (2026-11-24)
+
+**Status:** Design accepted; no production storage implementation.
+
+PR #78 expands the replay-store protocol to receive all security/audit context and adds `docs/SANDBOX_REPLAY_STORE_DESIGN.md`. A production implementation must atomically consume the nonce, advance the per-observer sequence, persist the envelope digest and context, and append the audit event in one serializable transaction.
+
+**Required controls**
+- Unique nonce digest and envelope digest; unique `(observer_id, sequence)`; compare-and-swap sequence advancement.
+- Stable observer ID across key rotation so sequence continuity cannot reset with a new key ID.
+- Single-writer fencing token and an external protected high-water checkpoint to reject stale backup restores.
+- Nonce tombstone retention through challenge expiry plus allowed skew; sequence high-water state survives key rotation and audit cleanup.
+- Fail closed on DB outage, replication lag, split-brain, uncertain commit, corruption, audit failure, or rollback. No in-memory fallback.
+- Keep raw signed envelopes in a separate protected artifact store; the replay ledger stores digests and audit context only.
+- Current implementation remains an interface plus in-memory test fake. Production database/service requires separate trust-boundary review and explicit approval.
+- `execution_authorized: false` and `eligible_for_untrusted_execution: false` remain mandatory.

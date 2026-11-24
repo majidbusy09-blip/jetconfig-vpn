@@ -213,3 +213,14 @@ PR #49 merged `sandbox_acceptance.py`, a strict verifier for independently signe
 - The report signature covers all v2 provenance records. The trusted acceptance-suite signer attests that observer envelopes were verified by the trusted host verifier. The v2 verifier does not independently re-verify observer signatures because raw signed envelope bytes are referenced by digest and must be retained separately for later re-verification.
 - V2 requires protected expectations for exact runtime ID and observer registry digest/version. It does not create or sign reports, provision keys, run probes, or authorize execution.
 - No report signer/private key, durable replay store, nonce generator, TLS transport, VM, provider, network, filesystem collector, or untrusted execution was used. Keep `execution_authorized: false` and `eligible_for_untrusted_execution: false`.
+
+
+## Authoritative snapshot — PR #78 merged (2026-11-24)
+
+- Current `main` includes PR #78 squash merge `74a5b2b760362494711949b799031dc628612671`; final PR head: `156511739d82de7dac02adedb31aebc4e3ce4adb`.
+- Final-head CI passed: Task Orchestrator Tests `45385761279`, Non-production PR Validation `45385761459`, and Project Memory Audit `45385761392`.
+- PR #78 expands the `ObserverReplayStore.consume` contract to carry observer/domain, attempt/runtime/policy/probe, registry digest/version, key ID, nonce/envelope digests, sequence, challenge expiry, and trusted acceptance time. The verifier passes these fields only after signature, challenge, and payload validation.
+- Challenge expiry is exact UTC-second precision; host acceptance timestamp preserves microseconds. The in-memory test fake rejects duplicate nonce/envelope digests and non-increasing per-observer sequence while retaining the audit context.
+- Added `docs/SANDBOX_REPLAY_STORE_DESIGN.md`: serializable transaction/CAS sequence advancement, unique constraints, atomic audit, stable observer identity across key rotation, fencing, protected anti-rollback checkpoint, nonce/audit retention, failover, backup restore, failure modes, and implementation test matrix.
+- No durable DB/service, persistence credentials, network endpoint, production replay store, KMS/HSM, VM, provider, or untrusted execution was created. Production replay persistence still requires separate trust-boundary review and explicit approval.
+- Keep `execution_authorized: false` and `eligible_for_untrusted_execution: false`.

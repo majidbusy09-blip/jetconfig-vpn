@@ -154,3 +154,15 @@ The current execution policy is unchanged: `execution_authorized: false`; `eligi
 - Exact final-head CI passed: Task Orchestrator Tests `45384423673` (355 tests), Non-production PR Validation `45384423800`, Project Memory Audit `45384423642`.
 - Next focus: durable replay-store design, protected raw-envelope retention, trusted report-signer contract, and host challenge/transport design.
 - Keep `execution_authorized: false` and `eligible_for_untrusted_execution: false`.
+
+
+## Durable observer replay-store update — PR #78 (2026-11-24)
+
+- Current main includes PR #78 squash merge `74a5b2b760362494711949b799031dc628612671`; final PR head `156511739d82de7dac02adedb31aebc4e3ce4adb`.
+- The replay-store protocol now receives complete context: observer/domain, attempt/runtime/policy/probe, registry digest/version, key ID, nonce/envelope digests, sequence, challenge expiry, and trusted acceptance time.
+- The verifier supplies these fields only after successful challenge, identity, signature, payload, time, and monotonic checks. Challenge expiry uses exact UTC-second precision; acceptance time preserves microseconds.
+- In-memory fake rejects duplicate nonce/envelope digests and non-increasing per-observer sequence, and retains audit context. It is test-only; no durable DB/service exists.
+- `docs/SANDBOX_REPLAY_STORE_DESIGN.md` specifies serializable transaction, uniqueness, CAS sequence advance, atomic audit, stable observer identity across key rotation, fencing, external anti-rollback checkpoint, retention, failover, and recovery.
+- Exact final-head CI passed: Task Orchestrator Tests `45385761279`, Non-production PR Validation `45385761459`, Project Memory Audit `45385761392`.
+- Next focus: protected raw-envelope retention, trusted report-signer contract, host challenge/transport, and protected identity lifecycle.
+- Keep `execution_authorized: false` and `eligible_for_untrusted_execution: false`.

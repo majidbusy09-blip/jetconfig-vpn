@@ -308,3 +308,13 @@ Both decisions are implemented on candidate PR #89 and passed exact-head validat
 **Rationale:** Avoid separate API consumption costs while retaining independent agent analysis and repository work through the existing chat products.
 
 **Consequences:** The user activates one chat at a time. The agent verifies the Issue and active Git lease, creates a remote task branch from the pinned base SHA, reads only pinned memory and in-scope source through its GitHub integration, commits through that integration, and opens a Draft PR. If a connector lacks a required write operation, the user performs that discrete operation. GitHub Issues do not wake chats and chats do not continuously poll in the background. The lease owner string is a protocol label, not cryptographic model identity. No arbitrary untrusted-code execution is introduced; the production sandbox remains a separate security track. Human approval remains required for merge/release/deploy.
+
+## D-028 — Mandatory live-state session continuity and anti-drift protocol (2026-11-24)
+
+**Status:** Accepted operating rule; documented in `AGENTS.md`, `docs/CURRENT_STATUS.md`, and `docs/NEXT_STEPS.md`.
+
+At the start of every session, agents must reconcile live GitHub main/branch refs, open PRs, exact-head check-runs, task Issues, and lease refs with the pinned project-memory checkpoint. Live GitHub state establishes current repository facts; project memory establishes accepted decisions and sequence; chat summaries are recovery aids, never status authority. Candidate-branch capabilities must not be described as merged/main capabilities.
+
+At every pause, the active task, exact refs, completed acceptance criteria, lease status, unresolved blockers, and single next action must be recorded in CURRENT_STATUS, NEXT_STEPS, and DEVELOPMENT_LOG; architectural changes also update DECISIONS. Resume the earliest incomplete acceptance criterion rather than restarting or jumping to a newer unrelated branch. Parallel work is allowed only for independent scopes with isolated branches; one implementation agent may hold a task lease, while another may review read-only.
+
+This rule preserves the approved no-model-API route: user-activated ChatGPT/Grok chats through their existing GitHub integrations only. It does not imply background polling or autonomous wake-up.

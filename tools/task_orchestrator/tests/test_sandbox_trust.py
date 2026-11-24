@@ -67,8 +67,8 @@ class CryptographyEd25519BackendTests(unittest.TestCase):
         backend = CryptographyEd25519Backend()
         self.assertTrue(backend.verify(public_key, b"", signature))
         self.assertFalse(backend.verify(public_key, b"tampered", signature))
-        self.assertFalse(backend.verify(public_key, b"", signature[:-1] + b"\\x00"))
-        self.assertFalse(backend.verify(b"\\x00" * 32, b"", signature))
+        self.assertFalse(backend.verify(public_key, b"", signature[:-1] + b"\x00"))
+        self.assertFalse(backend.verify(b"\x00" * 32, b"", signature))
 
     def test_pinned_trust_store_uses_real_ed25519_backend(self):
         from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey

@@ -576,3 +576,12 @@ Append-only record of meaningful project work. Each entry should include branch/
 - Updated temporary-Git integration fixtures and context-builder assertions to verify these documents are included in the pinned full-text package.
 - This improves the agent's access to architectural rationale and evidence-backed blockers before source changes. The 512 KiB total context limit remains unchanged; overflow still fails closed.
 - Exact-head test results are pending in PR #89.
+
+
+## 2026-11-24 — Versioned agent envelope v1.2 after context-contract test failure
+
+- The first attempt to add decisions/known issues to mandatory task context failed two integration tests: the GitHub handoff fixture lacked the new files, and the envelope builder still enforced exactly six project documents.
+- Introduced contract v1.2 and a canonical eight-document project-memory manifest shared by `agent_contract.py`, `envelope_builder.py`, and `task_orchestrator.py`.
+- Kept legacy v1.1 envelope validation and matching v1.1 results available; result contract version must match the input envelope. V1.2 requires the exact eight paths in canonical order.
+- Updated the v1.2 envelope, handoff, context-builder, orchestrator, and legacy patch-guard fixtures/tests; updated the adapter contract, task handoff guide, and orchestrator README.
+- The first failing CI run was Non-production PR Validation run `45439181931` on an earlier PR #89 head. The failure was not ignored; this entry records the corrective work. Exact-head revalidation is pending.

@@ -1,0 +1,11 @@
+# Platform-specific artifact lock for the current GitHub Actions Python 3.12 CPython
+# ubuntu-latest x86_64 (glibc) runners. All entries are binary wheels only.
+# SHA-256 values are the file digests published by PyPI for the exact wheel tags.
+# This lock provides artifact integrity, not publisher provenance; cffi and pycparser
+# currently have no PyPI attestations for these releases.
+cryptography==50.0.2 \\
+    --hash=sha256:f21e8a22c8605750c7af886bab299a363721264061b4ac0a30efb73cfd58efc5
+cffi==2.1.1 \\
+    --hash=sha256:c1453022f490d2459a11819d83ad1d586e9ff65a12ac3e705ffebd46d3685dcf
+pycparser==3.12 \\
+    --hash=sha256:a076f3f489b39b43ed13563a1dafe42447445bec2e294154ec5c57fcdda4c85e

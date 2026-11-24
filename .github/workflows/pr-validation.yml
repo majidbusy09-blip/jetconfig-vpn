@@ -176,9 +176,9 @@ jobs:
           test -n "$AAPT"
           test -n "$APKSIGNER"
           BADGING="$("$AAPT" dump badging "$APK")"
-          printf '%s\\n' "$BADGING" | head -5
-          printf '%s\\n' "$BADGING" | grep -Fq "package: name='com.jetconfig.vpn.jetconfig_vpn.validation'"
-          printf '%s\\n' "$BADGING" | grep -Fq "application-label:'JET VPN TEST'"
+          printf '%s\n' "$BADGING" | head -5
+          printf '%s\n' "$BADGING" | grep -Fq "package: name='com.jetconfig.vpn.jetconfig_vpn.validation'"
+          printf '%s\n' "$BADGING" | grep -Fq "application-label:'JET VPN TEST'"
           "$APKSIGNER" verify --verbose --print-certs "$APK"
           python3 - "$APK" <<'PY'
           import sys, zipfile

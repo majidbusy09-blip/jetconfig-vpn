@@ -37,6 +37,8 @@ IMPLEMENTATION_PREFIXES = (
     "tools/task_orchestrator/",
     "tools/project_memory/",
     "tools/validation/",
+    "tools/v2ray_notif_patch/",
+    "gradle/",
     ".github/workflows/",
 )
 IMPLEMENTATION_FILES = frozenset({

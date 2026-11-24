@@ -138,6 +138,14 @@ class ProjectRegistryTests(unittest.TestCase):
         with self.assertRaises(ProjectRegistryError):
             validate_manifest_schema(JET_VPN, bad_schema)
 
+    def test_validates_optional_registration_date_time_format(self):
+        manifest = copy.deepcopy(JET_VPN)
+        manifest["metadata"] = {"registered_at": "2026-11-25T00:17:00Z"}
+        self.validate_jet(manifest)
+        manifest["metadata"]["registered_at"] = "2026-11-25T00:17:00"
+        with self.assertRaises(ProjectRegistryError):
+            self.validate_jet(manifest)
+
     def test_rejects_duplicate_json_keys_and_non_finite_numbers(self):
         for raw in ('{"project_id":"one","project_id":"two"}', '{"value":NaN}'):
             with self.subTest(raw=raw), self.assertRaises(ProjectRegistryError):

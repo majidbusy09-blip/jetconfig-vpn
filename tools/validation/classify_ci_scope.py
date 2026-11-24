@@ -19,6 +19,8 @@ APP_BUILD_FILES = {
     "pubspec.lock",
     "analysis_options.yaml",
     ".github/workflows/pr-validation.yml",
+    "tools/validation/prepare_validation_build.py",
+    "tools/validation/align_validation_android.py",
 }
 
 

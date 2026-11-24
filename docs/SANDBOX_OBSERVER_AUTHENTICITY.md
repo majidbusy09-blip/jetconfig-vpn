@@ -65,6 +65,8 @@ The returned `ProbeObservation` retains the original probe ID, observer domain/I
 
 The authenticator does not change the evidence collector's allowlist semantics and does not create the final signed acceptance report. The current `CollectedEvidenceBundle` does not yet carry the wrapper's registry/envelope/sequence provenance. A later integration must bind those provenance fields and the assembled evidence digest into the signed report without treating a caller assertion as signature proof. Construct the pinned Ed25519 verifier with the same trusted acceptance time used by this envelope verifier so key-validity windows cannot drift.
 
+See [the durable replay-store design](SANDBOX_REPLAY_STORE_DESIGN.md) for the transaction model, unique constraints, fencing, anti-rollback checkpoint, retention, recovery, and required test matrix.
+
 ## Rotation, revocation, and operational requirements
 
 - Publish registry changes only through the protected root-signed trust configuration flow with a strictly higher registry version/config epoch.

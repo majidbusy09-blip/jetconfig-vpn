@@ -1,6 +1,6 @@
 # JET VPN — Verified Repository File Map
 
-> Current source snapshot: `main` at `4fc59de5a8d6ef9323de3b48896f78f3c426732d`, 2026-11-24. PR #20, PRs #38–#44, PR #46, PR #47, PR #48, and PR #49 are merged. App version `2.4.5+284`; `lib/main.dart` blob `3d28693b7be8bfe309a850923599830e1a65ab59`.
+> Current source snapshot: `main` at `1438d0a047523a22fee26e72ae12cf34cebbb95e`, 2026-11-24. PR #20, PRs #38–#44, PR #46–#51 are merged. App version `2.4.5+284`; `lib/main.dart` blob `3d28693b7be8bfe309a850923599830e1a65ab59`.
 
 | Path | Verified purpose |
 |---|---|
@@ -21,6 +21,9 @@
 | `tools/task_orchestrator/patch_review_gate.py` | Fail-closed authorization gate binding a patch to current Issue, lease, lock ref, pinned base, branch, and clean workspace; review-only. |
 | `tools/task_orchestrator/patch_review_command.py` | Read-only command that gathers live GitHub/lease and local Git observations before invoking the patch review gate. |
 | `tools/task_orchestrator/sandbox_contract.py` | Provider-neutral synthetic-only sandbox protocol, resource/capability validation, runtime snapshot checks, lifecycle state machine, bounded artifact verification, and mandatory destruction confirmation; no live provider. |
+| `tools/task_orchestrator/sandbox_acceptance.py` | Strict signed-report verifier; requires exact 20-probe raw evidence inventory and recomputes SHA-256; injected signature verifier only, never authorizes execution. |
+| `tools/task_orchestrator/runtime_acceptance_probe.py` | Limited benign Bubblewrap self-check for selected namespace/mount/egress properties; not a production sandbox acceptance suite. |
+| `tools/task_orchestrator/runtime_probe.py` | Read-only host runtime/cgroup/Seccomp inventory and preflight; does not launch or validate a sandbox. |
 | `tools/task_orchestrator/tests/test_sandbox_contract.py` | Fake-provider tests for fail-closed capabilities, egress/credential/socket checks, limits, timeout, artifact integrity, cleanup failure, and interruption cleanup. |
 | `tools/task_orchestrator/tests/test_provider_result_ingestion.py` | Tests provider-result ingestion, digest/size/scope rejection, path safety, and overwrite prevention. |
 | `tools/task_orchestrator/tests/test_patch_artifacts.py` | Tests content-addressed artifact integrity, idempotency, symlink rejection, and size limits. |

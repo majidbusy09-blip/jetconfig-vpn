@@ -54,7 +54,8 @@ def good_capabilities():
 
 class FakeSandboxProvider:
     def __init__(self, *, capabilities=None, egress="blocked", execution=None,
-                 artifact=None, fail_destroy=False, fail_create=False):
+                 artifact=None, fail_destroy=False, fail_create=False,
+                 credentials_present=False, host_sockets_present=False):
         self.capabilities = capabilities or good_capabilities()
         self.egress = egress
         self.execution = execution or SandboxExecution(0, False, 0.25)
@@ -64,6 +65,8 @@ class FakeSandboxProvider:
         )
         self.fail_destroy = fail_destroy
         self.fail_create = fail_create
+        self.credentials_present = credentials_present
+        self.host_sockets_present = host_sockets_present
         self.state = SandboxState.NEW
         self.calls = []
 
@@ -84,8 +87,8 @@ class FakeSandboxProvider:
             ephemeral_vm=True,
             dedicated_kernel=True,
             resource_limits_enforced=True,
-            credentials_present=False,
-            host_sockets_present=False,
+            credentials_present=self.credentials_present,
+            host_sockets_present=self.host_sockets_present,
             process_tree_termination=True,
         )
 
@@ -140,6 +143,21 @@ class SandboxContractTests(unittest.TestCase):
             run_synthetic_acceptance(provider, request())
         self.assertFalse(any(isinstance(call, tuple) and call[0] == "run_synthetic" for call in provider.calls))
         self.assertEqual(provider.calls[-4:], ["terminate", "inspect", "destroy", "inspect"])
+
+
+    def test_guest_credentials_and_host_sockets_each_block_execution(self):
+        for provider in (
+            FakeSandboxProvider(credentials_present=True),
+            FakeSandboxProvider(host_sockets_present=True),
+        ):
+            with self.subTest(provider=provider):
+                with self.assertRaises(SandboxContractError):
+                    run_synthetic_acceptance(provider, request())
+                self.assertFalse(any(
+                    isinstance(call, tuple) and call[0] == "run_synthetic"
+                    for call in provider.calls
+                ))
+                self.assertEqual(provider.state, SandboxState.DESTROYED)
 
     def test_timeout_blocks_artifact_and_cleans_up(self):
         provider = FakeSandboxProvider(execution=SandboxExecution(124, True, 30))

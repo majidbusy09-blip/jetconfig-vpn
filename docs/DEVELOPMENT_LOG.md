@@ -514,3 +514,15 @@ Append-only record of meaningful project work. Each entry should include branch/
 - Successful results preserve `ProbeObservation` plus registry digest/version, key ID, sequence, nonce digest, and envelope digest in `AuthenticatedObserverResult`.
 - Final-head CI: Task Orchestrator Tests `45382515116`, Non-production PR Validation `45382515212`, Project Memory Audit `45382515188` — all success.
 - No durable replay store, challenge generator, TLS transport, identity provisioning, report signing, VM, provider, network, or untrusted code was used. Existing evidence bundle does not yet bind observer provenance.
+
+
+## 2026-11-24 — PR #76 signed acceptance provenance schema v2
+
+- PR #76 squash-merged as `d393d2e5bb0a93390b8d572bf540ff9ec3f1fe7c`; final head `87c19d15f714f4a21200d469ed828d4b83026861`.
+- Added `tools/task_orchestrator/sandbox_acceptance_provenance.py`, `tools/task_orchestrator/tests/test_sandbox_acceptance_provenance.py`, and `docs/SANDBOX_ACCEPTANCE_PROVENANCE_V2.md`; updated orchestrator README.
+- Kept schema-v1 acceptance verification unchanged; added a separate schema-v2 verifier that pins runtime ID and observer registry digest/version.
+- V2 signs observer provenance records containing probe/domain/observer/key, registry digest/version, sequence, nonce/envelope digest, payload digest, and Ed25519 algorithm label.
+- Verifier recomputes provenance digest and raw probe evidence digests; parses canonical evidence; validates required probe/domain coverage from manifest; cross-checks exact observer identity/domain and payload digest; checks time/monotonic fields; and rejects replayed or incomplete provenance.
+- Initial CI found three test/logic issues (runtime expectation not bound, missing provenance detected too late, and an overly specific test regex). Fixed all three and reran exact final head.
+- Final-head CI: Task Orchestrator Tests `45384423673` (355 tests), Non-production PR Validation `45384423800`, Project Memory Audit `45384423642` — all success.
+- No report signer, private key, raw-envelope storage, durable replay store, TLS, VM, provider, network, or untrusted code was used.

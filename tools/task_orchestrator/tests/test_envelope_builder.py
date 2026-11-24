@@ -16,6 +16,7 @@ def package(task_id="sample-task", revision="a" * 40):
     project_paths = [
         "AGENTS.md", "docs/PROJECT_CONTEXT.md", "docs/CURRENT_STATUS.md",
         "docs/NEXT_STEPS.md", "docs/TASK_TEMPLATE.md", "docs/DEVELOPMENT_LOG.md",
+        "docs/DECISIONS.md", "docs/KNOWN_ISSUES.md",
     ]
     project_context = []
     for path in project_paths:
@@ -142,7 +143,7 @@ class EnvelopeBuilderTests(unittest.TestCase):
     def test_fixture_readonly_adapter_accepts_built_envelope_and_rejects_bad_one(self):
         envelope = build_agent_envelope(task_record())
         result = {
-            "contract_version": "1.1", "task_id": envelope["task_id"],
+            "contract_version": envelope["contract_version"], "task_id": envelope["task_id"],
             "provider": "local-fixture", "model": "no-model",
             "status": "needs_clarification",
             "summary": "Fixture only; no provider or model was called.",

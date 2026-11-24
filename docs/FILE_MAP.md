@@ -150,3 +150,11 @@ Never add paths to this map unless verified from the current tree or a separatel
 - `tools/task_orchestrator/tests/test_sandbox_artifacts.py` — deterministic positive/adversarial tests including traversal, symlink/device/directory, hard-link metadata, limits, digest recomputation, canonical ordering, and retention.
 - `docs/SANDBOX_ARTIFACT_COLLECTOR.md` — contract, limitations, and requirements for a future trusted host filesystem collector.
 - PR #72 merged as `a199b82ef70f492c2b8df42087992a917d293c7c`; final-head CI runs `45379646169`, `45379646094`, and `45379646100` all succeeded.
+
+
+## Signed observer authenticity contract — PR #74
+
+- `tools/task_orchestrator/sandbox_observer_auth.py` — strict canonical observer-envelope verifier; pinned registry digest/version/audience; observer/domain/key mapping; one-time host challenge; signature, payload, timestamp, and monotonic checks; injected atomic replay-store protocol; returns `AuthenticatedObserverResult` with audit bindings.
+- `tools/task_orchestrator/tests/test_sandbox_observer_auth.py` — deterministic fake-signature and in-memory replay tests for binding, signature tampering, replay, sequence rollback, registry lifecycle, payload, time, and malformed input.
+- `docs/SANDBOX_OBSERVER_AUTHENTICITY.md` — trust chain, host challenge, envelope, anti-replay, rotation/revocation, and production limitations.
+- PR #74 merged as `b40642e9cb58446b60cc356f349656c31818d898`; final-head checks `45382515116`, `45382515212`, and `45382515188` all succeeded.

@@ -1,6 +1,6 @@
 # JET VPN — Verified Repository File Map
 
- > Current source snapshot: `main` at `3e613a8c03a39e4440c3702ac3505acb7b2eae27`, 2026-11-24. PR #20, PRs #38–#44, PR #46–#53 are merged. App version `2.4.5+284`; `lib/main.dart` blob `3d28693b7be8bfe309a850923599830e1a65ab59`.
+> Current source snapshot: `main` at `3e613a8c03a39e4440c3702ac3505acb7b2eae27`, 2026-11-24. PR #20, PRs #38–#44, PR #46–#53 are merged. App version `2.4.5+284`; `lib/main.dart` blob `3d28693b7be8bfe309a850923599830e1a65ab59`.
 
 | Path | Verified purpose |
 |---|---|

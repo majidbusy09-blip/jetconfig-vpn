@@ -175,8 +175,9 @@ class HostLifecycleTracker:
             raise LifecycleError("Only evidence_collected may carry a probe outcome.")
 
         if event.event_type in {"adapter_failed", "cleanup_failed"}:
-            if event.failure_code not in _FAILURE_CODES:
-                raise LifecycleError("Failure event requires an allowlisted failure code.")
+            expected_code = "adapter_error" if event.event_type == "adapter_failed" else "cleanup_failed"
+            if event.failure_code != expected_code:
+                raise LifecycleError("Failure event requires its exact allowlisted failure code.")
         elif event.failure_code is not None:
             raise LifecycleError("Unexpected failure code on a non-failure event.")
 

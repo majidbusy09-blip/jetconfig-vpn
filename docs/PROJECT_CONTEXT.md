@@ -1,10 +1,10 @@
 # JET VPN — Project Context
 
-> Current verified repository snapshot: `main` at `f360d50b13064c7136eb7ce4a3b38e3413e5b333` (2026-11-24).
-> PR #20, PRs #38–#44, PR #46, and PR #47 are merged.
+> Current verified repository snapshot: `main` at `53e00ac2ad5e260a4d214772da4ba9bccd3499f4` (2026-11-24).
+> PR #20, PRs #38–#44, PR #46, PR #47, and PR #48 are merged.
 > Main source blob: `lib/main.dart` = `3d28693b7be8bfe309a850923599830e1a65ab59`.
 > App version: `2.4.5+284` (`pubspec.yaml` blob `adc3b22a4538db4738bec789e3c3badf26e4f710`).
-> PR #47 Task Orchestrator Tests #45314331567 (247 tests) and Project Memory Audit #45314331612 passed. Non-production PR Validation #45314331545 was still running at this snapshot.
+> PR #47 Task Orchestrator Tests #45314331567 (247 tests) and Project Memory Audit #45314331612 passed. Non-production PR Validation #45314885244 passed.
 > Active `main-protection` ruleset requires PR + project-memory freshness check and allows Squash only.
 
 ## Product and repository identity
@@ -41,3 +41,8 @@ The production workflow `.github/workflows/build.yml` is manual-only after merge
 - The authoritative PHP/API implementation is not present in this repository. Request/response details in `API_CONTRACT.md` are client-observed only.
 - JET VPN TV is a separate project/repository and is out of scope for this repository's architecture.
 - Never assume that README descriptions of a wider JetConfig ecosystem mean those source files are included here.
+
+
+## Sandbox evidence verifier
+
+The task orchestrator includes a strict signed-evidence verifier for independent sandbox runtime acceptance reports. It requires all 20 fixed probes, pins report identity and time, and verifies canonical bytes through an injected trusted signature verifier. It is not a probe runner or execution authorization. Production key trust and actual VM probe execution remain outstanding.

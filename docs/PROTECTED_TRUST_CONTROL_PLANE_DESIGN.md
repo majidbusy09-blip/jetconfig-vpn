@@ -43,9 +43,10 @@ The service returns one canonical, size-bounded envelope. Version 1 should conta
 - `trust_store_bytes`: canonical UTF-8 trust-store document (or an immutable content-addressed reference whose bytes are independently fetched and re-hashed);
 - `issued_at`, `expires_at`: strict UTC timestamps;
 - `root_key_id`: pinned root signer identifier;
-- `signature_algorithm`: explicit supported algorithm identifier.
+- `signature_algorithm`: explicit supported algorithm identifier;
+- `signature_b64`: detached root signature encoded as strict base64.
 
-The signature covers the canonical envelope excluding only its signature field. Reject duplicate JSON keys, unknown fields, noncanonical encodings, invalid UTF-8, non-finite numbers, excessive nesting/size, invalid timestamps, unknown schema/algorithm, audience mismatch, expired/future-issued envelopes, and digest mismatch. The root verification key is provisioned independently of the envelope.
+The signature covers the canonical envelope excluding only `signature_b64`. Reject duplicate JSON keys, unknown fields, noncanonical encodings, invalid UTF-8, non-finite numbers, excessive nesting/size, invalid timestamps, unknown schema/algorithm, audience mismatch, expired/future-issued envelopes, and digest mismatch. The root verification key is provisioned independently of the envelope.
 
 Do not accept a configuration merely because its own payload says which key should verify it. The root key identity and algorithm policy come from the verifier deployment's independent trust anchor.
 

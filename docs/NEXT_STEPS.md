@@ -2,8 +2,8 @@
 
 ## Verified baseline — 2026-11-24
 
-- Current `main`: `440569f769fd0d6871ac370d7923417637f90dc8` (PR #52 merged).
-- PR #20, PRs #38–#44, and PRs #46–#52 are merged.
+- Current `main`: `3e613a8c03a39e4440c3702ac3505acb7b2eae27` (PR #53 merged).
+- PR #20, PRs #38–#44, and PRs #46–#53 are merged.
 - PR #49 Task Orchestrator Tests #45320041554 passed 259 tests, Project Memory Audit #45320041561 passed, and Agent PR Lease and Scope Guard #45320038880 passed.
 - PR #50 validation completed successfully. PR #51 all four checks passed: Task Orchestrator Tests #45325193322, Project Memory Audit #45325193253, Agent PR Lease and Scope Guard #45325195790, and Non-production PR Validation #45325193266.
 - App source/version remain unchanged: `lib/main.dart` blob `3d28693b7be8bfe309a850923599830e1a65ab59`; version `2.4.5+284`.
@@ -20,13 +20,22 @@ The signed-evidence verifier was introduced in PR #49 and hardened in PR #51. It
 5. Run the suite against the exact provider, region, VM image, and policy intended for a pilot; preserve signed report and raw evidence.
 6. Keep `execution_authorized: false` and `eligible_for_untrusted_execution: false` until a real independent suite, external signer, pinned trust root, candidate runtime validation, and separate owner-approved policy gate exist.
 
-## P0a — Trust-root implementation design (safe, no vendor required)\n\n- `sandbox_trust.py` now implements canonical trust-store validation, out-of-band SHA-256 pinning, caller-supplied minimum-version enforcement, unique key IDs, Ed25519 public-key length/algorithm checks, UTC validity windows, and active/retired/revoked key policy. Its Ed25519 backend is injected; no production cryptographic implementation is present.\n- Next, define protected deployment of the pinned trust-store digest and monotonic version floor, then integrate an approved audited Ed25519 backend only after dependency/security review.
+## P0a — Complete protected trust-root integration
 
-- Specify a versioned public-key trust store with key ID, algorithm, public-key bytes, validity interval, status, and revocation metadata.
-- Verify the signature over exact canonical report bytes before trusting report claims; bind suite version and signer identity to the trust entry.
-- Reject unknown, expired, revoked, not-yet-valid, duplicate, or algorithm-mismatched keys; fail closed on verifier errors.
-- Keep trust-store updates reviewed and auditable; prevent rollback to an older trust-store version.
-- Add known-answer, tamper, rotation/revocation, and malformed-key tests. No signing private key or live signing service is created in this phase.
+PR #53 implements policy validation, not production cryptography. Next safe work:
+
+1. Inspect existing Python/tooling dependency policy and workflow pinning. Compare maintained Ed25519 libraries, security history, reproducible installation, and transitive risk; do not add a dependency before review.
+2. Design a protected control plane supplying trust-store bytes, an independently pinned SHA-256 digest, and a monotonic minimum version. Specify atomic update, rollback prevention, revocation, audit, and recovery. Never persist the version floor in the guest/provider.
+3. After dependency approval, implement a narrow Ed25519 adapter with known-answer, tamper, and invalid-signature tests. No private key is created or committed.
+4. Keep execution authorization false; trust-store validation alone is not runtime acceptance.
+
+## P0b — Independent runtime acceptance suite
+
+1. Specify the 20 probes as host-observable assertions with bounded evidence and explicit failure semantics.
+2. Implement a fixed guest probe runner plus an independent host controller/canary. Provider status and guest-generated claims alone are not independent evidence.
+3. Cover VM/kernel boundary, privilege/capabilities, Seccomp, enforced CPU/memory/PID/disk limits, read-only mounts, secrets/sockets/devices/metadata, IPv4/IPv6, DNS/QUIC/egress, timeout/process-tree kill, artifact integrity, cleanup, and cross-attempt residue.
+4. Test against deterministic fake runtimes first; real VM validation requires separate account, consent, data-governance, and cost approval.
+5. Bind exact raw evidence to the signed report and trusted key identity. Do not authorize execution from provider assertions or unit tests alone.
 
 ## P1 — Provider and data-governance decision
 

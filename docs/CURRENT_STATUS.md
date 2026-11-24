@@ -4,12 +4,14 @@
 
 - Repository: `majidbusy09-blip/jetconfig-vpn`.
 - Default branch: `main`.
-- Current main HEAD: `440569f769fd0d6871ac370d7923417637f90dc8` (PR #52 squash merge).
-- PR #20, PRs #38–#44, and PRs #46–#52 are merged.
+- Current main HEAD: `3e613a8c03a39e4440c3702ac3505acb7b2eae27` (PR #53 squash merge).
+- PR #20, PRs #38–#44, and PRs #46–#53 are merged.
 - PR #47 introduced the synthetic-only sandbox lifecycle contract.
 - PR #48 refreshed project memory after PR #47.
 - PR #49 added the independent signed-evidence verifier and its 12 adversarial tests.
 - PR #50 refreshed project memory after PR #49.
+- PR #53 adds `sandbox_trust.py`, a strict trust-store policy adapter with canonical parsing, independent SHA-256 pinning, minimum-version enforcement, and active/in-window Ed25519 key selection; signature math remains injected and rollback state is external.
+- PR #53 head `b0b5f72c1d8c7f0940b1c1cfb8cb5dacdb1cb11b` passed Task Orchestrator Tests #45334662136 (271 tests), Project Memory Audit #45334662120, Non-production PR Validation #45334662100, and Agent PR Lease and Scope Guard #45334659579; squash-merged as `3e613a8c03a39e4440c3702ac3505acb7b2eae27`.
 - PR #51 binds every signed probe digest to the exact supplied raw evidence bytes, recomputes SHA-256, enforces exact evidence inventory, and caps each blob at 128 KiB / aggregate evidence at 2 MiB.
 - PR #49 verification: Task Orchestrator Tests #45320041554 passed 259 tests; Project Memory Audit #45320041561 passed; Agent PR Lease and Scope Guard #45320038880 passed.
 - PR #50 validation runs #45320512137 and related required checks completed successfully.
@@ -41,7 +43,7 @@
 
 ## Next engineering objective
 
-Implement the fixed external probe suite and a separately controlled signing/verifier trust root, then validate against a real candidate VM only after separate account, consent, data-governance, and cost approval. Until actual signed evidence passes all 20 probes, keep the runtime synthetic-only and do not run untrusted code.
+Next implement the independent 20-probe host/guest runtime acceptance suite and protected trust-configuration control plane. Review audited Ed25519 dependency options without adding an unapproved dependency. Real VM/provider validation remains blocked pending separate account, consent, data-governance, and cost approval. Keep the runtime synthetic-only and do not run untrusted code.
 
 ## Historical detail
 

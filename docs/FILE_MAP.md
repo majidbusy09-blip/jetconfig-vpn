@@ -1,6 +1,6 @@
 # JET VPN — Verified Repository File Map
 
-> Current source snapshot: `main` at `440569f769fd0d6871ac370d7923417637f90dc8`, 2026-11-24. PR #20, PRs #38–#44, PR #46–#52 are merged. App version `2.4.5+284`; `lib/main.dart` blob `3d28693b7be8bfe309a850923599830e1a65ab59`.
+> Current source snapshot: `main` at `3e613a8c03a39e4440c3702ac3505acb7b2eae27`, 2026-11-24. PR #20, PRs #38–#44, PR #46–#53 are merged. App version `2.4.5+284`; `lib/main.dart` blob `3d28693b7be8bfe309a850923599830e1a65ab59`.
 
 | Path | Verified purpose |
 |---|---|
@@ -76,7 +76,7 @@ The current `main` tree contains a tracked `test/` suite and isolated semantic t
 
 ## Source identity
 
-- Current `main`: `4fc59de5a8d6ef9323de3b48896f78f3c426732d`.
+- Current `main`: `3e613a8c03a39e4440c3702ac3505acb7b2eae27`.
 - `lib/main.dart`: blob `3d28693b7be8bfe309a850923599830e1a65ab59`, 9,008 lines, 352,770 UTF-8 bytes, 336,710 Unicode code points.
 - `pubspec.yaml`: blob `adc3b22a4538db4738bec789e3c3badf26e4f710`, version `2.4.5+284`.
 - `.github/workflows/build.yml`: blob `abdb595af8df6b2d02ab0ba1da665ac9de1d6461`; manual release gate.
@@ -92,3 +92,10 @@ Never add paths to this map unless verified from the current tree or a separatel
 - `tools/task_orchestrator/sandbox_acceptance.py`: strict verifier for signed independent runtime acceptance reports.
 - `tools/task_orchestrator/tests/test_sandbox_acceptance.py`: adversarial tests for schema, signature, replay/freshness, probe inventory, identity binding, and bounds.
 - `docs/SANDBOX_RUNTIME_ACCEPTANCE.md`: required probe inventory, trust model, and remaining work.
+
+
+## Sandbox trust-store policy adapter — PR #53
+
+- `tools/task_orchestrator/sandbox_trust.py`: strict canonical trust-store parsing, duplicate-key rejection, independent SHA-256 pin, caller-supplied minimum version, unique Ed25519 public-key entries, UTC validity and active-only status policy. Signature mathematics remains delegated to an injected backend.
+- `tools/task_orchestrator/tests/test_sandbox_trust.py`: adversarial tests for pin mismatch, rollback, duplicate keys, revocation/expiry, malformed key material, and backend failure.
+- The module does not persist rollback state, provision/rotate keys, implement production Ed25519, or authorize untrusted execution.

@@ -1,7 +1,7 @@
 # JET VPN — Coding Agent Adapter Contract
 
 > Status: provider-neutral design contract; task/result validation, local ingestion, content-addressed artifacts, and review-only gates are implemented. No live model provider or OS sandbox is connected.
-> Baseline: current `main` `53e00ac2ad5e260a4d214772da4ba9bccd3499f4` (2026-11-24); PR #20, PRs #38–#44, PR #46, PR #47, and PR #48 are merged.
+> Baseline: current `main` `4fc59de5a8d6ef9323de3b48896f78f3c426732d` (2026-11-24); PR #20, PRs #38–#44, PR #46, PR #47, PR #48, and PR #49 are merged.
 
 ## 1. Purpose
 

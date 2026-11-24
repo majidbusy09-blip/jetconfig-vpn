@@ -277,3 +277,27 @@ Do not merge PRs, alter branch protection, provision infrastructure, or authoriz
 3. Once PR #89 is approved and merged by the repository owner, verify the new gate runs on PR #88 and passes because PR #88 updates the required memory documents in the same change.
 4. The source-context retrieval stage is already implemented: `suggest-context` ranks only in-scope files from source-SHA-verified resolved/critical-path indexes, and `accept-context` adds only explicitly selected suggestions after rechecking the pinned Git blob. Do not rebuild this capability. The next collaborator milestone is a real, explicitly configured read-only provider adapter followed by isolated patch production; before sending full source context externally, require the user's explicit provider/data-transfer approval, a configured credential, and a separate runtime-isolation review.
 5. Keep production mTLS, KMS/HSM, isolated signer, durable replay persistence, and live execution behind their existing independent-review and explicit-approval gates.
+
+
+## Superseding priority — ChatGPT + Grok through existing GitHub connections (2026-11-24)
+
+This section supersedes earlier next-step statements that make a paid/read-only model API adapter, provider runtime, external source transfer, or sandbox a prerequisite for multi-agent implementation. The user has explicitly chosen to use only the ChatGPT and Grok chat sessions with their existing GitHub connections; no API key or paid model API is authorized.
+
+### P0 — Make the existing GitHub connector route operational
+1. Keep PR #89 Draft/open until human review; it supplies the candidate v1.2 eight-document context contract and durable memory-change gate. Do not treat its branch-only features as present on main before merge.
+2. Correct and consolidate task runbooks so a user can activate one chat, claim a lease through the Issue command bridge (human posts the command if the connector cannot), verify the lock ref, create a remote branch from the pinned base SHA, read pinned memory/source, commit through the GitHub connector, and open a Draft PR.
+3. Explicitly distinguish the remote implementation branch from the ephemeral local branch used by Actions handoff acceptance. Handoff and agent-input artifacts are optional metadata/recovery artifacts; they do not wake a model or automatically enter a chat.
+4. Verify the exact write capabilities of each connected GitHub integration (Issue comments, branch creation, file/commit writes, PR creation). Never infer permissions from a connection label. If a write operation is unavailable, the user performs that discrete action.
+5. Add a harmless, documentation-only end-to-end pilot using a fresh task Issue and one active lease. Verify lock ownership, remote branch base SHA, PR envelope, path guard, exact-head Actions checks, renewal/release, and read-only review by the other agent. Do not run arbitrary task code or touch production.
+6. After the first successful pilot, record exact issue/branch/PR/commit/check IDs and failure cases in project memory. Only then define the smallest safe next automation increment.
+
+### P1 — Improve agent independence and memory quality
+1. Ensure every new task reads the exact pinned memory manifest and explicit source context; keep the v1.1 compatibility boundary and v1.2 candidate clearly distinguished until merge.
+2. Make task status, lease expiry, last verified commit, PR/check state, reviewer findings, and next action visible in the Issue/PR thread without claiming that a chat runs in the background.
+3. Add independent review instructions so the non-implementing agent checks correctness, scope, tests, and memory rather than merely agreeing with the implementation agent.
+4. Preserve the 512 KiB context ceiling and explicit source selection. Use verified semantic suggestions where available; do not silently truncate or widen scope.
+
+### Separate sandbox track — not a blocker for connector-based coding
+Continue host/sandbox trust work only as a separate security track. Do not enable arbitrary untrusted execution, provision providers, create keys, upload source, or spend money without separate review and explicit approval. The GitHub connector route can progress using repository writes and fixed GitHub Actions checks without waiting for a production sandbox.
+
+No merge, release, deployment, API key, paid API, provider account, external source upload, or untrusted execution is authorized by this priority update.

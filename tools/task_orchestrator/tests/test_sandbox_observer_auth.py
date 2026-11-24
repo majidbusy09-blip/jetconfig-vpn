@@ -55,15 +55,32 @@ class FakeSignatureVerifier:
 class MemoryReplayStore:
     def __init__(self):
         self.nonces = set()
+        self.envelopes = set()
         self.last_sequence = {}
         self.records = []
 
-    def consume(self, *, observer_id, nonce_sha256, sequence, envelope_sha256):
-        if nonce_sha256 in self.nonces or sequence <= self.last_sequence.get(observer_id, 0):
+    def consume(self, **record):
+        observer_id = record["observer_id"]
+        nonce_sha256 = record["nonce_sha256"]
+        envelope_sha256 = record["envelope_sha256"]
+        sequence = record["sequence"]
+        if (
+            nonce_sha256 in self.nonces
+            or envelope_sha256 in self.envelopes
+            or sequence <= self.last_sequence.get(observer_id, 0)
+        ):
+            return False
+        required_context = (
+            "observer_domain", "attempt_id", "runtime_id", "policy_digest",
+            "probe_id", "observer_registry_sha256", "observer_registry_version",
+            "key_id", "challenge_expires_at", "accepted_at",
+        )
+        if any(record.get(field) in (None, "") for field in required_context):
             return False
         self.nonces.add(nonce_sha256)
+        self.envelopes.add(envelope_sha256)
         self.last_sequence[observer_id] = sequence
-        self.records.append((observer_id, sequence, envelope_sha256))
+        self.records.append(dict(record))
         return True
 
 
@@ -153,6 +170,16 @@ class ObserverAuthenticationTests(unittest.TestCase):
         self.assertEqual(result.nonce_sha256, hashlib.sha256(NONCE).hexdigest())
         self.assertEqual(result.envelope_sha256, hashlib.sha256(make_envelope()).hexdigest())
         self.assertEqual(replay.last_sequence[OBSERVER], 1)
+        accepted = replay.records[0]
+        self.assertEqual(accepted["attempt_id"], ATTEMPT)
+        self.assertEqual(accepted["runtime_id"], RUNTIME)
+        self.assertEqual(accepted["policy_digest"], POLICY)
+        self.assertEqual(accepted["probe_id"], PROBE)
+        self.assertEqual(accepted["observer_registry_sha256"], hashlib.sha256(registry_bytes()).hexdigest())
+        self.assertEqual(accepted["observer_registry_version"], 3)
+        self.assertEqual(accepted["key_id"], KEY_ID)
+        self.assertEqual(accepted["challenge_expires_at"], "2026-11-24T12:00:30Z")
+        self.assertEqual(accepted["accepted_at"], "2026-11-24T12:00:00Z")
 
     def test_duplicate_nonce_is_rejected_even_with_new_sequence(self):
         verifier, _ = make_verifier()

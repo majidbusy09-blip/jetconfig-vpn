@@ -106,7 +106,7 @@ This MVP cannot create commits, push branches, call GitHub write APIs, open or m
 
 Changes to this orchestrator, its tests, or the adapter contract run `.github/workflows/task-orchestrator.yml`, which compiles the Python modules and executes the complete standard-library test suite on Python 3.12.
 
-Envelope provenance is checked against the pinned Git blobs immediately before serialization; a matching package hash alone is not treated as proof of source authenticity; the CLI also re-reads the pinned Git objects; fixture coverage uses the full six-document project-memory set.
+Envelope provenance is checked against the pinned Git blobs immediately before serialization; a matching package hash alone is not treated as proof of source authenticity; the CLI also re-reads the pinned Git objects; fixture coverage uses the full eight-document v1.2 project-memory set, with legacy v1.1 compatibility tests.
 
 
 ## Verified Impact Analyzer

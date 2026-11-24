@@ -8,6 +8,7 @@ from tools.task_orchestrator.sandbox_observer_auth import (
     ObserverAuthenticationError,
     ObserverChallenge,
     ObserverEnvelopeVerifier,
+    ObserverReplayReceipt,
     PinnedObserverRegistry,
 )
 
@@ -58,6 +59,9 @@ class MemoryReplayStore:
         self.envelopes = set()
         self.last_sequence = {}
         self.records = []
+        self.receipts = {}
+        self.ledger_revision = 0
+        self.fencing_epoch = 1
 
     def consume(self, **record):
         observer_id = record["observer_id"]
@@ -69,24 +73,42 @@ class MemoryReplayStore:
             or envelope_sha256 in self.envelopes
             or sequence <= self.last_sequence.get(observer_id, 0)
         ):
-            return False
+            return None
         required_context = (
             "observer_domain", "attempt_id", "runtime_id", "policy_digest",
             "probe_id", "observer_registry_sha256", "observer_registry_version",
             "key_id", "challenge_expires_at", "accepted_at",
         )
         if any(record.get(field) in (None, "") for field in required_context):
-            return False
+            return None
         self.nonces.add(nonce_sha256)
         self.envelopes.add(envelope_sha256)
         self.last_sequence[observer_id] = sequence
+        self.ledger_revision += 1
+        receipt = ObserverReplayReceipt(
+            **record,
+            ledger_revision=self.ledger_revision,
+            fencing_epoch=self.fencing_epoch,
+        )
+        self.receipts[(observer_id, envelope_sha256)] = receipt
         self.records.append(dict(record))
-        return True
+        return receipt
+
+    def get_acceptance(self, *, observer_id, envelope_sha256):
+        return self.receipts.get((observer_id, envelope_sha256))
 
 
 class FailingReplayStore:
     def consume(self, **kwargs):
         raise OSError("fixture store unavailable")
+
+    def get_acceptance(self, **kwargs):
+        return None
+
+
+class MissingReceiptReadbackStore(MemoryReplayStore):
+    def get_acceptance(self, *, observer_id, envelope_sha256):
+        return None
 
 
 def challenge(*, nonce=NONCE, issued_at=None, expires_at=None, probe_id=PROBE, audience=AUDIENCE):
@@ -180,8 +202,18 @@ class ObserverAuthenticationTests(unittest.TestCase):
         self.assertEqual(accepted["key_id"], KEY_ID)
         self.assertEqual(accepted["challenge_expires_at"], "2026-11-24T12:00:30Z")
         self.assertEqual(accepted["accepted_at"], "2026-11-24T12:00:00.000000Z")
+        receipt = replay.get_acceptance(observer_id=OBSERVER, envelope_sha256=result.envelope_sha256)
+        self.assertIsInstance(receipt, ObserverReplayReceipt)
+        self.assertEqual(receipt.ledger_revision, 1)
+        self.assertEqual(receipt.fencing_epoch, 1)
+        self.assertEqual(result.accepted_at, receipt.accepted_at)
+        self.assertEqual(result.challenge_expires_at, receipt.challenge_expires_at)
+        self.assertEqual(result.ledger_revision, receipt.ledger_revision)
+        self.assertEqual(result.fencing_epoch, receipt.fencing_epoch)
+        with self.assertRaises(AttributeError):
+            receipt.sequence = 99
 
-    def test_duplicate_nonce_is_rejected_even_with_new_sequence(self):
+    def test_duplicate_nonce_is_rejected_even_with_new_sequence):
         verifier, _ = make_verifier()
         verifier.verify(make_envelope(sequence=1), challenge=challenge())
         with self.assertRaisesRegex(ObserverAuthenticationError, "replayed"):
@@ -389,6 +421,20 @@ class ObserverAuthenticationTests(unittest.TestCase):
         verifier, _ = make_verifier(store=FailingReplayStore())
         with self.assertRaisesRegex(ObserverAuthenticationError, "Replay store unavailable"):
             verifier.verify(make_envelope(), challenge=challenge())
+
+    def test_missing_replay_receipt_readback_fails_closed(self):
+        verifier, store = make_verifier(store=MissingReceiptReadbackStore())
+        with self.assertRaisesRegex(ObserverAuthenticationError, "could not be independently read back"):
+            verifier.verify(make_envelope(), challenge=challenge())
+        self.assertEqual(store.last_sequence[OBSERVER], 1)
+
+    def test_replay_store_requires_read_only_receipt_lookup(self):
+        class ConsumeOnlyStore:
+            def consume(self, **kwargs):
+                return True
+
+        with self.assertRaisesRegex(ObserverAuthenticationError, "read-only receipt lookup"):
+            make_verifier(store=ConsumeOnlyStore())
 
     def test_duplicate_json_keys_and_noncanonical_json_are_rejected(self):
         verifier, _ = make_verifier()

@@ -272,3 +272,8 @@ python -m unittest discover -s tools/task_orchestrator/tests -p 'test_*.py' -v
 - The tests include RFC 8032 test vector 1 and an end-to-end `PinnedTrustStoreVerifier` check with a test-only RFC seed. No private-key operation is exposed by the production adapter.
 - This provides actual Ed25519 signature verification for a supplied trust store; it does not establish protected external pin delivery, persistent anti-rollback, key rotation/revocation operations, independent VM evidence, or execution authorization.
 - Run `python -m unittest discover -s tools/task_orchestrator/tests -p 'test_*.py' -v`.
+
+
+### CI evidence requirement for cryptographic verifier changes
+
+A pull request that changes the trust-store verifier or its cryptographic backend is not validated by the memory audit or PR-scope guard alone. Require an actual successful run of both `JET VPN - Task Orchestrator Tests` and `JET VPN - Non-production PR Validation` on the exact final PR head. A missing, skipped, or job-less workflow run is not a passing test result. Do not merge until both test workflows have completed successfully for the current head SHA.

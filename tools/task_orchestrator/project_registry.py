@@ -241,7 +241,7 @@ def _validate_instance(value: Any, node: dict[str, Any], root: dict[str, Any],
             if not parsed.scheme or not parsed.netloc or any(ch.isspace() for ch in value):
                 raise ProjectRegistryError(f"{path}: value is not a valid absolute URI.")
         elif node.get("format") == "date-time":
-            if not re.fullmatch(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\\.\d+)?(?:Z|[+-]\d{2}:\d{2})", value):
+            if not re.fullmatch(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})", value):
                 raise ProjectRegistryError(f"{path}: value is not an RFC 3339 date-time.")
             try:
                 parsed_time = datetime.fromisoformat(value.replace("Z", "+00:00"))

@@ -4,10 +4,11 @@
 
 - Repository: `majidbusy09-blip/jetconfig-vpn`.
 - Default branch: `main`.
-- Current main HEAD: `4dbe01eda4078342c17f16a4111919bebaa616ae` (PR #46 squash merge).
-- PR #20 and PRs #38–#44 are merged. PR #46 refreshed the authoritative memory and corrected the stale sandbox-vendor recommendation.
-- PR #44 integration test confirms fixture result ingestion → content-addressed artifact → live Issue/lease review gate, with `ready_for_human_review` and `applied: false`.
-- PR #46 head `be9a280aa9c1c7f00479b4a01aff0c724f0d51c1`: Project Memory Audit #45313415951, Task Orchestrator Tests #45313415720, and `validate-agent-pr` #45313412813 passed. Non-production app-build attempt 1 failed because Maven Central returned HTTP 429 for dependencies; attempt 2 was in progress at this snapshot. No app source changed in PR #46.
+- Current main HEAD: `f360d50b13064c7136eb7ce4a3b38e3413e5b333` (PR #47 squash merge).
+- PR #20, PRs #38–#44, PR #46, and PR #47 are merged.
+- PR #46 corrected the authoritative memory and superseded the outdated E2B-first pilot recommendation.
+- PR #47 added a synthetic-only sandbox lifecycle contract and fake-provider tests. It does not provision a sandbox, connect a real provider, upload source, or execute model-generated code.
+- PR #47 head `846b4cf15ba176178c811f45e51384bc25ae3c28`: Task Orchestrator Tests #45314331567 passed 247 Python tests, including all 13 new sandbox tests; Project Memory Audit #45314331612 passed; `validate-agent-pr` passed. Non-production PR Validation #45314331545 was still running at this snapshot.
 - `lib/main.dart` blob: `3d28693b7be8bfe309a850923599830e1a65ab59`; source metrics: 9,008 lines / 352,770 UTF-8 bytes / 336,710 Unicode code points.
 - `pubspec.yaml` blob: `adc3b22a4538db4738bec789e3c3badf26e4f710`; app version remains `2.4.5+284`.
 - Active `main-protection` ruleset requires PR + `Verify generated code index and memory freshness`, blocks deletion/force pushes, allows Squash only, and has no bypass actors.
@@ -18,8 +19,9 @@
 - Local orchestrator supports task lifecycle, context/impact analysis, fixed verification profiles, scope checks, and human-reviewed handoff.
 - Shared GitHub Issue intake and lease workflows support provider-neutral task assignment and claim/renew/release. No automatic model wake-up or live provider dispatch exists.
 - Provider-neutral task/result contracts validate scope, context fingerprints, structured results, and opaque content-addressed patch references.
-- Fixture-only dispatch, local result ingestion, SHA-256 patch storage, and fail-closed live review authorization are implemented and integration-tested. Success remains review-only; patches are never auto-applied.
-- Branch `feat/sandbox-lifecycle-contract-20261124-v2` adds a synthetic-only sandbox lifecycle state machine, capability checks, runtime snapshot validation, bounded artifact integrity checks, interruption cleanup, and fake-provider tests. It is not merged or CI-verified yet and does not enable untrusted code execution.
+- Fixture-only dispatch, local result ingestion, SHA-256 patch storage, and fail-closed live review authorization are implemented and integration-tested. Patches are not automatically applied.
+- The sandbox lifecycle contract supports only a fixed synthetic acceptance payload. It requires a Linux VM declaration, pinned image/policy digests, deny-all network request, explicit resource limits, provider-reported runtime checks, bounded SHA-256 artifact, and confirmed termination/destruction. Provider metadata is not independent attestation.
+- All successful sandbox test records explicitly set `eligible_for_untrusted_execution: false` and `patch_applied: false`.
 
 ## Security and execution boundaries
 
@@ -27,12 +29,12 @@
 - The hosted GitHub runner is not approved for untrusted code execution: the observed runner lacked delegated cgroup controls and visible Seccomp filtering and exposed a Docker socket path.
 - Neither E2B nor Daytona is approved for a pilot under current constraints. E2B requires prior written consent before testing and a payment method for EU workspace verification; Daytona's strict sandbox-level egress policy is tier-gated with a documented $500 Tier 3 top-up.
 - No vendor account, API key, payment method, sandbox, private-source transfer, or provider spend has been created or authorized.
-- No production release, deployment, version bump, signing change, app behavior, bot, payment, backend, or server change is included in PR #46 or the current sandbox branch.
+- No production release, deployment, version bump, signing change, app behavior, bot, payment, backend, or server change is included in PRs #46 or #47.
 - CI/build success is not proof of physical-device VPN runtime behavior.
 
 ## Next engineering objective
 
-Complete CI validation and review of the synthetic-only sandbox lifecycle contract. After it merges, build a separate trusted runtime-acceptance harness that can independently verify a real candidate VM's network denial, resource limits, process-tree termination, artifact bounds, and destruction. Do not connect a live provider or execute untrusted code until all acceptance evidence exists and separate approval is granted.
+Build a trusted runtime-acceptance harness that independently tests a real candidate VM's egress denial, DNS/QUIC behavior, resource limits, process-tree termination, credential/socket isolation, artifact bounds, and destruction. Until an actual runtime and independent evidence exist, keep the sandbox synthetic-only and do not run untrusted code.
 
 ## Historical detail
 

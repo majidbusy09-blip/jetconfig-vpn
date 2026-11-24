@@ -2,48 +2,40 @@
 
 ## Verified baseline — 2026-11-24
 
-- Current `main`: `4dbe01eda4078342c17f16a4111919bebaa616ae` (PR #46 merged).
-- PR #20 and PRs #38–#44 are merged; PR #46 corrected the authoritative project memory and sandbox-provider decision.
-- PR #46 Project Memory Audit, Task Orchestrator Tests, and `validate-agent-pr` passed. Its unrelated non-production APK build hit Maven Central HTTP 429 on the first attempt; retry was still in progress at this snapshot.
+- Current `main`: `f360d50b13064c7136eb7ce4a3b38e3413e5b333` (PR #47 merged).
+- PR #20, PRs #38–#44, PR #46, and PR #47 are merged.
+- PR #47 Task Orchestrator Tests #45314331567 passed 247 Python tests, including all 13 sandbox lifecycle tests; Project Memory Audit #45314331612 passed. Non-production PR Validation #45314331545 was still running at this snapshot.
 - App source/version remain unchanged: `lib/main.dart` blob `3d28693b7be8bfe309a850923599830e1a65ab59`; version `2.4.5+284`.
-- The validated path is task envelope → fixture dispatch → local result ingestion → content-addressed patch → live Issue/lease review gate → `ready_for_human_review`, `applied: false`.
+- Validated flow: task envelope → fixture dispatch → local result ingestion → content-addressed patch → live Issue/lease review gate → `ready_for_human_review`, `applied: false`.
 
-## P0 — Complete synthetic-only sandbox lifecycle contract
+## P0 — Trusted runtime-acceptance harness
 
-Branch `feat/sandbox-lifecycle-contract-20261124-v2` contains the first implementation and requires CI/review:
+The synthetic-only lifecycle contract is merged. The next task is not to connect a model; it is to build an independent acceptance harness for an actual candidate runtime.
 
-- Provider-neutral `SandboxProvider` protocol with no arbitrary shell, source upload, or credential injection methods.
-- Strict request schema, pinned image/policy SHA-256 digests, explicit CPU/RAM/PID/disk/wall-time limits, and deny-all network policy.
-- Linux VM-only capability gate; rejects shared-kernel containers and missing VM, dedicated-kernel, image pinning, egress, resource, process-tree, credential, artifact, or destruction capabilities.
-- Provider-reported ready-state checks for blocked egress, ephemeral VM, dedicated kernel, enforced limits, no credentials/host sockets, and process-tree termination. These reports are not independent attestation.
-- Explicit lifecycle state machine and mandatory terminate → terminated confirmation → destroy → destroyed confirmation.
-- Fixed synthetic acceptance payload only; bounded SHA-256-verified artifact; interruption and failure cleanup.
-- Fake-provider tests cover success, missing capabilities, open egress, credentials/host sockets, timeout, invalid/oversized artifact, destroy failure, provider-error sanitization, and interruption cleanup.
-- Every success reports `eligible_for_untrusted_execution: false` and `patch_applied: false`. No real provider or sandbox is connected.
+1. Define a trusted probe runner separate from the provider adapter; the provider must not author its own pass/fail evidence.
+2. Verify actual guest class and unique kernel, pinned image digest, read-only source, isolated scratch, no credentials, host sockets, devices, or metadata access.
+3. Verify deny-all egress from inside the guest and an external canary, including DNS and QUIC/HTTP3 bypass attempts.
+4. Apply harmless synthetic load and verify enforced CPU, memory, PID, disk, and wall-clock limits.
+5. Verify timeout/cancellation kills the full process tree and that termination/destruction are independently observable.
+6. Verify artifact bounds, digest, path allowlist, and cleanup on every success/failure/interruption path.
+7. Require evidence to be bound to provider/runtime identity, image/policy digests, attempt ID, timestamps, and test-suite version. Provider-reported metadata alone is never sufficient.
+8. Keep the harness synthetic-only; no private source, model-generated code, credentials, or live provider until a separate approval.
 
-## P1 — Build independent runtime acceptance evidence
-
-1. Design a trusted control-plane acceptance harness that tests the actual candidate VM, not just provider declarations or API responses.
-2. Verify egress denial from inside the guest and an external canary, including DNS/QUIC bypass attempts.
-3. Verify hard CPU, memory, PID, disk, and wall-clock enforcement under harmless synthetic load.
-4. Verify timeout/cancellation kills the full process tree and that termination/destruction are independently observable.
-5. Verify immutable image digest, dedicated guest kernel, read-only source, isolated scratch, no credentials/sockets/metadata access, bounded artifact export, and cleanup on every failure path.
-6. Keep the harness synthetic-only until all tests pass; it must not upload private source or run model-generated code.
-
-## P2 — Reassess managed providers only after acceptance harness exists
+## P1 — Provider and data-governance decision
 
 - E2B remains blocked by prior-written-consent requirement before testing and EU workspace payment-method verification.
 - Daytona's strict sandbox-level `networkBlockAll` is tier-gated; documented Tier 3 requires a $500 top-up.
-- Do not create accounts, add payment methods, provision sandboxes, upload source, or spend without separate approval. Evaluate any alternative against the same threat model and data/legal terms.
+- Do not create accounts, add payment methods, provision sandboxes, upload source, or spend without separate approval.
+- Evaluate any alternative against the same VM, network, limits, lifecycle, data residency, retention, DPA, and audit requirements.
 
-## P3 — Complete multi-agent implementation integration
+## P2 — Complete multi-agent implementation integration
 
-- Connect the sandbox broker to task leases and the existing dispatcher only after P1 evidence passes.
+- Connect the sandbox broker to task leases and the existing dispatcher only after P0 acceptance evidence passes.
 - Keep model API credentials in the provider control plane, never in the code-execution guest.
 - Keep patch application separate, human-reviewed, and disabled until its own scope/rollback/recovery gates are implemented.
 - Add task status reporting that distinguishes planning, dispatch, execution, ingestion, validation, review, and rejection.
 
-## P4 — Cross-repository project memory
+## P3 — Cross-repository project memory
 
 - Perform read-only architecture/workflow inventories of `jetconfig-vpn-tv` and `hesabgar_man`.
 - Add repository-specific instructions and a shared project map only after verifying each repository's current source.

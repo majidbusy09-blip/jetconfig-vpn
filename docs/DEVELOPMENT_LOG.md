@@ -344,10 +344,21 @@ Append-only record of meaningful project work. Each entry should include branch/
 ## 2026-11-24 — PR #46 memory refresh merged; synthetic sandbox contract started
 
 - **PR #46:** merged at `4dbe01eda4078342c17f16a4111919bebaa616ae`. It refreshed 11 project/architecture documents after PR #20 and PRs #38–#44, corrected stale PR states, and superseded the outdated E2B-first pilot recommendation.
-- **PR #46 checks:** Project Memory Audit #45313415951, Task Orchestrator Tests #45313415720, and `validate-agent-pr` #45313412813 passed. Non-production validation attempt 1 hit Maven Central HTTP 429 during debug APK dependency resolution; attempt 2 was still in progress at this log snapshot. The PR changed documentation only and did not change application source.
+- **PR #46 checks:** Project Memory Audit #45313415951, Task Orchestrator Tests #45313415720, and `validate-agent-pr` #45313412813 passed. Non-production validation attempt 1 hit Maven Central HTTP 429 during debug APK dependency resolution; retry attempt 2 (#45313415713) completed successfully. The PR changed documentation only and did not change application source.
 - **New branch:** `feat/sandbox-lifecycle-contract-20261124-v2`, based on main `4dbe01eda4078342c17f16a4111919bebaa616ae`.
 - **Added:** `tools/task_orchestrator/sandbox_contract.py` with a provider-neutral synthetic-only protocol, strict resource/request validation, Linux VM capability gate, provider-reported runtime checks, lifecycle state machine, bounded artifact SHA-256 validation, interruption cleanup, and mandatory destruction confirmation.
 - **Added:** `tools/task_orchestrator/tests/test_sandbox_contract.py` with fake-provider tests for success, capability rejection, open egress, guest credentials/host sockets, timeout, artifact tampering/size, destroy failure, sanitized provider errors, interruption cleanup, and invalid transitions.
 - **Updated:** `tools/task_orchestrator/README.md` with synthetic-only boundaries and focused test command.
 - **Security boundary:** no real provider, process execution, source upload, model-generated code, credentials, network call, account, payment, sandbox, or spend is involved. Every success record states `eligible_for_untrusted_execution: false` and `patch_applied: false`.
 - **Verification:** GitHub file/ref operations only; the new sandbox tests have not yet run in CI. PR creation and CI are the next step. No local or device test is claimed.
+
+
+## 2026-11-24 — PR #47 merged: synthetic-only sandbox lifecycle contract
+
+- **PR:** #47 merged at `f360d50b13064c7136eb7ce4a3b38e3413e5b333`; base was `4dbe01eda4078342c17f16a4111919bebaa616ae`.
+- **Added:** `tools/task_orchestrator/sandbox_contract.py` and `tools/task_orchestrator/tests/test_sandbox_contract.py`.
+- **Updated:** `tools/task_orchestrator/README.md`, `AGENTS.md`, and project/architecture memory documents.
+- **Behavior:** strict Linux-VM capability gate, pinned image/policy digests, deny-all network request, explicit CPU/RAM/PID/disk/wall-time limits, provider-reported runtime snapshot checks, fail-closed lifecycle, bounded SHA-256 artifact validation, and mandatory termination/destruction confirmation.
+- **Test evidence:** Task Orchestrator Tests #45314331567 passed 247 Python tests, including all 13 new sandbox tests. Project Memory Audit #45314331612 passed; `validate-agent-pr` passed. Non-production PR Validation #45314331545 was still running at this log snapshot.
+- **Security boundary:** fixed synthetic payload only; no arbitrary shell, source upload, credentials, model-generated code, real provider, real sandbox, or external spend. The result always records `eligible_for_untrusted_execution: false` and `patch_applied: false`.
+- **Next:** independently test a real candidate runtime only after a separate account/consent/cost decision. Do not treat provider-reported snapshots or fake-provider tests as isolation proof.

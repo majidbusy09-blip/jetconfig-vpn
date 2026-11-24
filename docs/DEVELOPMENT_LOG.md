@@ -548,3 +548,13 @@ Append-only record of meaningful project work. Each entry should include branch/
 - Clarified schema v2 does not include raw envelopes or a staging-manifest digest; it remains unchanged.
 - Final-head CI: Task Orchestrator Tests `45386943800`, Non-production PR Validation `45386943924`, Project Memory Audit `45386943682` — all success.
 - No filesystem collector, storage service, database, credentials, network, report signer, private key, VM, provider, or untrusted code was used.
+
+
+## 2026-11-24 — PR #82 trusted acceptance report signer contract
+
+- PR #82 squash-merged as `d7ef7ed4266ea2606acd76f6e36fb4822af7d179`; final head `d91ea3da44fc133e94621df4cae3dfd7dee174bf`.
+- Added `docs/SANDBOX_TRUSTED_REPORT_SIGNER.md`; updated orchestrator README, NEXT_STEPS and DECISIONS D-022.
+- Specified trusted host-only signing boundary, exact raw-envelope and Ed25519 revalidation, read-only replay acceptance receipts, immutable ledger snapshot/fencing, schema-v3 binding to the pre-acceptance envelope manifest, independent post-sign verification and adversarial tests.
+- Explicitly documented that a caller-created `AuthenticatedObserverResult` is not proof of verifier execution.
+- Final-head CI: Task Orchestrator Tests `45390283412`, Non-production PR Validation `45390283324`, Project Memory Audit `45390283473` — all success.
+- No signer/key/service, durable replay DB, filesystem collector, network, VM, provider, probe execution or untrusted execution was introduced.

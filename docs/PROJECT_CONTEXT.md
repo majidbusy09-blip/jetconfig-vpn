@@ -1,11 +1,11 @@
 # JET VPN — Project Context
 
-> Current verified repository snapshot: `main` at `f682c56331bfb7c07bc4c5be26fddc33a3043969` (2026-11-24).
-> PR #20 merged at `15fea59e4f83704e0a9955363e0f0b237aac09ac`; PRs #38–#44 are also merged, with PR #44 setting the current main HEAD.
+> Current verified repository snapshot: `main` at `4dbe01eda4078342c17f16a4111919bebaa616ae` (2026-11-24).
+> PR #20 and PRs #38–#44 are merged; PR #46 documentation refresh is also merged.
 > Main source blob: `lib/main.dart` = `3d28693b7be8bfe309a850923599830e1a65ab59`.
 > App version: `2.4.5+284` (`pubspec.yaml` blob `adc3b22a4538db4738bec789e3c3badf26e4f710`).
-> PR #44 CI passed: Task Orchestrator Tests #45307323849, Non-production PR Validation #45307323773, and Project Memory Audit #45307323780.
-> Active `main-protection` ruleset requires PR + project-memory freshness check; Squash is the only permitted merge method.
+> PR #46 Project Memory Audit #45313415951, Task Orchestrator Tests #45313415720, and `validate-agent-pr` #45313412813 passed. Non-production build retry for Maven Central HTTP 429 was still running at this snapshot.
+> Active `main-protection` ruleset requires PR + project-memory freshness check and allows Squash only.
 
 ## Product and repository identity
 

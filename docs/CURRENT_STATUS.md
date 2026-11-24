@@ -1,40 +1,44 @@
 # JET VPN — Current Status
 
-## Latest verified snapshot — 2026-11-23
+## Latest verified snapshot — 2026-11-24
 
 - Repository: `majidbusy09-blip/jetconfig-vpn`.
 - Default branch: `main`.
-- Current main HEAD: `a09cdb0be35e3072be29973f7ae8df66ab44d07f` (PR #18 documentation refresh squash-merged after PR #19).
-- PR #16 merged at `c4f7f4743b3c6ffc64d34a0efb0c19f41b236f1e`; PR #17 merged at `eae477a89816a5cfd475c596e166d5cb2575884a`; PR #19 merged at `abdff3a59b89419e869c98d7dbb4ac91512fe950`; PR #18 documentation refresh merged at `a09cdb0be35e3072be29973f7ae8df66ab44d07f`.
-- PR #19 aligns the non-production validation Android scaffold with production SDK/package-visibility settings using `tools/validation/align_validation_android.py` and its tests. It changes validation tooling and CI only; no Dart app, native tunnel, routing, app version, signing, bot, payment, backend, server, or production-release behavior was changed.
-- PR #19 head before squash: `3d47359c1ebaf6dcd6adfb19e886b9f148bbf030`; merge method: Squash.
-- PR #19 CI on its final head: Project Memory Audit run [#45065541236](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45065541236) and Non-production PR Validation run [#45065541255](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45065541255) completed successfully before merge.
-- PR #18 refreshed authoritative project memory only; its post-merge Project Memory Audit [#45069210457](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45069210457) completed successfully on the new main commit.
-- App version remains `2.4.5+284`; `pubspec.yaml` blob `adc3b22a4538db4738bec789e3c3badf26e4f710`.
-- `lib/main.dart` blob remains `3d28693b7be8bfe309a850923599830e1a65ab59` (9,008 lines / 352,770 UTF-8 bytes / 336,710 Unicode code points); PR #19 did not change app source.
-- Active `main-protection` ruleset requires PRs and the project-memory status check, blocks deletion/force pushes, allows Squash only, and has no bypass actors.
-- User-reported physical-device recovery scenarios passed on the tested environment: cold restore, background resume, explicit disconnect during verification, and profile switch during verification. Device/build/log details were not supplied; do not generalize beyond that report.
-- No production release, deployment, version bump, or change to bot/payment/backend/server occurred in PR #19.
+- Current main HEAD: `f682c56331bfb7c07bc4c5be26fddc33a3043969` (PR #44 squash merge).
+- PR #20 merged at `15fea59e4f83704e0a9955363e0f0b237aac09ac`; the local task orchestrator MVP, coding-agent contract validator, context/impact tooling, and fixture-only read-only adapter are now part of main.
+- PR #38 merged at `75f6601a8b516d3bec0cd641e57292d0615a4aed`: local content-addressed patch artifact store and integrity checks.
+- PR #39 merged at `834a627d1d9df81f11a462c760ce17acb08c788f`: fail-closed live Patch review authorization gate.
+- PR #40 merged at `e50a8c871f0105cb185fdf70ae72967cb63a6d9a`: read-only live Patch review command.
+- PR #41 merged at `27d9bcf8a71585ed9dcc3d1997f33c1f468ec7ea`: local provider-result ingestion with digest, scope, and overwrite checks.
+- PR #42 merged at `f603d4f7190459be0f4bd56db67851f12e01c3c9`: fixture dispatch-to-ingestion integration test.
+- PR #43 merged at `fa5915d746ad339840f181aee5e9b26b93f8002b`: live review command integration test with mocked GitHub/lease observations.
+- PR #44 merged at `f682c56331bfb7c07bc4c5be26fddc33a3043969`: ingestion-to-live-review integration test; the exact content-addressed patch reaches `ready_for_human_review` and remains unapplied.
+- PR #44 head `af5fc704f61fd8a656966b35ddbe9450630d8c1f` passed three workflows: Task Orchestrator Tests [#45307323849], Non-production PR Validation [#45307323773], and Project Memory Audit [#45307323780].
+- `lib/main.dart` blob remains `3d28693b7be8bfe309a850923599830e1a65ab59`; `pubspec.yaml` blob remains `adc3b22a4538db4738bec789e3c3badf26e4f710`; app version remains `2.4.5+284`.
+- Active `main-protection` ruleset requires PRs and the `Verify generated code index and memory freshness` status check, blocks deletion/force pushes, allows Squash only, and has no bypass actors.
 
-## Current engineering boundaries
+## Current collaborator capabilities
 
-- Primary objective: build a reliable, independent programming collaborator with durable project memory and safe execution.
-- PR #20 (`design/task-execution-orchestrator-20261123`) remains Draft/open/unmerged, based on main SHA `a09cdb0be35e3072be29973f7ae8df66ab44d07f`.
-- Validator head `4dd6f8110bd9462fde73c7c9ab256a72c971c55e` passed Project Memory Audit [#45107836885](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45107836885) and Non-production PR Validation [#45107836882](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45107836882). The latter passed the orchestrator safety/lifecycle suite, Flutter analysis/tests, debug APK smoke build, and ARM64 validation APK build.
-- Added provider-neutral design contract `docs/CODING_AGENT_ADAPTER_CONTRACT.md`, schema validator `tools/task_orchestrator/agent_contract.py` and adversarial tests, plus read-only provider interface `tools/task_orchestrator/readonly_adapter.py` and its tests. The adapter commits are newer than the verified validator head; fresh CI is pending.
-- No live model provider is connected; no agent-generated patch is fetched or applied. The adapter interface is not an OS sandbox. No Dart/Java/Kotlin application source, app version, signing, production release workflow, bot, payment, backend, or server behavior changed.
-- Work on isolated branches; inspect complete diffs; run relevant checks; open PRs; never merge, release, deploy, or dispatch the production release workflow without explicit user approval.
-- Telegram bot, payment, backend and server work are deferred unless a concrete issue appears or the user changes priority.
-- JET VPN TV and حسابگر من are separate repositories; do not infer their implementation from this repository.
+- Durable project memory includes mandatory agent instructions, source navigation, analyzer-resolved Dart indexes, curated critical paths, freshness auditing, and task-scoped context packages pinned to a Git commit.
+- Local orchestrator supports task lifecycle, explicit source context selection, impact analysis, fixed verification profiles, scope checks, and human-reviewed handoff.
+- Shared GitHub Issue intake and lease workflows support provider-neutral task assignment and claim/renew/release. The local orchestrator does not itself wake a model provider.
+- Provider-neutral task/result contracts validate scope, context fingerprints, structured results, and opaque content-addressed patch references.
+- Fixture-only dispatch and local result ingestion are tested. The live review command reads GitHub Issue/lease state and validates the exact patch artifact before declaring it ready for human review.
+- Success states are review-only: `ready_for_human_review`, `applied: false`. No patch is automatically applied, committed, pushed, merged, or deployed.
 
-## Historical detail preservation
+## Security and execution boundaries
 
-The pre-refresh status and planning snapshots are preserved in `docs/archive/CURRENT_STATUS_pre_memory_refresh_20261122.md` and `docs/archive/NEXT_STEPS_pre_memory_refresh_20261122.md`. They are historical evidence only; older PR states and SHAs must not be treated as current.
+- No live model provider is connected. The OpenAI planner is opt-in, metadata-only, requires separately configured credentials, and has not been invoked.
+- The hosted GitHub runner is not approved for untrusted code execution: the observed runner lacked delegated cgroup controls and visible Seccomp filtering and exposed a Docker socket path. Do not bypass these restrictions.
+- No E2B/Daytona account, API key, sandbox, payment method, or paid infrastructure has been created. E2B's prior-written-consent requirement and EU workspace payment-method requirement block the current pilot; Daytona's strict sandbox-level egress policy requires a higher tier with a substantial top-up. See `docs/MANAGED_SANDBOX_CANDIDATE_EVALUATION.md`.
+- No private repository source has been transferred to an external provider. No model API usage or provider spend has been authorized.
+- No production release, deployment, version bump, signing change, or change to app behavior, bot, payment, backend, or server occurred in PRs #20 and #38–#44.
+- CI/build success is not proof of physical-device VPN runtime behavior.
 
-## Exact source identity
+## Next engineering objective
 
-- Main commit: `a09cdb0be35e3072be29973f7ae8df66ab44d07f`.
-- `lib/main.dart`: `3d28693b7be8bfe309a850923599830e1a65ab59`.
-- `pubspec.yaml`: `adc3b22a4538db4738bec789e3c3badf26e4f710`.
-- App version: `2.4.5+284`.
-- PR #19 validation tool: `tools/validation/align_validation_android.py`; tests: `tools/validation/test_align_validation_android.py`.
+Design and test a provider-neutral, fail-closed sandbox lifecycle contract with a fake adapter and no external execution. Only after its state machine and failure cases are tested should we revisit a real sandbox provider. The provider must demonstrate a dedicated VM boundary, deny-all egress, enforced resource/time limits, process-tree termination, bounded artifact return, and verified destruction before any untrusted code is considered.
+
+## Historical detail
+
+Older snapshots and superseded planning are preserved in `docs/archive/`. Do not treat older SHAs, PR states, or vendor selections as current.

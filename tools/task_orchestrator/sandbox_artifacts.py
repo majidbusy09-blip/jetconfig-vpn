@@ -1,7 +1,7 @@
 """Pure in-memory artifact validation for a future trusted sandbox host.
 
 This module validates caller-supplied bytes and metadata only. It does not open
-paths, inspect filesystem objects, retain/delete files, or authenticate evidence.
+paths, inspect filesystem objects, verify caller-supplied link-count metadata, retain/delete files, or authenticate evidence.
 """
 from __future__ import annotations
 

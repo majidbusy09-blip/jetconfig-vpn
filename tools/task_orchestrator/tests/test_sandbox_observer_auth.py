@@ -216,6 +216,13 @@ class ObserverAuthenticationTests(unittest.TestCase):
         base["identities"][0]["observer_domain"] = "provider_api"
         with self.assertRaisesRegex(ObserverAuthenticationError, "unknown trust domain"):
             make_verifier(registry_raw=canonical(base))
+        base["identities"][0]["observer_domain"] = ["host_controller"]
+        with self.assertRaises(ObserverAuthenticationError):
+            make_verifier(registry_raw=canonical(base))
+        base["identities"][0]["observer_domain"] = DOMAIN
+        base["identities"][0]["status"] = ["active"]
+        with self.assertRaises(ObserverAuthenticationError):
+            make_verifier(registry_raw=canonical(base))
 
     def test_payload_digest_and_size_are_verified_before_acceptance(self):
         verifier, _ = make_verifier()
@@ -239,6 +246,12 @@ class ObserverAuthenticationTests(unittest.TestCase):
             with self.subTest(fields=fields):
                 with self.assertRaises(ObserverAuthenticationError):
                     verifier.verify(make_envelope(**fields), challenge=challenge())
+
+    def test_challenge_rejects_probe_ids_outside_the_acceptance_inventory(self):
+        verifier, _ = make_verifier()
+        invalid = challenge(probe_id="not_a_real_probe")
+        with self.assertRaisesRegex(ObserverAuthenticationError, "not in the pinned"):
+            verifier.verify(make_envelope(probe_id="not_a_real_probe"), challenge=invalid)
 
     def test_expired_or_overlong_host_challenges_are_rejected(self):
         verifier, _ = make_verifier()

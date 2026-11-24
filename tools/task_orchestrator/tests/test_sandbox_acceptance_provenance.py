@@ -52,6 +52,7 @@ def expectation(registry_sha=REGISTRY_SHA, registry_version=REGISTRY_VERSION):
     )
     return AcceptanceProvenanceExpectation(
         acceptance=base,
+        runtime_id=RUNTIME,
         observer_registry_sha256=registry_sha,
         observer_registry_version=registry_version,
     )
@@ -180,6 +181,19 @@ class AcceptanceProvenanceV2Tests(unittest.TestCase):
         report, evidence = build_case()
         with self.assertRaisesRegex(AcceptanceProvenanceError, "signature is invalid"):
             self.verify(report, evidence, signature_override=b"X" * 64)
+
+    def test_runtime_id_must_match_protected_expectation(self):
+        report, evidence = build_case()
+        base = AcceptanceExpectation(
+            provider_id=PROVIDER, region=REGION, task_id=TASK, attempt_id=ATTEMPT,
+            image_digest=IMAGE, policy_digest=POLICY, trusted_key_id=ACCEPTANCE_KEY, now=NOW,
+        )
+        wrong_runtime = AcceptanceProvenanceExpectation(
+            acceptance=base, runtime_id="different-runtime",
+            observer_registry_sha256=REGISTRY_SHA, observer_registry_version=REGISTRY_VERSION,
+        )
+        with self.assertRaisesRegex(AcceptanceProvenanceError, "runtime_id does not match"):
+            self.verify(report, evidence, expected=wrong_runtime)
 
     def test_registry_digest_and_version_must_match_protected_expectation(self):
         report, evidence = build_case()

@@ -285,7 +285,7 @@ class SchemaV3ReportDraftTests(unittest.TestCase):
         first_probe = sorted(REQUIRED_PROBES)[0]
         evidence[first_probe] += b" "
         case[4] = evidence
-        with self.assertRaises(AcceptanceReportV3Error):
+        with self.assertRaises(ValueError):
             self.build(tuple(case))
 
     def test_failed_probe_observation_is_rejected(self):

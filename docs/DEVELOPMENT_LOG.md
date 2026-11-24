@@ -632,3 +632,14 @@ Append-only record of meaningful project work. Each entry should include branch/
 - Final validation checkpoint `cc602e31f5920b7304a3de50a10f1f940502a292` passed all four checks: Task Orchestrator Tests `45462594178` (359 tests), Non-production PR Validation `45462594228`, Project Memory Audit `45462594156`, and Agent PR Lease/Scope Guard `45462594006`.
 - The memory audit passed deterministic semantic indexing, real-source task-intelligence smoke (4 files / 4 suggestions), lexical freshness, and the exact diff gate requiring 7 memory documents.
 - PR #89 remains Draft/open/unmerged; no merge, release, deployment, or production action was performed.
+
+
+## 2026-11-24 — Full continuity audit and roadmap correction
+
+- Recovered the user's approved architecture from prior conversation history: only the existing ChatGPT and Grok chat sessions through their GitHub integrations; no model API keys, paid model APIs, or external source-upload adapter; GitHub remains the durable task inbox, lease authority, source of truth, and project memory.
+- Re-queried live GitHub refs, PRs, Issues, lease state, and exact-head checks. Main was `dcb9d1c01a50974d9ef38bdf5f0e4aaf744b409e`; PR #89 candidate head at audit start was `cd6d098d2707f888b01d9b2599d37a0ab6ef3a44`; PR #91 final head was `652e3d38a594adfb4b0784971c25010b5a5e3382`.
+- Verified PR #89's four exact-head checks succeeded (runs `45463054475`, `45463054008`, `45463053877`, `45463053895`). Verified PR #91's three exact-head checks succeeded (runs `45461329913`, `45461334216`, `45461334389`). Issue #90's lease is released at lock commit `9c0ae0b94e79b75953ae046e385885e6569f15d2`.
+- Identified stale PR #53-era main-SHA and sandbox-first roadmap text that contradicted the newer connector-first decision. Replaced the active roadmap and marked the older sandbox plan as historical/superseded; the sandbox stack remains separate and execution-disabled.
+- Added mandatory session-start live-state reconciliation and session-end checkpoint rules. This is intended to prevent stale chat summaries, old PR heads, expired leases, and interrupted sessions from resetting the project sequence.
+- Current resume point: Grok performs a read-only review of PR #91; then a separate Grok docs-only write pilot; then one real bounded code task with read-only review by the other agent. No Grok capability is claimed until independently verified.
+- This documentation update does not merge any PR, change branch protection, use a model API, create credentials, provision a provider, execute untrusted code, or perform production actions.

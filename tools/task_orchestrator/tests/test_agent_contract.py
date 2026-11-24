@@ -65,7 +65,7 @@ def envelope():
 def result_for(env=None):
     env = env or envelope()
     return {
-        "contract_version": "1.1",
+        "contract_version": env["contract_version"],
         "task_id": env["task_id"],
         "provider": "fixture-provider",
         "model": "fixture-model",
@@ -92,6 +92,23 @@ def result_for(env=None):
 
 
 class AgentContractTests(unittest.TestCase):
+    def test_v1_2_requires_exact_eight_document_project_memory_context(self):
+        from tools.task_orchestrator.agent_contract import REQUIRED_PROJECT_CONTEXT
+        env = envelope()
+        env["contract_version"] = "1.2"
+        for path in REQUIRED_PROJECT_CONTEXT[1:]:
+            content = f"# {path}\\n"
+            env["project_context"].append({
+                "path": path,
+                "content": content,
+                "sha256": hashlib.sha256(content.encode("utf-8")).hexdigest(),
+            })
+        self.assertIs(validate_envelope(env), env)
+        missing = copy.deepcopy(env)
+        missing["project_context"].pop()
+        with self.assertRaises(ContractValidationError):
+            validate_envelope(missing)
+
     def test_valid_envelope_and_result(self):
         env = envelope()
         self.assertIs(validate_envelope(env), env)

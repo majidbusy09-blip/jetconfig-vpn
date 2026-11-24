@@ -65,6 +65,8 @@ This binds the signed provenance records to the exact evidence bytes. The accept
 - No report signer, private key, durable replay store, observer transport, or production registry provisioning is implemented here.
 - Schema v1 remains available for legacy verification; callers requiring observer authenticity must explicitly require schema v2 and must not silently fall back to v1.
 
+Raw envelope retention and the next report-schema binding are specified separately in [the protected observer-envelope retention design](SANDBOX_OBSERVER_ENVELOPE_RETENTION.md). Schema v2 itself remains unchanged and does not include the pre-acceptance staging-manifest digest.
+
 ## Tests
 
 `tools/task_orchestrator/tests/test_sandbox_acceptance_provenance.py` creates all 20 probe evidence blobs with fake observer provenance and a deterministic fake acceptance signer. It covers signature validation, registry/runtime pins, provenance digest, completeness/order, nonce/envelope/sequence uniqueness, observer/payload cross-binding, raw evidence digest, payload digest, probe context, timestamp/monotonic checks, strict schema, and non-authorization flags.

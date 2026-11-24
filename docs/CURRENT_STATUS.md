@@ -244,7 +244,7 @@ This section supersedes the earlier PR #53 baseline above.
 - Exact-head CI after the v1.2 changes is pending; prior PR #89 CI failure remains recorded as a real finding, not a passing result.
 
 
-## Exact-head validation result — PR #89 (2026-11-24)
+## Prior exact-head validation checkpoint — PR #89 (2026-11-24)
 
 - PR #89: [enforce durable project-memory updates and expand agent context](https://github.com/majidbusy09-blip/jetconfig-vpn/pull/89), Draft/open/unmerged.
 - Exact head `bcce39bb22bf9305a405cfc1dcc76ead0ffe6cb7`; base `main` SHA `dcb9d1c01a50974d9ef38bdf5f0e4aaf744b409e`.
@@ -280,3 +280,13 @@ This section supersedes the earlier PR #53 baseline above.
 - Exact-head checks all passed: trusted Agent PR Scope Guard run `45461329913`; Non-production PR Validation run `45461334216`; Project Memory Audit run `45461334389`. The initial scope-guard failure was due to PR envelope placement, not a lease/scope mismatch; the marker+JSON block was moved to the end of the PR body and the new head passed.
 - PR #91 remains Draft/open/unmerged. The lease is released. Any future commit requires a new active lease and updated PR envelope.
 - This validates ChatGPT's GitHub connector path only. Grok's separate GitHub integration still needs an independent capability/review pilot. No API key, paid model API, source upload, untrusted execution, merge, or production action was used.
+
+
+## Latest PR #89 validation checkpoint — 2026-11-24
+
+- Candidate head `731496b745e9f708cb82d2b9911a956090776a9a`, base `dcb9d1c01a50974d9ef38bdf5f0e4aaf744b409e`.
+- Task Orchestrator Tests run `45462003973`: success, 359 tests.
+- Project Memory Audit run `45462004236`: success. App regression tests, semantic AST/resolved/critical-path tests and generation, deterministic generation, real-source task-intelligence smoke (4 source files and 4 suggestions), lexical index verification, and memory gate passed. Gate result: `Project-memory update gate passed (7 required documents updated).`
+- Agent PR Scope Guard run `45461997027`: success.
+- Non-production PR Validation run `45462004191`: cancelled before a job was created; this is not a pass or a test failure. A fresh exact-head run is required after the next documentation commit.
+- PR #89 remains Draft/open/unmerged. No merge, release, deployment, production resource, or execution authorization was changed.

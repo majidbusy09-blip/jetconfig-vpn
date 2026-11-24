@@ -108,3 +108,11 @@ Never add paths to this map unless verified from the current tree or a separatel
 - `.github/workflows/task-orchestrator.yml` and `.github/workflows/pr-validation.yml`: install the pinned sandbox crypto dependencies as binary wheels.
 - PR #55 merged as `3cc2e200dd02416d7b2fba02725b6734dffede39`; final-head test, memory audit, and non-production validation all passed.
 
+
+
+
+## Protected trust control-plane design — PR #57 (2026-11-24)
+
+- `docs/PROTECTED_TRUST_CONTROL_PLANE_DESIGN.md`: architecture/design for out-of-band root trust, signed configuration envelope, monotonic epoch/version, atomic CAS, key lifecycle, audit and recovery. Design only; no production service or durable store exists.
+- `docs/DECISIONS.md`: D-013 records the accepted design direction.
+- PR #57 merged as `e28e16ba9b4021d3974085639df4c461774e8eaf`; final-head CI runs `45358099449`, `45358099476`, and `45358099550` all succeeded.

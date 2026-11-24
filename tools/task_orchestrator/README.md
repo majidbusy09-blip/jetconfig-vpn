@@ -377,3 +377,12 @@ Keep `execution_authorized: false` and `eligible_for_untrusted_execution: false`
 
 
 New envelopes use contract v1.2 and include the decisions and known-issues documents in the pinned project-memory package. The validator still accepts legacy v1.1 envelopes and requires each result to echo the matching envelope version.
+
+
+## User-activated ChatGPT/Grok GitHub connector route
+
+The current no-model-API route uses the user's existing ChatGPT and Grok chat sessions and their GitHub integrations. The user activates one implementation chat at a time. The agent reads the task Issue, verifies the active agent-locks/<task_id> lease and pinned base SHA, creates a remote implementation branch from that exact SHA, reads pinned memory and only in-scope source, commits through the GitHub integration, and opens a Draft PR with jet-agent-pr:v1 metadata. The other agent may perform read-only review. If a connector cannot create Issue comments or perform a required write, the user performs that discrete action.
+
+The Issue workflow and lease artifacts do not wake a model or continuously poll. jet-agent-handoff is an audit snapshot; jet-agent-input is a local envelope artifact from an ephemeral Actions workspace and is not automatically attached to a chat. The remote implementation branch must be created separately from the pinned base SHA. This route uses no model API key, paid model API endpoint, or external source-upload adapter. GitHub content is still processed through the connected provider integration; do not claim otherwise.
+
+A production sandbox is not a prerequisite for this connector-based workflow because no arbitrary untrusted code is run inside the chat. GitHub Actions runs the fixed verification profiles; preserve the separate sandbox execution flags as false.

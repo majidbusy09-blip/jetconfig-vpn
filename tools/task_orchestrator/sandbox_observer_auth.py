@@ -480,6 +480,8 @@ class ObserverEnvelopeVerifier:
             )
         except Exception as exc:
             raise ObserverAuthenticationError("Replay store unavailable; observer evidence rejected.") from exc
+        if receipt is None:
+            raise ObserverAuthenticationError("Observer challenge was replayed or sequence is not increasing.")
         if type(receipt) is not ObserverReplayReceipt:
             raise ObserverAuthenticationError("Replay store did not return a committed acceptance receipt.")
         expected_receipt_fields = {

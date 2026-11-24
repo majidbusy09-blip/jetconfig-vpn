@@ -225,3 +225,11 @@ This section supersedes the earlier PR #53 baseline above.
 - The candidate gate distinguishes ordinary app changes from orchestrator/memory/workflow changes and requires progressively relevant memory files. It checks PR diff membership, not prose correctness.
 - The semantic/resolved/critical-path indexes are generated CI outputs retained for 30 days; only tracked docs provide durable project memory.
 - Candidate branch is not merged; exact final-head CI and PR status must be recorded after validation.
+
+
+## Task context memory expansion — candidate (2026-11-24)
+
+- The task orchestrator's mandatory pinned project context now includes `docs/DECISIONS.md` and `docs/KNOWN_ISSUES.md`, in addition to the existing six core documents.
+- Context packages continue to read tracked files from the exact pinned Git revision and include per-document hashes plus a canonical package hash. No mutable working-tree text is substituted.
+- The combined context limit remains 512 KiB; adding these two memory documents reduces the remaining source-context budget. The builder fails closed rather than silently truncating.
+- This change is part of the project-memory enforcement candidate PR #89 and requires exact-head Task Orchestrator and Project Memory Audit validation.

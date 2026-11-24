@@ -72,10 +72,10 @@ class FailingReplayStore:
         raise OSError("fixture store unavailable")
 
 
-def challenge(*, nonce=NONCE, issued_at=None, expires_at=None, probe_id=PROBE):
+def challenge(*, nonce=NONCE, issued_at=None, expires_at=None, probe_id=PROBE, audience=AUDIENCE):
     return ObserverChallenge(
         nonce=nonce,
-        audience=AUDIENCE,
+        audience=audience,
         observer_id=OBSERVER,
         observer_domain=DOMAIN,
         attempt_id=ATTEMPT,
@@ -188,6 +188,12 @@ class ObserverAuthenticationTests(unittest.TestCase):
             with self.subTest(fields=fields):
                 with self.assertRaises(ObserverAuthenticationError):
                     verifier.verify(make_envelope(**fields), challenge=supplied_challenge)
+
+    def test_challenge_audience_must_match_the_pinned_registry(self):
+        verifier, _ = make_verifier()
+        other_challenge = challenge(audience="other-audience")
+        with self.assertRaisesRegex(ObserverAuthenticationError, "does not match the pinned"):
+            verifier.verify(make_envelope(audience="other-audience"), challenge=other_challenge)
 
     def test_registry_pin_version_audience_and_identity_status_fail_closed(self):
         raw = registry_bytes()

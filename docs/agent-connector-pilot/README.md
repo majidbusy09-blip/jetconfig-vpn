@@ -23,3 +23,7 @@ This file records a documentation-only test of the user-activated ChatGPT GitHub
 - No arbitrary code was executed. The declared verification profile is handled by GitHub Actions.
 - The lease owner is a protocol label selected for this task, not cryptographic proof of model identity.
 - This PR must remain unmerged until human review. The lease should be released after verification is complete.
+
+## PR envelope parser finding
+
+The trusted PR guard requires the `jet-agent-pr:v1` marker followed by exactly one fenced JSON object at the very end of the PR body. A marker placed before the summary is rejected. The pilot PR body was corrected to match the actual parser contract; the initial rejection is retained as a verified negative test, not hidden.

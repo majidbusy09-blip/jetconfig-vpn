@@ -170,3 +170,18 @@ This section supersedes the earlier PR #53 baseline above.
 - Trust limitation: v2 report signature is an attestation by the trusted acceptance-suite signer that observer envelopes were verified upstream. Raw observer envelope bytes are not included in the report and must be retained as separate protected artifacts for independent re-verification.
 - No report signer, private key, durable replay store, nonce generator, TLS transport, VM, provider, network, filesystem collector, or untrusted code was implemented or used.
 - Preserve `execution_authorized: false` and `eligible_for_untrusted_execution: false`.
+
+
+## Latest authoritative snapshot — PR #78 merged (2026-11-24)
+
+- Current `main` HEAD: `74a5b2b760362494711949b799031dc628612671` (PR #78 squash merge).
+- PR #78 final head `156511739d82de7dac02adedb31aebc4e3ce4adb` passed:
+  - Task Orchestrator Tests run `45385761279`
+  - Non-production PR Validation run `45385761459`
+  - Project Memory Audit run `45385761392`
+- Expanded `ObserverReplayStore.consume` to persist the complete acceptance audit context: observer/domain, attempt/runtime/policy/probe, registry digest/version, key ID, nonce/envelope digest, sequence, challenge expiry, and trusted acceptance time.
+- The verifier sends the replay store this context only after challenge, signature, payload, time, and identity checks succeed. Challenge expiry is whole UTC seconds; acceptance time preserves microseconds.
+- The in-memory test fake rejects duplicate nonce/envelope digests and non-increasing sequence, and records all audit fields. It is not durable and is not a production replay store.
+- Added `docs/SANDBOX_REPLAY_STORE_DESIGN.md` describing serializable transaction/CAS, unique constraints, atomic audit, fencing tokens, protected anti-rollback checkpoint, nonce tombstones, sequence retention, failover, backup restore, and recovery tests.
+- No database/service, credentials, network endpoint, durable storage, KMS/HSM, provider, VM, or untrusted execution was created.
+- Preserve `execution_authorized: false` and `eligible_for_untrusted_execution: false`.

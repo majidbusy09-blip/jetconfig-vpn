@@ -1,6 +1,6 @@
 # JET VPN — Verified Repository File Map
 
-> Current source snapshot: `main` at `f360d50b13064c7136eb7ce4a3b38e3413e5b333`, 2026-11-24. PR #20, PRs #38–#44, PR #46, and PR #47 are merged. App version `2.4.5+284`; `lib/main.dart` blob `3d28693b7be8bfe309a850923599830e1a65ab59`.
+> Current source snapshot: `main` at `53e00ac2ad5e260a4d214772da4ba9bccd3499f4`, 2026-11-24. PR #20, PRs #38–#44, PR #46, PR #47, and PR #48 are merged. App version `2.4.5+284`; `lib/main.dart` blob `3d28693b7be8bfe309a850923599830e1a65ab59`.
 
 | Path | Verified purpose |
 |---|---|
@@ -72,7 +72,7 @@ The current `main` tree contains a tracked `test/` suite and isolated semantic t
 
 ## Source identity
 
-- Current `main`: `f360d50b13064c7136eb7ce4a3b38e3413e5b333`.
+- Current `main`: `53e00ac2ad5e260a4d214772da4ba9bccd3499f4`.
 - `lib/main.dart`: blob `3d28693b7be8bfe309a850923599830e1a65ab59`, 9,008 lines, 352,770 UTF-8 bytes, 336,710 Unicode code points.
 - `pubspec.yaml`: blob `adc3b22a4538db4738bec789e3c3badf26e4f710`, version `2.4.5+284`.
 - `.github/workflows/build.yml`: blob `abdb595af8df6b2d02ab0ba1da665ac9de1d6461`; manual release gate.
@@ -81,3 +81,10 @@ The current `main` tree contains a tracked `test/` suite and isolated semantic t
 
 Never add paths to this map unless verified from the current tree or a separately identified source repository.
 
+
+
+## Sandbox acceptance verifier additions — 2026-11-24
+
+- `tools/task_orchestrator/sandbox_acceptance.py`: strict verifier for signed independent runtime acceptance reports.
+- `tools/task_orchestrator/tests/test_sandbox_acceptance.py`: adversarial tests for schema, signature, replay/freshness, probe inventory, identity binding, and bounds.
+- `docs/SANDBOX_RUNTIME_ACCEPTANCE.md`: required probe inventory, trust model, and remaining work.

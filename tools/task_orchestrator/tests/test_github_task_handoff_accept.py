@@ -216,6 +216,8 @@ class HandoffAcceptanceTests(unittest.TestCase):
                 "docs/NEXT_STEPS.md": "Next steps.\n",
                 "docs/TASK_TEMPLATE.md": "Task template.\n",
                 "docs/DEVELOPMENT_LOG.md": "Development log.\n",
+                "docs/DECISIONS.md": "Recorded decisions.\n",
+                "docs/KNOWN_ISSUES.md": "Known issues.\n",
             }
             for name, body in docs.items():
                 target = root / name

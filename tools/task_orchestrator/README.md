@@ -332,9 +332,9 @@ Keep `execution_authorized: false` and `eligible_for_untrusted_execution: false`
 
 ## Signed sandbox observer authenticity contract
 
-- `sandbox_observer_auth.py` validates canonical signed observer envelopes, exact host-challenge bindings, pinned observer registry identity/domain/key mapping, payload digests, time windows, and monotonic offsets before converting them to the existing `ProbeObservation` type.
+- `sandbox_observer_auth.py` validates canonical signed observer envelopes, exact host-challenge bindings, pinned observer registry identity/domain/key mapping, payload digests, time windows, and monotonic offsets. It returns an `AuthenticatedObserverResult` containing a `ProbeObservation` plus registry/key/sequence/nonce/envelope audit bindings.
 - A host challenge binds a one-time 32-byte nonce to audience, observer/domain, attempt, runtime, policy, and probe. The hard challenge lifetime is 120 seconds.
 - Signature verification is injected; production must use the existing pinned Ed25519 trust-store verifier. Registry bytes must match an independently pinned digest/version/audience from the protected control plane.
-- `ObserverReplayStore` must atomically consume nonces and enforce strictly increasing per-observer sequence numbers across attempts. Only an in-memory test fake exists; no durable production replay store is implemented.
+- Pass only `result.observation` to `HostEvidenceCollector` and preserve the wrapper provenance for the later signed-report integration; the current evidence bundle does not yet retain those fields. `ObserverReplayStore` must atomically consume nonces and enforce strictly increasing per-observer sequence numbers across attempts. Only an in-memory test fake exists; no durable production replay store is implemented.
 - No TLS/network transport, nonce generation, key provisioning, VM, probe execution, or report signing is implemented. See [the observer authenticity contract](../../docs/SANDBOX_OBSERVER_AUTHENTICITY.md).
 - Focused tests: `python -m unittest discover -s tools/task_orchestrator/tests -p 'test_sandbox_observer_auth.py' -v`. Both execution authorization flags remain false.

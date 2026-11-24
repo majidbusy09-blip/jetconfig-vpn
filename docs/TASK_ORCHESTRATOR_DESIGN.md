@@ -1,7 +1,7 @@
 # JET VPN — Task Execution Orchestrator Design
 
-> Status: implemented and merged in PR #20; subsequent patch-ingestion and live-review stages were merged in PRs #38–#44. Current verified main: `f682c56331bfb7c07bc4c5be26fddc33a3043969` (2026-11-24).
-> Design baseline: current `main` `f682c56331bfb7c07bc4c5be26fddc33a3043969` (2026-11-24).
+> Status: implemented and merged in PR #20; subsequent patch-ingestion and live-review stages were merged in PRs #38–#44. Current verified main: `4dbe01eda4078342c17f16a4111919bebaa616ae` (2026-11-24).
+> Design baseline: current `main` `4dbe01eda4078342c17f16a4111919bebaa616ae` (2026-11-24).
 
 ## 1. Objective and boundary
 
@@ -172,3 +172,12 @@ The following stages are merged on `main`:
 PR #44 head `af5fc704f61fd8a656966b35ddbe9450630d8c1f` passed Task Orchestrator Tests run #45307323849, Non-production PR Validation run #45307323773, and Project Memory Audit run #45307323780.
 
 The next missing boundary is a real OS-isolated execution environment. The hosted runner is blocked by its observed cgroup/Seccomp/Docker-socket posture. Managed sandbox candidates are not approved under current account, consent, and cost constraints. Implement the provider-neutral lifecycle contract and fake-adapter tests before any real sandbox or live model connection.
+
+
+## 13. Synthetic-only sandbox lifecycle contract — branch implementation
+
+The branch `feat/sandbox-lifecycle-contract-20261124-v2` adds a provider-neutral `SandboxProvider` protocol and explicit lifecycle state machine. It is intentionally limited to a fixed synthetic acceptance payload; no arbitrary command, source upload, credential injection, real provider, or model-generated code path exists.
+
+The contract rejects non-VM/shared-kernel runtime declarations, missing capabilities, non-pinned image/policy digests, network policy other than deny-all, provider-reported open egress, exposed credentials/host sockets, missing resource/process-tree controls, timeouts, invalid/oversized artifacts, and unconfirmed destruction. It attempts cleanup after ordinary failures and keyboard/system interrupts.
+
+Provider capability declarations and snapshots are untrusted metadata, not independent attestation. Passing this synthetic check never authorizes untrusted execution; the result always records `eligible_for_untrusted_execution: false` and `patch_applied: false`. CI and review are pending.

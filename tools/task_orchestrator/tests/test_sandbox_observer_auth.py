@@ -179,7 +179,7 @@ class ObserverAuthenticationTests(unittest.TestCase):
         self.assertEqual(accepted["observer_registry_version"], 3)
         self.assertEqual(accepted["key_id"], KEY_ID)
         self.assertEqual(accepted["challenge_expires_at"], "2026-11-24T12:00:30Z")
-        self.assertEqual(accepted["accepted_at"], "2026-11-24T12:00:00Z")
+        self.assertEqual(accepted["accepted_at"], "2026-11-24T12:00:00.000000Z")
 
     def test_duplicate_nonce_is_rejected_even_with_new_sequence(self):
         verifier, _ = make_verifier()
@@ -326,6 +326,12 @@ class ObserverAuthenticationTests(unittest.TestCase):
         invalid = challenge(issued_at=datetime(2026, 11, 24, 11, 59, 30), expires_at=NOW + timedelta(seconds=30))
         with self.assertRaisesRegex(ObserverAuthenticationError, "timezone-aware"):
             verifier.verify(make_envelope(), challenge=invalid)
+
+    def test_challenge_rejects_fractional_second_expiry(self):
+        verifier, _ = make_verifier()
+        fractional = challenge(expires_at=NOW + timedelta(seconds=30, microseconds=1))
+        with self.assertRaisesRegex(ObserverAuthenticationError, "exact UTC second precision"):
+            verifier.verify(make_envelope(), challenge=fractional)
 
     def test_expired_or_overlong_host_challenges_are_rejected(self):
         verifier, _ = make_verifier()

@@ -268,6 +268,25 @@ class ObserverChallenge:
             raise ObserverAuthenticationError("Challenge is stale.")
 
 
+
+@dataclass(frozen=True)
+class AuthenticatedObserverResult:
+    """Successful signature/replay verification plus audit bindings.
+
+    The observation can be passed to HostEvidenceCollector. Preserve the
+    provenance fields in host-side audit and later signed-report integration.
+    """
+
+    observation: ProbeObservation
+    observer_registry_sha256: str
+    observer_registry_version: int
+    key_id: str
+    sequence: int
+    nonce_sha256: str
+    envelope_sha256: str
+    signature_algorithm: str = "Ed25519"
+
+
 class ObserverEnvelopeVerifier:
     """Verify a signed observer envelope and atomically consume its challenge/sequence."""
 
@@ -306,7 +325,7 @@ class ObserverEnvelopeVerifier:
         self._max_age = max_age_seconds
         self._skew = allowed_clock_skew_seconds
 
-    def verify(self, envelope_bytes: bytes, *, challenge: ObserverChallenge) -> ProbeObservation:
+    def verify(self, envelope_bytes: bytes, *, challenge: ObserverChallenge) -> AuthenticatedObserverResult:
         challenge.validate(self._now)
         if challenge.audience != self._registry.audience:
             raise ObserverAuthenticationError("Host challenge audience does not match the pinned observer registry.")
@@ -396,7 +415,7 @@ class ObserverEnvelopeVerifier:
         if consumed is not True:
             raise ObserverAuthenticationError("Observer challenge was replayed or sequence is not increasing.")
 
-        return ProbeObservation(
+        observation = ProbeObservation(
             probe_id=challenge.probe_id,
             observer_domain=challenge.observer_domain,
             observer_id=challenge.observer_id,
@@ -408,4 +427,13 @@ class ObserverEnvelopeVerifier:
             observed_at=envelope["observed_at"],
             outcome=outcome,
             payload=payload,
+        )
+        return AuthenticatedObserverResult(
+            observation=observation,
+            observer_registry_sha256=self._registry.sha256,
+            observer_registry_version=self._registry.version,
+            key_id=key_id,
+            sequence=sequence,
+            nonce_sha256=nonce_digest,
+            envelope_sha256=envelope_digest,
         )

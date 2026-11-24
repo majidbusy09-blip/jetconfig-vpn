@@ -227,7 +227,8 @@ class PinnedObserverRegistry:
         if not isinstance(entries, list) or not entries or len(entries) > MAX_IDENTITIES:
             raise ObserverAuthenticationError("Observer registry identity inventory is empty or oversized.")
 
-        indexed: dict[str, ObserverIdentity] = {}
+        indexed: dict[tuple[str, str], ObserverIdentity] = {}
+        observer_domains: dict[str, str] = {}
         for entry in entries:
             if not isinstance(entry, dict) or frozenset(entry) != _IDENTITY_FIELDS:
                 raise ObserverAuthenticationError("Observer registry contains a malformed identity.")
@@ -236,17 +237,20 @@ class PinnedObserverRegistry:
             domain = entry["observer_domain"]
             _validate_id(observer_id, "Observer identity")
             _validate_id(key_id, "Observer key ID")
-            if observer_id in indexed:
-                raise ObserverAuthenticationError("Observer registry contains duplicate identities.")
+            if (observer_id, key_id) in indexed:
+                raise ObserverAuthenticationError("Observer registry contains a duplicate observer/key pair.")
             if not isinstance(domain, str) or domain not in _DOMAINS:
                 raise ObserverAuthenticationError("Observer registry contains an unknown trust domain.")
+            if observer_id in observer_domains and observer_domains[observer_id] != domain:
+                raise ObserverAuthenticationError("One observer identity cannot change trust domains across keys.")
+            observer_domains[observer_id] = domain
             if not isinstance(entry["status"], str) or entry["status"] not in {"active", "retired", "revoked"}:
                 raise ObserverAuthenticationError("Observer registry status is invalid.")
             not_before = _parse_utc(entry["not_before"], "observer not_before")
             not_after = _parse_utc(entry["not_after"], "observer not_after")
             if not_after <= not_before:
                 raise ObserverAuthenticationError("Observer identity validity interval is empty or reversed.")
-            indexed[observer_id] = ObserverIdentity(
+            indexed[(observer_id, key_id)] = ObserverIdentity(
                 observer_id=observer_id,
                 observer_domain=domain,
                 key_id=key_id,
@@ -261,11 +265,11 @@ class PinnedObserverRegistry:
         self._identities: Mapping[str, ObserverIdentity] = MappingProxyType(indexed)
 
     def resolve(self, observer_id: str, observer_domain: str, key_id: str, *, now: datetime | None = None) -> ObserverIdentity:
-        identity = self._identities.get(observer_id)
+        identity = self._identities.get((observer_id, key_id))
         if identity is None:
             raise ObserverAuthenticationError("Observer identity is not in the pinned registry.")
-        if identity.observer_domain != observer_domain or identity.key_id != key_id:
-            raise ObserverAuthenticationError("Observer domain or signing key does not match the pinned identity.")
+        if identity.observer_domain != observer_domain:
+            raise ObserverAuthenticationError("Observer domain does not match the pinned identity.")
         if identity.status != "active":
             raise ObserverAuthenticationError("Observer identity is retired or revoked.")
         trusted_now = self._now if now is None else now.astimezone(timezone.utc)

@@ -191,3 +191,8 @@ The current execution policy is unchanged: `execution_authorized: false`; `eligi
 - Exact final-head CI passed: Task Orchestrator Tests `45390283412`, Non-production PR Validation `45390283324`, Project Memory Audit `45390283473`.
 - Next focus: replay receipt read contract, pure schema-v3 builder, injected fake signer/verifier, then schema-v3 independent verifier.
 - Keep `execution_authorized: false` and `eligible_for_untrusted_execution: false`.
+
+
+## Project-memory freshness gate — candidate implementation (2026-11-24)
+
+A new PR audit helper, `tools/project_memory/verify_change_memory.py`, computes the exact base-to-head changed-path set and requires the appropriate durable memory files to be changed in implementation-sensitive PRs. App/source/test/package changes require current status, next steps, development log, and project context. Orchestrator, validation, project-memory, and workflow changes also require agent instructions and recorded decisions; project-memory tooling/workflow changes additionally require the automation guide. Unit tests cover these path classes. The gate checks that the documents are included in the PR diff, not that their claims are factually correct. It is a candidate until CI and branch-protection verification succeed.

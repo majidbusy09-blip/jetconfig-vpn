@@ -9,8 +9,6 @@ import hashlib
 import json
 import re
 from dataclasses import dataclass
-from types import MappingProxyType
-from typing import Mapping
 
 MAX_ARTIFACTS = 64
 MAX_ARTIFACT_BYTES = 256 * 1024
@@ -130,6 +128,8 @@ class ArtifactCollector:
     def collect(self, candidates: list[ArtifactCandidate]) -> ArtifactManifest:
         if not isinstance(candidates, list):
             raise ArtifactCollectionError("Artifact candidates must be supplied as a bounded list.")
+        if not candidates:
+            raise ArtifactCollectionError("At least one artifact is required.")
         if len(candidates) > MAX_ARTIFACTS:
             raise ArtifactCollectionError("Artifact count exceeds the configured limit.")
 

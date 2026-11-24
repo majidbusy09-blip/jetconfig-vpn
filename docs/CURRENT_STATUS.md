@@ -270,3 +270,13 @@ This section supersedes the earlier PR #53 baseline above.
 - PR #89 is still Draft/open/unmerged. Its v1.2 eight-document memory envelope and enforced memory-change gate remain candidate-branch features until merge. Main currently has the older contract; agents must not overstate v1.2 availability.
 - The failed Issue #36 smoke test completed lease claim and handoff upload but failed local acceptance because Python bytecode created untracked __pycache__ files. The bytecode suppression/ignore fix was later merged in commit 97ba8dce2e2750b9b9cb71342fb2a477103752d2 (PR #64). The old lease is expired; Issue #36 is a historical failed smoke test, not an active task. No model was invoked and no source was transferred.
 - This route does not require a production sandbox because it does not execute arbitrary untrusted source in a model runtime. Fixed GitHub Actions checks and human review remain required. The sandbox track remains independent and execution flags stay false.
+
+## ChatGPT GitHub connector pilot — verified (2026-11-24)
+
+- Issue #90, task github-connector-docs-pilot, was claimed by chatgpt through the existing GitHub integration. The trusted workflow confirmed an active lease pinned to main SHA `dcb9d1c01a50974d9ef38bdf5f0e4aaf744b409e`.
+- The lock ref was independently read twice and remained at claim commit `ee479b5aef75134dc8cb8f88474ca0d815463a83`. After the pilot, the release command succeeded; final lock commit `9c0ae0b94e79b75953ae046e385885e6569f15d2` records status `released`.
+- ChatGPT's current GitHub integration successfully read Issues/comments and repository files, posted Issue comments, created a remote branch from the pinned SHA, committed a new file, and opened a Draft PR.
+- PR #91: `agent/github-connector-docs-pilot`, final head `652e3d38a594adfb4b0784971c25010b5a5e3382`; exactly one changed file, `docs/agent-connector-pilot/README.md`.
+- Exact-head checks all passed: trusted Agent PR Scope Guard run `45461329913`; Non-production PR Validation run `45461334216`; Project Memory Audit run `45461334389`. The initial scope-guard failure was due to PR envelope placement, not a lease/scope mismatch; the marker+JSON block was moved to the end of the PR body and the new head passed.
+- PR #91 remains Draft/open/unmerged. The lease is released. Any future commit requires a new active lease and updated PR envelope.
+- This validates ChatGPT's GitHub connector path only. Grok's separate GitHub integration still needs an independent capability/review pilot. No API key, paid model API, source upload, untrusted execution, merge, or production action was used.

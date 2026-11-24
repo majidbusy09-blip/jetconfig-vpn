@@ -77,3 +77,12 @@ PR #20 merged at `15fea59e4f83704e0a9955363e0f0b237aac09ac`; PRs #38–#44 are a
 PR #46 refreshed the project memory. PR #47 merged a synthetic-only provider-neutral lifecycle contract and fake-provider tests; no real worker or provider is enabled. It defines a Linux-VM-only capability gate, pinned image/policy digests, deny-all network request, explicit resource limits, guest snapshot checks, bounded artifact integrity, and mandatory termination/destruction confirmation.
 
 This is a control-plane contract test only. Provider declarations and snapshots are not independent attestation; the fake provider is not a security boundary. The code never executes model output, uploads source, creates a real sandbox, or marks the runtime eligible for untrusted code. Independent acceptance tests against an actual candidate VM remain mandatory.
+
+
+## Independent evidence verifier — 2026-11-24
+
+The sandbox lifecycle contract is now complemented by `sandbox_acceptance.py`, which verifies a canonical signed report from a separately trusted acceptance suite. The report is bound to provider, region, runtime, task, attempt, image, policy, suite version, trusted key ID, and a bounded UTC time window. It requires 20 independent probe results covering VM/kernel separation, Seccomp/cgroups, filesystem and credential isolation, metadata/network/DNS/QUIC denial, external canary, resource enforcement, process-tree kill, artifact integrity, cleanup, and cross-attempt residue.
+
+This module is only a report verifier. It does not execute the probes, provision a VM, implement an Ed25519 verifier, distribute keys, or provide runtime attestation. The production signing key must be outside the provider and guest trust domains; the verifier must pin its public key out of band. A passing report is not execution authorization. The result remains `execution_authorized: false` and `eligible_for_untrusted_execution: false`.
+
+The next stage is the actual fixed probe suite and separately controlled signing/verifier trust root. No account, payment, source upload, sandbox provisioning, or provider spend is authorized by this architecture change.

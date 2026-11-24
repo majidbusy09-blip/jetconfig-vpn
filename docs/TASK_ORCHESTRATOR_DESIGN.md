@@ -180,7 +180,7 @@ PR #47 adds a provider-neutral `SandboxProvider` protocol and explicit lifecycle
 
 The contract rejects non-VM/shared-kernel runtime declarations, missing capabilities, non-pinned image/policy digests, network policy other than deny-all, provider-reported open egress, exposed credentials/host sockets, missing resource/process-tree controls, timeouts, invalid/oversized artifacts, and unconfirmed destruction. It attempts cleanup after ordinary failures and keyboard/system interrupts.
 
-Provider capability declarations and snapshots are untrusted metadata, not independent attestation. Passing this synthetic check never authorizes untrusted execution; the result always records `eligible_for_untrusted_execution: false` and `patch_applied: false`. The 247-test Task Orchestrator suite and Project Memory Audit passed on the PR head; non-production APK validation was still running at the latest snapshot.
+Provider capability declarations and snapshots are untrusted metadata, not independent attestation. Passing this synthetic check never authorizes untrusted execution; the result always records `eligible_for_untrusted_execution: false` and `patch_applied: false`. The 247-test Task Orchestrator suite and Project Memory Audit passed on the PR head; non-production validation retry #45313415713 also passed after the first attempt hit Maven Central HTTP 429.
 
 
 ## 14. Independent sandbox acceptance evidence verifier

@@ -35,7 +35,6 @@ _ALLOWED_EVENTS = frozenset({
     "cleanup_confirmed",
     "cleanup_failed",
 })
-_FAILURE_CODES = frozenset({"adapter_error", "cancelled", "deadline_exceeded", "cleanup_failed"})
 
 
 class LifecycleError(ValueError):

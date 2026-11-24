@@ -147,7 +147,7 @@ class HostLifecycleTracker:
     def advance(self, event: LifecycleEvent) -> LifecycleSnapshot:
         if not isinstance(event, LifecycleEvent):
             raise LifecycleError("Lifecycle events must use the typed event contract.")
-        if event.event_type not in _ALLOWED_EVENTS:
+        if not isinstance(event.event_type, str) or event.event_type not in _ALLOWED_EVENTS:
             raise LifecycleError("Lifecycle event type is not allowlisted.")
         if event.attempt_id != self._context.attempt_id:
             raise LifecycleError("Lifecycle event attempt identity mismatch.")

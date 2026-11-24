@@ -69,3 +69,19 @@ Before a pilot:
 6. Require explicit owner approval for any account, payment method, source transfer, sandbox provisioning, provider spend, or untrusted-code pilot.
 
 No private source, model output, credentials, API keys, production secrets, or paid service is used by these tests.
+
+
+## Pinned trust-store policy adapter (implementation status)
+
+`tools/task_orchestrator/sandbox_trust.py` adds a fail-closed trust-store policy adapter that implements the existing `SignatureVerifier` shape:
+
+- Requires canonical UTF-8 JSON with an exact schema and no duplicate keys.
+- Requires the trust-store SHA-256 digest to be supplied independently by protected configuration; the digest stored beside the trust-store file is not trusted.
+- Requires a caller-supplied minimum trust-store version. The caller must advance this value monotonically in protected configuration; the module does not persist anti-rollback state.
+- Allows at most 64 unique key IDs and accepts only Ed25519 public keys of exactly 32 bytes.
+- Enforces key status (`active` only) and UTC validity windows; retired, revoked, unknown, not-yet-valid, and expired keys fail closed.
+- Delegates signature mathematics to an injected `Ed25519Backend`. The test backend is deterministic test scaffolding, not cryptography.
+
+**Important limitation:** this is trust-store parsing, pinning, version-floor, and key-selection policy. It is not a production Ed25519 implementation, does not load keys from a remote service, does not store rollback state, and does not create or rotate private keys. A production caller still needs an audited cryptographic backend and protected out-of-band configuration for the trust-store digest and monotonic version floor.
+
+Before production integration, independently review how the digest/version floor are provisioned and updated, how trust-store changes are authorized, and how emergency revocation propagates. A trust-store update must be reviewed and its new digest and minimum version deployed atomically through a protected control plane.

@@ -407,3 +407,16 @@ Append-only record of meaningful project work. Each entry should include branch/
 - **Scope:** Synchronize current status, next steps, project context, file map, and agent instructions with PR #51; preserve the distinction between the limited Bubblewrap self-check, host preflight inventory, and the still-missing independent 20-probe runtime suite.
 - **Safety:** Documentation only. No production code, application source, provider connection, external execution, credentials, or spend.
 - **Verification:** Pending PR CI and memory audit; do not claim this documentation refresh merged until its PR and required checks are observed.
+
+
+## 2026-11-24 — Stage 22: pinned sandbox trust-store policy adapter
+
+- **Base:** `main` at `440569f769fd0d6871ac370d7923417637f90dc8` (PR #52 merged).
+- **Branch:** `feat/pinned-sandbox-trust-store-20261124`.
+- **Goal / priority:** Yes — improve safe verification and durable project memory by binding report signature verification to an independently pinned, versioned trust policy.
+- **Added:** `tools/task_orchestrator/sandbox_trust.py` and `tools/task_orchestrator/tests/test_sandbox_trust.py`.
+- **Policy:** Strict canonical trust-store JSON; duplicate-key rejection; out-of-band SHA-256 pin; caller-supplied minimum version; unique key IDs; max 64 keys; Ed25519 algorithm and exact 32-byte public-key shape; UTC validity windows; active-only acceptance; revoked/retired/unknown/expired/not-yet-valid keys fail closed; backend errors and non-boolean success fail closed.
+- **Trust boundary:** Ed25519 math is injected through an `Ed25519Backend`. The test backend is not cryptographic security. Protected deployment of the pinned digest and monotonically advanced version floor remains external; this module does not persist rollback state or create/rotate keys.
+- **Expected tests:** Python 3.12 `compileall` and `python -m unittest discover -s tools/task_orchestrator/tests -p "test_*.py" -v` via Task Orchestrator CI.
+- **Safety:** No private key, signing service, provider, VM, untrusted code execution, account, API key, payment method, source transfer, or spend. No app source/version/release/backend/payment/server changes.
+- **Review:** Pending PR and CI. Do not claim production Ed25519 verification or execution authorization.

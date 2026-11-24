@@ -308,6 +308,8 @@ class ObserverEnvelopeVerifier:
 
     def verify(self, envelope_bytes: bytes, *, challenge: ObserverChallenge) -> ProbeObservation:
         challenge.validate(self._now)
+        if challenge.audience != self._registry.audience:
+            raise ObserverAuthenticationError("Host challenge audience does not match the pinned observer registry.")
         envelope = _parse_json(envelope_bytes, maximum=MAX_ENVELOPE_BYTES, label="Observer envelope")
         if frozenset(envelope) != _ENVELOPE_FIELDS:
             raise ObserverAuthenticationError("Observer envelope fields do not match the strict schema.")

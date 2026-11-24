@@ -171,3 +171,13 @@ PR #49 merged `sandbox_acceptance.py`, a strict verifier for independently signe
 - The host evidence collector only validates and assembles bounded observations from caller-configured observer IDs. It binds evidence to attempt/runtime/policy digest, monotonic offsets, timestamps, observer domains, payload and host-recomputed digests. It has no probe runner, subprocess, VM, socket, network client, provider integration, identity provisioning, or signing implementation.
 - Observer identity allowlists are not cryptographically authenticated by this module; production provisioning must be out-of-band. Fake observer IDs are test fixtures only.
 - Keep `execution_authorized: false` and `eligible_for_untrusted_execution: false`. No untrusted code execution, provider, VM, API key, private-source transfer, KMS/HSM, or spend is authorized.
+
+
+## Authoritative snapshot — PR #70 merged (2026-11-24)
+
+- PR #70, `feat(sandbox): add pure host lifecycle state machine contract`, squash-merged as `e699293c1495f3137dd319e37764a2db6c5dfff3`; final head `a4b79467d850663ae10f8ffebb8e544f9ecf199e`.
+- Final-head checks all passed: Task Orchestrator Tests `45377376254`, Non-production PR Validation `45377376173`, Project Memory Audit `45377376300`.
+- Adds `tools/task_orchestrator/sandbox_host_lifecycle.py`, a pure typed state-transition validator for readiness, observation, evidence accepted/rejected, termination, runtime termination, and cleanup. It pins attempt/runtime/policy identity and monotonic start/deadline; rejects invalid ordering and failure codes.
+- It invokes no adapter and has no process, shell, filesystem, socket, network, VM, guest, provider, or credential capability. It records lifecycle claims; it does not prove a runtime was actually terminated or cleaned.
+- Deterministic tests cover success, rejected evidence, cancellation, deadline, adapter failure, cleanup failure, identity mismatch, and invalid transitions.
+- Keep `execution_authorized: false` and `eligible_for_untrusted_execution: false`.

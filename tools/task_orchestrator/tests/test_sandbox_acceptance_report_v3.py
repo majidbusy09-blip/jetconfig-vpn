@@ -264,7 +264,7 @@ class SchemaV3ReportDraftTests(unittest.TestCase):
         pair = next(iter(envelopes))
         envelopes[pair] += b" "
         case[6] = envelopes
-        with self.assertRaises(AcceptanceReportV3Error):
+        with self.assertRaises(ValueError):
             self.build(tuple(case))
 
     def test_invalid_observer_signature_is_rejected(self):

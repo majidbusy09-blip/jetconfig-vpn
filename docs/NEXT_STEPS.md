@@ -163,3 +163,16 @@ PR #70 is a state-machine contract only; it does not implement any of the host a
 7. **Operational gates remain closed:** any VM/provider, account, API key, private-source transfer, KMS/HSM, paid service, or spend requires separate explicit approval and independent security review.
 
 PR #72 completes only the in-memory artifact validation contract. It does not collect filesystem objects, verify report signatures, enforce retention, run probes, or prove sandbox isolation. No runtime probes have been executed. Keep `execution_authorized: false` and `eligible_for_untrusted_execution: false`.
+
+
+## Current next steps after PR #74 (2026-11-24)
+
+1. **Signed acceptance-report integration:** extend the signed report schema to bind the exact observer-envelope digests, observer registry digest/version, key IDs, sequence numbers, nonce digests, and assembled evidence digest. Verify the relationship using fake signature backends only; do not let a caller-supplied `AuthenticatedObserverResult` become a trust root.
+2. **Replay-store design:** specify a durable transactional implementation that atomically consumes nonces, advances per-observer sequences, stores envelope digests, and survives restart/failover/backup restore without rollback. Keep implementation fake-only until a separately reviewed trust boundary and service are approved.
+3. **Host challenge and transport design:** specify CSPRNG nonce generation, challenge issuance/expiry, authenticated host-to-observer transport, mutual TLS/workload identity, canary separation, and retry behavior after crash or lost response. No live network code yet.
+4. **Out-of-band identity lifecycle:** define registry signing/pinning through the protected trust control plane, key rotation overlap, emergency revocation, cache TTL, audit, and recovery.
+5. **Trusted filesystem collector:** design descriptor-relative no-follow traversal, `fstat`, same-descriptor hashing/copying, TOCTOU defenses, file identity checks, quotas, retention, and crash-safe cleanup. Current artifact collector remains an in-memory validator only.
+6. **Threat-model review:** cancellation races, monotonic deadline enforcement, kill escalation, cleanup retry/crash recovery, external-canary independence, IPv4/IPv6/DNS/QUIC egress, resource caps, and cross-attempt residue.
+7. **Operational gates remain closed:** any VM/provider, account, API key, private-source transfer, KMS/HSM, paid service, or spend requires separate explicit approval and independent security review.
+
+PR #74 authenticates candidate observer envelopes only when supplied with externally pinned registry data, a trusted signature verifier, and an atomic replay-store implementation. Only fake verifier/replay-store implementations are tested. It does not issue challenges, authenticate network transport, persist replay state, execute probes, or bind provenance into the final signed report. Keep `execution_authorized: false` and `eligible_for_untrusted_execution: false`.

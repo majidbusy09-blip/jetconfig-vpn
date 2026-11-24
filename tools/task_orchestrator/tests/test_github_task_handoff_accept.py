@@ -268,7 +268,7 @@ class HandoffAcceptanceTests(unittest.TestCase):
             envelope = json.loads(output.read_text(encoding="utf-8"))
             self.assertEqual(envelope["task_id"], TASK_ID)
             self.assertEqual(git("branch", "--show-current"), "agent/" + TASK_ID)
-            self.assertEqual(len(envelope["project_context"]), 6)
+            self.assertEqual(len(envelope["project_context"]), 8)
             self.assertEqual(envelope["source_context"], [])
             record = json.loads(
                 (root / ".agent" / "tasks" / TASK_ID / "task.json").read_text(encoding="utf-8")

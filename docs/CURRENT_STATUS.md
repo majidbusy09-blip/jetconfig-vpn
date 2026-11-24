@@ -9,6 +9,7 @@
 - PR #47 introduced the synthetic-only sandbox lifecycle contract.
 - PR #48 refreshed project memory after PR #47. Its Task Orchestrator Tests, Project Memory Audit, and Non-production PR Validation workflows all completed successfully.
 - App source/version remain unchanged: `lib/main.dart` blob `3d28693b7be8bfe309a850923599830e1a65ab59`; version `2.4.5+284`.
+- Source metrics: 9,008 lines / 352,770 UTF-8 bytes / 336,710 Unicode code points.
 - The latest sandbox work is on branch `feat/trusted-sandbox-evidence-gate-20261124`; it adds an independent signed-evidence verifier and adversarial tests. It does not provision or execute a real sandbox.
 
 ## Current collaborator capabilities

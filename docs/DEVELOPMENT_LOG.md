@@ -482,3 +482,13 @@ Append-only record of meaningful project work. Each entry should include branch/
 - Added `docs/SANDBOX_HOST_EVIDENCE_COLLECTOR.md` and README documentation.
 - A first CI run exposed an assertion-order issue in the duplicate-observer test; it was corrected. The final exact head passed Task Orchestrator Tests `45376199406`, Project Memory Audit `45376199527`, and Non-production PR Validation `45376199739`.
 - No VM, process, guest, socket, network request, provider, identity root, signing key, or untrusted code was used. The collector is not a runtime controller and does not cryptographically authenticate its caller-supplied observer identities.
+
+
+## 2026-11-24 — PR #70 host lifecycle state machine contract
+
+- PR #70 squash-merged as `e699293c1495f3137dd319e37764a2db6c5dfff3`; final head `a4b79467d850663ae10f8ffebb8e544f9ecf199e`.
+- Added `tools/task_orchestrator/sandbox_host_lifecycle.py`, `tools/task_orchestrator/tests/test_sandbox_host_lifecycle.py`, and `docs/SANDBOX_HOST_LIFECYCLE.md`.
+- The pure state machine validates pinned attempt/runtime/policy identity, monotonic event order/deadline, allowlisted events/failure codes, evidence accepted/rejected outcomes, explicit termination, and cleanup confirmation. Cleanup failure is terminal.
+- Tests cover success and failure paths, cancellation, deadline expiry, adapter error, cleanup failure, identity mismatches, out-of-order events and malformed payloads.
+- Final-head CI: Task Orchestrator Tests `45377376254`, Non-production PR Validation `45377376173`, Project Memory Audit `45377376300` — all success.
+- No process, VM, provider, network, guest, filesystem, credential, or untrusted code was accessed. The state machine does not prove actual termination or cleanup.

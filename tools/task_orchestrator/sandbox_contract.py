@@ -1,8 +1,9 @@
 """Provider-neutral fail-closed sandbox lifecycle contract.
 
 This module supports only a fixed synthetic acceptance payload. It does not
-launch processes, upload source, connect a provider, or execute model output.
-A real adapter must be separately reviewed and runtime-acceptance tested.
+implement or discover providers, launch local processes, upload source, or
+execute model output. Tests use a fake provider; a real adapter must be
+separately reviewed and runtime-acceptance tested.
 """
 from __future__ import annotations
 

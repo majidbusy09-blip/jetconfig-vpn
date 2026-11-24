@@ -241,3 +241,14 @@ PR #82 is a design contract only. It does not sign reports, create keys, persist
   5. Add end-to-end adversarial tests for signer output and independent verification.
   6. Continue with host challenge/transport and protected identity lifecycle design.
 - Do not create keys, a real signer, durable replay storage, filesystem staging, network, VM/provider, or execute probes without separate review/approval. Keep both execution flags false.
+
+
+## Project-memory reliability follow-up — 2026-11-24
+
+1. Validate the implementation-sensitive PR memory gate on its exact candidate head: unit tests, Project Memory Audit, and required-check status.
+2. Verify that PR #88's same-PR memory refresh satisfies the new gate once the workflow is available; do not mistake the prior pre-gate success for proof.
+3. After any approved merge, verify the ruleset requires the Project Memory Audit check and test a deliberately incomplete implementation PR in a safe test branch to prove the gate blocks it.
+4. Keep reviewing factual accuracy manually: this gate only requires relevant docs to change; it cannot determine whether a summary is truthful or complete.
+5. Resume the schema-v3 production gates only after independent review and platform decisions: mTLS/workload identity, KMS/HSM key custody, isolated signer, and durable anti-replay ledger.
+
+Do not merge PRs, alter branch protection, provision infrastructure, or authorize execution without explicit approval.

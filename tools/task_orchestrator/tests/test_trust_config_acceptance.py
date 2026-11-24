@@ -168,7 +168,8 @@ class TrustConfigAcceptanceTests(unittest.TestCase):
                 return {"revision": 1, "config_epoch": 1}
         with self.assertRaisesRegex(TrustConfigError, "unexpected type"):
             accept(envelope(epoch=2), InvalidStateStore())
-\n    def test_envelope_size_and_nesting_limits(self):
+
+    def test_envelope_size_and_nesting_limits(self):
         with self.assertRaisesRegex(TrustConfigError, "size"):
             accept(b"x" * (128 * 1024 + 1), MemoryCASStore())
         doc = json.loads(envelope())

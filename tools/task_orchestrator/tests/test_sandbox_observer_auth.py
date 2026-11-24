@@ -2,6 +2,7 @@ import base64
 import hashlib
 import json
 import unittest
+from unittest.mock import patch
 from datetime import datetime, timedelta, timezone
 
 from tools.task_orchestrator.sandbox_observer_auth import (
@@ -10,6 +11,7 @@ from tools.task_orchestrator.sandbox_observer_auth import (
     ObserverEnvelopeVerifier,
     ObserverReplayReceipt,
     PinnedObserverRegistry,
+    issue_observer_challenge,
 )
 
 
@@ -448,3 +450,71 @@ class ObserverAuthenticationTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ObserverChallengeIssuerTests(unittest.TestCase):
+    def setUp(self):
+        raw = registry_bytes()
+        self.registry = PinnedObserverRegistry(
+            raw,
+            expected_sha256=hashlib.sha256(raw).hexdigest(),
+            minimum_version=3,
+            expected_audience=AUDIENCE,
+            now=NOW,
+        )
+
+    def issue(self, **overrides):
+        values = {
+            "registry": self.registry,
+            "observer_id": OBSERVER,
+            "observer_domain": DOMAIN,
+            "key_id": KEY_ID,
+            "attempt_id": ATTEMPT,
+            "runtime_id": RUNTIME,
+            "policy_digest": POLICY,
+            "probe_id": PROBE,
+            "now": NOW,
+        }
+        values.update(overrides)
+        return issue_observer_challenge(**values)
+
+    def test_uses_os_csprng_and_binds_all_host_context(self):
+        with patch("tools.task_orchestrator.sandbox_observer_auth.secrets.token_bytes", return_value=b"R" * 32) as rng:
+            issued = self.issue(lifetime_seconds=45)
+        rng.assert_called_once_with(32)
+        self.assertEqual(issued.nonce, b"R" * 32)
+        self.assertEqual(issued.audience, AUDIENCE)
+        self.assertEqual(issued.observer_id, OBSERVER)
+        self.assertEqual(issued.observer_domain, DOMAIN)
+        self.assertEqual(issued.attempt_id, ATTEMPT)
+        self.assertEqual(issued.runtime_id, RUNTIME)
+        self.assertEqual(issued.policy_digest, POLICY)
+        self.assertEqual(issued.probe_id, PROBE)
+        self.assertEqual(issued.expires_at - issued.issued_at, timedelta(seconds=45))
+        issued.validate(NOW)
+
+    def test_rejects_invalid_lifetime_and_identity(self):
+        for lifetime in (0, 121, True, 1.5):
+            with self.subTest(lifetime=lifetime), self.assertRaises(ObserverAuthenticationError):
+                self.issue(lifetime_seconds=lifetime)
+        with self.assertRaises(ObserverAuthenticationError):
+            self.issue(key_id="untrusted-key")
+
+    def test_rejects_csprng_failure_or_wrong_length(self):
+        with patch("tools.task_orchestrator.sandbox_observer_auth.secrets.token_bytes", side_effect=OSError("entropy unavailable")):
+            with self.assertRaises(ObserverAuthenticationError):
+                self.issue()
+        with patch("tools.task_orchestrator.sandbox_observer_auth.secrets.token_bytes", return_value=b"short"):
+            with self.assertRaises(ObserverAuthenticationError):
+                self.issue()
+
+    def test_rejects_non_utc_clock_and_unknown_probe(self):
+        with self.assertRaises(ObserverAuthenticationError):
+            self.issue(now=NOW.replace(tzinfo=None))
+        with self.assertRaises(ObserverAuthenticationError):
+            self.issue(probe_id="not-in-the-acceptance-manifest")
+
+    def test_does_not_issue_challenge_past_key_expiry(self):
+        near_expiry = datetime(2026, 11, 25, 9, 59, 30, tzinfo=timezone.utc)
+        with self.assertRaises(ObserverAuthenticationError):
+            self.issue(now=near_expiry, lifetime_seconds=60)

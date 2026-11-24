@@ -5,9 +5,9 @@
 - **Scope:** Reassessment of the PR #20 worker-runtime candidate decision
 - **Evidence type:** public vendor documentation reviewed; no tenant, API key, sandbox, or workload has been created
 
-## Decision
+## Initial evaluation (superseded by the 2026-11-24 reassessment)
 
-Evaluate **E2B managed sandboxes first** using a fixed harmless acceptance payload, with network egress disabled, no credentials, no model provider, no GitHub write access, and a strict short TTL. Keep **Daytona Linux VM sandboxes** as the alternative candidate. This is a candidate selection for a controlled pilot, not a claim that either vendor has passed our acceptance suite.
+The original evaluation selected E2B as the first candidate for a harmless pilot and kept Daytona as an alternative. That recommendation is historical only and must not be used as current authorization. See the reassessment block below for the current decision.
 
 Why E2B first:
 - E2B documents one Firecracker microVM per sandbox, with a dedicated guest kernel and hypervisor-enforced isolation.
@@ -51,7 +51,7 @@ Why E2B first:
 
 No account, key, subscription, payment method, sandbox, runner, provider integration, private source upload, model execution, or spend has been created or authorized by this decision record. A separate explicit approval is required before creating an account/project, entering credentials, accepting paid terms, or incurring charges.
 
-PR #20 remains Draft and unmerged. No production app, bot, payment, backend, server, signing, release, or deployment behavior is in scope.
+PR #20 is merged. No production app, bot, payment, backend, server, signing, release, or deployment behavior is in scope.
 
 ## Reassessment evidence and current block — 2026-11-24
 

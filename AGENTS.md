@@ -202,3 +202,14 @@ PR #49 merged `sandbox_acceptance.py`, a strict verifier for independently signe
 - No host challenge generator, TLS transport, identity provisioning, durable replay-store implementation, or signed-report integration exists. Registry pins must come from protected out-of-band configuration; production signature verification must use the existing pinned Ed25519 trust-store verifier.
 - The current `CollectedEvidenceBundle` does not retain the authenticated envelope/registry/sequence provenance. The next phase must bind those fields and the evidence digest into the signed acceptance report.
 - Tests use a fake signature verifier and in-memory replay store only. No VM, provider, network, credentials, probes, filesystem collector, or untrusted code was used. Keep `execution_authorized: false` and `eligible_for_untrusted_execution: false`.
+
+
+## Authoritative snapshot — PR #76 merged (2026-11-24)
+
+- Current `main` includes PR #76 squash merge `d393d2e5bb0a93390b8d572bf540ff9ec3f1fe7c`; final PR head: `87c19d15f714f4a21200d469ed828d4b83026861`.
+- Final-head CI passed: Task Orchestrator Tests `45384423673` (355 tests), Non-production PR Validation `45384423800`, and Project Memory Audit `45384423642`.
+- PR #76 adds `tools/task_orchestrator/sandbox_acceptance_provenance.py`, a separate schema-v2 signed acceptance verifier. Existing schema-v1 report verification remains unchanged.
+- V2 pins expected runtime ID plus observer registry digest/version; requires a sorted signed observer-provenance inventory; recomputes provenance and raw probe-evidence digests; parses canonical evidence; derives required observer domains from the probe manifest; cross-checks observer ID/domain and exact payload SHA-256; rejects duplicate nonce/envelope/observer-sequence tuples, incomplete/extra provenance, stale/future evidence, invalid monotonic intervals, and non-Ed25519 algorithm labels.
+- The report signature covers all v2 provenance records. The trusted acceptance-suite signer attests that observer envelopes were verified by the trusted host verifier. The v2 verifier does not independently re-verify observer signatures because raw signed envelope bytes are referenced by digest and must be retained separately for later re-verification.
+- V2 requires protected expectations for exact runtime ID and observer registry digest/version. It does not create or sign reports, provision keys, run probes, or authorize execution.
+- No report signer/private key, durable replay store, nonce generator, TLS transport, VM, provider, network, filesystem collector, or untrusted execution was used. Keep `execution_authorized: false` and `eligible_for_untrusted_execution: false`.

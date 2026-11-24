@@ -158,3 +158,11 @@ Never add paths to this map unless verified from the current tree or a separatel
 - `tools/task_orchestrator/tests/test_sandbox_observer_auth.py` — deterministic fake-signature and in-memory replay tests for binding, signature tampering, replay, sequence rollback, registry lifecycle, payload, time, and malformed input.
 - `docs/SANDBOX_OBSERVER_AUTHENTICITY.md` — trust chain, host challenge, envelope, anti-replay, rotation/revocation, and production limitations.
 - PR #74 merged as `b40642e9cb58446b60cc356f349656c31818d898`; final-head checks `45382515116`, `45382515212`, and `45382515188` all succeeded.
+
+
+## Signed acceptance provenance v2 — PR #76
+
+- `tools/task_orchestrator/sandbox_acceptance_provenance.py` — separate schema-v2 signed acceptance verifier; pins runtime and observer registry; validates signed provenance inventory; recomputes raw evidence/provenance digests; cross-checks observer identity/domain/payload against canonical probe evidence. Schema v1 remains unchanged.
+- `tools/task_orchestrator/tests/test_sandbox_acceptance_provenance.py` — deterministic fake-signer fixtures for all required probes and provenance mismatch/replay/tampering cases.
+- `docs/SANDBOX_ACCEPTANCE_PROVENANCE_V2.md` — v2 schema, trust model, cross-binding, limitations, and test instructions.
+- PR #76 merged as `d393d2e5bb0a93390b8d572bf540ff9ec3f1fe7c`; final-head checks `45384423673`, `45384423800`, and `45384423642` all succeeded.

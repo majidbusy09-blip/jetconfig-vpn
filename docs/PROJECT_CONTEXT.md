@@ -142,3 +142,15 @@ The current execution policy is unchanged: `execution_authorized: false`; `eligi
 - Exact final-head CI passed: Task Orchestrator Tests `45382515116`, Non-production PR Validation `45382515212`, Project Memory Audit `45382515188`.
 - Next focus: signed-report provenance integration, durable replay-store design, host challenge/transport design, and protected identity rotation/revocation.
 - Keep `execution_authorized: false` and `eligible_for_untrusted_execution: false`.
+
+
+## Signed acceptance provenance update — PR #76 (2026-11-24)
+
+- Current main includes PR #76 squash merge `d393d2e5bb0a93390b8d572bf540ff9ec3f1fe7c`; final PR head `87c19d15f714f4a21200d469ed828d4b83026861`.
+- Added a separate schema-v2 verifier that pins expected runtime ID and observer registry digest/version; validates the signed provenance digest and sorted record inventory; derives required probe observer domains from the manifest; recomputes raw evidence and payload digests; and cross-checks observer ID/domain and payload digest against exact evidence bytes.
+- Provenance records bind probe, observer domain/ID, signing key ID, registry digest/version, sequence, nonce digest, envelope digest, payload digest, and Ed25519 algorithm label.
+- Schema v1 remains unchanged. V2 signature attests that the trusted acceptance-suite signer received already-verified observer envelopes; the verifier does not independently re-check observer signatures because raw envelope bytes are not embedded. Retain those raw bytes separately if independent re-verification is required.
+- V2 does not sign reports or provision keys; no private key, durable replay store, nonce generator, TLS transport, VM, provider, network, filesystem collector, or untrusted execution was used.
+- Exact final-head CI passed: Task Orchestrator Tests `45384423673` (355 tests), Non-production PR Validation `45384423800`, Project Memory Audit `45384423642`.
+- Next focus: durable replay-store design, protected raw-envelope retention, trusted report-signer contract, and host challenge/transport design.
+- Keep `execution_authorized: false` and `eligible_for_untrusted_execution: false`.

@@ -252,3 +252,10 @@ PR #82 is a design contract only. It does not sign reports, create keys, persist
 5. Resume the schema-v3 production gates only after independent review and platform decisions: mTLS/workload identity, KMS/HSM key custody, isolated signer, and durable anti-replay ledger.
 
 Do not merge PRs, alter branch protection, provision infrastructure, or authorize execution without explicit approval.
+
+
+## Agent context completeness follow-up — 2026-11-24
+
+- Confirm the expanded mandatory context (decisions and known issues) passes context-builder and orchestrator integration tests and remains within the 512 KiB cap.
+- Review whether the full development log should eventually be replaced in routine task context by a compact, commit-pinned summary plus task-relevant log excerpts. Do not reduce history or omit decisions without a tested retrieval design.
+- Keep source selection explicit and bounded; semantic suggestions remain advisory and never expand task scope automatically.

@@ -137,7 +137,7 @@ class SandboxContractTests(unittest.TestCase):
         with self.assertRaises(SandboxContractError):
             run_synthetic_acceptance(provider, request())
         self.assertFalse(any(isinstance(call, tuple) and call[0] == "run_synthetic" for call in provider.calls))
-        self.assertEqual(provider.calls[-3:], ["terminate", "inspect", "destroy"])
+        self.assertEqual(provider.calls[-4:], ["terminate", "inspect", "destroy", "inspect"])
 
     def test_timeout_blocks_artifact_and_cleans_up(self):
         provider = FakeSandboxProvider(execution=SandboxExecution(124, True, 30))

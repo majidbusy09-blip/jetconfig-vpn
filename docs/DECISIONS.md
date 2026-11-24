@@ -297,3 +297,14 @@ The validator continues to accept legacy v1.1 envelopes and matching v1.1 result
 ## D-024/D-026 validation status — PR #89 exact head (2026-11-24)
 
 Both decisions are implemented on candidate PR #89 and passed exact-head validation at `bcce39bb22bf9305a405cfc1dcc76ead0ffe6cb7`. Task Orchestrator Tests passed 359 tests; Non-production PR Validation, Project Memory Audit, and Agent PR Lease/Scope Guard all succeeded. The Project Memory Audit ran 9 gate tests and confirmed that 7 required memory documents were updated in the same PR. New v1.2 envelopes carry the exact eight-document manifest; legacy v1.1 compatibility remains covered. PR #89 remains Draft/unmerged pending human review and explicit approval.
+
+
+## D-027 — Use existing ChatGPT and Grok GitHub connections; no model API keys (2026-11-24)
+
+**Status:** Accepted by the user; governs the current JET AI implementation route.
+
+**Decision:** Use only the user's ChatGPT and Grok chat sessions through the GitHub connections already available in those products. Do not add, request, configure, or call OpenAI/Grok model APIs, API keys, paid model endpoints, or external source-upload adapters. GitHub is the shared task inbox, lease authority, source of truth, durable project memory, and PR/audit history.
+
+**Rationale:** Avoid separate API consumption costs while retaining independent agent analysis and repository work through the existing chat products.
+
+**Consequences:** The user activates one chat at a time. The agent verifies the Issue and active Git lease, creates a remote task branch from the pinned base SHA, reads only pinned memory and in-scope source through its GitHub integration, commits through that integration, and opens a Draft PR. If a connector lacks a required write operation, the user performs that discrete operation. GitHub Issues do not wake chats and chats do not continuously poll in the background. The lease owner string is a protocol label, not cryptographic model identity. No arbitrary untrusted-code execution is introduced; the production sandbox remains a separate security track. Human approval remains required for merge/release/deploy.

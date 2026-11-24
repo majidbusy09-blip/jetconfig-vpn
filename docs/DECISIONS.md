@@ -194,3 +194,17 @@ Successful verification returns `AuthenticatedObserverResult` with a `ProbeObser
 - No host challenge generator, authenticated transport, identity provisioning/rotation service, probe execution, or VM adapter is implemented.
 - The current evidence bundle does not carry the authenticated envelope provenance. Signed-report integration must bind it explicitly with the assembled evidence digest.
 - `execution_authorized: false` and `eligible_for_untrusted_execution: false` remain mandatory.
+
+
+## D-019 — Bind observer provenance in a separate signed acceptance schema v2 (2026-11-24)
+
+**Status:** Accepted as a verification contract; report signing, raw-envelope retention, durable replay, and transport remain pending.
+
+PR #76 adds `sandbox_acceptance_provenance.py` with a schema-v2 verifier while leaving the v1 verifier unchanged. V2 pins runtime ID and observer registry digest/version, signs a sorted observer provenance inventory, recomputes provenance and raw probe evidence digests, derives required observer domains from the probe manifest, and cross-checks each record against observer ID/domain and exact payload SHA-256 in the raw evidence.
+
+**Trust model**
+- The acceptance-suite signing key is the authority attesting that the host verifier already authenticated observer envelopes.
+- The v2 verifier does not independently verify each observer signature; it binds the exact envelope digest and metadata in the signed report. Preserve raw signed envelope bytes in a separately protected artifact set if later re-verification is required.
+- V1 remains valid for legacy evidence but is not observer-authenticated. Consumers that require observer authenticity must explicitly require schema v2 and must not silently downgrade.
+- The v2 verifier does not sign reports, create private keys, run probes, authorize patch application, or enable untrusted execution.
+- Keep `execution_authorized: false` and `eligible_for_untrusted_execution: false`.

@@ -1,7 +1,7 @@
 # JET VPN — Coding Agent Adapter Contract
 
-> Status: provider-neutral design proposal for the next Orchestrator phase. This document does not implement or connect a model provider.
-> Baseline: PR #20 branch after commit `c4acaf8c32a5c70cea2919b9eb5f2c68303b3559`; main remains `a09cdb0be35e3072be29973f7ae8df66ab44d07f`.
+> Status: provider-neutral design contract; task/result validation, local ingestion, content-addressed artifacts, and review-only gates are implemented. No live model provider or OS sandbox is connected.
+> Baseline: current `main` `f682c56331bfb7c07bc4c5be26fddc33a3043969` (2026-11-24); PR #20 and PRs #38–#44 are merged.
 
 ## 1. Purpose
 
@@ -93,7 +93,7 @@ Initial adapter release should use a disposable worktree/container with:
 - No direct commit, push, PR creation, merge, tag, release, deploy, or production workflow dispatch.
 - No arbitrary shell supplied by the model. Tool calls must be typed, allowlisted operations with bounded arguments and timeouts.
 
-The first implementation should return a patch artifact from the isolated workspace. The orchestrator then validates the patch and applies it to the dedicated task branch. This avoids granting the model direct write access to the user's working tree or GitHub.
+The current implementation returns a local content-addressed patch artifact, validates its exact bytes and scope, and checks live Issue/lease/workspace authorization before marking it ready for human review. It deliberately does not apply the patch to the task branch yet. A separately reviewed application stage remains future work and must not grant the model direct write access to the user's working tree or GitHub.
 
 ## 6. Patch acceptance gates
 
@@ -183,3 +183,16 @@ The contract distinguishes Git object IDs from content fingerprints: repository 
 
 
 Additional provenance gate: immediately before envelope creation, the CLI rebuilds the context package directly from the pinned Git tree/blob objects and requires exact equality with the persisted package. The pure builder also requires the canonical six project-memory documents and an exact match with the task's explicit `context_paths` list. This prevents a self-consistently re-hashed but substituted or extra source document from entering the agent envelope.
+
+
+## 10. Current implementation status — 2026-11-24
+
+The following portions of this contract now exist in the repository:
+
+- Task/result schema validation and fixture-only provider dispatch.
+- Local provider-result ingestion with context fingerprint, digest, byte-count, path-scope, and exclusive-output checks.
+- SHA-256 content-addressed patch storage.
+- Fail-closed live review authorization bound to the current Issue, active lease/lock ref, pinned base, branch, and clean worktree.
+- Read-only live review command and integration tests proving that the same ingested patch reaches `ready_for_human_review` with `applied: false`.
+
+Still not implemented: a real provider runtime, an OS-level isolated worker, sandbox lifecycle supervision, patch application, automatic commit/push/PR/merge, or unattended execution. The next stage is a provider-neutral sandbox adapter contract and fake-adapter failure tests. Do not infer execution capability from the existing Python provider interface; it is not a security sandbox.

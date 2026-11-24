@@ -59,6 +59,7 @@ def task_record():
         "required_context": [
             "AGENTS.md", "docs/PROJECT_CONTEXT.md", "docs/CURRENT_STATUS.md",
             "docs/NEXT_STEPS.md", "docs/TASK_TEMPLATE.md", "docs/DEVELOPMENT_LOG.md",
+            "docs/DECISIONS.md", "docs/KNOWN_ISSUES.md",
         ],
         "context_paths": ["lib/routing.py"],
         "context_package": package(revision=base),

@@ -24,6 +24,8 @@ MAX_ENVELOPE_BYTES = 96 * 1024
 MAX_IDENTITIES = 64
 MAX_PAYLOAD_BYTES = 48 * 1024
 MAX_CHALLENGE_SECONDS = 120
+MAX_OBSERVATION_AGE_SECONDS = 3600
+MAX_CLOCK_SKEW_SECONDS = 120
 _ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$")
 _SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 _UTC_RE = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
@@ -250,7 +252,10 @@ class ObserverChallenge:
             raise ObserverAuthenticationError("Challenge policy digest is invalid.")
         if not isinstance(self.issued_at, datetime) or not isinstance(self.expires_at, datetime):
             raise ObserverAuthenticationError("Challenge timestamps are required.")
-        if self.issued_at.tzinfo is None or self.expires_at.tzinfo is None:
+        if (
+            self.issued_at.tzinfo is None or self.issued_at.utcoffset() is None
+            or self.expires_at.tzinfo is None or self.expires_at.utcoffset() is None
+        ):
             raise ObserverAuthenticationError("Challenge timestamps must be timezone-aware.")
         issued = self.issued_at.astimezone(timezone.utc)
         expires = self.expires_at.astimezone(timezone.utc)
@@ -284,10 +289,16 @@ class ObserverEnvelopeVerifier:
             raise ObserverAuthenticationError("An atomic replay store is required.")
         if not isinstance(now, datetime) or now.tzinfo is None or now.utcoffset() != timedelta(0):
             raise ObserverAuthenticationError("Trusted observer verification time must be UTC.")
-        if isinstance(max_age_seconds, bool) or not isinstance(max_age_seconds, int) or max_age_seconds <= 0:
-            raise ObserverAuthenticationError("Maximum observation age must be a positive integer.")
-        if isinstance(allowed_clock_skew_seconds, bool) or not isinstance(allowed_clock_skew_seconds, int) or allowed_clock_skew_seconds < 0:
-            raise ObserverAuthenticationError("Allowed clock skew must be a non-negative integer.")
+        if (
+            isinstance(max_age_seconds, bool) or not isinstance(max_age_seconds, int)
+            or not 1 <= max_age_seconds <= MAX_OBSERVATION_AGE_SECONDS
+        ):
+            raise ObserverAuthenticationError("Maximum observation age must be between 1 second and one hour.")
+        if (
+            isinstance(allowed_clock_skew_seconds, bool) or not isinstance(allowed_clock_skew_seconds, int)
+            or not 0 <= allowed_clock_skew_seconds <= MAX_CLOCK_SKEW_SECONDS
+        ):
+            raise ObserverAuthenticationError("Allowed clock skew must be between zero and 120 seconds.")
         self._registry = registry
         self._signature_verifier = signature_verifier
         self._replay_store = replay_store

@@ -259,3 +259,17 @@ Tests may use fake signers and in-memory replay receipts only. No private key, s
 - The trusted report signer design is recorded in `docs/SANDBOX_TRUSTED_REPORT_SIGNER.md`.
 - Current implementation remains verifier-only for v1/v2. There is no report builder/signer, schema-v3 verifier, private key, signing service, replay receipt reader, or production ledger.
 - Next code work is the read-only replay acceptance receipt protocol and in-memory fake, followed by a pure schema-v3 builder and injected fake signer/verifier. Any real signing backend or durable replay store requires separate trust-boundary review and explicit approval.
+
+
+## D-023 — Break report-signing authorization into pre-sign verification and post-sign verification (2026-11-24)
+
+**Status:** Implemented as a non-production adapter contract in PR #88; production deployment not approved.
+
+A report signer cannot require an authorization attestation that is issued only after the final report signature is verified; that creates a circular dependency. Use two independent verification stages instead:
+
+1. The independent verifier reconstructs and validates the exact unsigned schema-v3 report, probe evidence, raw observer envelopes, pinned observer signatures, replay receipts, and envelope manifest.
+2. Only after successful content verification, the verifier issues a short-lived signed attestation binding its pinned identity/key, signer audience, exact report and manifest SHA-256 digests, unique verification ID, issue/expiry, and algorithm.
+3. The trusted signer verifies the attestation and exact bytes, atomically consumes the one-time authorization ID, and signs through a separately protected backend.
+4. An independent post-sign verifier reconstructs the content again and verifies the final report signature.
+
+The verifier-attestation key and report-signing key must be distinct. The authorization ledger must be durable, atomic, anti-replay, and fail closed in production. Test fakes and injected interfaces do not satisfy those operational requirements. This flow does not authorize execution; preserve all execution flags as false.

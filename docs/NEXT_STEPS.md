@@ -241,3 +241,16 @@ PR #82 is a design contract only. It does not sign reports, create keys, persist
   5. Add end-to-end adversarial tests for signer output and independent verification.
   6. Continue with host challenge/transport and protected identity lifecycle design.
 - Do not create keys, a real signer, durable replay storage, filesystem staging, network, VM/provider, or execute probes without separate review/approval. Keep both execution flags false.
+
+
+## Current next steps after PR #88 implementation checkpoint (2026-11-24)
+
+1. **Make project-memory freshness enforceable:** extend the required audit so implementation-sensitive PRs must update the authoritative status, next steps, development log, and relevant decisions/context. Current Project Memory Audit verifies source/index freshness and generates semantic artifacts, but it did not detect that project-level status/next-step documents lagged the merged PR #84 baseline. Add focused unit tests and a required CI gate; do not claim the semantic index is durable when it is a 30-day workflow artifact.
+2. **Independent security review of schema-v3 signing flow:** review the pre-sign verifier, attestation issuer, one-time authorization consumption, signer trust pins, and post-sign verifier as one threat model. The in-repository tests are not an external review.
+3. **Production trust-boundary decisions:** select the workload identity/mTLS provider, trust-root and certificate lifecycle owner, KMS/HSM provider and policy owner, signer deployment isolation, and durable ledger/database platform. Record explicit decisions before adapter implementation; do not guess vendors or deploy resources.
+4. **Durable Replay Store readiness:** only after independent review, platform selection, and explicit approval, implement atomic nonce/digest/sequence consumption, fencing, external anti-rollback checkpoint, immutable receipts, and atomic audit with restore/failover/fault-injection tests.
+5. **Authenticated Host–Observer transport:** implement only after workload identity, CA/trust roots, service discovery, network policy, and operational ownership are approved. Preserve message-level Ed25519 envelope verification in addition to TLS.
+6. **Protected signer/verifier deployment:** separate verifier and report-signer workloads and keys; protect keys in KMS/HSM; pin verifier identity/key/audience out-of-band; prove authorization-store durability and one-time semantics.
+7. **Operational acceptance and execution gate:** run the independently controlled 20-probe suite only in an approved isolated environment; verify cleanup, retention, egress, and post-sign evidence. Until every gate is independently satisfied, keep all execution flags false and do not transfer private source or incur spend.
+
+PR #88 is a tested non-production implementation contract, not a production signing system. The in-memory test stores and fake cryptographic backends are not trust anchors. Do not merge or deploy it as production-ready based only on green CI.

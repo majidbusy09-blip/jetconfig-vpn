@@ -558,3 +558,16 @@ Append-only record of meaningful project work. Each entry should include branch/
 - Explicitly documented that a caller-created `AuthenticatedObserverResult` is not proof of verifier execution.
 - Final-head CI: Task Orchestrator Tests `45390283412`, Non-production PR Validation `45390283324`, Project Memory Audit `45390283473` — all success.
 - No signer/key/service, durable replay DB, filesystem collector, network, VM, provider, probe execution or untrusted execution was introduced.
+
+
+## 2026-11-24 — PR #88 schema-v3 report pipeline and non-circular trusted signing
+
+- PR #88 remains Draft/open/unmerged; base `main` is `dcb9d1c01a50974d9ef38bdf5f0e4aaf744b409e`. Implementation checkpoint `566fbb58c4e039ef88abee64a987995b029ba534`.
+- Added `sandbox_acceptance_report_v3.py`: deterministic report and raw-envelope manifest construction from exact probe evidence, raw observer envelopes, pinned registry, observer signature verification, and read-only replay receipts.
+- Added `sandbox_acceptance_report_v3_verifier.py`: independent reconstruction and exact-byte verification, optional final report signature verification, and a verifier-side attestation issuer.
+- Added `sandbox_trusted_report_signer.py`: strict schema-v3 and attestation validation, exact report/manifest digest binding, one-time authorization consumption, and injected protected signing backend.
+- Added `sandbox_acceptance_pipeline_v3.py` to connect the non-executing stages; expanded host challenge CSPRNG generation and observer key rotation/revocation tests.
+- Corrected a circular authorization design: the independent verifier validates unsigned report content first, then issues a short-lived attestation authorizing the signer; after signing, an independent pass verifies the final signature. The signer is not asked to prove a signature that cannot exist until after it signs.
+- Final checkpoint CI: Task Orchestrator Tests run `45428730520` succeeded with 401 tests; Non-production PR Validation run `45428731306` succeeded with Flutter/APK build steps skipped for tooling-only changes; Project Memory Audit run `45428731849` succeeded, including app regression tests, semantic-index tests/generation, real-source task-intelligence smoke test, and lexical freshness verification.
+- The semantic/resolved/critical-path indexes were uploaded as 30-day CI artifacts, not committed. This distinction must remain explicit in agent context.
+- No mTLS deployment, KMS/HSM provisioning, private key, isolated signer service, durable Replay Store, production trust-control-plane, live probe, VM/provider, source transfer, untrusted execution, release, or deployment was performed.

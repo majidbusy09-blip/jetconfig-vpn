@@ -8,8 +8,13 @@ the acceptance-report signature. It performs no signing or execution.
 """
 from __future__ import annotations
 
+import base64
 import hashlib
 import json
+import re
+import secrets
+from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
 from typing import Any, Mapping, Protocol
 
 from tools.task_orchestrator.sandbox_acceptance import (
@@ -55,9 +60,9 @@ class AcceptanceReportV3SignatureVerifier(Protocol):
 
 def verify_signed_acceptance_report_v3(
     report_bytes: bytes,
-    signature: bytes,
+    signature: bytes | None,
     expectation: AcceptanceProvenanceExpectation,
-    report_signature_verifier: AcceptanceReportV3SignatureVerifier,
+    report_signature_verifier: AcceptanceReportV3SignatureVerifier | None,
     *,
     probe_evidence: Mapping[str, bytes],
     raw_observer_envelopes: Mapping[tuple[str, str], bytes],
@@ -66,25 +71,30 @@ def verify_signed_acceptance_report_v3(
     observer_signature_verifier: ObserverSignatureVerifier,
     replay_receipt_reader: ObserverReplayReceiptReader,
 ) -> dict[str, Any]:
-    """Independently verify a signed v3 report and its exact retained envelope set.
+    """Independently verify report contents and, when supplied, its signature.
 
-    No caller-created AuthenticatedObserverResult is accepted as input. Adapter
-    objects are reconstructed from the exact raw envelope and read-only receipt
-    lookup, then the builder revalidates signatures, evidence, receipts, pins,
-    and deterministic report/manifest bytes.
+    Passing both signature and report_signature_verifier as None performs the
+    pre-signing content/evidence verification used to authorize the separate
+    report signer. A supplied signature is verified after exact reconstruction.
+    No caller-created AuthenticatedObserverResult is accepted as input.
     """
     expectation.validate()
     if not isinstance(report_bytes, bytes) or not report_bytes or len(report_bytes) > MAX_REPORT_BYTES:
         raise AcceptanceReportV3Error("Schema-v3 report is empty or oversized.")
-    if not isinstance(signature, bytes) or not signature or len(signature) > MAX_SIGNATURE_BYTES:
-        raise AcceptanceReportV3Error("Schema-v3 report signature is missing or oversized.")
+    if signature is not None and (
+        not isinstance(signature, bytes) or not signature or len(signature) > MAX_SIGNATURE_BYTES
+    ):
+        raise AcceptanceReportV3Error("Schema-v3 report signature is malformed or oversized.")
     if (
         not isinstance(envelope_manifest_bytes, bytes)
         or not envelope_manifest_bytes
         or len(envelope_manifest_bytes) > MAX_ENVELOPE_MANIFEST_BYTES
     ):
         raise AcceptanceReportV3Error("Raw observer-envelope manifest is missing or oversized.")
-    if not callable(getattr(report_signature_verifier, "verify", None)):
+    if signature is None:
+        if report_signature_verifier is not None:
+            raise AcceptanceReportV3Error("A report signature verifier cannot be supplied without a report signature.")
+    elif not callable(getattr(report_signature_verifier, "verify", None)):
         raise AcceptanceReportV3Error("A trusted acceptance-report signature verifier is required.")
     if not isinstance(registry, PinnedObserverRegistry):
         raise AcceptanceReportV3Error("A pinned observer registry is required.")
@@ -174,20 +184,23 @@ def verify_signed_acceptance_report_v3(
         replay_receipt_reader=replay_receipt_reader,
     )
     if draft.report_bytes != report_bytes:
-        raise AcceptanceReportV3Error("Signed schema-v3 report differs from independently reconstructed bytes.")
+        raise AcceptanceReportV3Error("Schema-v3 report differs from independently reconstructed bytes.")
     if draft.envelope_manifest_bytes != envelope_manifest_bytes:
         raise AcceptanceReportV3Error("Raw observer-envelope manifest differs from independently reconstructed bytes.")
 
-    try:
-        verified = report_signature_verifier.verify(
-            expectation.acceptance.trusted_key_id,
-            report_bytes,
-            signature,
-        )
-    except Exception as exc:
-        raise AcceptanceReportV3Error("Acceptance-report signature verification failed closed.") from exc
-    if verified is not True:
-        raise AcceptanceReportV3Error("Schema-v3 acceptance-report signature is invalid.")
+    signature_verified = False
+    if signature is not None:
+        try:
+            verified = report_signature_verifier.verify(
+                expectation.acceptance.trusted_key_id,
+                report_bytes,
+                signature,
+            )
+        except Exception as exc:
+            raise AcceptanceReportV3Error("Acceptance-report signature verification failed closed.") from exc
+        if verified is not True:
+            raise AcceptanceReportV3Error("Schema-v3 acceptance-report signature is invalid.")
+        signature_verified = True
 
     return {
         "schema_version": 3,
@@ -208,8 +221,171 @@ def verify_signed_acceptance_report_v3(
         "report_sha256": draft.report_sha256,
         "observer_provenance_sha256": draft.observer_provenance_sha256,
         "observer_envelope_manifest_sha256": draft.observer_envelope_manifest_sha256,
-        "signature_verified": True,
+        "content_verified": True,
+        "report_signature_verified": signature_verified,
+        "signature_verified": signature_verified,
         "execution_authorized": False,
         "eligible_for_untrusted_execution": False,
         "patch_applied": False,
     }
+
+
+def verify_unsigned_acceptance_report_v3_for_signing(
+    report_bytes: bytes,
+    expectation: AcceptanceProvenanceExpectation,
+    *,
+    probe_evidence: Mapping[str, bytes],
+    raw_observer_envelopes: Mapping[tuple[str, str], bytes],
+    envelope_manifest_bytes: bytes,
+    registry: PinnedObserverRegistry,
+    observer_signature_verifier: ObserverSignatureVerifier,
+    replay_receipt_reader: ObserverReplayReceiptReader,
+) -> dict[str, Any]:
+    """Verify exact report contents/evidence before the report signature exists."""
+    return verify_signed_acceptance_report_v3(
+        report_bytes,
+        None,
+        expectation,
+        None,
+        probe_evidence=probe_evidence,
+        raw_observer_envelopes=raw_observer_envelopes,
+        envelope_manifest_bytes=envelope_manifest_bytes,
+        registry=registry,
+        observer_signature_verifier=observer_signature_verifier,
+        replay_receipt_reader=replay_receipt_reader,
+    )
+
+
+class VerifierAttestationSigningBackend(Protocol):
+    """Separate protected signer for verifier authorization attestations."""
+
+    def sign(self, key_id: str, message: bytes) -> bytes: ...
+
+
+@dataclass(frozen=True)
+class VerificationAttestation:
+    """Result of successful independent report verification and authorization."""
+
+    verification_result: Mapping[str, Any]
+    attestation_bytes: bytes
+    verification_id: str
+
+
+class SchemaV3VerificationAttestor:
+    """Issue short-lived report-signing authorization only after full content verification.
+
+    Deploy this adapter inside the independently administered verifier
+    workload. Its attestation key must be distinct from the acceptance-report
+    key and held by a separate KMS/HSM policy. No private key is loaded here.
+    """
+
+    def __init__(
+        self, *, verifier_id: str, verifier_key_id: str, audience: str,
+        attestation_signer: VerifierAttestationSigningBackend,
+        trusted_clock,
+        lifetime_seconds: int = 60,
+    ) -> None:
+        identifier = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$")
+        for value, label in (
+            (verifier_id, "verifier ID"),
+            (verifier_key_id, "verifier key ID"),
+            (audience, "verifier audience"),
+        ):
+            if not isinstance(value, str) or not identifier.fullmatch(value):
+                raise AcceptanceReportV3Error(f"Pinned {label} is invalid.")
+        if not callable(getattr(attestation_signer, "sign", None)):
+            raise AcceptanceReportV3Error("A protected verifier-attestation signing backend is required.")
+        if not callable(trusted_clock):
+            raise AcceptanceReportV3Error("A trusted verifier clock is required.")
+        if (
+            isinstance(lifetime_seconds, bool) or not isinstance(lifetime_seconds, int)
+            or not 1 <= lifetime_seconds <= 120
+        ):
+            raise AcceptanceReportV3Error("Verifier attestation lifetime must be between 1 and 120 seconds.")
+        self._verifier_id = verifier_id
+        self._verifier_key_id = verifier_key_id
+        self._audience = audience
+        self._signer = attestation_signer
+        self._clock = trusted_clock
+        self._lifetime = lifetime_seconds
+
+    def verify_and_attest(
+        self,
+        report_bytes: bytes,
+        expectation: AcceptanceProvenanceExpectation,
+        *,
+        probe_evidence: Mapping[str, bytes],
+        raw_observer_envelopes: Mapping[tuple[str, str], bytes],
+        envelope_manifest_bytes: bytes,
+        registry: PinnedObserverRegistry,
+        observer_signature_verifier: ObserverSignatureVerifier,
+        replay_receipt_reader: ObserverReplayReceiptReader,
+    ) -> VerificationAttestation:
+        expectation.validate()
+        if self._verifier_key_id == expectation.acceptance.trusted_key_id:
+            raise AcceptanceReportV3Error("Verifier-attestation and report-signing keys must be distinct.")
+        result = verify_unsigned_acceptance_report_v3_for_signing(
+            report_bytes,
+            expectation,
+            probe_evidence=probe_evidence,
+            raw_observer_envelopes=raw_observer_envelopes,
+            envelope_manifest_bytes=envelope_manifest_bytes,
+            registry=registry,
+            observer_signature_verifier=observer_signature_verifier,
+            replay_receipt_reader=replay_receipt_reader,
+        )
+        if (
+            result.get("content_verified") is not True
+            or result.get("report_signature_verified") is not False
+            or result.get("execution_authorized") is not False
+            or result.get("eligible_for_untrusted_execution") is not False
+            or result.get("patch_applied") is not False
+            or result.get("schema_version") != 3
+        ):
+            raise AcceptanceReportV3Error("Independent content-verification result is not eligible for report-signing attestation.")
+
+        now = self._clock()
+        if not isinstance(now, datetime) or now.tzinfo is None or now.utcoffset() != timedelta(0):
+            raise AcceptanceReportV3Error("Trusted verifier clock must return timezone-aware UTC.")
+        now = now.astimezone(timezone.utc).replace(microsecond=0)
+        expires = now + timedelta(seconds=self._lifetime)
+        try:
+            verification_id = secrets.token_hex(32)
+        except Exception as exc:
+            raise AcceptanceReportV3Error("Verifier authorization ID CSPRNG failed closed.") from exc
+        if not isinstance(verification_id, str) or not re.fullmatch(r"[0-9a-f]{64}", verification_id):
+            raise AcceptanceReportV3Error("Verifier authorization ID must be 32 random bytes in lowercase hex.")
+
+        unsigned = {
+            "schema_version": 1,
+            "verifier_id": self._verifier_id,
+            "verifier_key_id": self._verifier_key_id,
+            "audience": self._audience,
+            "report_sha256": hashlib.sha256(report_bytes).hexdigest(),
+            "envelope_manifest_sha256": hashlib.sha256(envelope_manifest_bytes).hexdigest(),
+            "verification_id": verification_id,
+            "issued_at": now.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "expires_at": expires.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "signature_algorithm": "Ed25519",
+        }
+        message = json.dumps(
+            unsigned, sort_keys=True, separators=(",", ":"),
+            ensure_ascii=False, allow_nan=False,
+        ).encode("utf-8")
+        try:
+            attestation_signature = self._signer.sign(self._verifier_key_id, message)
+        except Exception as exc:
+            raise AcceptanceReportV3Error("Protected verifier-attestation signing failed closed.") from exc
+        if not isinstance(attestation_signature, bytes) or len(attestation_signature) != 64:
+            raise AcceptanceReportV3Error("Verifier attestation signer must return exactly 64 Ed25519 signature bytes.")
+        attested = dict(unsigned)
+        attested["signature_b64"] = base64.b64encode(attestation_signature).decode("ascii")
+        attestation_bytes = json.dumps(
+            attested, sort_keys=True, separators=(",", ":"),
+            ensure_ascii=False, allow_nan=False,
+        ).encode("utf-8")
+        return VerificationAttestation(
+            verification_result=result,
+            attestation_bytes=attestation_bytes,
+            verification_id=verification_id,
+        )

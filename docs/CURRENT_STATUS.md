@@ -214,3 +214,26 @@ This section supersedes the earlier PR #53 baseline above.
 - Schema v3 should bind `observer_envelope_manifest_sha256`; schema v1/v2 remain unchanged. The design specifies immutable attempt snapshots, fencing/ledger revision, fail-closed behavior, independent post-sign verification, and adversarial tests.
 - PR #82 is documentation only. No signer, private key, key generation, production signing service, replay DB, filesystem collector, network, VM, provider, probe execution, or untrusted code was added or used.
 - Preserve `execution_authorized: false` and `eligible_for_untrusted_execution: false`.
+
+
+## Latest verified main baseline — PR #84 merged (2026-11-24)
+
+- Current `main` HEAD at the start of PR #88: `dcb9d1c01a50974d9ef38bdf5f0e4aaf744b409e` (PR #84 merge).
+- PR #83 refreshed project memory after PR #82; PR #84 added immutable replay acceptance receipts and exact readback validation.
+- PR #84 final head `1588aa5ddcc0c6b68ccf96ac5cd251e87f975085` passed Task Orchestrator Tests `45391947042` (358 tests), Non-production PR Validation `45391947037`, and Project Memory Audit `45391947062`.
+- The replay verifier now requires a committed immutable receipt and exact equality of observer/attempt/runtime/policy/probe, registry/key, nonce/envelope digest, sequence, challenge expiry, acceptance timestamp, ledger revision, and fencing epoch before returning authenticated observer evidence. The store remains a protocol plus in-memory test fake; no durable store or production fencing exists.
+
+## Active candidate implementation — PR #88 (not merged; 2026-11-24)
+
+- PR: [#88 — non-circular verified report signing and schema-v3 pipeline](https://github.com/majidbusy09-blip/jetconfig-vpn/pull/88).
+- Base `main` SHA: `dcb9d1c01a50974d9ef38bdf5f0e4aaf744b409e`.
+- Implementation checkpoint: `566fbb58c4e039ef88abee64a987995b029ba534`; branch `feat/host-csprng-challenge-issuer-20261124`. This checkpoint identifies the code tested by the listed CI runs; later documentation-only commits require fresh exact-head CI.
+- Added deterministic schema-v3 report construction from exact probe evidence, raw observer envelopes, pinned observer registry, and matching committed replay receipts. Observer signatures and bindings are independently rechecked; the exact raw-envelope manifest digest is bound into the report.
+- Added independent schema-v3 pre-sign content verification and post-sign signature verification. The verifier reconstructs the exact report and manifest from raw inputs; it does not trust caller-created authenticated-result objects.
+- Added a verifier-signed, short-lived signing authorization attestation (maximum 120 seconds) binding verifier identity/key, signer audience, report SHA-256, envelope-manifest SHA-256, unique CSPRNG verification ID, issue/expiry times, and Ed25519 algorithm. Verifier-attestation and report-signing keys must be distinct.
+- Added a fail-closed Trusted Report Signer gate that checks strict canonical schema-v3 content and the verifier attestation, atomically consumes the one-time authorization ID through an injected store, then calls an injected signing backend. No private key or production KMS/HSM implementation is included.
+- Added an integrated non-executing acceptance pipeline and expanded Host challenge generation to OS CSPRNG with identity/audience/attempt/runtime/policy/probe binding; observer key rotation overlap and revocation behavior are covered by tests.
+- Exact checkpoint CI: Task Orchestrator Tests run `45428730520` succeeded (401 tests); Non-production PR Validation run `45428731306` succeeded (tooling-only scope; Flutter/APK build skipped); Project Memory Audit run `45428731849` succeeded. The audit ran app regression tests, semantic AST/resolved-index/critical-path tests, deterministic index generation, a real-source task-intelligence smoke test, and lexical index freshness checks.
+- Project Memory Audit uploaded semantic/resolved/critical-path and lexical index artifacts with 30-day retention. The detailed semantic artifacts are generated in CI and are not committed source files.
+- PR #88 remains Draft/open/unmerged. No production mTLS transport, KMS/HSM keys, isolated signer deployment, durable Replay Store, production trust control plane, live probes, VM/provider, source transfer, or untrusted execution was performed. Independent external security review remains outstanding.
+- Preserve `execution_authorized: false`, `eligible_for_untrusted_execution: false`, and `patch_applied: false`. No app, bot, payment, VPN runtime, version, release, or deployment change is included.

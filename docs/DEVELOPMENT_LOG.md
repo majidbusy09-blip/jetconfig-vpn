@@ -327,3 +327,15 @@ Append-only record of meaningful project work. Each entry should include branch/
 - **Security limitation:** this interface is not an OS sandbox and cannot constrain arbitrary behavior inside a provider implementation. Any real connector must be separately reviewed and run with explicit permission restrictions.
 - **CI baseline:** validator head `4dd6f8110bd9462fde73c7c9ab256a72c971c55e` passed Project Memory Audit [#45107836885](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45107836885) and Non-production PR Validation [#45107836882](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45107836882). Adapter commits are newer and require fresh CI.
 - **Application boundary:** no Dart/Java/Kotlin app source, app version, signing, production workflow, bot, payment, backend, or server behavior changed.
+
+
+## 2026-11-24 — PR #20 and patch-review pipeline verified; authoritative memory refresh
+
+- **Verified base:** `main` `f682c56331bfb7c07bc4c5be26fddc33a3043969`; application source blob remains `3d28693b7be8bfe309a850923599830e1a65ab59`; app version remains `2.4.5+284`.
+- **PR #20:** verified merged at `15fea59e4f83704e0a9955363e0f0b237aac09ac`. The local orchestrator, agent contract, context/impact tooling, and fixture-only read-only adapter are now part of main.
+- **PRs #38–#44:** independently re-fetched and confirmed merged. They add content-addressed patch storage, fail-closed live review authorization, read-only live review, provider-result ingestion, and integration coverage through the human-review boundary.
+- **PR #44:** merge commit `f682c56331bfb7c07bc4c5be26fddc33a3043969`; head `af5fc704f61fd8a656966b35ddbe9450630d8c1f`. Task Orchestrator Tests #45307323849, Non-production PR Validation #45307323773, and Project Memory Audit #45307323780 all completed successfully.
+- **Memory defect found:** `AGENTS.md`, `docs/PROJECT_CONTEXT.md`, `docs/CURRENT_STATUS.md`, `docs/NEXT_STEPS.md`, `docs/PROJECT_MEMORY_AUTOMATION.md`, and architecture decisions still described the pre-PR-20 snapshot and/or PR #20 as unmerged. This refresh corrects the authoritative current state while preserving archive/history.
+- **Sandbox decision corrected:** E2B prior-written-consent and EU payment-method requirements, and Daytona's Tier 3 $500 top-up requirement for strict sandbox-level egress, mean neither candidate is eligible under current constraints. No account, key, sandbox, source upload, or spend was created.
+- **Refresh branch:** `docs/refresh-collaborator-memory-20261124`. Documentation-only; no Dart/Java/Kotlin app source, version, signing, release workflow, bot, payment, backend, or server behavior changed.
+- **Verification scope:** GitHub branch/ref, file/blob, PR, workflow-run, and ruleset APIs were checked. This documentation refresh itself requires its own Project Memory Audit on the PR head; no Flutter build, application test, or device test is claimed for this docs-only change.

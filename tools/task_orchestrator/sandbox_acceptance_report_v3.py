@@ -49,7 +49,7 @@ from tools.task_orchestrator.sandbox_observer_auth import (
 
 _SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 _ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$")
-_UTC_MICRO_RE = re.compile(r"^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{6}Z$")
+_UTC_MICRO_RE = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z$")
 _ENVELOPE_FIELDS = frozenset({
     "schema_version", "audience", "observer_id", "observer_domain", "key_id",
     "attempt_id", "runtime_id", "policy_digest", "probe_id", "nonce_b64",

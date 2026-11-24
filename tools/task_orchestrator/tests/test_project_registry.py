@@ -137,6 +137,10 @@ class ProjectRegistryTests(unittest.TestCase):
         bad_schema["$id"] = "https://example.com/schema"
         with self.assertRaises(ProjectRegistryError):
             validate_manifest_schema(JET_VPN, bad_schema)
+        bad_schema = copy.deepcopy(SCHEMA)
+        bad_schema["properties"]["repository"]["properties"]["url"]["format"] = []
+        with self.assertRaises(ProjectRegistryError):
+            validate_manifest_schema(JET_VPN, bad_schema)
 
     def test_validates_optional_registration_date_time_format(self):
         manifest = copy.deepcopy(JET_VPN)

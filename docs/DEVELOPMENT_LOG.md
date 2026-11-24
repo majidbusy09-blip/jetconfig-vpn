@@ -568,3 +568,11 @@ Append-only record of meaningful project work. Each entry should include branch/
 - Updated Project Memory Audit to test the gate and run it for pull requests; checkout now fetches full history for deterministic base/head comparison.
 - The gate verifies that required memory files are changed in the PR; it does not verify factual accuracy. Manual source review remains required.
 - Candidate branch: `feat/enforce-project-memory-pr-gate-20261124`, based on main `dcb9d1c01a50974d9ef38bdf5f0e4aaf744b409e`. CI validation pending at this log entry.
+
+
+## 2026-11-24 — Include decisions and known issues in every coding-agent task context
+
+- Expanded `REQUIRED_CONTEXT` in `tools/task_orchestrator/task_orchestrator.py` to include `docs/DECISIONS.md` and `docs/KNOWN_ISSUES.md`.
+- Updated temporary-Git integration fixtures and context-builder assertions to verify these documents are included in the pinned full-text package.
+- This improves the agent's access to architectural rationale and evidence-backed blockers before source changes. The 512 KiB total context limit remains unchanged; overflow still fails closed.
+- Exact-head test results are pending in PR #89.

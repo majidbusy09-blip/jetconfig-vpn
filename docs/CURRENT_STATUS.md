@@ -200,3 +200,17 @@ This section supersedes the earlier PR #53 baseline above.
 - Design specifies host-derived paths, descriptor-relative no-follow access, same-descriptor hashing, bounded counts/sizes, quarantine on uncertainty, crash-safe cleanup, retention, and independent offline re-verification.
 - No filesystem collector, storage backend, database, credentials, report signer, network, VM, provider, or untrusted execution was implemented or used.
 - Preserve `execution_authorized: false` and `eligible_for_untrusted_execution: false`.
+
+
+## Latest authoritative snapshot — PR #82 merged (2026-11-24)
+
+- Current main HEAD: `d7ef7ed4266ea2606acd76f6e36fb4822af7d179` (PR #82 squash merge).
+- PR #82 final head `d91ea3da44fc133e94621df4cae3dfd7dee174bf` passed:
+  - Task Orchestrator Tests run `45390283412`
+  - Non-production PR Validation run `45390283324`
+  - Project Memory Audit run `45390283473`
+- Added `docs/SANDBOX_TRUSTED_REPORT_SIGNER.md`, defining the future trusted host-side acceptance report signing boundary and schema-v3 requirements.
+- Critical security clarification: `AuthenticatedObserverResult` is a constructible Python dataclass, not a trust root. The signer must independently revalidate exact raw envelope bytes and Ed25519 signatures and match every record to a trusted replay acceptance receipt from the committed ledger transaction.
+- Schema v3 should bind `observer_envelope_manifest_sha256`; schema v1/v2 remain unchanged. The design specifies immutable attempt snapshots, fencing/ledger revision, fail-closed behavior, independent post-sign verification, and adversarial tests.
+- PR #82 is documentation only. No signer, private key, key generation, production signing service, replay DB, filesystem collector, network, VM, provider, probe execution, or untrusted code was added or used.
+- Preserve `execution_authorized: false` and `eligible_for_untrusted_execution: false`.

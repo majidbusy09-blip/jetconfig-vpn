@@ -244,3 +244,14 @@ PR #49 merged `sandbox_acceptance.py`, a strict verifier for independently signe
 - A caller-created `AuthenticatedObserverResult` is not a trust root. A future signer must match every result and exact raw envelope to the committed replay ledger receipt, including ledger revision/fencing epoch.
 - Schema v1/v2 remain unchanged. Schema v3 is only a design target; no report builder, signer, verifier, key, signing service, replay database, or filesystem collector was added.
 - No probe execution, VM/provider, network, credentials, production signing, release, deployment, or spend occurred. Keep `execution_authorized: false` and `eligible_for_untrusted_execution: false`.
+
+
+## Active candidate branch snapshot — PR #88 (verified 2026-11-24)
+
+- Current main base: `dcb9d1c01a50974d9ef38bdf5f0e4aaf744b409e` (PR #84 merge); do not confuse the active candidate branch with main.
+- Active branch: `feat/host-csprng-challenge-issuer-20261124`; PR #88 is Draft/open/unmerged.
+- Implementation checkpoint SHA: `566fbb58c4e039ef88abee64a987995b029ba534`. Verify the current PR head again before relying on this snapshot because documentation commits may advance it.
+- PR #88 adds the schema-v3 deterministic report builder, independent pre-sign verifier, short-lived verifier authorization attestation, fail-closed report signer gate, post-sign verification path, integrated non-executing pipeline, and stronger CSPRNG challenge/key lifecycle contracts.
+- Exact checkpoint checks passed: Task Orchestrator Tests run `45428730520` (401 tests), Non-production PR Validation `45428731306`, and Project Memory Audit `45428731849`. The latter generated semantic/resolved/critical-path indexes as temporary 30-day artifacts and verified task-intelligence against real indexed source.
+- The green audit did not itself enforce freshness of all project-level memory documents. This PR updates the baseline; a future required check should make such updates enforceable.
+- No production transport, KMS/HSM key, durable Replay Store, isolated signer deployment, external security approval, live probe, VM/provider, source transfer, or untrusted execution exists. All execution flags remain false.

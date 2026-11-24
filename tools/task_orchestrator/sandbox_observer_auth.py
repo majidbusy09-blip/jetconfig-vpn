@@ -11,6 +11,7 @@ import binascii
 import hashlib
 import json
 import re
+import secrets
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from types import MappingProxyType
@@ -226,7 +227,8 @@ class PinnedObserverRegistry:
         if not isinstance(entries, list) or not entries or len(entries) > MAX_IDENTITIES:
             raise ObserverAuthenticationError("Observer registry identity inventory is empty or oversized.")
 
-        indexed: dict[str, ObserverIdentity] = {}
+        indexed: dict[tuple[str, str], ObserverIdentity] = {}
+        observer_domains: dict[str, str] = {}
         for entry in entries:
             if not isinstance(entry, dict) or frozenset(entry) != _IDENTITY_FIELDS:
                 raise ObserverAuthenticationError("Observer registry contains a malformed identity.")
@@ -235,17 +237,20 @@ class PinnedObserverRegistry:
             domain = entry["observer_domain"]
             _validate_id(observer_id, "Observer identity")
             _validate_id(key_id, "Observer key ID")
-            if observer_id in indexed:
-                raise ObserverAuthenticationError("Observer registry contains duplicate identities.")
+            if (observer_id, key_id) in indexed:
+                raise ObserverAuthenticationError("Observer registry contains a duplicate observer/key pair.")
             if not isinstance(domain, str) or domain not in _DOMAINS:
                 raise ObserverAuthenticationError("Observer registry contains an unknown trust domain.")
+            if observer_id in observer_domains and observer_domains[observer_id] != domain:
+                raise ObserverAuthenticationError("One observer identity cannot change trust domains across keys.")
+            observer_domains[observer_id] = domain
             if not isinstance(entry["status"], str) or entry["status"] not in {"active", "retired", "revoked"}:
                 raise ObserverAuthenticationError("Observer registry status is invalid.")
             not_before = _parse_utc(entry["not_before"], "observer not_before")
             not_after = _parse_utc(entry["not_after"], "observer not_after")
             if not_after <= not_before:
                 raise ObserverAuthenticationError("Observer identity validity interval is empty or reversed.")
-            indexed[observer_id] = ObserverIdentity(
+            indexed[(observer_id, key_id)] = ObserverIdentity(
                 observer_id=observer_id,
                 observer_domain=domain,
                 key_id=key_id,
@@ -260,11 +265,11 @@ class PinnedObserverRegistry:
         self._identities: Mapping[str, ObserverIdentity] = MappingProxyType(indexed)
 
     def resolve(self, observer_id: str, observer_domain: str, key_id: str, *, now: datetime | None = None) -> ObserverIdentity:
-        identity = self._identities.get(observer_id)
+        identity = self._identities.get((observer_id, key_id))
         if identity is None:
             raise ObserverAuthenticationError("Observer identity is not in the pinned registry.")
-        if identity.observer_domain != observer_domain or identity.key_id != key_id:
-            raise ObserverAuthenticationError("Observer domain or signing key does not match the pinned identity.")
+        if identity.observer_domain != observer_domain:
+            raise ObserverAuthenticationError("Observer domain does not match the pinned identity.")
         if identity.status != "active":
             raise ObserverAuthenticationError("Observer identity is retired or revoked.")
         trusted_now = self._now if now is None else now.astimezone(timezone.utc)
@@ -316,6 +321,70 @@ class ObserverChallenge:
         if (trusted_now - issued).total_seconds() > MAX_CHALLENGE_SECONDS:
             raise ObserverAuthenticationError("Challenge is stale.")
 
+
+
+def issue_observer_challenge(
+    *,
+    registry: PinnedObserverRegistry,
+    observer_id: str,
+    observer_domain: str,
+    key_id: str,
+    attempt_id: str,
+    runtime_id: str,
+    policy_digest: str,
+    probe_id: str,
+    now: datetime,
+    lifetime_seconds: int = MAX_CHALLENGE_SECONDS,
+) -> ObserverChallenge:
+    """Issue a host-local challenge using the operating system CSPRNG.
+
+    This factory creates a bounded challenge value only. It does not provide
+    authenticated transport, durable challenge registration, or a production
+    observer control plane. Those remain separate security boundaries.
+    """
+    if not isinstance(registry, PinnedObserverRegistry):
+        raise ObserverAuthenticationError("A pinned observer registry is required to issue a challenge.")
+    if not isinstance(now, datetime) or now.tzinfo is None or now.utcoffset() != timedelta(0):
+        raise ObserverAuthenticationError("Challenge issuance requires trusted UTC time.")
+    if (
+        isinstance(lifetime_seconds, bool)
+        or not isinstance(lifetime_seconds, int)
+        or not 1 <= lifetime_seconds <= MAX_CHALLENGE_SECONDS
+    ):
+        raise ObserverAuthenticationError("Challenge lifetime must be between 1 and 120 seconds.")
+
+    issued_at = now.astimezone(timezone.utc).replace(microsecond=0)
+    expires_at = issued_at + timedelta(seconds=lifetime_seconds)
+    try:
+        identity = registry.resolve(
+            observer_id, observer_domain, key_id, now=issued_at
+        )
+    except Exception as exc:
+        raise ObserverAuthenticationError("Challenge target is not an active pinned observer identity.") from exc
+    if expires_at > identity.not_after:
+        raise ObserverAuthenticationError("Challenge would outlive the pinned observer key validity window.")
+
+    try:
+        nonce = secrets.token_bytes(32)
+    except Exception as exc:
+        raise ObserverAuthenticationError("Operating-system challenge randomness is unavailable.") from exc
+    if not isinstance(nonce, bytes) or len(nonce) != 32:
+        raise ObserverAuthenticationError("Operating-system CSPRNG did not return exactly 32 bytes.")
+
+    challenge = ObserverChallenge(
+        nonce=nonce,
+        audience=registry.audience,
+        observer_id=observer_id,
+        observer_domain=observer_domain,
+        attempt_id=attempt_id,
+        runtime_id=runtime_id,
+        policy_digest=policy_digest,
+        probe_id=probe_id,
+        issued_at=issued_at,
+        expires_at=expires_at,
+    )
+    challenge.validate(issued_at)
+    return challenge
 
 
 @dataclass(frozen=True)

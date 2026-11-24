@@ -350,3 +350,10 @@ Keep `execution_authorized: false` and `eligible_for_untrusted_execution: false`
 - Schema v1 remains unchanged and must not be treated as observer-authenticated. No private keys, report signer, VM, provider, network, or untrusted execution is added.
 - Focused tests: `python -m unittest discover -s tools/task_orchestrator/tests -p 'test_sandbox_acceptance_provenance.py' -v`.
 - See [the schema-v2 provenance contract](../../docs/SANDBOX_ACCEPTANCE_PROVENANCE_V2.md).
+
+
+## Protected observer envelope retention design
+
+- `docs/SANDBOX_OBSERVER_ENVELOPE_RETENTION.md` specifies a two-phase model: pre-acceptance content-addressed raw-envelope staging and post-acceptance artifact packaging bound to the verified report digest.
+- The next report schema should bind the pre-acceptance envelope-manifest digest; schema v2 remains unchanged and currently binds only the exact envelope digests/provenance records.
+- No storage service or filesystem collector is implemented. Current artifact and replay collectors remain pure contracts/test fakes.

@@ -310,3 +310,11 @@ Keep `execution_authorized: false` and `eligible_for_untrusted_execution: false`
 - The observer identity sets must eventually come from a protected out-of-band trust source; this module does not cryptographically authenticate them.
 - Both `execution_authorized` and `eligible_for_untrusted_execution` remain false.
 - See [the host evidence collector contract](../../docs/SANDBOX_HOST_EVIDENCE_COLLECTOR.md).
+
+## Host-controller lifecycle state machine contract
+
+- `sandbox_host_lifecycle.py` validates a fixed, typed lifecycle event stream: runtime readiness, observation, evidence outcome, termination, runtime termination, and cleanup.
+- It pins attempt/runtime/policy identity and monotonic start/deadline; rejects out-of-order events, stale identity, invalid deadline transitions, arbitrary event names, and unbounded failure text.
+- Both successful and rejected evidence paths require explicit termination and cleanup confirmation. Cleanup failure is terminal.
+- It is a pure state-transition validator, not a process supervisor or VM controller. It invokes no adapter and has no subprocess, shell, filesystem, socket, network, provider, or guest capability.
+- All execution authorization flags remain false. See [the lifecycle contract](../../docs/SANDBOX_HOST_LIFECYCLE.md).

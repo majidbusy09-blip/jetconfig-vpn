@@ -23,6 +23,8 @@ OWNER_DOMAINS = {
 }
 NOW = datetime(2026, 11, 24, 11, 0, 0, tzinfo=timezone.utc)
 ATTEMPT = "attempt-fixture-001"
+RUNTIME = "vm-fixture-001"
+POLICY = "sha256:" + "a" * 64
 TRUSTED = {
     "host_controller": frozenset({"host-ci-fixture-1"}),
     "guest": frozenset({"guest-fixture-1"}),
@@ -45,6 +47,10 @@ def make_observations(*, outcome="pass", observed_at="2026-11-24T10:59:30Z"):
                     observer_domain=domain,
                     observer_id=observer_id,
                     attempt_id=ATTEMPT,
+                    runtime_id=RUNTIME,
+                    policy_digest=POLICY,
+                    monotonic_start_ns=1_000_000,
+                    monotonic_end_ns=2_000_000,
                     observed_at=observed_at,
                     outcome=outcome,
                     payload=("fixture:" + probe["probe_id"] + ":" + domain).encode("ascii"),
@@ -55,7 +61,7 @@ def make_observations(*, outcome="pass", observed_at="2026-11-24T10:59:30Z"):
 
 class HostEvidenceCollectorTests(unittest.TestCase):
     def setUp(self):
-        self.collector = HostEvidenceCollector(trusted_observers=TRUSTED, now=NOW)
+        self.collector = HostEvidenceCollector(trusted_observers=TRUSTED, runtime_id=RUNTIME, policy_digest=POLICY, now=NOW)
 
     def test_complete_independently_observed_bundle_is_bounded_and_never_authorizes(self):
         result = self.collector.collect(attempt_id=ATTEMPT, observations=make_observations())
@@ -97,6 +103,10 @@ class HostEvidenceCollectorTests(unittest.TestCase):
             observer_domain="guest",
             observer_id="guest-fixture-1",
             attempt_id=ATTEMPT,
+            runtime_id=RUNTIME,
+            policy_digest=POLICY,
+            monotonic_start_ns=1_000_000,
+            monotonic_end_ns=2_000_000,
             observed_at="2026-11-24T10:59:30Z",
             outcome="pass",
             payload=b"guest claims host boundary is safe",
@@ -121,6 +131,20 @@ class HostEvidenceCollectorTests(unittest.TestCase):
         records = make_observations()
         records[0] = ProbeObservation(**{**records[0].__dict__, "probe_id": "arbitrary-command"})
         with self.assertRaises(HostEvidenceError):
+            self.collector.collect(attempt_id=ATTEMPT, observations=records)
+
+    def test_runtime_and_policy_binding_and_monotonic_offsets_are_enforced(self):
+        records = make_observations()
+        records[0] = ProbeObservation(**{**records[0].__dict__, "runtime_id": "other-runtime"})
+        with self.assertRaisesRegex(HostEvidenceError, "different runtime"):
+            self.collector.collect(attempt_id=ATTEMPT, observations=records)
+        records = make_observations()
+        records[0] = ProbeObservation(**{**records[0].__dict__, "policy_digest": "sha256:" + "b" * 64})
+        with self.assertRaisesRegex(HostEvidenceError, "policy digest"):
+            self.collector.collect(attempt_id=ATTEMPT, observations=records)
+        records = make_observations()
+        records[0] = ProbeObservation(**{**records[0].__dict__, "monotonic_end_ns": 0})
+        with self.assertRaisesRegex(HostEvidenceError, "precedes its start"):
             self.collector.collect(attempt_id=ATTEMPT, observations=records)
 
     def test_duplicate_observer_domain_is_rejected(self):
@@ -150,9 +174,9 @@ class HostEvidenceCollectorTests(unittest.TestCase):
 
     def test_unconfigured_or_empty_trust_domains_are_rejected(self):
         with self.assertRaises(HostEvidenceError):
-            HostEvidenceCollector(trusted_observers={"host_controller": frozenset()}, now=NOW)
+            HostEvidenceCollector(trusted_observers={"host_controller": frozenset()}, runtime_id=RUNTIME, policy_digest=POLICY, now=NOW)
         with self.assertRaises(HostEvidenceError):
-            HostEvidenceCollector(trusted_observers={"host_controller": frozenset({"host"})}, now=NOW)
+            HostEvidenceCollector(trusted_observers={"host_controller": frozenset({"host"})}, runtime_id=RUNTIME, policy_digest=POLICY, now=NOW)
 
     def test_non_pass_or_malformed_contract_fields_are_rejected(self):
         records = make_observations()

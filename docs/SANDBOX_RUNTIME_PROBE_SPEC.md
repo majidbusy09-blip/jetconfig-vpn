@@ -18,8 +18,8 @@ Make the existing signed-report inventory operationally precise before implement
 
 | Probe | Required observer | Key acceptance property |
 |---|---|---|
-| runtime_vm_boundary | Host controller | Guest VM boundary is independently distinct from host |
-| dedicated_kernel | Host controller | Dedicated guest kernel, not shared host kernel |
+| runtime_vm_boundary | Host controller + independent platform attestation | Hardware-backed or hypervisor-signed attestation binds the instance and isolation boundary to a separately pinned platform trust root; provider API claims alone do not count |
+| dedicated_kernel | Host controller + attested boot measurement | Attested guest kernel measurement and host identity prove a dedicated guest kernel; guest `uname` or provider metadata alone do not count |
 | guest_non_root_no_capabilities | Guest + host | Non-root identity and no effective/permitted/inheritable/ambient/bounding capabilities |
 | seccomp_enforced | Guest + host | Active filter plus harmless negative syscall test |
 | cgroup_cpu_memory_pid_enforced | Host controller | Finite CPU, memory, PID caps; guest cannot raise them |

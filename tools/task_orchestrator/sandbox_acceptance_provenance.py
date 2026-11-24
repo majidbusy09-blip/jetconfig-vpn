@@ -12,7 +12,7 @@ import hashlib
 import json
 import re
 from dataclasses import dataclass
-from datetime import timedelta
+from datetime import timedelta, timezone
 from typing import Any, Mapping
 
 from tools.task_orchestrator.sandbox_acceptance import (
@@ -20,11 +20,11 @@ from tools.task_orchestrator.sandbox_acceptance import (
     MAX_PROBE_EVIDENCE_BYTES,
     MAX_REPORT_BYTES,
     MAX_SIGNATURE_BYTES,
+    MAX_TOTAL_EVIDENCE_BYTES,
     REQUIRED_PROBES,
     SUITE_ID,
     SUITE_VERSION,
     SignatureVerifier,
-    SandboxEvidenceError,
     _parse_utc,
     _validate_digest,
     _validate_text,
@@ -186,7 +186,7 @@ def verify_signed_acceptance_report_v2(
 
     started = _parse_utc(report["started_at"], "started_at")
     completed = _parse_utc(report["completed_at"], "completed_at")
-    now = base.now.astimezone(__import__("datetime").timezone.utc)
+    now = base.now.astimezone(timezone.utc)
     if completed < started:
         raise AcceptanceProvenanceError("Acceptance report completion precedes its start.")
     if (completed - started).total_seconds() > base.max_suite_duration_seconds:
@@ -212,9 +212,12 @@ def verify_signed_acceptance_report_v2(
     provenance_digest = report["observer_provenance_sha256"]
     if not isinstance(provenance_digest, str) or not _SHA256_RE.fullmatch(provenance_digest):
         raise AcceptanceProvenanceError("Observer provenance digest is invalid.")
-    canonical_provenance = json.dumps(
-        provenance, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False
-    ).encode("utf-8")
+    try:
+        canonical_provenance = json.dumps(
+            provenance, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False
+        ).encode("utf-8")
+    except (TypeError, ValueError, UnicodeEncodeError) as exc:
+        raise AcceptanceProvenanceError("Observer provenance cannot be canonically encoded.") from exc
     if hashlib.sha256(canonical_provenance).hexdigest() != provenance_digest:
         raise AcceptanceProvenanceError("Observer provenance digest does not match the signed inventory.")
 
@@ -342,8 +345,15 @@ def verify_signed_acceptance_report_v2(
             if end_ns < start_ns:
                 raise AcceptanceProvenanceError(f"Observation monotonic interval is reversed: {probe_id}.")
             observed_at = _parse_utc(observation["observed_at"], "observation observed_at")
-            if observed_at > base.now.astimezone(__import__("datetime").timezone.utc) + timedelta(seconds=base.allowed_clock_skew_seconds):
+            if observed_at > now + timedelta(seconds=base.allowed_clock_skew_seconds):
                 raise AcceptanceProvenanceError(f"Observation timestamp is in the future: {probe_id}.")
+            if (now - observed_at).total_seconds() > base.max_age_seconds:
+                raise AcceptanceProvenanceError(f"Observation timestamp is stale: {probe_id}.")
+            if (
+                observed_at < started - timedelta(seconds=base.allowed_clock_skew_seconds)
+                or observed_at > completed + timedelta(seconds=base.allowed_clock_skew_seconds)
+            ):
+                raise AcceptanceProvenanceError(f"Observation timestamp falls outside the signed suite window: {probe_id}.")
             payload = _decode_payload(observation["payload_b64"], probe_id)
             payload_digest = observation["payload_sha256"]
             if not isinstance(payload_digest, str) or not _SHA256_RE.fullmatch(payload_digest):

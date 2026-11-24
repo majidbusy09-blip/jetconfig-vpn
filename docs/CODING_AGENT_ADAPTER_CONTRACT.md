@@ -182,7 +182,7 @@ A fixture-only test passes the generated envelope through `readonly_adapter.py` 
 The contract distinguishes Git object IDs from content fingerprints: repository base/source revisions accept valid 40-character SHA-1 or 64-character SHA-256 Git object IDs. File-content fingerprints and context-package digests remain strict 64-character SHA-256 hashes.
 
 
-Additional provenance gate: immediately before envelope creation, the CLI rebuilds the context package directly from the pinned Git tree/blob objects and requires exact equality with the persisted package. The pure builder also requires the canonical six project-memory documents and an exact match with the task's explicit `context_paths` list. This prevents a self-consistently re-hashed but substituted or extra source document from entering the agent envelope.
+Additional provenance gate: immediately before envelope creation, the CLI rebuilds the context package directly from the pinned Git tree/blob objects and requires exact equality with the persisted package. The pure builder also requires the canonical eight project-memory documents for v1.2 (while the validator retains legacy v1.1 compatibility) and an exact match with the task's explicit `context_paths` list. This prevents a self-consistently re-hashed but substituted or extra source document from entering the agent envelope.
 
 
 ## 10. Current implementation status — 2026-11-24

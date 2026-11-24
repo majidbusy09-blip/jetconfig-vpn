@@ -234,3 +234,13 @@ PR #49 merged `sandbox_acceptance.py`, a strict verifier for independently signe
 - Schema v2 remains unchanged: it binds envelope digests and payload provenance but does not include a pre-acceptance staging-manifest digest or raw envelope bytes.
 - Design covers descriptor-relative no-follow storage, same-descriptor hashing, path derivation by trusted host, file/count/aggregate bounds, quarantine, retention, crash-safe cleanup, and independent offline re-verification.
 - No filesystem collector, storage service, database, credential, network endpoint, report signer, private key, VM, provider, or untrusted execution was created. Keep `execution_authorized: false` and `eligible_for_untrusted_execution: false`.
+
+
+## Authoritative snapshot — PR #82 merged (2026-11-24)
+
+- Current `main` includes PR #82 squash merge `d7ef7ed4266ea2606acd76f6e36fb4822af7d179`; final PR head: `d91ea3da44fc133e94621df4cae3dfd7dee174bf`.
+- Final-head CI passed: Task Orchestrator Tests `45390283412`, Non-production PR Validation `45390283324`, and Project Memory Audit `45390283473`.
+- Added `docs/SANDBOX_TRUSTED_REPORT_SIGNER.md` and decision D-022. The design requires exact raw-envelope revalidation, Ed25519 signature verification, trusted read-only replay acceptance receipts, complete evidence/provenance checks, and a signed raw-envelope staging-manifest digest in schema v3.
+- A caller-created `AuthenticatedObserverResult` is not a trust root. A future signer must match every result and exact raw envelope to the committed replay ledger receipt, including ledger revision/fencing epoch.
+- Schema v1/v2 remain unchanged. Schema v3 is only a design target; no report builder, signer, verifier, key, signing service, replay database, or filesystem collector was added.
+- No probe execution, VM/provider, network, credentials, production signing, release, deployment, or spend occurred. Keep `execution_authorized: false` and `eligible_for_untrusted_execution: false`.

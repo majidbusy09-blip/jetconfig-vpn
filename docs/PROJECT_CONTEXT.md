@@ -178,3 +178,16 @@ The current execution policy is unchanged: `execution_authorized: false`; `eligi
 - Exact final-head CI passed: Task Orchestrator Tests `45386943800`, Non-production PR Validation `45386943924`, Project Memory Audit `45386943682`.
 - Next focus: trusted report-signer contract, host challenge/transport, protected identity lifecycle, and separately reviewed filesystem staging.
 - Keep `execution_authorized: false` and `eligible_for_untrusted_execution: false`.
+
+
+## Trusted acceptance report signer update — PR #82 (2026-11-24)
+
+- Current main includes PR #82 squash merge `d7ef7ed4266ea2606acd76f6e36fb4822af7d179`; final PR head `d91ea3da44fc133e94621df4cae3dfd7dee174bf`.
+- Added `docs/SANDBOX_TRUSTED_REPORT_SIGNER.md` and decision D-022.
+- Future signer must not treat a caller-created `AuthenticatedObserverResult` as proof. It must independently verify exact raw observer envelope bytes and Ed25519 signatures, then match every result to a trusted read-only replay acceptance receipt with committed ledger revision/fencing epoch.
+- Schema v3 should bind the pre-acceptance envelope staging-manifest digest. Existing v1/v2 verifiers remain unchanged.
+- Signer output must be independently verified before acceptance. All test signing/replay components remain deterministic fakes.
+- No report builder/signer, schema-v3 verifier, private key, signing service, durable replay database, filesystem collector, network, VM, provider, probe execution or untrusted execution exists.
+- Exact final-head CI passed: Task Orchestrator Tests `45390283412`, Non-production PR Validation `45390283324`, Project Memory Audit `45390283473`.
+- Next focus: replay receipt read contract, pure schema-v3 builder, injected fake signer/verifier, then schema-v3 independent verifier.
+- Keep `execution_authorized: false` and `eligible_for_untrusted_execution: false`.

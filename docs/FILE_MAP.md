@@ -181,3 +181,10 @@ Never add paths to this map unless verified from the current tree or a separatel
 - `docs/SANDBOX_OBSERVER_ENVELOPE_RETENTION.md` — exact-byte pre-acceptance envelope staging, content-addressed path/manifest, next-schema binding, post-acceptance artifact packaging, no-follow storage, bounds, quarantine, retention, cleanup, and offline re-verification.
 - `docs/SANDBOX_ACCEPTANCE_PROVENANCE_V2.md` — links to the retention design and states schema v2 does not bind the staging-manifest digest.
 - PR #80 merged as `6666266f59877e9a066188d418938661075ae38e`; final-head checks `45386943800`, `45386943924`, and `45386943682` all succeeded.
+
+
+## Trusted acceptance report signer — PR #82
+
+- `docs/SANDBOX_TRUSTED_REPORT_SIGNER.md` — trusted host signer boundary, exact-envelope/Ed25519 revalidation, replay acceptance receipts, schema-v3 manifest binding, atomic snapshot/fencing, fail-closed behavior and adversarial test plan.
+- `docs/SANDBOX_ACCEPTANCE_PROVENANCE_V2.md` and `tools/task_orchestrator/sandbox_acceptance_provenance.py` remain the existing v2 verification path; schema v1/v2 are unchanged.
+- PR #82 merged as `d7ef7ed4266ea2606acd76f6e36fb4822af7d179`; final-head checks `45390283412`, `45390283324`, and `45390283473` all succeeded.

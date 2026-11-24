@@ -188,9 +188,9 @@ class PinnedObserverRegistry:
             _validate_id(key_id, "Observer key ID")
             if observer_id in indexed:
                 raise ObserverAuthenticationError("Observer registry contains duplicate identities.")
-            if domain not in _DOMAINS:
+            if not isinstance(domain, str) or domain not in _DOMAINS:
                 raise ObserverAuthenticationError("Observer registry contains an unknown trust domain.")
-            if entry["status"] not in {"active", "retired", "revoked"}:
+            if not isinstance(entry["status"], str) or entry["status"] not in {"active", "retired", "revoked"}:
                 raise ObserverAuthenticationError("Observer registry status is invalid.")
             not_before = _parse_utc(entry["not_before"], "observer not_before")
             not_after = _parse_utc(entry["not_after"], "observer not_after")
@@ -241,8 +241,10 @@ class ObserverChallenge:
             raise ObserverAuthenticationError("Host challenge nonce must contain exactly 32 random bytes.")
         for field in ("audience", "observer_id", "attempt_id", "runtime_id", "probe_id"):
             _validate_id(getattr(self, field), f"Challenge {field}")
-        if self.observer_domain not in _DOMAINS:
+        if not isinstance(self.observer_domain, str) or self.observer_domain not in _DOMAINS:
             raise ObserverAuthenticationError("Challenge observer domain is invalid.")
+        if self.probe_id not in REQUIRED_PROBES:
+            raise ObserverAuthenticationError("Challenge probe ID is not in the pinned acceptance inventory.")
         if not isinstance(self.policy_digest, str) or not re.fullmatch(r"sha256:[0-9a-f]{64}", self.policy_digest):
             raise ObserverAuthenticationError("Challenge policy digest is invalid.")
         if not isinstance(self.issued_at, datetime) or not isinstance(self.expires_at, datetime):
@@ -321,7 +323,7 @@ class ObserverEnvelopeVerifier:
         if nonce != challenge.nonce:
             raise ObserverAuthenticationError("Observer envelope nonce does not match the one-time host challenge.")
         sequence = envelope["sequence"]
-        if isinstance(sequence, bool) or not isinstance(sequence, int) or sequence < 1:
+        if isinstance(sequence, bool) or not isinstance(sequence, int) or sequence < 1 or sequence > (2**63 - 1):
             raise ObserverAuthenticationError("Observer sequence must be a positive integer.")
 
         observed_at = _parse_utc(envelope["observed_at"], "Observer observed_at")
@@ -338,13 +340,13 @@ class ObserverEnvelopeVerifier:
         start_ns = envelope["monotonic_start_ns"]
         end_ns = envelope["monotonic_end_ns"]
         for field, value in (("monotonic_start_ns", start_ns), ("monotonic_end_ns", end_ns)):
-            if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+            if isinstance(value, bool) or not isinstance(value, int) or value < 0 or value > (2**63 - 1):
                 raise ObserverAuthenticationError(f"{field} must be a non-negative integer.")
         if end_ns < start_ns:
             raise ObserverAuthenticationError("Observer monotonic end precedes its start.")
 
         outcome = envelope["outcome"]
-        if outcome not in {"pass", "fail"}:
+        if not isinstance(outcome, str) or outcome not in {"pass", "fail"}:
             raise ObserverAuthenticationError("Observer outcome must be pass or fail.")
         payload = _decode_canonical_b64(envelope["payload_b64"], "Observer payload")
         if not payload or len(payload) > MAX_PAYLOAD_BYTES:

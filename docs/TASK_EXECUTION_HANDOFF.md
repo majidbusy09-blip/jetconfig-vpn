@@ -50,23 +50,3 @@ The user activates one implementation chat at a time and supplies the task Issue
 The agent creates its remote implementation branch from the exact pinned base SHA. The ephemeral branch created by local acceptance in Actions is not the remote implementation branch. The agent reads the required memory documents and only files allowed by the Issue, commits through the GitHub integration, opens a Draft PR with jet-agent-pr:v1 metadata, and reports exact commit/check evidence. A second agent may review read-only but must not edit the same task. Chat sessions do not wake automatically or poll in the background.
 
 The connector may process GitHub content under the provider's integration and account policies; do not claim that data never leaves GitHub. The user-approved restriction is no separate paid model API, API key, or manual source upload to an external model endpoint. Arbitrary untrusted-code execution remains disabled; fixed CI checks and human review are separate controls.
-
-
-
-The normal claim/renew workflow automatically creates the local agent-input envelope and uploads it as `jet-agent-input-<issue>-<run>`. Download that artifact when handing the task to an agent. The separate `jet-agent-handoff-<issue>-<run>` artifact preserves the lease and Issue provenance.
-
-If automatic preparation fails, or an agent is running in a separate local clone, download the handoff ZIP. The acceptance command re-fetches the current Issue and lease and can create the task branch itself from the exact pinned base SHA:
-
-```bash
-GITHUB_REPOSITORY=owner/repository \
-GITHUB_TOKEN="$GITHUB_TOKEN" \
-python -m tools.task_orchestrator.github_task_handoff_accept \
-  --handoff-file /path/to/jet-agent-handoff.zip \
-  --create-branch
-```
-
-Use a read-only token with `contents:read` and `issues:read`. The command reads the ZIP in memory without extracting paths, verifies the Issue-body digest, task payload, current claim ID, lock commit, expiry, repository identity, local origin, clean worktree, and exact pinned base SHA. It then initializes the existing local Task Orchestrator, builds the eight required project-memory documents, and writes a contract v1.2 `agent_input.json` under the ignored local `.agent/tasks/<task-id>/` directory.
-
-The command does not push the branch, modify the remote lease, invoke a model, upload source, or apply a patch. Source files are not automatically added to context; use the existing advisory `suggest-context` and explicit `accept-context --path` commands when relevant.
-
-If the lease is renewed after the local task was prepared, download the newest handoff artifact and rerun with `--refresh-existing`; it updates only lease provenance in the local task record and leaves the agent envelope and working files untouched. Refresh is accepted only when the Issue body, owner, task definition, pinned base, and exact previous claim ID all match. If the lease was released, expired, or changed incompatibly, acceptance is rejected.

@@ -185,3 +185,18 @@ This section supersedes the earlier PR #53 baseline above.
 - Added `docs/SANDBOX_REPLAY_STORE_DESIGN.md` describing serializable transaction/CAS, unique constraints, atomic audit, fencing tokens, protected anti-rollback checkpoint, nonce tombstones, sequence retention, failover, backup restore, and recovery tests.
 - No database/service, credentials, network endpoint, durable storage, KMS/HSM, provider, VM, or untrusted execution was created.
 - Preserve `execution_authorized: false` and `eligible_for_untrusted_execution: false`.
+
+
+## Latest authoritative snapshot — PR #80 merged (2026-11-24)
+
+- Current `main` HEAD: `6666266f59877e9a066188d418938661075ae38e` (PR #80 squash merge).
+- PR #80 final head `f41cee3685c3315ae3373f5c21f9fbaab9fa03dc` passed:
+  - Task Orchestrator Tests run `45386943800`
+  - Non-production PR Validation run `45386943924`
+  - Project Memory Audit run `45386943682`
+- Added `docs/SANDBOX_OBSERVER_ENVELOPE_RETENTION.md`, specifying protected exact-byte retention for observer envelopes.
+- The design uses two phases: pre-acceptance content-addressed envelope staging with a deterministic manifest; then signed acceptance report binding of that manifest digest in the next schema version; finally post-acceptance artifact packaging bound to the verified report digest.
+- Schema v2 remains unchanged and does not bind the pre-acceptance staging-manifest digest or include raw envelope bytes. It currently binds only envelope digests/provenance metadata to raw probe payload evidence.
+- Design specifies host-derived paths, descriptor-relative no-follow access, same-descriptor hashing, bounded counts/sizes, quarantine on uncertainty, crash-safe cleanup, retention, and independent offline re-verification.
+- No filesystem collector, storage backend, database, credentials, report signer, network, VM, provider, or untrusted execution was implemented or used.
+- Preserve `execution_authorized: false` and `eligible_for_untrusted_execution: false`.

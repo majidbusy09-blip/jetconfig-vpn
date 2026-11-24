@@ -583,3 +583,14 @@ Append-only record of meaningful project work. Each entry should include branch/
 - Added the initial pure validator `tools/task_orchestrator/project_registry.py` and focused tests `tools/task_orchestrator/tests/test_project_registry.py` on the isolated task branch. The validator is designed for the checked-in schema subset, compares trusted GitHub metadata, rejects duplicate project/repository identities, enforces lifecycle and runner availability, and computes canonical SHA-256 manifest digests.
 - The task remains in progress. Exact-head tests, memory audit, scope guard, diff review, Draft PR, and lease release are still required.
 - No external repository, API key, paid service, provider account, app source, release, deployment, or untrusted execution was changed or enabled.
+
+
+## 2026-11-25 — Phase 2A registry validator first verification checkpoint
+
+- PR #99 is Draft and open. Source/test checkpoint `835708e582513d73a7ec94ff632ffbdf93b77844`.
+- Task Orchestrator Tests run `45486062484` passed all 414 tests, including project manifest schema validation, GitHub identity mismatch cases, duplicate identity rejection, lifecycle gating, fixed-runner availability, unsafe-path/URI checks, duplicate JSON-key parsing, and canonical digest tests.
+- Non-production PR Validation run `45486062444` passed.
+- Agent PR Lease and Scope Guard run `45486062154` passed with the active task lease.
+- The first attempt failed because the checked-in schema also declares the optional `metadata.registered_at` field with JSON Schema `date-time` format. The validator was corrected to support URI and RFC3339 date-time formats, and malformed schema format declarations are now rejected with the registry error type.
+- Project Memory Audit run `45486062165` was still in progress at this checkpoint. The final memory-only update in this PR requires fresh exact-head CI before the task is complete.
+- No source/app changes outside the two validator files, no dependency changes, no network or persistence, no external project, no API spend, and no untrusted execution.

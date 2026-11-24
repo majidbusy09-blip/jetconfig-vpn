@@ -210,7 +210,7 @@ class PinnedObserverRegistry:
         self._now = now.astimezone(timezone.utc)
         self._identities: Mapping[str, ObserverIdentity] = MappingProxyType(indexed)
 
-    def resolve(self, observer_id: str, observer_domain: str, key_id: str) -> ObserverIdentity:
+    def resolve(self, observer_id: str, observer_domain: str, key_id: str, *, now: datetime | None = None) -> ObserverIdentity:
         identity = self._identities.get(observer_id)
         if identity is None:
             raise ObserverAuthenticationError("Observer identity is not in the pinned registry.")
@@ -218,7 +218,8 @@ class PinnedObserverRegistry:
             raise ObserverAuthenticationError("Observer domain or signing key does not match the pinned identity.")
         if identity.status != "active":
             raise ObserverAuthenticationError("Observer identity is retired or revoked.")
-        if self._now < identity.not_before or self._now >= identity.not_after:
+        trusted_now = self._now if now is None else now.astimezone(timezone.utc)
+        if trusted_now < identity.not_before or trusted_now >= identity.not_after:
             raise ObserverAuthenticationError("Observer identity is outside its validity window.")
         return identity
 
@@ -317,7 +318,7 @@ class ObserverEnvelopeVerifier:
 
         key_id = envelope["key_id"]
         _validate_id(key_id, "Observer key ID")
-        self._registry.resolve(challenge.observer_id, challenge.observer_domain, key_id)
+        self._registry.resolve(challenge.observer_id, challenge.observer_domain, key_id, now=self._now)
 
         nonce = _decode_canonical_b64(envelope["nonce_b64"], "Observer nonce", expected_length=32)
         if nonce != challenge.nonce:

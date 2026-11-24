@@ -38,6 +38,7 @@ from tools.task_orchestrator.sandbox_acceptance_provenance import (
 )
 from tools.task_orchestrator.sandbox_host_evidence import ProbeObservation, _required_domains
 from tools.task_orchestrator.sandbox_observer_auth import (
+    MAX_CHALLENGE_SECONDS,
     MAX_ENVELOPE_BYTES,
     MAX_PAYLOAD_BYTES,
     AuthenticatedObserverResult,
@@ -48,6 +49,7 @@ from tools.task_orchestrator.sandbox_observer_auth import (
 
 _SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 _ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$")
+_UTC_MICRO_RE = re.compile(r"^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{6}Z$")
 _ENVELOPE_FIELDS = frozenset({
     "schema_version", "audience", "observer_id", "observer_domain", "key_id",
     "attempt_id", "runtime_id", "policy_digest", "probe_id", "nonce_b64",
@@ -147,8 +149,8 @@ def _reject_nonfinite(_: str) -> None:
 
 
 def _parse_accepted_at(value: Any) -> datetime:
-    if not isinstance(value, str) or not value.endswith("Z"):
-        raise AcceptanceReportV3Error("Replay receipt accepted_at must be UTC.")
+    if not isinstance(value, str) or not _UTC_MICRO_RE.fullmatch(value):
+        raise AcceptanceReportV3Error("Replay receipt accepted_at must use canonical UTC microsecond precision.")
     try:
         parsed = datetime.fromisoformat(value[:-1] + "+00:00")
     except ValueError as exc:
@@ -172,11 +174,15 @@ def _check_receipt(
     if type(receipt) is not ObserverReplayReceipt:
         raise AcceptanceReportV3Error("A committed immutable replay receipt is required.")
     observation = result.observation
+    for field in ("sequence", "ledger_revision", "fencing_epoch"):
+        value = getattr(result, field)
+        if isinstance(value, bool) or not isinstance(value, int) or value < 1:
+            raise AcceptanceReportV3Error(f"Authenticated observer result {field} is invalid.")
     nonce = _decode_b64(envelope["nonce_b64"], "Observer nonce", exact_length=32)
     accepted_at = _parse_accepted_at(receipt.accepted_at)
     expires_at = _parse_utc(receipt.challenge_expires_at, "challenge_expires_at")
-    if accepted_at > expires_at:
-        raise AcceptanceReportV3Error("Replay receipt was accepted after challenge expiry.")
+    if accepted_at > expires_at or (expires_at - accepted_at).total_seconds() > MAX_CHALLENGE_SECONDS:
+        raise AcceptanceReportV3Error("Replay receipt challenge expiry is invalid or exceeds its hard lifetime.")
     try:
         registry.resolve(
             observation.observer_id, observation.observer_domain,

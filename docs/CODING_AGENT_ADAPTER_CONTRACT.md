@@ -1,7 +1,7 @@
 # JET VPN — Coding Agent Adapter Contract
 
 > Status: provider-neutral design contract; task/result validation, local ingestion, content-addressed artifacts, and review-only gates are implemented. No live model provider or OS sandbox is connected.
-> Baseline: current `main` `f682c56331bfb7c07bc4c5be26fddc33a3043969` (2026-11-24); PR #20 and PRs #38–#44 are merged.
+> Baseline: current `main` `4dbe01eda4078342c17f16a4111919bebaa616ae` (2026-11-24); PR #20, PRs #38–#44, and PR #46 are merged.
 
 ## 1. Purpose
 
@@ -196,3 +196,12 @@ The following portions of this contract now exist in the repository:
 - Read-only live review command and integration tests proving that the same ingested patch reaches `ready_for_human_review` with `applied: false`.
 
 Still not implemented: a real provider runtime, an OS-level isolated worker, sandbox lifecycle supervision, patch application, automatic commit/push/PR/merge, or unattended execution. The next stage is a provider-neutral sandbox adapter contract and fake-adapter failure tests. Do not infer execution capability from the existing Python provider interface; it is not a security sandbox.
+
+
+## 11. Synthetic-only sandbox lifecycle contract — in progress
+
+Branch `feat/sandbox-lifecycle-contract-20261124-v2` adds `sandbox_contract.py` and fake-provider tests. The contract currently supports only a fixed synthetic acceptance payload and exposes no arbitrary shell, source-upload, or credential-injection operation.
+
+It requires a declared Linux VM capability set, pinned image/policy digests, deny-all network policy, explicit resource limits, provider-reported runtime checks, bounded SHA-256-verified acceptance artifact, and confirmed terminate/destroy lifecycle. Provider declarations and snapshots are not independent security attestation. A trusted control plane must independently test the actual runtime before relying on any real adapter.
+
+The success record explicitly sets `eligible_for_untrusted_execution: false` and `patch_applied: false`. The fake adapter is not a sandbox, no real provider is connected, and no model-generated code is executed.

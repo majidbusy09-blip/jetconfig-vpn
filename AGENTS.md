@@ -117,7 +117,16 @@ A successful build is not a runtime/device test. A CI workflow definition is not
 - If source changes invalidate a document, update it or explicitly mark it stale in the same PR.
 - Do not overwrite history: append log entries and preserve superseded decisions with status.
 
-## Current authoritative source snapshot
+## Live repository and collaboration snapshot — 2026-11-24
+
+- Live `main` at the continuity audit: `dcb9d1c01a50974d9ef38bdf5f0e4aaf744b409e` (PR #84 merge). Re-fetch the branch ref every session; do not treat this recorded SHA as current indefinitely.
+- PR #89 is the open Draft candidate for the project-memory diff gate and v1.2 eight-document task context. Its features are not on `main` until human-approved merge.
+- PR #91 is the open Draft documentation-only ChatGPT connector pilot. Its exact head `652e3d38a594adfb4b0784971c25010b5a5e3382` passed the trusted scope guard, Non-production PR Validation, and Project Memory Audit. Issue #90's lease is released.
+- ChatGPT's existing GitHub integration has completed one docs-only write pilot. Grok's independent connector/review remains unverified; the next action is read-only Grok review of PR #91.
+- PRs #86–#88 are a separate Draft sandbox/schema-v3 stack. They are not prerequisites for the approved connector-based coding workflow. Preserve `execution_authorized: false` and `eligible_for_untrusted_execution: false`.
+- The user's approved model route remains existing ChatGPT/Grok chat sessions via their GitHub integrations only: no model API keys, paid model APIs, or external source-upload adapter. Chat sessions are user-activated and do not continuously poll or wake from Issue events.
+
+## Historical source snapshot — PR #53-era baseline (superseded by live snapshot above)
 
 - Repository: `majidbusy09-blip/jetconfig-vpn`
 - Branch: `main`

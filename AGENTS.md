@@ -224,3 +224,13 @@ PR #49 merged `sandbox_acceptance.py`, a strict verifier for independently signe
 - Added `docs/SANDBOX_REPLAY_STORE_DESIGN.md`: serializable transaction/CAS sequence advancement, unique constraints, atomic audit, stable observer identity across key rotation, fencing, protected anti-rollback checkpoint, nonce/audit retention, failover, backup restore, failure modes, and implementation test matrix.
 - No durable DB/service, persistence credentials, network endpoint, production replay store, KMS/HSM, VM, provider, or untrusted execution was created. Production replay persistence still requires separate trust-boundary review and explicit approval.
 - Keep `execution_authorized: false` and `eligible_for_untrusted_execution: false`.
+
+
+## Authoritative snapshot — PR #80 merged (2026-11-24)
+
+- Current `main` includes PR #80 squash merge `6666266f59877e9a066188d418938661075ae38e`; final PR head: `f41cee3685c3315ae3373f5c21f9fbaab9fa03dc`.
+- Final-head CI passed: Task Orchestrator Tests `45386943800`, Non-production PR Validation `45386943924`, and Project Memory Audit `45386943682`.
+- Added `docs/SANDBOX_OBSERVER_ENVELOPE_RETENTION.md`, a design-only two-phase raw-envelope retention contract. Phase A stages exact canonical signed-envelope bytes in a protected content-addressed host store and produces a deterministic staging manifest; the next acceptance schema must bind that manifest digest. Phase B packages the retained envelopes after report verification into a final artifact manifest bound to the report digest.
+- Schema v2 remains unchanged: it binds envelope digests and payload provenance but does not include a pre-acceptance staging-manifest digest or raw envelope bytes.
+- Design covers descriptor-relative no-follow storage, same-descriptor hashing, path derivation by trusted host, file/count/aggregate bounds, quarantine, retention, crash-safe cleanup, and independent offline re-verification.
+- No filesystem collector, storage service, database, credential, network endpoint, report signer, private key, VM, provider, or untrusted execution was created. Keep `execution_authorized: false` and `eligible_for_untrusted_execution: false`.

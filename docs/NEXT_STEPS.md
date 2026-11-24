@@ -254,3 +254,16 @@ PR #82 is a design contract only. It does not sign reports, create keys, persist
 7. **Operational acceptance and execution gate:** run the independently controlled 20-probe suite only in an approved isolated environment; verify cleanup, retention, egress, and post-sign evidence. Until every gate is independently satisfied, keep all execution flags false and do not transfer private source or incur spend.
 
 PR #88 is a tested non-production implementation contract, not a production signing system. The in-memory test stores and fake cryptographic backends are not trust anchors. Do not merge or deploy it as production-ready based only on green CI.
+
+
+## Reprioritized next steps — multi-project JET AI (2026-11-25)
+
+1. Complete Phase 2A Issue #98: pure fail-closed project manifest/schema validation, immutable GitHub identity binding, registry uniqueness, lifecycle gating, implemented-runner gating, canonical manifest digest, and adversarial tests. Keep the change standard-library-only and side-effect-free.
+2. Review the Phase 2A Draft PR and all exact-head checks. Do not merge without a separate approval for that PR.
+3. Phase 2B: propagate explicit `project_id`, immutable repository ID, canonical repository name, default branch, manifest version/digest, and pinned base SHA through task intake and task records. Preserve a versioned migration path for legacy JET VPN envelopes; reject missing/mismatched identities for new projects.
+4. Phase 2C: make project memory manifests configurable and remove the fixed six-document assumption from context building/envelope validation without weakening hash, size, path, and tracked-file checks.
+5. Phase 2D: namespace lease refs, branches, workspaces, context packages, source indexes, caches, artifacts, and audit records by project identity; add cross-project isolation tests.
+6. Phase 2E: implement read-only dry-run onboarding and a registry persistence/activation workflow only after the pure validator and isolation gates are reviewed. JET VPN is first fixture; keep it unregistered/inactive until all prerequisites pass.
+7. Onboard «حسابگر من» only after its exact GitHub repository URL is provided and its repository ID, default branch, source layout, memory, protected paths, and verification capabilities are independently inspected.
+
+Do not activate Python profiles until their fixed runners exist. Do not run Flutter checks for Python-only projects. Do not use task text to infer a project. No paid API, new provider spend, credentials, production change, release/deploy, or untrusted-code execution is authorized.

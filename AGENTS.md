@@ -254,3 +254,8 @@ For every pull request that changes implementation-sensitive paths (`lib/`, `tes
 - Project-memory tooling or workflow changes additionally require `docs/PROJECT_MEMORY_AUTOMATION.md`.
 
 The Project Memory Audit runs this gate against the exact PR base/head diff. A document that is unchanged in the PR does not satisfy the requirement merely because it exists in the repository. The gate checks presence, not factual correctness; reviewers and agents must still verify every claim against source and CI.
+
+
+## Mandatory project-memory context for coding tasks
+
+The local task orchestrator now includes `docs/DECISIONS.md` and `docs/KNOWN_ISSUES.md` in every pinned task context package, in addition to the existing agent instructions, project context, current status, next steps, task template, and development log. Read the recorded decisions and evidence-backed blockers before changing architecture or touching a known issue. The context builder reads all required documents from the exact pinned Git commit and fails closed on missing files or size overflow.

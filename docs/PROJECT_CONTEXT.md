@@ -130,3 +130,15 @@ The current execution policy is unchanged: `execution_authorized: false`; `eligi
 - No application behavior, app version, production release, provider, VM, network, private source transfer, credentials, KMS/HSM, spend, or untrusted execution changed or was enabled.
 - The next focus is out-of-band observer authenticity, signed-report/manifest integration, fixed fake-only host-adapter interfaces, and the threat model for trusted filesystem collection.
 - Keep `execution_authorized: false` and `eligible_for_untrusted_execution: false`.
+
+
+## Observer authenticity update — PR #74 (2026-11-24)
+
+- Current main includes PR #74 squash merge `b40642e9cb58446b60cc356f349656c31818d898`; final PR head `f633295b6c5ceb64eef183340d1fe5162b5edf59`.
+- `sandbox_observer_auth.py` validates canonical signed observer envelopes against an externally pinned registry digest/version/audience; checks unique observer identity, trust domain, key ID, active status and validity; binds a one-time 32-byte host nonce challenge to audience, observer, attempt, runtime, policy and exact probe ID; verifies canonical Ed25519 signatures through an injected verifier; and enforces payload digest/size, timestamp freshness, monotonic offsets and strictly increasing per-observer sequence via an injected atomic replay-store protocol.
+- Successful verification returns `AuthenticatedObserverResult`, containing the existing `ProbeObservation` plus registry digest/version, key ID, sequence, nonce digest and exact envelope digest.
+- The current `CollectedEvidenceBundle` does not yet retain the wrapper provenance. The signed acceptance report must later bind those provenance fields and the assembled evidence digest.
+- Only deterministic fake signature and in-memory replay-store implementations were tested. No production observer keys, registry provisioning, CSPRNG challenge generator, authenticated network transport, durable replay store, VM, runtime probe, or untrusted execution was used.
+- Exact final-head CI passed: Task Orchestrator Tests `45382515116`, Non-production PR Validation `45382515212`, Project Memory Audit `45382515188`.
+- Next focus: signed-report provenance integration, durable replay-store design, host challenge/transport design, and protected identity rotation/revocation.
+- Keep `execution_authorized: false` and `eligible_for_untrusted_execution: false`.

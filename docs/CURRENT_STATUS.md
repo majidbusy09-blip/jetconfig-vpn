@@ -214,3 +214,14 @@ This section supersedes the earlier PR #53 baseline above.
 - Schema v3 should bind `observer_envelope_manifest_sha256`; schema v1/v2 remain unchanged. The design specifies immutable attempt snapshots, fencing/ledger revision, fail-closed behavior, independent post-sign verification, and adversarial tests.
 - PR #82 is documentation only. No signer, private key, key generation, production signing service, replay DB, filesystem collector, network, VM, provider, probe execution, or untrusted code was added or used.
 - Preserve `execution_authorized: false` and `eligible_for_untrusted_execution: false`.
+
+
+## Main baseline and project-memory enforcement candidate — 2026-11-24
+
+- Verified `main` baseline: `dcb9d1c01a50974d9ef38bdf5f0e4aaf744b409e` (PR #84 merge).
+- PR #84 final head `1588aa5ddcc0c6b68ccf96ac5cd251e87f975085` passed Task Orchestrator Tests `45391947042` (358 tests), Non-production PR Validation `45391947037`, and Project Memory Audit `45391947062`.
+- PR #84 introduced immutable replay acceptance receipts and exact readback checks, including ledger revision and fencing epoch. Production persistence remains absent.
+- Candidate branch `feat/enforce-project-memory-pr-gate-20261124` adds `tools/project_memory/verify_change_memory.py`, unit tests, and a required Project Memory Audit step that checks whether implementation-sensitive PRs update the relevant durable project-memory documents.
+- The candidate gate distinguishes ordinary app changes from orchestrator/memory/workflow changes and requires progressively relevant memory files. It checks PR diff membership, not prose correctness.
+- The semantic/resolved/critical-path indexes are generated CI outputs retained for 30 days; only tracked docs provide durable project memory.
+- Candidate branch is not merged; exact final-head CI and PR status must be recorded after validation.

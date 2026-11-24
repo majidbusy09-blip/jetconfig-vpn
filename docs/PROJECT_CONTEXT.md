@@ -118,3 +118,15 @@ The current execution policy is unchanged: `execution_authorized: false`; `eligi
 - It invokes no adapter and has no OS/process/network/VM/provider capabilities. It cannot prove that an external runtime actually stopped or was cleaned up.
 - Final-head checks passed: Task Orchestrator Tests `45377376254`, Non-production PR Validation `45377376173`, Project Memory Audit `45377376300`.
 - Runtime execution remains disabled; no probes, provider, VM, API key, private-source transfer or spend was used.
+
+
+## Artifact inventory update — PR #72 (2026-11-24)
+
+- Current main includes PR #72 squash merge `a199b82ef70f492c2b8df42087992a917d293c7c`; final PR head `26edb96019e3816e4e23cff24b957f2d0187ca12`.
+- The artifact inventory validator accepts bounded typed candidate records and exact in-memory byte strings only. It enforces logical path allowlisting, traversal rejection, declared regular-file/symlink/single-link constraints, duplicate rejection, count and byte ceilings, bounded retention metadata, host-side digest recomputation over supplied bytes, and deterministic canonical manifest serialization.
+- Manifest metadata binds attempt, runtime, policy digest, evidence digest, signed acceptance-report digest, retention, and each artifact's path/size/SHA-256.
+- The candidate object-kind and link-count fields are untrusted assertions. This implementation cannot inspect inodes, prove filesystem identity, authenticate report signatures, enforce retention, or prove artifact provenance. The future host collector must use descriptor-relative no-follow traversal, `fstat`, same-descriptor hashing/copying, and TOCTOU defenses.
+- Exact final-head CI passed: Task Orchestrator Tests `45379646169`, Non-production PR Validation `45379646094`, Project Memory Audit `45379646100`.
+- No application behavior, app version, production release, provider, VM, network, private source transfer, credentials, KMS/HSM, spend, or untrusted execution changed or was enabled.
+- The next focus is out-of-band observer authenticity, signed-report/manifest integration, fixed fake-only host-adapter interfaces, and the threat model for trusted filesystem collection.
+- Keep `execution_authorized: false` and `eligible_for_untrusted_execution: false`.

@@ -155,3 +155,18 @@ This section supersedes the earlier PR #53 baseline above.
 - Critical gaps: no protected registry provisioning, host nonce generation, authenticated TLS/workload-identity transport, durable replay-store implementation, or report-signature integration. The current evidence bundle does not yet retain authenticated envelope provenance. Production must use `PinnedTrustStoreVerifier` with time aligned to the observer verifier.
 - CI used deterministic fake signatures and an in-memory replay store. No production keys, real canary, network, VM, runtime probe, filesystem collector, or untrusted code was used.
 - Preserve `execution_authorized: false` and `eligible_for_untrusted_execution: false`.
+
+
+## Latest authoritative snapshot — PR #76 merged (2026-11-24)
+
+- Current `main` HEAD: `d393d2e5bb0a93390b8d572bf540ff9ec3f1fe7c` (PR #76 squash merge).
+- PR #76 final head `87c19d15f714f4a21200d469ed828d4b83026861` passed:
+  - Task Orchestrator Tests run `45384423673` — 355 tests passed
+  - Non-production PR Validation run `45384423800`
+  - Project Memory Audit run `45384423642`
+- Added `tools/task_orchestrator/sandbox_acceptance_provenance.py`, `tools/task_orchestrator/tests/test_sandbox_acceptance_provenance.py`, and `docs/SANDBOX_ACCEPTANCE_PROVENANCE_V2.md`; updated orchestrator README.
+- Schema v2 is separate from and does not modify schema v1. It pins exact runtime ID and observer registry digest/version; includes a sorted signed provenance list; recomputes its digest; checks exact 20-probe inventory; recomputes every raw evidence digest; parses canonical evidence and validates suite/attempt/runtime/policy/probe context; derives required observer domains from the pinned manifest; and cross-checks observer ID/domain and payload SHA-256 against provenance.
+- V2 rejects duplicate nonce/envelope/observer-sequence tuples, incomplete/extra or unsorted provenance, stale/future observations, invalid monotonic intervals, noncanonical evidence, and unsupported signature algorithm labels. The signed report signature covers the complete provenance inventory.
+- Trust limitation: v2 report signature is an attestation by the trusted acceptance-suite signer that observer envelopes were verified upstream. Raw observer envelope bytes are not included in the report and must be retained as separate protected artifacts for independent re-verification.
+- No report signer, private key, durable replay store, nonce generator, TLS transport, VM, provider, network, filesystem collector, or untrusted code was implemented or used.
+- Preserve `execution_authorized: false` and `eligible_for_untrusted_execution: false`.

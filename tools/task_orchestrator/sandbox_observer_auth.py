@@ -276,6 +276,8 @@ class ObserverChallenge:
         issued = self.issued_at.astimezone(timezone.utc)
         expires = self.expires_at.astimezone(timezone.utc)
         trusted_now = now.astimezone(timezone.utc)
+        if issued.microsecond != 0 or expires.microsecond != 0:
+            raise ObserverAuthenticationError("Challenge timestamps must use exact UTC second precision.")
         if expires <= issued or (expires - issued).total_seconds() > MAX_CHALLENGE_SECONDS:
             raise ObserverAuthenticationError("Challenge lifetime is invalid or exceeds its hard limit.")
         if issued > trusted_now or expires <= trusted_now:
@@ -434,7 +436,7 @@ class ObserverEnvelopeVerifier:
                 sequence=sequence,
                 envelope_sha256=envelope_digest,
                 challenge_expires_at=challenge.expires_at.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-                accepted_at=self._now.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                accepted_at=self._now.isoformat(timespec="microseconds").replace("+00:00", "Z"),
             )
         except Exception as exc:
             raise ObserverAuthenticationError("Replay store unavailable; observer evidence rejected.") from exc

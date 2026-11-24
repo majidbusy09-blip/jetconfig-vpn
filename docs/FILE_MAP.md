@@ -99,3 +99,12 @@ Never add paths to this map unless verified from the current tree or a separatel
 - `tools/task_orchestrator/sandbox_trust.py`: strict canonical trust-store parsing, duplicate-key rejection, independent SHA-256 pin, caller-supplied minimum version, unique Ed25519 public-key entries, UTC validity and active-only status policy. Signature mathematics remains delegated to an injected backend.
 - `tools/task_orchestrator/tests/test_sandbox_trust.py`: adversarial tests for pin mismatch, rollback, duplicate keys, revocation/expiry, malformed key material, and backend failure.
 - The module does not persist rollback state, provision/rotate keys, implement production Ed25519, or authorize untrusted execution.
+
+## Ed25519 verification backend — PR #55
+
+- `tools/task_orchestrator/ed25519_backend.py`: PyCA-backed Ed25519 public-key verification adapter; no private-key loading, signing, or key generation.
+- `tools/task_orchestrator/requirements-sandbox-crypto.txt`: exact dependency versions for the isolated crypto backend; not hash-locked.
+- `tools/task_orchestrator/tests/test_sandbox_trust.py`: RFC 8032 known-answer, tampering, malformed input, and trust-store integration coverage.
+- `.github/workflows/task-orchestrator.yml` and `.github/workflows/pr-validation.yml`: install the pinned sandbox crypto dependencies as binary wheels.
+- PR #55 merged as `3cc2e200dd02416d7b2fba02725b6734dffede39`; final-head test, memory audit, and non-production validation all passed.
+

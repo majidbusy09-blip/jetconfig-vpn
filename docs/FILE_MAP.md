@@ -174,3 +174,10 @@ Never add paths to this map unless verified from the current tree or a separatel
 - `tools/task_orchestrator/tests/test_sandbox_observer_auth.py` — in-memory fake rejects duplicate nonce/envelope and non-increasing sequence; verifies full audit context is passed.
 - `docs/SANDBOX_REPLAY_STORE_DESIGN.md` — atomic transaction, unique constraints, CAS sequence update, audit, fencing, anti-rollback checkpoint, retention, failover, restore, and test matrix.
 - PR #78 merged as `74a5b2b760362494711949b799031dc628612671`; final-head checks `45385761279`, `45385761459`, and `45385761392` all succeeded.
+
+
+## Protected observer-envelope retention — PR #80
+
+- `docs/SANDBOX_OBSERVER_ENVELOPE_RETENTION.md` — exact-byte pre-acceptance envelope staging, content-addressed path/manifest, next-schema binding, post-acceptance artifact packaging, no-follow storage, bounds, quarantine, retention, cleanup, and offline re-verification.
+- `docs/SANDBOX_ACCEPTANCE_PROVENANCE_V2.md` — links to the retention design and states schema v2 does not bind the staging-manifest digest.
+- PR #80 merged as `6666266f59877e9a066188d418938661075ae38e`; final-head checks `45386943800`, `45386943924`, and `45386943682` all succeeded.

@@ -138,3 +138,15 @@ Keep `execution_authorized: false` and `eligible_for_untrusted_execution: false`
 7. **Operational pilot remains gated:** a real VM/provider, account, API key, private-source transfer, KMS/HSM, paid service, or spend requires separate explicit approval and independent security review.
 
 The host evidence collector is not a runner and no runtime probes have been executed. Keep `execution_authorized: false` and `eligible_for_untrusted_execution: false`.
+
+
+## Current next steps after PR #70 (2026-11-24)
+
+1. **Host adapter interface design:** define fixed typed operations for creating a runtime, starting observations, requesting termination, confirming process-tree exit, and confirming resource cleanup. Keep all implementations fake-only; no dynamic commands.
+2. **External observer authenticity:** specify out-of-band identity provisioning/rotation and authenticated host-to-canary evidence transport; the evidence collector currently checks IDs against caller-supplied allowlists only.
+3. **Artifact collector contract:** define path allowlisting, symlink/device rejection, size ceilings, host-side digest recomputation, bounded retention, and evidence binding.
+4. **Signed report integration:** connect assembled evidence to the existing report verifier with fake signature backends only; preserve false execution flags.
+5. **Threat-model review:** cancellation races, host-monotonic timeout enforcement, kill escalation, cleanup retry/crash recovery, canary separation, IPv4/IPv6/DNS/QUIC egress and resource caps.
+6. **Operational gates:** real VM/provider, API keys, private-source transfer, KMS/HSM, paid services and spend require separate explicit approval and independent security review.
+
+PR #70 is a state-machine contract only; it does not implement any of the host adapter operations. No runtime probes have been executed. Keep `execution_authorized: false` and `eligible_for_untrusted_execution: false`.

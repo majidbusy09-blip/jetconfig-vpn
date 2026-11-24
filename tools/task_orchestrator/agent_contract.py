@@ -241,7 +241,7 @@ def validate_envelope(data: Any) -> dict:
     }
     obj = _object(data, "task envelope", required)
     version = obj["contract_version"]
-    if version not in SUPPORTED_CONTRACT_VERSIONS:
+    if not isinstance(version, str) or version not in SUPPORTED_CONTRACT_VERSIONS:
         _fail("unsupported contract_version")
     if not isinstance(obj["task_id"], str) or not TASK_ID_RE.fullmatch(obj["task_id"]):
         _fail("invalid task_id")

@@ -257,3 +257,16 @@ This section supersedes the earlier PR #53 baseline above.
 - The mandatory v1.2 project context contains 230,628 bytes at this head, leaving 281,372 bytes below the 512,000-byte package ceiling. Source selection remains explicit and bounded.
 - Earlier failure `45439181931` was from a prior intermediate head where the old envelope contract still required six documents. It was fixed by introducing v1.2 and retaining v1.1 compatibility; do not count the earlier failed run as a pass.
 - PR #89 is still Draft/unmerged. No branch protection, merge, release, deployment, production resource, or execution authorization was changed.
+
+
+## Multi-agent GitHub connector architecture — current approved direction (2026-11-24)
+
+- The user selected ChatGPT and Grok chat sessions using their existing GitHub connections as the only model interaction route for now. No model API key, paid model API, external source-upload adapter, or provider runtime should be added.
+- GitHub remains the durable task inbox, lease authority, source-of-truth repository, PR history, and project memory. The trusted Issue-comment workflow supports claim/renew/release; Git CAS prevents two active owners from winning the same lease.
+- The GitHub Issue intake, task payload validation, lease handoff, and PR scope guard exist. The workflow does not wake a model or run implementation code.
+- The ChatGPT/Grok implementation route is user-activated: read the Issue and pinned base, verify the lock ref, create a remote implementation branch from the exact pinned SHA, read in-scope files through the connected GitHub integration, commit changes, and open a Draft PR with the required envelope. If a connector cannot comment or write, the user performs that specific operation.
+- The local agent/<task_id> branch made by Actions handoff acceptance is ephemeral to that runner. It is not a remote implementation branch. Handoff/input artifacts are metadata/recovery artifacts and are not automatically attached to a chat.
+- The lease owner field is a protocol label, not cryptographic model identity. The user controls which chat is activated. A second agent may review read-only; only one implementation agent may hold the lease.
+- PR #89 is still Draft/open/unmerged. Its v1.2 eight-document memory envelope and enforced memory-change gate remain candidate-branch features until merge. Main currently has the older contract; agents must not overstate v1.2 availability.
+- The failed Issue #36 smoke test completed lease claim and handoff upload but failed local acceptance because Python bytecode created untracked __pycache__ files. The bytecode suppression/ignore fix was later merged in commit 97ba8dce2e2750b9b9cb71342fb2a477103752d2 (PR #64). The old lease is expired; Issue #36 is a historical failed smoke test, not an active task. No model was invoked and no source was transferred.
+- This route does not require a production sandbox because it does not execute arbitrary untrusted source in a model runtime. Fixed GitHub Actions checks and human review remain required. The sandbox track remains independent and execution flags stay false.

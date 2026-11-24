@@ -26,7 +26,7 @@ The guest domain is accepted only for probes whose manifest explicitly requires 
 
 ## Evidence format and limits
 
-Each assembled probe evidence blob contains the attempt ID, probe ID, observer domain/identity, UTC observation time, outcome, base64 raw payload, and a recomputed payload SHA-256. The assembled bytes are deterministic JSON and fit the existing verifier's per-probe 128 KiB and aggregate 2 MiB ceilings. Raw observer payloads are capped at 48 KiB each.
+Each assembled probe evidence blob contains suite/version, attempt ID, pinned runtime ID, pinned policy SHA-256 digest, probe ID, observer domain/identity, UTC observation time, monotonic start/end offsets, outcome, base64 raw payload, and a recomputed payload SHA-256. The assembled bytes are deterministic JSON and fit the existing verifier's per-probe 128 KiB and aggregate 2 MiB ceilings. Raw observer payloads are capped at 48 KiB each.
 
 ## What this does not prove
 

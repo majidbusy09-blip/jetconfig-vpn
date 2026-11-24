@@ -14,7 +14,8 @@ The provider must not generate or sign its own pass/fail report. A separately co
 - Pinned provider, region, task, attempt, image digest, policy digest, and signing key ID.
 - Fresh UTC timestamps, bounded suite duration, and limited clock skew.
 - The exact required probe inventory, with no missing, duplicate, unknown, or failed probes.
-- A SHA-256 evidence digest for each probe.
+- A SHA-256 evidence digest for each probe, recomputed against the exact raw evidence bytes supplied to the verifier.
+- Exact raw-evidence inventory matching, non-empty evidence blobs, a 128 KiB per-probe cap, and a 2 MiB aggregate cap.
 - A signature through an injected trusted verifier.
 
 The module always returns `execution_authorized: false` and `eligible_for_untrusted_execution: false`. A passing report is not an execution authorization.
@@ -44,7 +45,7 @@ The module always returns `execution_authorized: false` and `eligible_for_untrus
 | `cleanup_success_failure_timeout` | Termination and destruction confirmed on success, failure, and timeout |
 | `fresh_vm_no_prior_attempt_residue` | New attempt cannot observe prior attempt state or residue |
 
-Every probe must produce a bounded evidence object whose exact bytes are SHA-256 hashed and included in the signed report. A bare provider API response or a self-reported capability flag is not acceptable evidence.
+Every probe must produce a bounded evidence object whose exact bytes are SHA-256 hashed and included in the signed report. The verifier also requires the corresponding raw evidence bundle and recomputes every digest; a digest string alone is insufficient. Each blob is limited to 128 KiB and the complete bundle to 2 MiB. A bare provider API response or a self-reported capability flag is not acceptable evidence.
 
 ## Trust and signature requirements
 
@@ -57,7 +58,7 @@ Every probe must produce a bounded evidence object whose exact bytes are SHA-256
 
 ## Security boundary and remaining work
 
-This PR implements the report verifier and adversarial unit tests only. It does not implement the actual guest probe runner, provider adapter, signing service, key distribution, VM provisioning, or runtime attestation. Therefore no candidate runtime has passed these checks yet.
+The verifier now binds each signed digest to the supplied raw evidence bytes and rejects missing, extra, empty, altered, or oversized evidence. This still validates evidence supplied by a separate suite; it does not establish that the suite itself is honest or independently executed. This PR implements the report verifier and adversarial unit tests only. It does not implement the actual guest probe runner, provider adapter, signing service, key distribution, VM provisioning, or runtime attestation. Therefore no candidate runtime has passed these checks yet.
 
 Before a pilot:
 1. Build and independently review the fixed guest probe suite and external canary controller.

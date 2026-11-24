@@ -17,6 +17,8 @@ from typing import Any, Protocol, runtime_checkable
 
 MAX_REPORT_BYTES = 256 * 1024
 MAX_SIGNATURE_BYTES = 1024
+MAX_PROBE_EVIDENCE_BYTES = 128 * 1024
+MAX_TOTAL_EVIDENCE_BYTES = 2 * 1024 * 1024
 SUITE_ID = "jetvpn-sandbox-runtime-acceptance"
 SUITE_VERSION = "1.0.0"
 REPORT_SCHEMA_VERSION = 1
@@ -163,6 +165,8 @@ def verify_signed_acceptance_report(
     signature: bytes,
     expectation: AcceptanceExpectation,
     verifier: SignatureVerifier,
+    *,
+    probe_evidence: dict[str, bytes],
 ) -> dict[str, Any]:
     """Verify one fresh, complete, signed runtime-acceptance report.
 
@@ -248,6 +252,25 @@ def verify_signed_acceptance_report(
     if seen != REQUIRED_PROBES:
         raise SandboxEvidenceError("Acceptance report is missing one or more required probes.")
 
+    # The signed digest is not evidence by itself. Require the caller to supply
+    # every bounded raw evidence blob and independently recompute its digest.
+    if not isinstance(probe_evidence, dict) or set(probe_evidence) != REQUIRED_PROBES:
+        raise SandboxEvidenceError("Raw probe evidence inventory does not exactly match the required probes.")
+    total_evidence_bytes = 0
+    for probe in probes:
+        probe_id = probe["probe_id"]
+        raw_evidence = probe_evidence[probe_id]
+        if not isinstance(raw_evidence, bytes) or not raw_evidence:
+            raise SandboxEvidenceError(f"Raw probe evidence is missing or invalid: {probe_id}.")
+        if len(raw_evidence) > MAX_PROBE_EVIDENCE_BYTES:
+            raise SandboxEvidenceError(f"Raw probe evidence exceeds the per-probe size limit: {probe_id}.")
+        total_evidence_bytes += len(raw_evidence)
+        if total_evidence_bytes > MAX_TOTAL_EVIDENCE_BYTES:
+            raise SandboxEvidenceError("Raw probe evidence exceeds the aggregate size limit.")
+        actual_digest = hashlib.sha256(raw_evidence).hexdigest()
+        if actual_digest != probe["evidence_sha256"]:
+            raise SandboxEvidenceError(f"Raw probe evidence digest does not match the signed report: {probe_id}.")
+
     canonical = canonical_report_bytes(report)
     if canonical != report_bytes:
         raise SandboxEvidenceError("Acceptance report is not in canonical signed form.")
@@ -271,6 +294,7 @@ def verify_signed_acceptance_report(
         "image_digest": report["image_digest"],
         "policy_digest": report["policy_digest"],
         "probe_count": len(seen),
+        "evidence_bytes_total": total_evidence_bytes,
         "probe_ids": sorted(seen),
         "report_sha256": hashlib.sha256(report_bytes).hexdigest(),
         "signature_verified": True,

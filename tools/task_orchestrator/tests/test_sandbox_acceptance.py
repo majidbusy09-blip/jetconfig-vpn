@@ -58,7 +58,7 @@ def valid_report(**changes):
             {
                 "probe_id": probe_id,
                 "outcome": "pass",
-                "evidence_sha256": hashlib.sha256(probe_id.encode()).hexdigest(),
+                "evidence_sha256": hashlib.sha256(b"JETVPN-PROBE-EVIDENCE:" + probe_id.encode()).hexdigest(),
             }
             for probe_id in sorted(REQUIRED_PROBES)
         ],
@@ -67,21 +67,30 @@ def valid_report(**changes):
     return report
 
 
+def evidence_for(report):
+    return {
+        probe["probe_id"]: b"JETVPN-PROBE-EVIDENCE:" + probe["probe_id"].encode()
+        for probe in report["probes"]
+    }
+
+
 def signed(report):
     raw = canonical_report_bytes(report)
     return raw, hashlib.sha256(raw).digest()
 
 
 class SandboxAcceptanceEvidenceTests(unittest.TestCase):
-    def verify(self, report=None, signature=None, expected=None, verifier=None, raw=None):
+    def verify(self, report=None, signature=None, expected=None, verifier=None, raw=None, probe_evidence=None):
+        source_report = valid_report() if report is None else report
         if raw is None:
-            raw, generated_signature = signed(valid_report() if report is None else report)
+            raw, generated_signature = signed(source_report)
             signature = generated_signature if signature is None else signature
         return verify_signed_acceptance_report(
             raw,
             signature,
             expectation() if expected is None else expected,
             FakeTrustedVerifier() if verifier is None else verifier,
+            probe_evidence=evidence_for(source_report) if probe_evidence is None else probe_evidence,
         )
 
     def test_complete_fresh_signed_report_passes_but_never_authorizes_execution(self):
@@ -142,6 +151,47 @@ class SandboxAcceptanceEvidenceTests(unittest.TestCase):
             with self.subTest(started=started, completed=completed):
                 with self.assertRaises(SandboxEvidenceError):
                     self.verify(report)
+
+    def test_recomputes_each_digest_from_raw_probe_evidence(self):
+        report = valid_report()
+        evidence = evidence_for(report)
+        first_probe = report["probes"][0]["probe_id"]
+        evidence[first_probe] = b"tampered evidence"
+        with self.assertRaisesRegex(SandboxEvidenceError, "digest does not match"):
+            self.verify(report, probe_evidence=evidence)
+
+    def test_rejects_missing_extra_empty_and_oversized_raw_evidence(self):
+        report = valid_report()
+        evidence = evidence_for(report)
+        evidence.pop(next(iter(evidence)))
+        with self.assertRaisesRegex(SandboxEvidenceError, "inventory"):
+            self.verify(report, probe_evidence=evidence)
+
+        evidence = evidence_for(report)
+        evidence["unexpected-probe"] = b"unexpected"
+        with self.assertRaisesRegex(SandboxEvidenceError, "inventory"):
+            self.verify(report, probe_evidence=evidence)
+
+        evidence = evidence_for(report)
+        first_probe = report["probes"][0]["probe_id"]
+        evidence[first_probe] = b""
+        with self.assertRaisesRegex(SandboxEvidenceError, "missing or invalid"):
+            self.verify(report, probe_evidence=evidence)
+
+        evidence = evidence_for(report)
+        evidence[first_probe] = b"x" * (128 * 1024 + 1)
+        with self.assertRaisesRegex(SandboxEvidenceError, "per-probe size"):
+            self.verify(report, probe_evidence=evidence)
+
+    def test_rejects_aggregate_raw_evidence_overflow(self):
+        report = valid_report()
+        evidence = evidence_for(report)
+        # Each blob is within its individual cap, but the combined bundle is not.
+        for probe in report["probes"]:
+            evidence[probe["probe_id"]] = b"x" * (110 * 1024)
+            probe["evidence_sha256"] = hashlib.sha256(evidence[probe["probe_id"]]).hexdigest()
+        with self.assertRaisesRegex(SandboxEvidenceError, "aggregate size"):
+            self.verify(report, probe_evidence=evidence)
 
     def test_rejects_bad_signature_and_untrusted_key(self):
         raw, signature = signed(valid_report())

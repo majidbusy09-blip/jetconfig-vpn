@@ -191,3 +191,14 @@ The current execution policy is unchanged: `execution_authorized: false`; `eligi
 - Exact final-head CI passed: Task Orchestrator Tests `45390283412`, Non-production PR Validation `45390283324`, Project Memory Audit `45390283473`.
 - Next focus: replay receipt read contract, pure schema-v3 builder, injected fake signer/verifier, then schema-v3 independent verifier.
 - Keep `execution_authorized: false` and `eligible_for_untrusted_execution: false`.
+
+
+## Replay acceptance receipt update — PR #84 (2026-11-24)
+
+- Current main includes PR #84 squash merge `dcb9d1c01a50974d9ef38bdf5f0e4aaf744b409e`; final PR head `1588aa5ddcc0c6b68ccf96ac5cd251e87f975085`.
+- Observer replay-store contract now returns immutable `ObserverReplayReceipt` from consume and exposes read-only lookup by observer ID/envelope digest.
+- Verifier requires full context match, valid positive ledger revision/fencing epoch and exact readback equality. The authenticated result carries challenge expiry, accepted timestamp, ledger revision and fencing epoch for report signing.
+- In-memory receipt implementation only; no durable persistence, trusted external checkpoint, real fencing, host-authenticated store, or production replay service exists. The receipt object itself is not a trust root.
+- Final-head CI passed: Task Orchestrator Tests `45391947042` (358 tests), Non-production PR Validation `45391947037`, Project Memory Audit `45391947062`.
+- Next step: pure schema-v3 report builder using exact raw envelope/evidence bytes, pinned registry and attempt context, independently verified Ed25519 signatures, and matching read-only replay receipts; then injected fake signer/verifier.
+- Keep `execution_authorized: false` and `eligible_for_untrusted_execution: false`.

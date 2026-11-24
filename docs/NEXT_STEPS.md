@@ -259,3 +259,12 @@ Do not merge PRs, alter branch protection, provision infrastructure, or authoriz
 - Confirm the expanded mandatory context (decisions and known issues) passes context-builder and orchestrator integration tests and remains within the 512 KiB cap.
 - Review whether the full development log should eventually be replaced in routine task context by a compact, commit-pinned summary plus task-relevant log excerpts. Do not reduce history or omit decisions without a tested retrieval design.
 - Keep source selection explicit and bounded; semantic suggestions remain advisory and never expand task scope automatically.
+
+
+## Versioned agent memory contract follow-up — 2026-11-24
+
+1. Run exact-head Task Orchestrator Tests, Non-production PR Validation, and Project Memory Audit after contract v1.2 changes.
+2. Confirm legacy v1.1 envelopes/results remain accepted as a matched pair and new v1.2 envelopes/results require the exact eight-document manifest.
+3. Confirm the GitHub task-handoff fixture includes decisions and known issues at the pinned base and emits an eight-document context package.
+4. If context exceeds the existing 512 KiB cap, fail closed and select a smaller explicit source context; do not silently truncate project memory.
+5. After CI succeeds, update this status with the exact head SHA and check run IDs. Do not merge either draft PR without explicit approval.

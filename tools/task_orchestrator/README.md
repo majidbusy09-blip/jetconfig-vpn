@@ -224,3 +224,19 @@ This prepares a local agent envelope; it does not invoke ChatGPT/Grok, execute a
 
 
 If the lease is renewed after the local task has already been accepted, download the newest artifact and rerun the same command with `--refresh-existing`. This updates only the verified lease metadata in the local task record; it does not rebuild the envelope or touch implementation files. Refresh is allowed only for the same Issue body, task definition, owner, pinned base SHA, and exact previous claim ID from the renewal command.
+
+
+## Provider-neutral sandbox lifecycle contract (synthetic-only)
+
+- `sandbox_contract.py` defines a narrow provider protocol, immutable request/limit records, capability checks, runtime snapshot checks, a fail-closed lifecycle state machine, bounded artifact validation, and mandatory termination/destruction confirmation.
+- The only supported operation is the fixed `synthetic-acceptance-v1` payload. The interface exposes no arbitrary shell command, source upload, credential injection, GitHub token, or model output execution.
+- A successful result means only `synthetic_acceptance_passed`; it always reports `eligible_for_untrusted_execution: false` and `patch_applied: false`.
+- Provider capability declarations are not proof. A real adapter must be independently reviewed and pass the runtime acceptance requirements in `docs/ISOLATED_WORKER_ARCHITECTURE_DECISION.md` before any untrusted code can be considered.
+- The lifecycle fails closed for shared-kernel containers, missing VM/kernel/image/egress/resource/termination/destruction capabilities, open egress, credentials in the guest, mismatched image digest, timeout, invalid/oversized artifacts, or unconfirmed cleanup.
+- Tests use an in-memory fake provider only; no real provider, sandbox, process, source upload, network call, account, or spend is involved.
+
+Run the focused tests:
+
+```bash
+python -m unittest tools.task_orchestrator.tests.test_sandbox_contract
+```

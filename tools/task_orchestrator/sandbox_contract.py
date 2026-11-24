@@ -7,6 +7,7 @@ A real adapter must be separately reviewed and runtime-acceptance tested.
 from __future__ import annotations
 
 import hashlib
+import math
 import re
 from dataclasses import dataclass
 from enum import Enum
@@ -230,7 +231,11 @@ def run_synthetic_acceptance(provider: SandboxProvider, request: SandboxRequest)
     call this function after reviewing actual runtime acceptance evidence.
     """
     request.validate()
-    validate_capabilities(getattr(provider, "capabilities", None))
+    try:
+        capabilities = getattr(provider, "capabilities", None)
+    except Exception as exc:
+        raise SandboxContractError("Provider capability declaration could not be read.") from exc
+    validate_capabilities(capabilities)
 
     lifecycle = SandboxLifecycle()
     sandbox_id = None
@@ -257,6 +262,7 @@ def run_synthetic_acceptance(provider: SandboxProvider, request: SandboxRequest)
         if (
             isinstance(execution.duration_seconds, bool)
             or not isinstance(execution.duration_seconds, (int, float))
+            or not math.isfinite(execution.duration_seconds)
             or execution.duration_seconds < 0
             or execution.duration_seconds > request.limits.wall_time_seconds
         ):

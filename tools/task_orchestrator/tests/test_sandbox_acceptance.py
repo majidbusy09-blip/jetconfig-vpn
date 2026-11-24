@@ -58,7 +58,7 @@ def valid_report(**changes):
             {
                 "probe_id": probe_id,
                 "outcome": "pass",
-                "evidence_sha256": hashlib.sha256(probe_id.encode()).hexdigest(),
+                "evidence_sha256": hashlib.sha256(b"JETVPN-PROBE-EVIDENCE:" + probe_id.encode()).hexdigest(),
             }
             for probe_id in sorted(REQUIRED_PROBES)
         ],

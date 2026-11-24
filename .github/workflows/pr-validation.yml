@@ -70,7 +70,7 @@ jobs:
 
       - name: Install pinned sandbox cryptography dependencies
         run: >-
-          python -m pip install --only-binary=:all: -r tools/task_orchestrator/requirements-sandbox-crypto.txt
+          python -m pip install --require-hashes --only-binary=:all: -r tools/task_orchestrator/requirements-sandbox-crypto-linux-x86_64-py312.lock
 
       - name: Inventory CI isolation prerequisites (read-only; not a sandbox test)
         run: python3 tools/task_orchestrator/runtime_probe.py | tee -a "$GITHUB_STEP_SUMMARY"

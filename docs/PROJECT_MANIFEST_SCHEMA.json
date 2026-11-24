@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://jet-ai.invalid/schemas/project-manifest-v1.schema.json",
+  "$id": "urn:jet-ai:schema:project-manifest:v1",
   "title": "JET AI Project Manifest",
   "description": "Declarative, non-executable registration manifest for one GitHub repository. Cross-manifest uniqueness and live GitHub identity checks are enforced by the registry validator, not by this per-manifest schema.",
   "type": "object",
@@ -230,7 +230,8 @@
       "required": ["required_profiles", "supported_profiles"],
       "properties": {
         "required_profiles": {
-          "$ref": "#/$defs/profileIds"
+          "$ref": "#/$defs/profileIds",
+          "minItems": 1
         },
         "supported_profiles": {
           "$ref": "#/$defs/profileIds"
@@ -358,7 +359,7 @@
         "url": "https://github.com/majidbusy09-blip/jetconfig-vpn",
         "default_branch": "main"
       },
-      "lifecycle": "active",
+      "lifecycle": "registered",
       "project_type": "flutter_android",
       "languages": [
         { "name": "Dart", "primary": true },

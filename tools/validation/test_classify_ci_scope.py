@@ -29,6 +29,17 @@ class ClassifyCiScopeTests(unittest.TestCase):
         self.assertTrue(requires_app_build(["pubspec.lock"]))
         self.assertTrue(requires_app_build(["analysis_options.yaml"]))
 
+    def test_validation_apk_preparation_scripts_require_build(self):
+        self.assertTrue(
+            requires_app_build(["tools/validation/prepare_validation_build.py"])
+        )
+        self.assertTrue(
+            requires_app_build(["tools/validation/align_validation_android.py"])
+        )
+        self.assertFalse(
+            requires_app_build(["tools/validation/test_prepare_validation_build.py"])
+        )
+
     def test_native_patch_and_validation_workflow_require_build(self):
         self.assertTrue(requires_app_build(["tools/v2ray_notif_patch/apply_patch.sh"]))
         self.assertTrue(

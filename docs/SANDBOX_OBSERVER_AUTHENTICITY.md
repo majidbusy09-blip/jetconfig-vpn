@@ -27,7 +27,7 @@ The trusted host controller must generate a cryptographically random 32-byte non
 - exact probe ID from the acceptance suite inventory;
 - host issue and expiry times.
 
-The hard challenge lifetime is 120 seconds. The challenge must be delivered over an authenticated channel and held by the host; it must not be generated from guest/provider input. This module validates a supplied challenge but does not generate or transport it.
+The hard challenge lifetime is 120 seconds. Observation freshness is configurable from 1 second to a hard maximum of one hour; clock skew is configurable from zero to a hard maximum of 120 seconds. The challenge must be delivered over an authenticated channel and held by the host; it must not be generated from guest/provider input. This module validates a supplied challenge but does not generate or transport it.
 
 ## Signed observer envelope
 
@@ -43,7 +43,7 @@ Version 1 requires an exact canonical JSON schema containing:
 - base64 raw payload and recomputed payload SHA-256;
 - canonical base64 Ed25519 signature.
 
-The signature covers canonical UTF-8 JSON containing every field except `signature_b64`. The verifier rejects duplicate JSON keys, unknown/missing fields, noncanonical serialization/base64, invalid timestamps, oversized payloads, payload-digest mismatch, invalid signature, identity/domain/key mismatch, stale/future observations, and challenge-context mismatch.
+The signature covers canonical UTF-8 JSON containing every field except `signature_b64`. The verifier rejects duplicate JSON keys, unknown/missing fields, noncanonical serialization/base64, invalid timestamps, oversized payloads, payload-digest mismatch, invalid signature, identity/domain/key mismatch, stale/future observations, and challenge-context mismatch. Registry identity validity is checked again at the verifier's trusted acceptance time, not only when the registry object is constructed.
 
 A valid envelope becomes a `ProbeObservation` only after the replay store accepts its nonce and sequence.
 

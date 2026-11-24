@@ -338,3 +338,15 @@ Keep `execution_authorized: false` and `eligible_for_untrusted_execution: false`
 - Pass only `result.observation` to `HostEvidenceCollector` and preserve the wrapper provenance for the later signed-report integration; the current evidence bundle does not yet retain those fields. `ObserverReplayStore` must atomically consume nonces and enforce strictly increasing per-observer sequence numbers across attempts. Only an in-memory test fake exists; no durable production replay store is implemented.
 - No TLS/network transport, nonce generation, key provisioning, VM, probe execution, or report signing is implemented. See [the observer authenticity contract](../../docs/SANDBOX_OBSERVER_AUTHENTICITY.md).
 - Focused tests: `python -m unittest discover -s tools/task_orchestrator/tests -p 'test_sandbox_observer_auth.py' -v`. Both execution authorization flags remain false.
+
+
+## Signed acceptance report v2 with observer provenance
+
+- `sandbox_acceptance_provenance.py` verifies a separate strict schema-v2 report while leaving schema v1 unchanged.
+- The v2 report signature covers the observer registry pin/version and a sorted provenance inventory containing observer/domain/key, sequence, nonce/envelope digests, and payload digest.
+- The verifier recomputes provenance and raw evidence digests, parses each canonical probe-evidence blob, derives required domains from the probe manifest, and cross-checks every provenance record against the exact observer ID/domain and raw payload digest.
+- The acceptance expectation additionally pins runtime ID and observer registry digest/version from protected configuration.
+- The v2 report signer is not implemented. It must only sign provenance produced by trusted `AuthenticatedObserverResult` values and preserve raw signed observer envelopes separately if independent re-verification is required.
+- Schema v1 remains unchanged and must not be treated as observer-authenticated. No private keys, report signer, VM, provider, network, or untrusted execution is added.
+- Focused tests: `python -m unittest discover -s tools/task_orchestrator/tests -p 'test_sandbox_acceptance_provenance.py' -v`.
+- See [the schema-v2 provenance contract](../../docs/SANDBOX_ACCEPTANCE_PROVENANCE_V2.md).

@@ -270,34 +270,12 @@ Do not merge PRs, alter branch protection, provision infrastructure, or authoriz
 5. After CI succeeds, update this status with the exact head SHA and check run IDs. Do not merge either draft PR without explicit approval.
 
 
-## After exact-head validation of PR #89 — 2026-11-24
+## After exact-head validation of PR #89 — superseded operating plan (2026-11-24)
 
-1. Keep PR #89 Draft until a human reviews the complete 22-file diff and confirms the gate's scope and v1.1 compatibility behavior.
-2. Before any merge, verify the repository ruleset still requires the Project Memory Audit check; the connector could not read branch-protection details during this session, and no ruleset was changed.
-3. Once PR #89 is approved and merged by the repository owner, verify the new gate runs on PR #88 and passes because PR #88 updates the required memory documents in the same change.
-4. The source-context retrieval stage is already implemented: `suggest-context` ranks only in-scope files from source-SHA-verified resolved/critical-path indexes, and `accept-context` adds only explicitly selected suggestions after rechecking the pinned Git blob. Do not rebuild this capability. The next collaborator milestone is a real, explicitly configured read-only provider adapter followed by isolated patch production; before sending full source context externally, require the user's explicit provider/data-transfer approval, a configured credential, and a separate runtime-isolation review.
-5. Keep production mTLS, KMS/HSM, isolated signer, durable replay persistence, and live execution behind their existing independent-review and explicit-approval gates.
+PR #89 remains Draft/open/unmerged pending human review. The v1.2 eight-document context contract and project-memory change gate are candidate-branch capabilities until an explicit merge. Verify its exact-head checks and the ruleset before any approved merge.
 
+The earlier instruction to build a paid/read-only provider adapter, configure model credentials, transfer source to an external API, and wait for isolated provider execution is superseded by the user's accepted architecture: ChatGPT and Grok chat sessions use their existing GitHub connections, with no model API key or paid model API. The connector-based route is user-activated and does not wake chats or poll in the background.
 
-## Superseding priority — ChatGPT + Grok through existing GitHub connections (2026-11-24)
+Immediate work is to complete and validate the GitHub connector runbook, verify each connector's actual write capabilities, and perform a harmless documentation-only pilot with one active lease, a remote branch pinned to the exact base SHA, PR scope guard, exact-head Actions checks, and read-only review by the other agent. The production sandbox remains a separate track and is not a prerequisite for this workflow.
 
-This section supersedes earlier next-step statements that make a paid/read-only model API adapter, provider runtime, external source transfer, or sandbox a prerequisite for multi-agent implementation. The user has explicitly chosen to use only the ChatGPT and Grok chat sessions with their existing GitHub connections; no API key or paid model API is authorized.
-
-### P0 — Make the existing GitHub connector route operational
-1. Keep PR #89 Draft/open until human review; it supplies the candidate v1.2 eight-document context contract and durable memory-change gate. Do not treat its branch-only features as present on main before merge.
-2. Correct and consolidate task runbooks so a user can activate one chat, claim a lease through the Issue command bridge (human posts the command if the connector cannot), verify the lock ref, create a remote branch from the pinned base SHA, read pinned memory/source, commit through the GitHub connector, and open a Draft PR.
-3. Explicitly distinguish the remote implementation branch from the ephemeral local branch used by Actions handoff acceptance. Handoff and agent-input artifacts are optional metadata/recovery artifacts; they do not wake a model or automatically enter a chat.
-4. Verify the exact write capabilities of each connected GitHub integration (Issue comments, branch creation, file/commit writes, PR creation). Never infer permissions from a connection label. If a write operation is unavailable, the user performs that discrete action.
-5. Add a harmless, documentation-only end-to-end pilot using a fresh task Issue and one active lease. Verify lock ownership, remote branch base SHA, PR envelope, path guard, exact-head Actions checks, renewal/release, and read-only review by the other agent. Do not run arbitrary task code or touch production.
-6. After the first successful pilot, record exact issue/branch/PR/commit/check IDs and failure cases in project memory. Only then define the smallest safe next automation increment.
-
-### P1 — Improve agent independence and memory quality
-1. Ensure every new task reads the exact pinned memory manifest and explicit source context; keep the v1.1 compatibility boundary and v1.2 candidate clearly distinguished until merge.
-2. Make task status, lease expiry, last verified commit, PR/check state, reviewer findings, and next action visible in the Issue/PR thread without claiming that a chat runs in the background.
-3. Add independent review instructions so the non-implementing agent checks correctness, scope, tests, and memory rather than merely agreeing with the implementation agent.
-4. Preserve the 512 KiB context ceiling and explicit source selection. Use verified semantic suggestions where available; do not silently truncate or widen scope.
-
-### Separate sandbox track — not a blocker for connector-based coding
-Continue host/sandbox trust work only as a separate security track. Do not enable arbitrary untrusted execution, provision providers, create keys, upload source, or spend money without separate review and explicit approval. The GitHub connector route can progress using repository writes and fixed GitHub Actions checks without waiting for a production sandbox.
-
-No merge, release, deployment, API key, paid API, provider account, external source upload, or untrusted execution is authorized by this priority update.
+Do not merge PRs, alter branch protection, provision infrastructure, create API keys, use paid model APIs, upload private source to external APIs, or authorize untrusted execution without separate explicit approval.

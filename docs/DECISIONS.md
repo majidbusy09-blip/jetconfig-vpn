@@ -102,3 +102,10 @@ This log records decisions that govern future work. New entries should include d
 - **Rationale:** The trust-store policy adapter previously delegated signature mathematics to an injected backend. A maintained cryptographic implementation is required to verify real signatures rather than relying on a test double.
 - **Consequences:** RFC 8032 known-answer and integration tests are required. Current pins (`cryptography==50.0.2`, `cffi==2.1.1`, `pycparser==3.12`) are exact but not hash-locked; wheel hashes/provenance review remains outstanding. The adapter does not load private keys, sign, generate keys, establish the trust root, persist rollback state, or authorize untrusted execution. Keep `execution_authorized` and `eligible_for_untrusted_execution` false.
 
+## D-013 — Trust configuration must be accepted through a protected host control plane
+
+- **Date:** 2026-11-24
+- **Status:** Design accepted; implementation and operational provider remain outstanding.
+- **Decision:** Deliver trust-store bytes, their independent digest, a monotonic version floor, and a monotonic configuration epoch through a root-authenticated host control plane outside the provider and guest. Persist epoch/version with atomic compare-and-swap and an append-only audit record. Reject rollback, same-epoch content conflicts, audience mismatch, expired configuration, transaction failure, and unavailable/corrupt monotonic state.
+- **Rationale:** `PinnedTrustStoreVerifier` validates supplied bytes and a caller-supplied floor, but it does not deliver the trust root or persist anti-rollback state. A local file, CI cache, guest variable, provider response, or repository artifact is not an independent durable trust anchor.
+- **Consequences:** The contract is specified in `docs/PROTECTED_TRUST_CONTROL_PLANE_DESIGN.md`. A provider-neutral validator may be implemented and tested with fake interfaces, but it must not be labelled production anti-rollback until a real transactional store, root-key custody, workload identity, audit, recovery, and independent review are in place. No KMS/HSM account, key, provider, VM, spend, or untrusted execution is authorized.

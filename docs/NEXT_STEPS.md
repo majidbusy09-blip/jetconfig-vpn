@@ -79,3 +79,21 @@ This update supersedes the PR #53 baseline above.
 
 Do not connect live model providers or execute untrusted code at this stage. Keep `execution_authorized: false` and `eligible_for_untrusted_execution: false`. GitHub-hosted runners and the benign Bubblewrap self-test are not an accepted untrusted-code sandbox.
 
+## Current authoritative baseline — PR #56 merged (2026-11-24)
+
+- PR #55 implementation merge: `3cc2e200dd02416d7b2fba02725b6734dffede39`.
+- PR #56 project-memory refresh merge: `5354ba7c38d1b27ff75ace2ed288feb50551d701`.
+- PR #56 final head `e07b35b4ccde0b78c50bf3bada16b1ad1ca9bf3f` passed Project Memory Audit run `45356110882` and Non-production PR Validation run `45356110761`; both concluded success.
+- PR #55's PyCA Ed25519 backend is present. Its version pins remain not hash-locked.
+- This document's older baseline entries above are historical; use this section and the current main commit as the latest state.
+
+## Next engineering sequence
+
+1. **Provider-neutral protected trust-config acceptance module:** implement strict signed-envelope validation, exact audience/expiry/digest checks, and a monotonic-state-store protocol. Unit tests may use deterministic fake root verification and an in-memory compare-and-swap store only. The module must expose no fake production persistence and must fail closed when the store is unavailable.
+2. **Independent 20-probe runtime suite:** implement the fixed probe runner and host controller as separate trust domains. The existing `sandbox_acceptance.py` is only a report verifier; it is not the runner or runtime evidence.
+3. **Supply-chain hardening:** investigate reproducible wheel hashes/provenance for the PyCA dependency set.
+4. **Operational design review:** choose a KMS/HSM, workload identity, transactional monotonic store, audit/recovery and region only after a separately approved vendor/cost/data-governance decision.
+5. **Real runtime pilot:** only after separate owner approval for account, consent, VM provisioning, data transfer, provider and spend, and after independent acceptance of the exact runtime.
+
+The detailed trust configuration contract is `docs/PROTECTED_TRUST_CONTROL_PLANE_DESIGN.md`. No provider, KMS/HSM, signing key, API key, VM, private-source transfer, spend, or untrusted execution is authorized. Keep `execution_authorized: false` and `eligible_for_untrusted_execution: false`.
+

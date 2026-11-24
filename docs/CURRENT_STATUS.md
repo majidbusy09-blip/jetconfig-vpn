@@ -63,3 +63,15 @@ This section supersedes the earlier PR #53 baseline above.
 - No provider, API key, private-source transfer, VM, untrusted execution, production signing, release, deployment, or spend was used.
 - `execution_authorized: false` and `eligible_for_untrusted_execution: false` remain mandatory.
 
+## Latest verified update — PR #56 merged; trust-control design added (2026-11-24)
+
+- PR #55 merged as `3cc2e200dd02416d7b2fba02725b6734dffede39`.
+- PR #56 project-memory refresh merged as `5354ba7c38d1b27ff75ace2ed288feb50551d701`.
+- PR #56 final head `e07b35b4ccde0b78c50bf3bada16b1ad1ca9bf3f` passed Project Memory Audit run `45356110882` and Non-production PR Validation run `45356110761`.
+- Added design-only trust-control-plane contract at `docs/PROTECTED_TRUST_CONTROL_PLANE_DESIGN.md` and decision D-013. It defines root-authenticated config envelopes, audience binding, monotonic epochs/version floors, atomic CAS acceptance, rotation/revocation, audit, and fail-closed recovery.
+- No actual control-plane service, persistent monotonic store, KMS/HSM integration, root signing key, or provider is implemented. The design does not create execution authorization.
+- Next safe code phase: provider-neutral envelope validator + monotonic-store protocol, tested only with fake in-memory components; clearly label it non-production. Then implement the independent 20-probe host/guest runner architecture.
+- Dependency pins are exact but not hash-locked. Supply-chain provenance remains open.
+- No provider, API key, private-source transfer, VM, untrusted execution, signing key, production release, deployment, or spend was used.
+- `execution_authorized: false` and `eligible_for_untrusted_execution: false` remain mandatory.
+

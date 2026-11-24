@@ -130,3 +130,11 @@ PR #49 merged `sandbox_acceptance.py`, a strict verifier for independently signe
 - The backend performs verification only. It does not load private keys, sign, generate keys, provision a provider, or authorize code execution. Protected out-of-band trust-store digest/minimum-version delivery, persistent anti-rollback, key lifecycle, independent host/guest probes, and real VM acceptance remain outstanding.
 - `execution_authorized` and `eligible_for_untrusted_execution` remain false. GitHub-hosted runner, Bubblewrap self-test, and current evidence verifiers do not establish a safe runtime for untrusted code.
 
+## Latest authoritative update — PR #56 and trust control plane design (2026-11-24)
+
+- PR #56 project-memory refresh merged as `5354ba7c38d1b27ff75ace2ed288feb50551d701`; its final head `e07b35b4ccde0b78c50bf3bada16b1ad1ca9bf3f` passed Project Memory Audit run `45356110882` and Non-production PR Validation run `45356110761`.
+- The protected trust-control-plane design is in `docs/PROTECTED_TRUST_CONTROL_PLANE_DESIGN.md`; decision D-013 is in `docs/DECISIONS.md`.
+- The design is not an implementation: no root signing key, KMS/HSM, transactional monotonic store, service, provider, or VM exists. A fake in-memory store may be used for deterministic tests only and must never be called production anti-rollback.
+- Next safe implementation: strict provider-neutral signed-envelope validator + monotonic-store protocol with fake-only tests and explicit non-production status. Follow with the independent 20-probe runner/host-controller work.
+- Execution remains disabled: `execution_authorized: false`, `eligible_for_untrusted_execution: false`.
+

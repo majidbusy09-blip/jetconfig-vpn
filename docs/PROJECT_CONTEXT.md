@@ -166,3 +166,15 @@ The current execution policy is unchanged: `execution_authorized: false`; `eligi
 - Exact final-head CI passed: Task Orchestrator Tests `45385761279`, Non-production PR Validation `45385761459`, Project Memory Audit `45385761392`.
 - Next focus: protected raw-envelope retention, trusted report-signer contract, host challenge/transport, and protected identity lifecycle.
 - Keep `execution_authorized: false` and `eligible_for_untrusted_execution: false`.
+
+
+## Protected observer-envelope retention update — PR #80 (2026-11-24)
+
+- Current main includes PR #80 squash merge `6666266f59877e9a066188d418938661075ae38e`; final PR head `f41cee3685c3315ae3373f5c21f9fbaab9fa03dc`.
+- Added `docs/SANDBOX_OBSERVER_ENVELOPE_RETENTION.md` defining exact-byte pre-acceptance staging in a host-only content-addressed store, a deterministic manifest, next-schema binding of that manifest digest, and post-acceptance artifact packaging bound to the verified report digest.
+- The design requires host-derived content-addressed paths, no-follow descriptor-relative storage, hashing from the same descriptor, bounded count/size, quarantine on uncertain acceptance, crash-safe cleanup, retention, and independent offline re-verification.
+- Schema v2 remains unchanged; it binds envelope digests/provenance but not the pre-acceptance staging-manifest digest and does not include raw envelope bytes.
+- No filesystem collector, storage backend, DB/service, credentials, report signer, private key, network, VM, provider, or untrusted execution was created.
+- Exact final-head CI passed: Task Orchestrator Tests `45386943800`, Non-production PR Validation `45386943924`, Project Memory Audit `45386943682`.
+- Next focus: trusted report-signer contract, host challenge/transport, protected identity lifecycle, and separately reviewed filesystem staging.
+- Keep `execution_authorized: false` and `eligible_for_untrusted_execution: false`.

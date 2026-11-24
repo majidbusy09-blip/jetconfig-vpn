@@ -50,13 +50,40 @@ class ObserverSignatureVerifier(Protocol):
     def verify(self, key_id: str, message: bytes, signature: bytes) -> bool: ...
 
 
-class ObserverReplayStore(Protocol):
-    """Trusted implementations must atomically consume nonce and advance sequence.
+@dataclass(frozen=True)
+class ObserverReplayReceipt:
+    """Immutable receipt for one committed replay-ledger acceptance transaction.
 
-    The transaction must reject a previously used nonce and any sequence not
-    strictly greater than the observer's previously accepted sequence. It must
-    atomically persist all supplied audit bindings with the sequence advance.
-    State must be durable across restart; unavailable/corrupt state must fail closed.
+    The receipt is a typed readback contract, not a cryptographic proof by itself.
+    Production readers must authenticate the trusted store and return the exact
+    committed row together with its durable revision and active fencing epoch.
+    """
+
+    observer_id: str
+    observer_domain: str
+    attempt_id: str
+    runtime_id: str
+    policy_digest: str
+    probe_id: str
+    observer_registry_sha256: str
+    observer_registry_version: int
+    key_id: str
+    nonce_sha256: str
+    sequence: int
+    envelope_sha256: str
+    challenge_expires_at: str
+    accepted_at: str
+    ledger_revision: int
+    fencing_epoch: int
+
+
+class ObserverReplayStore(Protocol):
+    """Trusted atomic replay ledger with read-after-commit receipt lookup.
+
+    consume() must atomically reject replay, advance sequence, persist the full
+    audit context and return the immutable committed receipt. get_acceptance()
+    is read-only and must return that same committed receipt by observer/envelope
+    digest. Production state must be durable and anti-rollback protected.
     """
 
     def consume(
@@ -76,7 +103,11 @@ class ObserverReplayStore(Protocol):
         envelope_sha256: str,
         challenge_expires_at: str,
         accepted_at: str,
-    ) -> bool: ...
+    ) -> ObserverReplayReceipt | None: ...
+
+    def get_acceptance(
+        self, *, observer_id: str, envelope_sha256: str
+    ) -> ObserverReplayReceipt | None: ...
 
 
 def _reject_duplicate_pairs(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
@@ -302,6 +333,10 @@ class AuthenticatedObserverResult:
     sequence: int
     nonce_sha256: str
     envelope_sha256: str
+    challenge_expires_at: str
+    accepted_at: str
+    ledger_revision: int
+    fencing_epoch: int
     signature_algorithm: str = "Ed25519"
 
 
@@ -322,8 +357,11 @@ class ObserverEnvelopeVerifier:
             raise ObserverAuthenticationError("A pinned observer registry is required.")
         if not callable(getattr(signature_verifier, "verify", None)):
             raise ObserverAuthenticationError("An audited observer signature verifier is required.")
-        if not callable(getattr(replay_store, "consume", None)):
-            raise ObserverAuthenticationError("An atomic replay store is required.")
+        if (
+            not callable(getattr(replay_store, "consume", None))
+            or not callable(getattr(replay_store, "get_acceptance", None))
+        ):
+            raise ObserverAuthenticationError("An atomic replay store with read-only receipt lookup is required.")
         if not isinstance(now, datetime) or now.tzinfo is None or now.utcoffset() != timedelta(0):
             raise ObserverAuthenticationError("Trusted observer verification time must be UTC.")
         if (
@@ -421,8 +459,10 @@ class ObserverEnvelopeVerifier:
 
         nonce_digest = hashlib.sha256(nonce).hexdigest()
         envelope_digest = hashlib.sha256(envelope_bytes).hexdigest()
+        challenge_expires_at = challenge.expires_at.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        accepted_at = self._now.isoformat(timespec="microseconds").replace("+00:00", "Z")
         try:
-            consumed = self._replay_store.consume(
+            receipt = self._replay_store.consume(
                 observer_id=challenge.observer_id,
                 observer_domain=challenge.observer_domain,
                 attempt_id=challenge.attempt_id,
@@ -435,13 +475,46 @@ class ObserverEnvelopeVerifier:
                 nonce_sha256=nonce_digest,
                 sequence=sequence,
                 envelope_sha256=envelope_digest,
-                challenge_expires_at=challenge.expires_at.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-                accepted_at=self._now.isoformat(timespec="microseconds").replace("+00:00", "Z"),
+                challenge_expires_at=challenge_expires_at,
+                accepted_at=accepted_at,
             )
         except Exception as exc:
             raise ObserverAuthenticationError("Replay store unavailable; observer evidence rejected.") from exc
-        if consumed is not True:
+        if receipt is None:
             raise ObserverAuthenticationError("Observer challenge was replayed or sequence is not increasing.")
+        if type(receipt) is not ObserverReplayReceipt:
+            raise ObserverAuthenticationError("Replay store did not return a committed acceptance receipt.")
+        expected_receipt_fields = {
+            "observer_id": challenge.observer_id,
+            "observer_domain": challenge.observer_domain,
+            "attempt_id": challenge.attempt_id,
+            "runtime_id": challenge.runtime_id,
+            "policy_digest": challenge.policy_digest,
+            "probe_id": challenge.probe_id,
+            "observer_registry_sha256": self._registry.sha256,
+            "observer_registry_version": self._registry.version,
+            "key_id": key_id,
+            "nonce_sha256": nonce_digest,
+            "sequence": sequence,
+            "envelope_sha256": envelope_digest,
+            "challenge_expires_at": challenge_expires_at,
+            "accepted_at": accepted_at,
+        }
+        if any(getattr(receipt, field) != expected for field, expected in expected_receipt_fields.items()):
+            raise ObserverAuthenticationError("Replay acceptance receipt does not match the verified observer envelope.")
+        for field in ("ledger_revision", "fencing_epoch"):
+            value = getattr(receipt, field)
+            if isinstance(value, bool) or not isinstance(value, int) or value < 1:
+                raise ObserverAuthenticationError("Replay acceptance receipt lacks a valid ledger revision/fencing epoch.")
+        try:
+            readback = self._replay_store.get_acceptance(
+                observer_id=challenge.observer_id,
+                envelope_sha256=envelope_digest,
+            )
+        except Exception as exc:
+            raise ObserverAuthenticationError("Replay receipt readback failed closed.") from exc
+        if type(readback) is not ObserverReplayReceipt or readback != receipt:
+            raise ObserverAuthenticationError("Committed replay acceptance receipt could not be independently read back.")
 
         observation = ProbeObservation(
             probe_id=challenge.probe_id,
@@ -464,4 +537,8 @@ class ObserverEnvelopeVerifier:
             sequence=sequence,
             nonce_sha256=nonce_digest,
             envelope_sha256=envelope_digest,
+            challenge_expires_at=receipt.challenge_expires_at,
+            accepted_at=receipt.accepted_at,
+            ledger_revision=receipt.ledger_revision,
+            fencing_epoch=receipt.fencing_epoch,
         )

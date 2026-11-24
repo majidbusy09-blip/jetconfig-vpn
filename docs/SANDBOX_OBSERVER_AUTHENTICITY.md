@@ -92,3 +92,11 @@ No production keys, real network transport, durable replay store, VM, provider, 
 ## Non-authorization
 
 This contract does not establish that a registry pin was provisioned correctly, that the replay store is durable, that TLS transport is authenticated, that a probe actually ran, or that a VM is isolated. Both `execution_authorized: false` and `eligible_for_untrusted_execution: false` remain mandatory.
+
+
+## Replay acceptance receipt readback — PR #84
+
+- `ObserverReplayStore.consume` now returns an immutable `ObserverReplayReceipt` after the nonce/sequence/audit transaction commits.
+- The protocol also requires read-only `get_acceptance(observer_id, envelope_sha256)`. The verifier reads the receipt back and requires exact equality with the commit result before returning an `AuthenticatedObserverResult`.
+- The receipt includes the complete acceptance context, challenge expiry, trusted acceptance time, ledger revision and fencing epoch. The result carries these values for later signed-report binding.
+- The in-memory test fake is deterministic and non-durable. Its revision/fencing values are not production anti-rollback or an authenticated trust assertion.

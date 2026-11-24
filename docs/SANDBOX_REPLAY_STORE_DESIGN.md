@@ -118,3 +118,14 @@ Tests must run against a real isolated test database only after the database imp
 ## Non-authorization
 
 This design does not establish a production persistence boundary, durability, anti-rollback, database isolation, or runtime safety. No live store or external service was created. Keep `execution_authorized: false` and `eligible_for_untrusted_execution: false`.
+
+
+## In-process acceptance receipt contract — PR #84
+
+The observer verifier now requires a replay store to return an immutable `ObserverReplayReceipt` from the atomic `consume` operation and expose a read-only `get_acceptance(observer_id, envelope_sha256)` lookup.
+
+The receipt carries the complete committed audit context plus `ledger_revision` and `fencing_epoch`. The verifier rejects missing/malformed receipt data, context mismatch, non-positive revision/epoch, readback failure, or any mismatch between the returned receipt and the independently read-back receipt. The resulting `AuthenticatedObserverResult` carries challenge expiry, accepted timestamp, ledger revision and fencing epoch for later report binding.
+
+The in-memory fake increments a deterministic ledger revision and exposes immutable receipts. Tests cover successful readback, frozen receipt values, a missing readback, and a consume-only store that lacks the read API.
+
+**Important limitation:** this is an API contract and test fake only. The in-memory revision and fixed fencing epoch do not provide durable monotonicity, multi-process consistency, anti-rollback, or cryptographic authenticity. A production reader must authenticate the host caller, read from the authoritative durable ledger, enforce current fencing, and compare against the protected external high-water checkpoint. The Python receipt object itself is not a trust root.

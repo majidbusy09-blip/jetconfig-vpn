@@ -1,0 +1,456 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://jet-ai.invalid/schemas/project-manifest-v1.schema.json",
+  "title": "JET AI Project Manifest",
+  "description": "Declarative, non-executable registration manifest for one GitHub repository. Cross-manifest uniqueness and live GitHub identity checks are enforced by the registry validator, not by this per-manifest schema.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "project_id",
+    "display_name",
+    "repository",
+    "lifecycle",
+    "project_type",
+    "languages",
+    "toolchains",
+    "memory",
+    "source_index",
+    "verification",
+    "protected_paths",
+    "operational_constraints"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "const": 1
+    },
+    "project_id": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 63,
+      "pattern": "^[a-z][a-z0-9-]*[a-z0-9]$",
+      "description": "Immutable JET AI identifier. Never derive it from task prose or silently change it after registration."
+    },
+    "display_name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120
+    },
+    "repository": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "provider",
+        "repository_id",
+        "full_name",
+        "url",
+        "default_branch"
+      ],
+      "properties": {
+        "provider": {
+          "type": "string",
+          "const": "github"
+        },
+        "repository_id": {
+          "type": "string",
+          "pattern": "^[0-9]{1,20}$",
+          "description": "Immutable numeric GitHub repository ID serialized as a decimal string."
+        },
+        "full_name": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$",
+          "maxLength": 200
+        },
+        "url": {
+          "type": "string",
+          "format": "uri",
+          "pattern": "^https://github\\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+/?$"
+        },
+        "default_branch": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 255,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._/-]*$"
+        }
+      }
+    },
+    "lifecycle": {
+      "type": "string",
+      "enum": ["registered", "active", "paused", "retired"],
+      "description": "Retired projects remain in the audit registry and cannot receive new implementation tasks."
+    },
+    "project_type": {
+      "type": "string",
+      "enum": [
+        "flutter_android",
+        "flutter",
+        "dart_library",
+        "python",
+        "web_frontend",
+        "backend_service",
+        "mixed",
+        "documentation",
+        "other"
+      ]
+    },
+    "languages": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 20,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "primary"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 40
+          },
+          "version": {
+            "type": "string",
+            "maxLength": 80
+          },
+          "primary": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "toolchains": {
+      "type": "array",
+      "maxItems": 30,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "required"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]{1,63}$"
+          },
+          "version": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "version_source": {
+            "type": "string",
+            "maxLength": 256,
+            "description": "Repository path or authoritative source used to determine the toolchain version."
+          },
+          "required": {
+            "type": "boolean"
+          },
+          "lockfiles": {
+            "$ref": "#/$defs/repositoryPaths"
+          }
+        }
+      }
+    },
+    "memory": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "manifest_version",
+        "required_documents",
+        "max_total_bytes"
+      ],
+      "properties": {
+        "manifest_version": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "required_documents": {
+          "$ref": "#/$defs/repositoryPaths",
+          "minItems": 1
+        },
+        "optional_documents": {
+          "$ref": "#/$defs/repositoryPaths"
+        },
+        "max_total_bytes": {
+          "type": "integer",
+          "minimum": 1024,
+          "maximum": 5000000
+        },
+        "survival_check": {
+          "type": "string",
+          "enum": ["tracked-regular-file-at-exact-head"]
+        }
+      }
+    },
+    "source_index": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["strategy", "input_paths"],
+      "properties": {
+        "strategy": {
+          "type": "string",
+          "enum": [
+            "none",
+            "dart_analyzer",
+            "python_ast",
+            "typescript",
+            "markdown",
+            "custom"
+          ]
+        },
+        "adapter": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]{1,63}$"
+        },
+        "input_paths": {
+          "$ref": "#/$defs/repositoryPaths"
+        },
+        "generated_artifacts": {
+          "$ref": "#/$defs/repositoryPaths"
+        },
+        "freshness_check": {
+          "type": "string",
+          "maxLength": 128
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "strategy": { "const": "custom" }
+            },
+            "required": ["strategy"]
+          },
+          "then": {
+            "required": ["adapter"]
+          }
+        }
+      ]
+    },
+    "verification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["required_profiles", "supported_profiles"],
+      "properties": {
+        "required_profiles": {
+          "$ref": "#/$defs/profileIds"
+        },
+        "supported_profiles": {
+          "$ref": "#/$defs/profileIds"
+        },
+        "capabilities": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "enum": [
+              "unit_tests",
+              "static_analysis",
+              "type_check",
+              "format_check",
+              "build",
+              "security_scan",
+              "documentation_check",
+              "memory_audit",
+              "source_index"
+            ]
+          }
+        }
+      }
+    },
+    "protected_paths": {
+      "$ref": "#/$defs/repositoryPaths"
+    },
+    "operational_constraints": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "maximum_task_risk",
+        "release_requires_human_approval",
+        "deploy_requires_human_approval",
+        "untrusted_code_execution",
+        "paid_model_api",
+        "credentials_in_manifest"
+      ],
+      "properties": {
+        "maximum_task_risk": {
+          "type": "string",
+          "enum": ["low", "medium", "high"]
+        },
+        "external_network": {
+          "type": "string",
+          "enum": ["disabled", "read_only_allowlist", "task_scoped_allowlist"]
+        },
+        "release_requires_human_approval": {
+          "type": "boolean",
+          "const": true
+        },
+        "deploy_requires_human_approval": {
+          "type": "boolean",
+          "const": true
+        },
+        "untrusted_code_execution": {
+          "type": "boolean",
+          "const": false
+        },
+        "paid_model_api": {
+          "type": "boolean",
+          "const": false
+        },
+        "credentials_in_manifest": {
+          "type": "boolean",
+          "const": false
+        },
+        "additional_restrictions": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300
+          }
+        }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "registered_at": { "type": "string", "format": "date-time" },
+        "manifest_digest": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "notes": { "type": "string", "maxLength": 2000 }
+      }
+    }
+  },
+  "$defs": {
+    "repositoryPath": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "pattern": "^(?!/)(?!.*(^|/)\\.\\.?(/|$))[A-Za-z0-9._/-]+$",
+      "description": "Repository-relative path; no absolute paths, backslashes, empty segments, dot segments, or parent traversal."
+    },
+    "repositoryPaths": {
+      "type": "array",
+      "maxItems": 200,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/repositoryPath" }
+    },
+    "profileIds": {
+      "type": "array",
+      "uniqueItems": true,
+      "maxItems": 50,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9-]{1,63}$"
+      }
+    }
+  },
+  "examples": [
+    {
+      "schema_version": 1,
+      "project_id": "jet-vpn-android",
+      "display_name": "JET VPN Android",
+      "repository": {
+        "provider": "github",
+        "repository_id": "1349356614",
+        "full_name": "majidbusy09-blip/jetconfig-vpn",
+        "url": "https://github.com/majidbusy09-blip/jetconfig-vpn",
+        "default_branch": "main"
+      },
+      "lifecycle": "active",
+      "project_type": "flutter_android",
+      "languages": [
+        { "name": "Dart", "primary": true },
+        { "name": "Java", "primary": false },
+        { "name": "Python", "primary": false },
+        { "name": "YAML", "primary": false }
+      ],
+      "toolchains": [
+        { "id": "flutter", "required": true, "version_source": "pubspec.yaml and CI setup" },
+        { "id": "python", "required": true, "version": "3.12" }
+      ],
+      "memory": {
+        "manifest_version": 1,
+        "required_documents": [
+          "AGENTS.md",
+          "docs/PROJECT_CONTEXT.md",
+          "docs/CURRENT_STATUS.md",
+          "docs/NEXT_STEPS.md",
+          "docs/DEVELOPMENT_LOG.md"
+        ],
+        "optional_documents": ["docs/DECISIONS.md", "docs/KNOWN_ISSUES.md"],
+        "max_total_bytes": 512000,
+        "survival_check": "tracked-regular-file-at-exact-head"
+      },
+      "source_index": {
+        "strategy": "dart_analyzer",
+        "input_paths": ["lib"],
+        "generated_artifacts": ["docs/generated/jet_vpn_code_index.json"],
+        "freshness_check": "python tools/project_memory/index_dart.py --check --check-status"
+      },
+      "verification": {
+        "required_profiles": ["python-tooling-tests", "flutter-analysis", "flutter-tests"],
+        "supported_profiles": ["python-tooling-tests", "flutter-analysis", "flutter-tests", "lexical-memory-audit"],
+        "capabilities": ["unit_tests", "static_analysis", "build", "memory_audit", "source_index"]
+      },
+      "protected_paths": ["android/key.properties", "android/app/key.properties", "secrets"],
+      "operational_constraints": {
+        "maximum_task_risk": "medium",
+        "external_network": "read_only_allowlist",
+        "release_requires_human_approval": true,
+        "deploy_requires_human_approval": true,
+        "untrusted_code_execution": false,
+        "paid_model_api": false,
+        "credentials_in_manifest": false
+      }
+    },
+    {
+      "schema_version": 1,
+      "project_id": "sample-python-service",
+      "display_name": "Sample Python Service",
+      "repository": {
+        "provider": "github",
+        "repository_id": "987654321",
+        "full_name": "example-org/sample-python-service",
+        "url": "https://github.com/example-org/sample-python-service",
+        "default_branch": "main"
+      },
+      "lifecycle": "registered",
+      "project_type": "python",
+      "languages": [
+        { "name": "Python", "version": "3.12", "primary": true }
+      ],
+      "toolchains": [
+        { "id": "python", "version": "3.12", "required": true, "lockfiles": ["pyproject.toml", "uv.lock"] }
+      ],
+      "memory": {
+        "manifest_version": 1,
+        "required_documents": ["AGENTS.md", "docs/PROJECT_CONTEXT.md", "docs/CURRENT_STATUS.md"],
+        "max_total_bytes": 256000,
+        "survival_check": "tracked-regular-file-at-exact-head"
+      },
+      "source_index": {
+        "strategy": "python_ast",
+        "input_paths": ["src"],
+        "generated_artifacts": [],
+        "freshness_check": "python -m compileall -q src"
+      },
+      "verification": {
+        "required_profiles": ["python-unit-tests", "python-static-analysis"],
+        "supported_profiles": ["python-unit-tests", "python-static-analysis"],
+        "capabilities": ["unit_tests", "static_analysis", "type_check", "format_check"]
+      },
+      "protected_paths": [".env", "config/production"],
+      "operational_constraints": {
+        "maximum_task_risk": "medium",
+        "external_network": "disabled",
+        "release_requires_human_approval": true,
+        "deploy_requires_human_approval": true,
+        "untrusted_code_execution": false,
+        "paid_model_api": false,
+        "credentials_in_manifest": false
+      }
+    }
+  ]
+}

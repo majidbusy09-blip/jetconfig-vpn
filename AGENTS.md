@@ -244,3 +244,13 @@ PR #49 merged `sandbox_acceptance.py`, a strict verifier for independently signe
 - A caller-created `AuthenticatedObserverResult` is not a trust root. A future signer must match every result and exact raw envelope to the committed replay ledger receipt, including ledger revision/fencing epoch.
 - Schema v1/v2 remain unchanged. Schema v3 is only a design target; no report builder, signer, verifier, key, signing service, replay database, or filesystem collector was added.
 - No probe execution, VM/provider, network, credentials, production signing, release, deployment, or spend occurred. Keep `execution_authorized: false` and `eligible_for_untrusted_execution: false`.
+
+
+## Automated project-memory update gate
+
+For every pull request that changes implementation-sensitive paths (`lib/`, `test/`, `android/`, `ios/`, `tools/task_orchestrator/`, `tools/project_memory/`, `tools/validation/`, `.github/workflows/`, or app package/analyzer configuration), update durable project memory in the same PR. The required documents are computed by `tools/project_memory/verify_change_memory.py`:
+- Always: `docs/CURRENT_STATUS.md`, `docs/NEXT_STEPS.md`, `docs/DEVELOPMENT_LOG.md`, and `docs/PROJECT_CONTEXT.md`.
+- Task-orchestrator, project-memory, validation, or workflow changes additionally require `AGENTS.md` and `docs/DECISIONS.md`.
+- Project-memory tooling or workflow changes additionally require `docs/PROJECT_MEMORY_AUTOMATION.md`.
+
+The Project Memory Audit runs this gate against the exact PR base/head diff. A document that is unchanged in the PR does not satisfy the requirement merely because it exists in the repository. The gate checks presence, not factual correctness; reviewers and agents must still verify every claim against source and CI.

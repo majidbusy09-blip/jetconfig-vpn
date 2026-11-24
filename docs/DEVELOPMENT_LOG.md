@@ -607,3 +607,13 @@ Append-only record of meaningful project work. Each entry should include branch/
 - Found stale next-step/runbook language requiring a model API adapter, provider runtime, source upload, and isolated execution before agent work. These are not prerequisites for the selected chat + GitHub connector route and are now explicitly superseded.
 - Recorded the user-approved no-API decision and clarified that ChatGPT/Grok are user-activated; each connector's actual write permissions must be verified. Handoff artifacts do not automatically enter a chat, and the ephemeral Actions branch is not the remote implementation branch.
 - No code execution, API key, paid API, external source upload, provider account, production sandbox, merge, release, or deployment was performed.
+
+## 2026-11-24 — ChatGPT GitHub connector end-to-end documentation pilot
+
+- Created documentation-only task Issue #90 with a strict allowlist of `docs/agent-connector-pilot/**` and owner `chatgpt`.
+- Claimed via the trusted Issue-comment workflow. Active lease pinned to main SHA `dcb9d1c01a50974d9ef38bdf5f0e4aaf744b409e`; lock commit `ee479b5aef75134dc8cb8f88474ca0d815463a83` was read back twice with identical ref SHA.
+- Used the ChatGPT GitHub integration to create remote branch `agent/github-connector-docs-pilot` from the exact pinned SHA, commit one Markdown file, and open Draft PR #91. This confirms the connector's Issue-comment, branch, file-commit, and PR operations in this session.
+- First PR guard run `45461103723` correctly rejected the envelope because the marker was at the top of the body. Moved the marker and single fenced JSON envelope to the end, pushed a documentation-only follow-up commit, and the exact final head `652e3d38a594adfb4b0784971c25010b5a5e3382` passed Agent PR Scope Guard `45461329913`.
+- Non-production PR Validation `45461334216` and Project Memory Audit `45461334389` also passed. Only one file changed; no application code or workflow was touched.
+- Released the lease through the trusted command workflow. Final lock commit `9c0ae0b94e79b75953ae046e385885e6569f15d2` records status `released`.
+- PR #91 remains Draft/open/unmerged. Grok's separate connector has not been tested from this session. No model API, key, paid endpoint, source upload, untrusted execution, merge, or deployment was used.

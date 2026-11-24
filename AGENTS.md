@@ -90,10 +90,10 @@ A successful build is not a runtime/device test. A CI workflow definition is not
 
 - Repository: `majidbusy09-blip/jetconfig-vpn`
 - Branch: `main`
-- Current main commit (verified 2026-11-24): `f360d50b13064c7136eb7ce4a3b38e3413e5b333`.
+- Current main commit (verified 2026-11-24): `53e00ac2ad5e260a4d214772da4ba9bccd3499f4`.
 - PR #20 merged at `15fea59e4f83704e0a9955363e0f0b237aac09ac`; PRs #38–#44 merged through PR #44.
 - PR #46 memory refresh merged at `4dbe01eda4078342c17f16a4111919bebaa616ae`.
-- PR #47 synthetic-only sandbox lifecycle contract merged at `f360d50b13064c7136eb7ce4a3b38e3413e5b333`.
+- PR #47 synthetic-only sandbox lifecycle contract merged at `53e00ac2ad5e260a4d214772da4ba9bccd3499f4`.
 - `lib/main.dart` blob: `3d28693b7be8bfe309a850923599830e1a65ab59`; source metrics: 9,008 lines / 352,770 UTF-8 bytes / 336,710 Unicode code points.
 - `pubspec.yaml` blob: `adc3b22a4538db4738bec789e3c3badf26e4f710`; app version remains `2.4.5+284`.
 - PR #47 head `846b4cf15ba176178c811f45e51384bc25ae3c28` passed Task Orchestrator Tests #45314331567 (247 tests, including 13 sandbox tests), Project Memory Audit #45314331612, and `validate-agent-pr`. Non-production PR Validation #45314331545 was still running at this snapshot.
@@ -103,3 +103,8 @@ A successful build is not a runtime/device test. A CI workflow definition is not
 - No live model provider, untrusted code execution, vendor account, API key, payment method, real sandbox, private-source transfer, provider spend, or production deployment is enabled or authorized.
 
 Snapshot verification source: GitHub branch/ref, file/blob, PR, workflow-run, and ruleset APIs checked on 2026-11-24.
+
+
+## Sandbox trust boundary update — 2026-11-24
+
+The repository includes `sandbox_acceptance.py`, a strict verifier for independently signed runtime-acceptance reports. It is not a probe runner, signing service, provider adapter, or execution authorization. Production use requires an out-of-band pinned asymmetric public key and a separately controlled probe suite. A passing report must never be interpreted as permission to execute untrusted code; the verifier explicitly returns `execution_authorized: false`.

@@ -96,3 +96,14 @@ This is **not production-ready**: no durable monotonic-store implementation, tra
 PR #59 final head `177a4090effd838add36188578a5d7e8a7c671f5` passed Task Orchestrator Tests run `45361973408`, Project Memory Audit run `45361973336`, Non-production PR Validation run `45361973411`, and `validate-agent-pr` check `138334033651`.
 
 The current execution policy is unchanged: `execution_authorized: false`; `eligible_for_untrusted_execution: false`. A passing acceptance test or signed evidence report is not execution authorization.
+
+
+## Authoritative project context — PRs #67 and #68 (2026-11-24)
+
+- PR #67 merge `b0b0b80515f17c01836f558ff5700189c9a7bf32` adds the exact machine-readable 20-probe runtime acceptance inventory, its non-executable specification, and tests. It also adds the tested CI path classifier: tooling-only changes skip unnecessary Flutter/APK steps while retaining Python safety validation; app/build-affecting changes still trigger full validation.
+- PR #68 merge `90dd9f848998ebb0c18b6c584938fee148d6fced` adds a host-side evidence assembly contract. Final PR head `f76cdf060a2d7166639f6469bbcdf453d52b539b` passed Task Orchestrator Tests `45376199406`, Project Memory Audit `45376199527`, and Non-production PR Validation `45376199739`.
+- The collector consumes typed host/guest/external-canary observations; requires exact manifest-defined trust domains; binds attempt, runtime ID and policy digest; validates monotonic offsets and UTC freshness; bounds payloads; rejects missing, duplicate and untrusted observations; and deterministically assembles per-probe evidence with host-side SHA-256 digests.
+- It only checks observer IDs against caller-supplied allowlists. It does not authenticate identities cryptographically, provision trust roots, launch probes, start or inspect VMs/processes, open sockets, contact canaries/providers, collect artifacts, or sign reports.
+- The 20 probes remain specified but not executed. No accepted untrusted-code runtime exists. GitHub-hosted Actions and benign Bubblewrap self-tests are not Sandbox acceptance evidence.
+- The host-controller lifecycle, out-of-band observer trust, external canary channel, artifact collection and independent runtime threat-model review remain future work. No production infrastructure or paid service is authorized.
+- Preserve `execution_authorized: false` and `eligible_for_untrusted_execution: false`.

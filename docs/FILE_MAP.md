@@ -134,3 +134,11 @@ Never add paths to this map unless verified from the current tree or a separatel
 - `docs/SANDBOX_HOST_EVIDENCE_COLLECTOR.md` — collector trust boundary, evidence format, limitations and next steps.
 - `tools/validation/classify_ci_scope.py` and `tools/validation/test_classify_ci_scope.py` — unit-tested decision for skipping Flutter/APK builds on tooling-only changes while preserving full validation for app/build paths.
 - PR #67 merge `b0b0b80515f17c01836f558ff5700189c9a7bf32`; PR #68 merge `90dd9f848998ebb0c18b6c584938fee148d6fced`.
+
+
+## Host lifecycle state machine — PR #70
+
+- `tools/task_orchestrator/sandbox_host_lifecycle.py` — pure typed lifecycle event validator; no runtime or adapter operations.
+- `tools/task_orchestrator/tests/test_sandbox_host_lifecycle.py` — deterministic transition, identity, timeout, cancellation, termination and cleanup tests.
+- `docs/SANDBOX_HOST_LIFECYCLE.md` — lifecycle graph, pinned context, failure semantics and implementation limits.
+- PR #70 merged as `e699293c1495f3137dd319e37764a2db6c5dfff3`; final-head checks `45377376254`, `45377376173`, `45377376300` all succeeded.

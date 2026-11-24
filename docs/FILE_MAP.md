@@ -166,3 +166,11 @@ Never add paths to this map unless verified from the current tree or a separatel
 - `tools/task_orchestrator/tests/test_sandbox_acceptance_provenance.py` — deterministic fake-signer fixtures for all required probes and provenance mismatch/replay/tampering cases.
 - `docs/SANDBOX_ACCEPTANCE_PROVENANCE_V2.md` — v2 schema, trust model, cross-binding, limitations, and test instructions.
 - PR #76 merged as `d393d2e5bb0a93390b8d572bf540ff9ec3f1fe7c`; final-head checks `45384423673`, `45384423800`, and `45384423642` all succeeded.
+
+
+## Durable observer replay-store design — PR #78
+
+- `tools/task_orchestrator/sandbox_observer_auth.py` — expanded `ObserverReplayStore.consume` protocol with complete observer/attempt/runtime/policy/probe/registry/key/nonce/sequence/envelope/expiry/acceptance audit context.
+- `tools/task_orchestrator/tests/test_sandbox_observer_auth.py` — in-memory fake rejects duplicate nonce/envelope and non-increasing sequence; verifies full audit context is passed.
+- `docs/SANDBOX_REPLAY_STORE_DESIGN.md` — atomic transaction, unique constraints, CAS sequence update, audit, fencing, anti-rollback checkpoint, retention, failover, restore, and test matrix.
+- PR #78 merged as `74a5b2b760362494711949b799031dc628612671`; final-head checks `45385761279`, `45385761459`, and `45385761392` all succeeded.

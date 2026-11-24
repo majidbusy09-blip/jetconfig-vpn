@@ -5,6 +5,7 @@ import unittest
 from dataclasses import replace
 from datetime import datetime, timezone
 
+from tools.task_orchestrator.ed25519_backend import CryptographyEd25519Backend
 from tools.task_orchestrator.sandbox_trust import (
     PinnedTrustStoreVerifier,
     TrustStoreError,
@@ -49,6 +50,49 @@ def verifier(raw=None, *, digest=None, minimum_version=3, now=NOW, backend=None)
         now=now,
         backend=FakeEd25519Backend() if backend is None else backend,
     )
+
+
+class CryptographyEd25519BackendTests(unittest.TestCase):
+    def test_rfc8032_test_vector_one_verifies(self):
+        # RFC 8032 test vector 1; this is public test material, not a production key.
+        public_key = bytes.fromhex(
+            "d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a"
+        )
+        signature = bytes.fromhex(
+            "e5564300c360ac729086e2cc806e828a"
+            "84877f1eb8e5d974d873e06522490155"
+            "5fb8821590a33bacc61e39701cf9b46b"
+            "d25bf5f0595bbe24655141438e7a100b"
+        )
+        backend = CryptographyEd25519Backend()
+        self.assertTrue(backend.verify(public_key, b"", signature))
+        self.assertFalse(backend.verify(public_key, b"tampered", signature))
+        self.assertFalse(backend.verify(public_key, b"", signature[:-1] + b"\\x00"))
+        self.assertFalse(backend.verify(b"\\x00" * 32, b"", signature))
+
+    def test_pinned_trust_store_uses_real_ed25519_backend(self):
+        from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+
+        seed = bytes.fromhex(
+            "9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60"
+        )
+        private_key = Ed25519PrivateKey.from_private_bytes(seed)
+        public_key = private_key.public_key().public_bytes_raw()
+        value = document()
+        value["keys"][0]["public_key_b64"] = base64.b64encode(public_key).decode("ascii")
+        raw = canonical(value)
+        trusted = PinnedTrustStoreVerifier(
+            trust_store_bytes=raw,
+            expected_sha256=hashlib.sha256(raw).hexdigest(),
+            minimum_version=3,
+            now=NOW,
+            backend=CryptographyEd25519Backend(),
+        )
+        message = b"real Ed25519 acceptance evidence"
+        signature = private_key.sign(message)
+        self.assertTrue(trusted.verify("sandbox-acceptance-2026-01", message, signature))
+        self.assertFalse(trusted.verify("sandbox-acceptance-2026-01", message + b"!", signature))
+        self.assertFalse(trusted.verify("sandbox-acceptance-2026-01", message, signature[:-1]))
 
 
 class PinnedSandboxTrustStoreTests(unittest.TestCase):

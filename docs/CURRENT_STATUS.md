@@ -4,13 +4,15 @@
 
 - Repository: `majidbusy09-blip/jetconfig-vpn`.
 - Default branch: `main`.
-- Current main HEAD: `53e00ac2ad5e260a4d214772da4ba9bccd3499f4` (PR #48 squash merge).
-- PR #20, PRs #38–#44, and PRs #46–#48 are merged.
+- Current main HEAD: `4fc59de5a8d6ef9323de3b48896f78f3c426732d` (PR #49 squash merge).
+- PR #20, PRs #38–#44, and PRs #46–#49 are merged.
 - PR #47 introduced the synthetic-only sandbox lifecycle contract.
-- PR #48 refreshed project memory after PR #47. Its Task Orchestrator Tests, Project Memory Audit, and Non-production PR Validation workflows all completed successfully.
-- App source/version remain unchanged: `lib/main.dart` blob `3d28693b7be8bfe309a850923599830e1a65ab59`; version `2.4.5+284`.
+- PR #48 refreshed project memory after PR #47.
+- PR #49 added the independent signed-evidence verifier and its 12 adversarial tests.
+- PR #49 verification: Task Orchestrator Tests #45320041554 passed 259 tests; Project Memory Audit #45320041561 passed; Agent PR Lease and Scope Guard #45320038880 passed.
+- Non-production PR Validation #45320041553 remained pending at merge. PR #49 changed only developer tooling and documentation; application source and version were unchanged.
+- App source/version: `lib/main.dart` blob `3d28693b7be8bfe309a850923599830e1a65ab59`; `2.4.5+284`.
 - Source metrics: 9,008 lines / 352,770 UTF-8 bytes / 336,710 Unicode code points.
-- The latest sandbox work is on branch `feat/trusted-sandbox-evidence-gate-20261124`; it adds an independent signed-evidence verifier and adversarial tests. It does not provision or execute a real sandbox.
 
 ## Current collaborator capabilities
 

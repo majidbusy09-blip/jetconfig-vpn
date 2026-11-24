@@ -1,2 +1,6 @@
 # Local task records and generated agent envelopes contain source text.
 .agent/tasks/
+
+# Python bytecode is transient and must never dirty a task workspace.
+__pycache__/
+*.py[cod]

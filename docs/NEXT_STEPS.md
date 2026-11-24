@@ -241,3 +241,16 @@ PR #82 is a design contract only. It does not sign reports, create keys, persist
   5. Add end-to-end adversarial tests for signer output and independent verification.
   6. Continue with host challenge/transport and protected identity lifecycle design.
 - Do not create keys, a real signer, durable replay storage, filesystem staging, network, VM/provider, or execute probes without separate review/approval. Keep both execution flags false.
+
+
+## Current next steps after PR #84 (2026-11-24)
+
+1. **Pure schema-v3 report builder:** accept exact evidence bytes, exact retained envelope bytes, pinned registry/attempt expectations, successful observer results and replay receipts. Recompute envelope digests, independently verify Ed25519 signatures, query/read back replay receipts, enforce exact 20-probe/domain inventory and build deterministic provenance plus envelope-manifest digests.
+2. **Injected report signer/verifier contracts:** add narrow `sign(key_id, canonical_bytes)` and verification interfaces with deterministic fake implementations only. Do not create a private key or real signing service.
+3. **Schema-v3 independent verifier:** bind `observer_envelope_manifest_sha256`, verify report signature and all raw evidence/envelope/receipt cross-bindings; preserve v1/v2 verifiers unchanged.
+4. **End-to-end adversarial tests:** forged dataclass, mismatched receipt, stale ledger revision/fencing, missing envelope, signature tampering, altered evidence, wrong manifest digest, failed probe, non-deterministic ordering and uncertain signing outcome.
+5. **Host challenge/transport:** design CSPRNG nonce generation, challenge issuance/expiry, authenticated host-to-observer transport, mutual TLS/workload identity, canary separation and crash/retry behavior.
+6. **Protected identity lifecycle:** registry signing/pinning, key rotation overlap, emergency revocation, cache TTL, audit and recovery through the protected trust control plane.
+7. **Production gates remain closed:** durable replay DB, external high-water checkpoint, filesystem staging, KMS/HSM, VM/provider, API keys, private-source transfer, paid services and spend require separate review and explicit approval.
+
+PR #84 implements only an in-memory receipt contract and verifier readback. It does not create durable replay state or prove anti-rollback. Keep `execution_authorized: false` and `eligible_for_untrusted_execution: false`.

@@ -201,3 +201,8 @@ A new PR audit helper, `tools/project_memory/verify_change_memory.py`, computes 
 ## Mandatory task context expansion — candidate PR #89 (2026-11-24)
 
 The orchestrator's required pinned context now includes `docs/DECISIONS.md` and `docs/KNOWN_ISSUES.md`. This ensures a coding agent receives not only the current status and development history, but also the rationale behind accepted design choices and the repository's evidence-backed unresolved issues. Both files are loaded from the task's exact base commit and participate in per-file and package hashes. The existing 512 KiB total context limit is unchanged; the builder fails closed if the complete package plus explicitly selected source files does not fit.
+
+
+## Coding-agent context contract v1.2 — candidate PR #89 (2026-11-24)
+
+New task contexts now carry eight required project-memory documents, adding architectural decisions and known issues to the previous six. The manifest is defined once in `agent_contract.py` and consumed by the orchestrator and envelope builder. New envelopes use contract v1.2; the validator preserves legacy v1.1 compatibility and requires the result version to match its input envelope. V1.2 requires the exact eight paths in canonical order. Context remains full-text, SHA-256 fingerprinted, and pinned to the task base commit; the 512 KiB package ceiling remains unchanged.

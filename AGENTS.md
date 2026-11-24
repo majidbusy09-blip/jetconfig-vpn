@@ -90,16 +90,16 @@ A successful build is not a runtime/device test. A CI workflow definition is not
 
 - Repository: `majidbusy09-blip/jetconfig-vpn`
 - Branch: `main`
-- Current main commit (verified 2026-11-24): `4dbe01eda4078342c17f16a4111919bebaa616ae`.
-- PR #20 merged at `15fea59e4f83704e0a9955363e0f0b237aac09ac`; PRs #38–#44 are merged through PR #44 main HEAD `f682c56331bfb7c07bc4c5be26fddc33a3043969`.
-- PR #46 documentation refresh merged at `4dbe01eda4078342c17f16a4111919bebaa616ae`; it corrected the current orchestrator, patch-review, and sandbox-candidate status.
+- Current main commit (verified 2026-11-24): `f360d50b13064c7136eb7ce4a3b38e3413e5b333`.
+- PR #20 merged at `15fea59e4f83704e0a9955363e0f0b237aac09ac`; PRs #38–#44 merged through PR #44.
+- PR #46 memory refresh merged at `4dbe01eda4078342c17f16a4111919bebaa616ae`.
+- PR #47 synthetic-only sandbox lifecycle contract merged at `f360d50b13064c7136eb7ce4a3b38e3413e5b333`.
 - `lib/main.dart` blob: `3d28693b7be8bfe309a850923599830e1a65ab59`; source metrics: 9,008 lines / 352,770 UTF-8 bytes / 336,710 Unicode code points.
 - `pubspec.yaml` blob: `adc3b22a4538db4738bec789e3c3badf26e4f710`; app version remains `2.4.5+284`.
-- PR #44 head `af5fc704f61fd8a656966b35ddbe9450630d8c1f` passed Task Orchestrator Tests #45307323849, Non-production PR Validation #45307323773, and Project Memory Audit #45307323780.
-- PR #46 head `be9a280aa9c1c7f00479b4a01aff0c724f0d51c1` passed Project Memory Audit #45313415951, Task Orchestrator Tests #45313415720, and `validate-agent-pr` #45313412813. Its non-production app-build job encountered Maven Central HTTP 429 on attempt 1; attempt 2 was still running at this snapshot. PR #46 is documentation-only and merged.
+- PR #47 head `846b4cf15ba176178c811f45e51384bc25ae3c28` passed Task Orchestrator Tests #45314331567 (247 tests, including 13 sandbox tests), Project Memory Audit #45314331612, and `validate-agent-pr`. Non-production PR Validation #45314331545 was still running at this snapshot.
 - Active `main-protection` ruleset requires a PR and the `Verify generated code index and memory freshness` check, blocks deletion/force pushes, permits Squash only, and has no bypass actors.
-- The local orchestrator supports fixture dispatch, result ingestion, content-addressed patches, and live review-only authorization. A successful review result remains `ready_for_human_review`, `applied: false`.
-- Branch `feat/sandbox-lifecycle-contract-20261124-v2` adds a synthetic-only sandbox lifecycle contract and fake-provider tests. It does not implement a real provider, provision a sandbox, execute agent code, upload source, or enable untrusted execution. CI is pending for this branch.
-- The hosted runner remains unsuitable for untrusted execution. No E2B/Daytona account, API key, payment method, sandbox, private-source transfer, provider execution, or spend has been created or approved.
+- The local orchestrator supports fixture dispatch, local result ingestion, content-addressed patch artifacts, and live review-only authorization. Success remains `ready_for_human_review`, `applied: false`.
+- `sandbox_contract.py` now defines a synthetic-only provider protocol, strict resource/capability checks, VM-only snapshot validation, lifecycle state machine, bounded artifact verification, and confirmed termination/destruction. It has only a fake provider test; it is not a real sandbox.
+- No live model provider, untrusted code execution, vendor account, API key, payment method, real sandbox, private-source transfer, provider spend, or production deployment is enabled or authorized.
 
 Snapshot verification source: GitHub branch/ref, file/blob, PR, workflow-run, and ruleset APIs checked on 2026-11-24.

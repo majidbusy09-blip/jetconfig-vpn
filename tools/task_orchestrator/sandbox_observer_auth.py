@@ -54,12 +54,28 @@ class ObserverReplayStore(Protocol):
     """Trusted implementations must atomically consume nonce and advance sequence.
 
     The transaction must reject a previously used nonce and any sequence not
-    strictly greater than the observer's previously accepted sequence. State
-    must be durable across restart; unavailable/corrupt state must fail closed.
+    strictly greater than the observer's previously accepted sequence. It must
+    atomically persist all supplied audit bindings with the sequence advance.
+    State must be durable across restart; unavailable/corrupt state must fail closed.
     """
 
     def consume(
-        self, *, observer_id: str, nonce_sha256: str, sequence: int, envelope_sha256: str
+        self,
+        *,
+        observer_id: str,
+        observer_domain: str,
+        attempt_id: str,
+        runtime_id: str,
+        policy_digest: str,
+        probe_id: str,
+        observer_registry_sha256: str,
+        observer_registry_version: int,
+        key_id: str,
+        nonce_sha256: str,
+        sequence: int,
+        envelope_sha256: str,
+        challenge_expires_at: str,
+        accepted_at: str,
     ) -> bool: ...
 
 
@@ -406,9 +422,19 @@ class ObserverEnvelopeVerifier:
         try:
             consumed = self._replay_store.consume(
                 observer_id=challenge.observer_id,
+                observer_domain=challenge.observer_domain,
+                attempt_id=challenge.attempt_id,
+                runtime_id=challenge.runtime_id,
+                policy_digest=challenge.policy_digest,
+                probe_id=challenge.probe_id,
+                observer_registry_sha256=self._registry.sha256,
+                observer_registry_version=self._registry.version,
+                key_id=key_id,
                 nonce_sha256=nonce_digest,
                 sequence=sequence,
                 envelope_sha256=envelope_digest,
+                challenge_expires_at=challenge.expires_at.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                accepted_at=self._now.strftime("%Y-%m-%dT%H:%M:%SZ"),
             )
         except Exception as exc:
             raise ObserverAuthenticationError("Replay store unavailable; observer evidence rejected.") from exc

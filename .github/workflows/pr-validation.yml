@@ -11,9 +11,17 @@ on:
       - "lib/**"
       - "test/**"
       - "pubspec.yaml"
+      - "pubspec.lock"
+      - "android/**"
+      - "assets/**"
+      - "fonts/**"
+      - "gradle/**"
       - "tools/v2ray_notif_patch/**"
       - "tools/validation/**"
       - "tools/task_orchestrator/**"
+      - "analysis_options.yaml"
+      - "*.gradle"
+      - "*.gradle.kts"
       - ".github/workflows/pr-validation.yml"
       - "docs/**"
   workflow_dispatch:
@@ -21,8 +29,6 @@ on:
 permissions:
   contents: read
 
-# Use the same group for push and pull_request events from the same branch,
-# avoiding duplicate concurrent APK builds for one commit.
 concurrency:
   group: jet-vpn-pr-validation-${{ github.head_ref || github.ref_name }}
   cancel-in-progress: true
@@ -36,14 +42,38 @@ jobs:
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Classify changed paths
+        id: scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$GITHUB_EVENT_NAME" != "pull_request" ]]; then
+            echo "app_build=true" >> "$GITHUB_OUTPUT"
+            echo "Non-PR validation event: running full application validation."
+            exit 0
+          fi
+
+          BASE_SHA="${{ github.event.pull_request.base.sha }}"
+          if git diff --name-only "$BASE_SHA" "$GITHUB_SHA" | grep -Eq '^(lib/|test/|android/|assets/|fonts/|gradle/|tools/v2ray_notif_patch/|pubspec\.(yaml|lock)$|analysis_options\.yaml$|[^/]+\.gradle(\.kts)?$|\.github/workflows/pr-validation\.yml$)'; then
+            echo "app_build=true" >> "$GITHUB_OUTPUT"
+            echo "Application/build-affecting paths changed: full Flutter validation will run."
+          else
+            echo "app_build=false" >> "$GITHUB_OUTPUT"
+            echo "No application/build-affecting paths changed: running Python safety/tooling checks only."
+          fi
 
       - name: Set up Java
+        if: steps.scope.outputs.app_build == 'true'
         uses: actions/setup-java@v4
         with:
           distribution: zulu
           java-version: '17'
 
       - name: Set up Flutter
+        if: steps.scope.outputs.app_build == 'true'
         uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.27.4'
@@ -51,13 +81,12 @@ jobs:
           cache: true
 
       - name: Generate Android scaffold in the temporary CI workspace
+        if: steps.scope.outputs.app_build == 'true'
         run: |
           if [ ! -d android ]; then
             flutter create . --platforms=android --project-name=jetconfig_vpn --org com.jetconfig.vpn
           fi
           test -f android/app/build.gradle || test -f android/app/build.gradle.kts
-          # flutter create may generate a placeholder widget test that does not
-          # match this app entrypoint. Remove only that exact scaffold file.
           if [ -f test/widget_test.dart ] && grep -q "package:jetconfig_vpn/main.dart" test/widget_test.dart; then
             rm -f test/widget_test.dart
             rmdir test 2>/dev/null || true
@@ -70,7 +99,8 @@ jobs:
 
       - name: Install pinned sandbox cryptography dependencies
         run: >-
-          python -m pip install --only-binary=:all: -r tools/task_orchestrator/requirements-sandbox-crypto.txt
+          python -m pip install --require-hashes --only-binary=:all:
+          -r tools/task_orchestrator/requirements-sandbox-crypto-linux-x86_64-py312.lock
 
       - name: Inventory CI isolation prerequisites (read-only; not a sandbox test)
         run: python3 tools/task_orchestrator/runtime_probe.py | tee -a "$GITHUB_STEP_SUMMARY"
@@ -85,12 +115,15 @@ jobs:
         run: python3 -m unittest discover -s tools/validation -p "test_*.py"
 
       - name: Prepare isolated validation package and updater guard
+        if: steps.scope.outputs.app_build == 'true'
         run: python3 tools/validation/prepare_validation_build.py
 
       - name: Align validation Android manifest and SDK with production
+        if: steps.scope.outputs.app_build == 'true'
         run: python3 tools/validation/align_validation_android.py
 
       - name: Report generated Android package identity
+        if: steps.scope.outputs.app_build == 'true'
         shell: bash
         run: |
           echo "Generated Android validation package configuration:"
@@ -98,22 +131,28 @@ jobs:
           grep -n 'android:label=' android/app/src/main/AndroidManifest.xml
           echo "This package is test-only and intentionally differs from production."
 
-      - name: Install dependencies
+      - name: Install Flutter dependencies
+        if: steps.scope.outputs.app_build == 'true'
         run: flutter pub get
 
       - name: Apply repository-maintained V2Ray patches to CI cache
+        if: steps.scope.outputs.app_build == 'true'
         run: bash tools/v2ray_notif_patch/apply_patch.sh
 
       - name: Static analysis
+        if: steps.scope.outputs.app_build == 'true'
         run: flutter analyze lib test --no-pub --no-fatal-infos --no-fatal-warnings
 
       - name: Run application tests
+        if: steps.scope.outputs.app_build == 'true'
         run: flutter test --no-pub
 
       - name: Build debug APK smoke test
+        if: steps.scope.outputs.app_build == 'true'
         run: flutter build apk --debug --no-pub --dart-define=JETVPN_VALIDATION_BUILD=true
 
       - name: Upload debug APK artifact
+        if: steps.scope.outputs.app_build == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: JET-VPN-TEST-debug-${{ github.run_number }}
@@ -122,9 +161,11 @@ jobs:
           retention-days: 7
 
       - name: Build arm64 release-mode comparison APK (split per ABI)
+        if: steps.scope.outputs.app_build == 'true'
         run: flutter build apk --release --target-platform android-arm64 --split-per-abi --no-pub --dart-define=JETVPN_VALIDATION_BUILD=true --dart-define=APK_CHANNEL=arm64
 
       - name: Verify validation APK package, label, signer, and ABI
+        if: steps.scope.outputs.app_build == 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -135,9 +176,9 @@ jobs:
           test -n "$AAPT"
           test -n "$APKSIGNER"
           BADGING="$("$AAPT" dump badging "$APK")"
-          printf '%s\n' "$BADGING" | head -5
-          printf '%s\n' "$BADGING" | grep -Fq "package: name='com.jetconfig.vpn.jetconfig_vpn.validation'"
-          printf '%s\n' "$BADGING" | grep -Fq "application-label:'JET VPN TEST'"
+          printf '%s\\n' "$BADGING" | head -5
+          printf '%s\\n' "$BADGING" | grep -Fq "package: name='com.jetconfig.vpn.jetconfig_vpn.validation'"
+          printf '%s\\n' "$BADGING" | grep -Fq "application-label:'JET VPN TEST'"
           "$APKSIGNER" verify --verbose --print-certs "$APK"
           python3 - "$APK" <<'PY'
           import sys, zipfile
@@ -150,6 +191,7 @@ jobs:
           PY
 
       - name: Upload arm64 validation APK
+        if: steps.scope.outputs.app_build == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: JET-VPN-TEST-arm64-validation-${{ github.run_number }}

@@ -252,3 +252,10 @@ PR #82 adds `docs/SANDBOX_TRUSTED_REPORT_SIGNER.md`. A report signer must not tr
 The next schema is v3 because it must bind `observer_envelope_manifest_sha256`. Schema v1/v2 remain unchanged. A successful report must be independently verified after signing before it is accepted.
 
 Tests may use fake signers and in-memory replay receipts only. No private key, signing service, durable replay DB, filesystem collector, network, VM, provider or untrusted execution is authorized. Keep both execution flags false.
+
+
+## D-022 implementation status update — PR #82 merged (2026-11-24)
+
+- The trusted report signer design is recorded in `docs/SANDBOX_TRUSTED_REPORT_SIGNER.md`.
+- Current implementation remains verifier-only for v1/v2. There is no report builder/signer, schema-v3 verifier, private key, signing service, replay receipt reader, or production ledger.
+- Next code work is the read-only replay acceptance receipt protocol and in-memory fake, followed by a pure schema-v3 builder and injected fake signer/verifier. Any real signing backend or durable replay store requires separate trust-boundary review and explicit approval.

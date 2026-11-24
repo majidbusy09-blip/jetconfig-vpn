@@ -244,9 +244,19 @@ This section supersedes the earlier PR #53 baseline above.
 - PR #97 merged into `main` as `914445b758d049ad5b97d670a66635f4cf8aba7b`.
 - Added `docs/MULTI_PROJECT_ARCHITECTURE.md`, `docs/PROJECT_MANIFEST_SCHEMA.json`, and `docs/PROJECT_ONBOARDING.md`.
 - PR #97 exact-head checks passed: Project Memory Audit run `45483195909`, Non-production PR Validation run `45483195875`, and Agent PR Lease and Scope Guard run `45483192332`. A subsequent ready-for-review event re-ran the lease guard after the task lease had been released and failed closed because no active lease remained; the earlier exact-head guard pass was successful.
-- The post-merge Project Memory Audit run `45484504394` was started for merge commit `914445b758d049ad5b97d670a66635f4cf8aba7b`; its final conclusion must be checked before treating the merge baseline audit as complete.
+- The post-merge Project Memory Audit run `45484504394` for merge commit `914445b758d049ad5b97d670a66635f4cf8aba7b` completed successfully.
 - JET VPN compatibility fixture: GitHub repository ID `1349356614`, canonical name `majidbusy09-blip/jetconfig-vpn`, default branch `main`. Candidate project ID `jet-vpn-android` is not registered/active.
 - Issue #98 / Phase 2A implements a pure project manifest validator and adversarial tests. Base SHA: `914445b758d049ad5b97d670a66635f4cf8aba7b`; working branch: `agent/project-registry-validation-20261125`; task ID: `project-registry-validation-20261125`.
 - Current Phase 2A changes: `tools/task_orchestrator/project_registry.py` and `tools/task_orchestrator/tests/test_project_registry.py`. No persistence, network, task-envelope integration, app changes, external repository changes, or project activation.
 - The registry validator supports only the explicitly implemented subset of the checked-in JSON Schema; it rejects unsupported keywords and remote references. It is not claimed to be a general-purpose JSON Schema implementation.
 - «حسابگر من» is not registered; its exact repository URL is still required.
+
+
+## Phase 2A validator — first exact-head verification (2026-11-25)
+
+- Source/test checkpoint: `835708e582513d73a7ec94ff632ffbdf93b77844`.
+- Task Orchestrator Tests run `45486062484` passed: 414 tests, including the new project registry tests.
+- Non-production PR Validation run `45486062444` passed.
+- Agent PR Lease and Scope Guard run `45486062154` passed while the task lease was active.
+- Project Memory Audit run `45486062165` was still running when this checkpoint was recorded; it must be checked on the final PR head after the memory-only follow-up commit.
+- The first test attempt on earlier checkpoint `18ec9ae311e2057c50b75a4538a912b3d36dc3c7` exposed that the manifest schema also uses `date-time` format. The validator was corrected to support the schema's URI and RFC3339 date-time formats, and the later 414-test run passed.

@@ -181,3 +181,13 @@ PR #49 merged `sandbox_acceptance.py`, a strict verifier for independently signe
 - It invokes no adapter and has no process, shell, filesystem, socket, network, VM, guest, provider, or credential capability. It records lifecycle claims; it does not prove a runtime was actually terminated or cleaned.
 - Deterministic tests cover success, rejected evidence, cancellation, deadline, adapter failure, cleanup failure, identity mismatch, and invalid transitions.
 - Keep `execution_authorized: false` and `eligible_for_untrusted_execution: false`.
+
+
+## Authoritative snapshot — PR #72 merged (2026-11-24)
+
+- Current `main` includes PR #72 squash merge `a199b82ef70f492c2b8df42087992a917d293c7c`; PR #72 final head: `26edb96019e3816e4e23cff24b957f2d0187ca12`.
+- Final-head CI passed: Task Orchestrator Tests `45379646169`, Non-production PR Validation `45379646094`, and Project Memory Audit `45379646100`.
+- PR #72 adds `tools/task_orchestrator/sandbox_artifacts.py` and deterministic in-memory tests. It validates normalized relative paths under fixed `artifacts/` and `reports/` roots; rejects traversal, symlink/directory/device declarations, duplicate paths, empty content, and caller-declared hard links; bounds inventory to 64 artifacts, 256 KiB per file, 2 MiB aggregate, and 30-day retention metadata; recomputes SHA-256 from supplied bytes; and emits a deterministic manifest bound to attempt, runtime, policy, evidence, and acceptance-report digests.
+- The artifact module is a pure in-memory validator, not a trusted filesystem collector. Its `kind`, `symlink_target`, and `link_count` fields are caller-supplied assertions, not proof of actual inode properties. It does not open/stat files, authenticate signed reports, enforce retention, or authorize execution.
+- A future trusted host collector must use descriptor-relative no-follow traversal, `fstat`, same-descriptor hashing/copying, TOCTOU defenses, trusted retention, and independently verified report/evidence bindings.
+- No VM, provider, network, credentials, filesystem collector, private-source transfer, KMS/HSM, spend, or untrusted code execution was used. Keep `execution_authorized: false` and `eligible_for_untrusted_execution: false`.

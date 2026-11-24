@@ -4,12 +4,12 @@
 
 - Repository: `majidbusy09-blip/jetconfig-vpn`.
 - Default branch: `main`.
-- Current main HEAD: `4fc59de5a8d6ef9323de3b48896f78f3c426732d` (PR #49 squash merge).
-- PR #20, PRs #38–#44, and PRs #46–#49 are merged.
+- Current main HEAD: `1438d0a047523a22fee26e72ae12cf34cebbb95e` (PR #51 squash merge).
+- PR #20, PRs #38–#44, and PRs #46–#51 are merged.
 - PR #47 introduced the synthetic-only sandbox lifecycle contract.
 - PR #48 refreshed project memory after PR #47.
-- PR #49 added the independent signed-evidence verifier and its 12 adversarial tests.
-- PR #49 verification: Task Orchestrator Tests #45320041554 passed 259 tests; Project Memory Audit #45320041561 passed; Agent PR Lease and Scope Guard #45320038880 passed.
+- PR #49 added the independent signed-evidence verifier and its 12 adversarial tests.\n- PR #50 refreshed project memory after PR #49.\n- PR #51 binds every signed probe digest to the exact supplied raw evidence bytes, recomputes SHA-256, enforces exact evidence inventory, and caps each blob at 128 KiB / aggregate evidence at 2 MiB.
+- PR #49 verification: Task Orchestrator Tests #45320041554 passed 259 tests; Project Memory Audit #45320041561 passed; Agent PR Lease and Scope Guard #45320038880 passed.\n- PR #50 validation runs #45320512137 and related required checks completed successfully.\n- PR #51 head `42c208398ef0b044ba54c17ca183957022eb0288`: Task Orchestrator Tests #45325193322, Project Memory Audit #45325193253, Agent PR Lease and Scope Guard #45325195790, and Non-production PR Validation #45325193266 all completed successfully; PR #51 merged as `1438d0a047523a22fee26e72ae12cf34cebbb95e`.
 - Non-production PR Validation #45320041553 remained pending at merge. PR #49 changed only developer tooling and documentation; application source and version were unchanged.
 - App source/version: `lib/main.dart` blob `3d28693b7be8bfe309a850923599830e1a65ab59`; `2.4.5+284`.
 - Source metrics: 9,008 lines / 352,770 UTF-8 bytes / 336,710 Unicode code points.
@@ -22,7 +22,7 @@
 - Provider-neutral task/result contracts validate scope, context fingerprints, structured results, and opaque content-addressed patch references.
 - Fixture-only dispatch, local result ingestion, SHA-256 patch storage, and fail-closed live review authorization are implemented and integration-tested. Patches are not automatically applied.
 - `sandbox_contract.py` supports only a fixed synthetic acceptance payload and fake-provider lifecycle tests.
-- `sandbox_acceptance.py` verifies a strict signed report from a separate trusted runtime suite: pinned provider/region/task/attempt/image/policy, freshness, canonical JSON, signature, and an exact 20-probe inventory. The signing verifier is injected; a production pinned-key Ed25519 implementation and actual probe runner are not yet installed.
+- `sandbox_acceptance.py` verifies a strict signed report from a separate trusted runtime suite: pinned provider/region/task/attempt/image/policy, freshness, canonical JSON, signature, exact 20-probe inventory, and independently recomputed SHA-256 over all supplied raw evidence bytes. The signing verifier is still injected; a production pinned-key Ed25519 implementation and independently executed external probe suite are not installed.\n- `runtime_acceptance_probe.py` is only a controlled benign Bubblewrap self-check; `runtime_probe.py` is host inventory/preflight. Neither is the independent 20-probe suite nor evidence of a production sandbox.
 - Even a passing evidence report explicitly remains `execution_authorized: false` and `eligible_for_untrusted_execution: false`.
 
 ## Security and execution boundaries

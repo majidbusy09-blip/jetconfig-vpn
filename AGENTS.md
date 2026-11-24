@@ -90,13 +90,14 @@ A successful build is not a runtime/device test. A CI workflow definition is not
 
 - Repository: `majidbusy09-blip/jetconfig-vpn`
 - Branch: `main`
-- Current main commit (verified 2026-11-24): `4fc59de5a8d6ef9323de3b48896f78f3c426732d`.
-- PR #20 merged at `15fea59e4f83704e0a9955363e0f0b237aac09ac`; PRs #38–#44 merged through PR #44.
+- Current main commit (verified 2026-11-24): `1438d0a047523a22fee26e72ae12cf34cebbb95e`.
+- PR #20 merged at `15fea59e4f83704e0a9955363e0f0b237aac09ac`; PRs #38–#44 merged through PR #44; PRs #46–#51 are merged.
 - PR #46 memory refresh merged at `4dbe01eda4078342c17f16a4111919bebaa616ae`.
 - PR #47 synthetic-only sandbox lifecycle contract merged at `f360d50b13064c7136eb7ce4a3b38e3413e5b333`.\n- PR #48 project-memory refresh merged at `53e00ac2ad5e260a4d214772da4ba9bccd3499f4`.\n- PR #49 independent sandbox evidence verifier merged at `4fc59de5a8d6ef9323de3b48896f78f3c426732d`.
+- PR #51 binds all 20 signed probe digests to supplied raw evidence bytes and independently recomputes SHA-256; merged at `1438d0a047523a22fee26e72ae12cf34cebbb95e`.
 - `lib/main.dart` blob: `3d28693b7be8bfe309a850923599830e1a65ab59`; source metrics: 9,008 lines / 352,770 UTF-8 bytes / 336,710 Unicode code points.
 - `pubspec.yaml` blob: `adc3b22a4538db4738bec789e3c3badf26e4f710`; app version remains `2.4.5+284`.
-- PR #47 head `846b4cf15ba176178c811f45e51384bc25ae3c28` passed Task Orchestrator Tests #45314331567 (247 tests, including 13 sandbox tests), Project Memory Audit #45314331612, and `validate-agent-pr`. Non-production PR Validation retry #45313415713 passed after an initial Maven Central HTTP 429; PR #48 validation #45314885244 also passed. PR #49 passed Task Orchestrator Tests #45320041554 (259 tests), Project Memory Audit #45320041561, and `validate-agent-pr` #45320038880.
+- PR #47 head `846b4cf15ba176178c811f45e51384bc25ae3c28` passed Task Orchestrator Tests #45314331567 (247 tests, including 13 sandbox tests), Project Memory Audit #45314331612, and `validate-agent-pr`. Non-production PR Validation retry #45313415713 passed after an initial Maven Central HTTP 429; PR #48 validation #45314885244 also passed. PR #49 passed Task Orchestrator Tests #45320041554 (259 tests), Project Memory Audit #45320041561, and `validate-agent-pr` #45320038880. PR #51 head `42c208398ef0b044ba54c17ca183957022eb0288` passed Task Orchestrator Tests #45325193322, Project Memory Audit #45325193253, Agent PR Lease and Scope Guard #45325195790, and Non-production PR Validation #45325193266.
 - Active `main-protection` ruleset requires a PR and the `Verify generated code index and memory freshness` check, blocks deletion/force pushes, permits Squash only, and has no bypass actors.
 - The local orchestrator supports fixture dispatch, local result ingestion, content-addressed patch artifacts, and live review-only authorization. Success remains `ready_for_human_review`, `applied: false`.
 - `sandbox_contract.py` now defines a synthetic-only provider protocol, strict resource/capability checks, VM-only snapshot validation, lifecycle state machine, bounded artifact verification, and confirmed termination/destruction. It has only a fake provider test; it is not a real sandbox.

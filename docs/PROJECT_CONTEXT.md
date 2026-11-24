@@ -1,7 +1,7 @@
 # JET VPN — Project Context
 
-> Current verified repository snapshot: `main` at `4fc59de5a8d6ef9323de3b48896f78f3c426732d` (2026-11-24).
-> PR #20, PRs #38–#44, PR #46, PR #47, PR #48, and PR #49 are merged.
+> Current verified repository snapshot: `main` at `1438d0a047523a22fee26e72ae12cf34cebbb95e` (2026-11-24).
+> PR #20, PRs #38–#44, PR #46–#51 are merged.
 > Main source blob: `lib/main.dart` = `3d28693b7be8bfe309a850923599830e1a65ab59`.
 > App version: `2.4.5+284` (`pubspec.yaml` blob `adc3b22a4538db4738bec789e3c3badf26e4f710`).
 > PR #47 Task Orchestrator Tests #45314331567 (247 tests), Project Memory Audit #45314331612, and non-production validation retry #45313415713 passed. PR #48 Task Orchestrator Tests, Project Memory Audit, and Non-production PR Validation #45314885244 all passed.
@@ -45,4 +45,4 @@ The production workflow `.github/workflows/build.yml` is manual-only after merge
 
 ## Sandbox evidence verifier
 
-The task orchestrator includes a strict signed-evidence verifier for independent sandbox runtime acceptance reports. It requires all 20 fixed probes, pins report identity and time, and verifies canonical bytes through an injected trusted signature verifier. It is not a probe runner or execution authorization. Production key trust and actual VM probe execution remain outstanding.
+The task orchestrator includes a strict signed-evidence verifier for independent sandbox runtime acceptance reports. PR #51 additionally requires the exact raw evidence bundle for all 20 probes and recomputes every SHA-256 digest. Signature verification remains injected; the test double is not cryptographic security. The Bubblewrap self-check and host preflight inventory are limited diagnostics, not the external acceptance suite. Production pinned-key Ed25519 trust, independent VM/host probes, external canary, and real runtime validation remain outstanding. No execution authorization is possible.

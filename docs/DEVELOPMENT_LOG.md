@@ -388,3 +388,22 @@ Append-only record of meaningful project work. Each entry should include branch/
 - **Non-production validation:** #45320041553 remained pending at merge; no application source, app version, release, signing, or production behavior was changed.
 - **Security boundary:** The verifier checks a canonical signed report and all 20 probe records. It does not run probes, provision VMs, implement the production signature verifier, or authorize execution. All success results remain `execution_authorized: false`, `eligible_for_untrusted_execution: false`, and `patch_applied: false`.
 - **Next:** Build the actual fixed probe suite and independently controlled signing trust root. No account, payment, source transfer, provider sandbox, or spend without separate approval.
+
+
+## 2026-11-24 — Stage 20: bind signed sandbox acceptance to raw evidence (PR #51)
+
+- **Base:** `main` after PR #50; **branch:** `feat/bind-raw-sandbox-probe-evidence-20261124`.
+- **PR:** [#51 — bind signed sandbox probe reports to raw evidence](https://github.com/majidbusy09-blip/jetconfig-vpn/pull/51).
+- **Merged commit:** `1438d0a047523a22fee26e72ae12cf34cebbb95e`.
+- **Scope:** Hardened `tools/task_orchestrator/sandbox_acceptance.py`, adversarial tests, and `docs/SANDBOX_RUNTIME_ACCEPTANCE.md`.
+- **Security change:** Require the exact 20-entry raw evidence bundle; recompute each SHA-256 from raw bytes; reject missing, extra, empty, altered, per-probe oversized (>128 KiB), and aggregate oversized (>2 MiB) evidence. Execution authorization remains false.
+- **Verification:** PR head `42c208398ef0b044ba54c17ca183957022eb0288`; Task Orchestrator Tests #45325193322, Project Memory Audit #45325193253, Agent PR Lease and Scope Guard #45325195790, and Non-production PR Validation #45325193266 all completed successfully.
+- **Safety:** No VM provisioned, no guest/untrusted code executed, no provider/account/API key/payment/private-source transfer/signing key/spend, and no app source/version/release/backend/payment/server changes.
+
+## 2026-11-24 — Stage 21: project memory refresh after PR #51
+
+- **Base:** PR #51 merged main `1438d0a047523a22fee26e72ae12cf34cebbb95e`.
+- **Branch:** `docs/refresh-raw-evidence-verification-20261124`.
+- **Scope:** Synchronize current status, next steps, project context, file map, and agent instructions with PR #51; preserve the distinction between the limited Bubblewrap self-check, host preflight inventory, and the still-missing independent 20-probe runtime suite.
+- **Safety:** Documentation only. No production code, application source, provider connection, external execution, credentials, or spend.
+- **Verification:** Pending PR CI and memory audit; do not claim this documentation refresh merged until its PR and required checks are observed.

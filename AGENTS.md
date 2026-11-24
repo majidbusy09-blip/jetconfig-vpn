@@ -159,3 +159,15 @@ PR #49 merged `sandbox_acceptance.py`, a strict verifier for independently signe
 - It is not production-ready. No production root verifier/key is provisioned; no durable CAS/audit implementation exists. In-memory store and fake verifiers/backends are test-only.
 - PR #59 final head `177a4090effd838add36188578a5d7e8a7c671f5` passed Task Orchestrator Tests run `45361973408`, Project Memory Audit run `45361973336`, Non-production PR Validation run `45361973411`, and `validate-agent-pr` check `138334033651`; then squash-merged.
 - Preserve `execution_authorized: false` and `eligible_for_untrusted_execution: false`. Do not provision a root key, production persistence, provider, VM, or run untrusted code without separate approval and independent evidence.
+
+
+## Authoritative snapshot — PRs #67 and #68 merged (2026-11-24)
+
+- PR #67 squash merge: `b0b0b80515f17c01836f558ff5700189c9a7bf32`; final head `e216f2d7d9eab51f62b34733b630fd02af6c6973`.
+- PR #67 final-head checks all passed: Task Orchestrator Tests `45371950918`, Project Memory Audit `45371951039`, Non-production PR Validation `45371950980`.
+- PR #67 adds the machine-readable 20-probe contract in `tools/task_orchestrator/runtime_probe_manifest.json`, specification in `docs/SANDBOX_RUNTIME_PROBE_SPEC.md`, and unit-tested changed-path classification to avoid unnecessary Flutter/APK builds for tooling-only PRs while retaining Python safety checks and hash-locked dependency installation.
+- PR #68 adds `sandbox_host_evidence.py`, deterministic trust-boundary tests, and `docs/SANDBOX_HOST_EVIDENCE_COLLECTOR.md`. Squash merge: `90dd9f848998ebb0c18b6c584938fee148d6fced`; final head `f76cdf060a2d7166639f6469bbcdf453d52b539b`.
+- PR #68 final-head checks all passed: Task Orchestrator Tests `45376199406`, Project Memory Audit `45376199527`, Non-production PR Validation `45376199739`.
+- The host evidence collector only validates and assembles bounded observations from caller-configured observer IDs. It binds evidence to attempt/runtime/policy digest, monotonic offsets, timestamps, observer domains, payload and host-recomputed digests. It has no probe runner, subprocess, VM, socket, network client, provider integration, identity provisioning, or signing implementation.
+- Observer identity allowlists are not cryptographically authenticated by this module; production provisioning must be out-of-band. Fake observer IDs are test fixtures only.
+- Keep `execution_authorized: false` and `eligible_for_untrusted_execution: false`. No untrusted code execution, provider, VM, API key, private-source transfer, KMS/HSM, or spend is authorized.

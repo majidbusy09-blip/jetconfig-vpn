@@ -119,3 +119,14 @@ The repository includes `sandbox_acceptance.py`, a strict verifier for independe
 ## Current sandbox evidence gate
 
 PR #49 merged `sandbox_acceptance.py`, a strict verifier for independently signed runtime acceptance reports. It is not the runtime probe runner or an execution authorization. Production use requires an independently controlled probe suite and out-of-band pinned asymmetric public key. Never enable untrusted code execution from a report alone.
+
+## Authoritative snapshot superseding earlier status — 2026-11-24
+
+- Current main includes PR #55, squash merge commit `3cc2e200dd02416d7b2fba02725b6734dffede39`. This supersedes the earlier main SHA and PR #53-only snapshot recorded above.
+- PR #55 adds `tools/task_orchestrator/ed25519_backend.py`, a PyCA `cryptography`-backed Ed25519 public-key verification adapter, plus `requirements-sandbox-crypto.txt` and RFC 8032/integration tests.
+- Exact PR #55 head: `56e48fac7e5cfdf25c07492daef9ed3cdd3c0805`. Successful final-head workflows: Task Orchestrator Tests run `45354914545`; Project Memory Audit run `45354914553`; Non-production PR Validation run `45354914620`. Each completed with conclusion `success`.
+- The Task Orchestrator run installed pinned crypto dependencies, compiled modules, and passed the orchestrator test suite. Non-production validation passed its dependency-install, safety-gate/lifecycle, static analysis, application tests, and validation APK build steps.
+- Dependency versions are exact pins, not hash-locked artifacts: `cryptography==50.0.2`, `cffi==2.1.1`, `pycparser==3.12`. Provenance/hash verification remains a supply-chain hardening item.
+- The backend performs verification only. It does not load private keys, sign, generate keys, provision a provider, or authorize code execution. Protected out-of-band trust-store digest/minimum-version delivery, persistent anti-rollback, key lifecycle, independent host/guest probes, and real VM acceptance remain outstanding.
+- `execution_authorized` and `eligible_for_untrusted_execution` remain false. GitHub-hosted runner, Bubblewrap self-test, and current evidence verifiers do not establish a safe runtime for untrusted code.
+

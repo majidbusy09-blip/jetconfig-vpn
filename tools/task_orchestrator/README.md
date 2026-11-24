@@ -238,5 +238,5 @@ If the lease is renewed after the local task has already been accepted, download
 Run the focused tests:
 
 ```bash
-python -m unittest tools.task_orchestrator.tests.test_sandbox_contract
+python -m unittest discover -s tools/task_orchestrator/tests -p 'test_sandbox_contract.py'
 ```

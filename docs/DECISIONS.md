@@ -274,3 +274,12 @@ A green lexical-index freshness check is insufficient to prove that project stat
 - CI semantic/resolved/critical-path JSON outputs remain 30-day artifacts, not durable memory.
 
 The purpose is to prevent an implementation PR from passing CI while leaving the next agent with stale project state. The gate does not authorize merges, releases, deployments, or execution.
+
+
+## D-025 — Load recorded decisions and known issues into every coding task context (2026-11-24)
+
+**Status:** Implemented on candidate branch; exact-head CI pending.
+
+Every task context package must include the pinned contents of `docs/DECISIONS.md` and `docs/KNOWN_ISSUES.md` alongside the existing core project-memory documents. Decisions explain why architectural constraints exist; known issues prevent an agent from reintroducing already observed failures or presenting unresolved behavior as verified.
+
+The context builder must read these files from the task's pinned Git commit, include their SHA-256 fingerprints in the canonical package, reject missing/unsafe/oversized content, and fail rather than truncate if the 512 KiB combined limit is exceeded. This adds durable rationale and blocker awareness without treating the documents as permission to bypass scope or safety gates.

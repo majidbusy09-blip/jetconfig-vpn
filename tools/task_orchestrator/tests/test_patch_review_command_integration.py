@@ -7,6 +7,7 @@ from unittest.mock import patch
 
 from tools.task_orchestrator import patch_review_command as command
 from tools.task_orchestrator.patch_artifacts import LocalPatchArtifactStore
+from tools.task_orchestrator.provider_result_ingestion import ingest_provider_result
 from tools.task_orchestrator.tests.test_patch_review_gate import (
     BASE, HEAD, LOCK, NOW, REPO, TASK, fixtures,
 )
@@ -64,6 +65,28 @@ class PatchReviewCommandIntegrationTests(unittest.TestCase):
         self.assertFalse(result["applied"])
         self.assertEqual(result["patch_ref"], self.result["patch_ref"])
         self.assertTrue(all(result["authorization"].values()))
+
+    def test_provider_ingestion_flows_directly_into_live_review_command(self):
+        # Start with provider-neutral files; ingestion must create the exact
+        # agent_result.json that the live review command consumes.
+        (self.task_dir / "agent_result.json").unlink()
+        (self.task_dir / "provider_result.json").write_text(
+            json.dumps(self.result), encoding="utf-8"
+        )
+        (self.task_dir / "provider_patch.diff").write_text(
+            self.patch, encoding="utf-8"
+        )
+
+        ingestion = ingest_provider_result(self.task_dir, self.envelope)
+        self.assertEqual(ingestion["status"], "validated_for_human_review")
+        self.assertFalse(ingestion["applied"])
+        self.assertEqual(ingestion["patch_ref"], self.result["patch_ref"])
+
+        review = self._run()
+        self.assertEqual(review["status"], "ready_for_human_review")
+        self.assertFalse(review["applied"])
+        self.assertEqual(review["patch_ref"], ingestion["patch_ref"])
+        self.assertTrue(all(review["authorization"].values()))
 
     def test_current_issue_mismatch_fails_closed_before_review(self):
         changed_issue = dict(self.issue, state="closed")

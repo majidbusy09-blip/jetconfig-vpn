@@ -213,7 +213,7 @@ class ObserverAuthenticationTests(unittest.TestCase):
         with self.assertRaises(AttributeError):
             receipt.sequence = 99
 
-    def test_duplicate_nonce_is_rejected_even_with_new_sequence):
+    def test_duplicate_nonce_is_rejected_even_with_new_sequence(self):
         verifier, _ = make_verifier()
         verifier.verify(make_envelope(sequence=1), challenge=challenge())
         with self.assertRaisesRegex(ObserverAuthenticationError, "replayed"):

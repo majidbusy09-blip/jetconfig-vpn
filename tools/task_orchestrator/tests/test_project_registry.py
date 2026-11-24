@@ -128,7 +128,6 @@ class ProjectRegistryTests(unittest.TestCase):
         bad_schema = copy.deepcopy(SCHEMA)
         bad_schema["properties"]["project_id"]["$ref"] = "https://example.com/schema.json"
         with self.assertRaises(ProjectRegistryError):
-            self.validate_jet()
             validate_manifest_schema(JET_VPN, bad_schema)
         bad_schema = copy.deepcopy(SCHEMA)
         bad_schema["properties"]["project_id"]["x-eval"] = "anything"

@@ -259,3 +259,18 @@ Tests may use fake signers and in-memory replay receipts only. No private key, s
 - The trusted report signer design is recorded in `docs/SANDBOX_TRUSTED_REPORT_SIGNER.md`.
 - Current implementation remains verifier-only for v1/v2. There is no report builder/signer, schema-v3 verifier, private key, signing service, replay receipt reader, or production ledger.
 - Next code work is the read-only replay acceptance receipt protocol and in-memory fake, followed by a pure schema-v3 builder and injected fake signer/verifier. Any real signing backend or durable replay store requires separate trust-boundary review and explicit approval.
+
+
+## D-024 — Enforce project-memory updates in implementation-sensitive pull requests (2026-11-24)
+
+**Status:** Implemented as a required Project Memory Audit step on the candidate branch; production/main enforcement is pending merge and branch-protection verification.
+
+A green lexical-index freshness check is insufficient to prove that project status, architecture context, decisions, and next steps are current. The Project Memory Audit must inspect the exact PR base-to-head changed-path set and require relevant Git-tracked memory documents to be included in the same PR.
+
+- App/source/test/package changes require `CURRENT_STATUS.md`, `NEXT_STEPS.md`, `DEVELOPMENT_LOG.md`, and `PROJECT_CONTEXT.md`.
+- Task-orchestrator, project-memory, validation, and workflow changes additionally require `AGENTS.md` and `DECISIONS.md`.
+- Project-memory tooling and workflow changes additionally require `PROJECT_MEMORY_AUTOMATION.md`.
+- The gate validates change presence only; it does not certify factual accuracy or replace source review.
+- CI semantic/resolved/critical-path JSON outputs remain 30-day artifacts, not durable memory.
+
+The purpose is to prevent an implementation PR from passing CI while leaving the next agent with stale project state. The gate does not authorize merges, releases, deployments, or execution.

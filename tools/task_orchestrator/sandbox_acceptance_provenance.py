@@ -223,7 +223,10 @@ def verify_signed_acceptance_report_v2(
     if hashlib.sha256(canonical_provenance).hexdigest() != provenance_digest:
         raise AcceptanceProvenanceError("Observer provenance digest does not match the signed inventory.")
 
-    required_domains = _required_domains()
+    try:
+        required_domains = _required_domains()
+    except Exception as exc:
+        raise AcceptanceProvenanceError("Pinned runtime probe manifest is unavailable or invalid.") from exc
     expected_provenance: dict[tuple[str, str], dict[str, Any]] = {}
     seen_nonces: set[str] = set()
     seen_envelopes: set[str] = set()

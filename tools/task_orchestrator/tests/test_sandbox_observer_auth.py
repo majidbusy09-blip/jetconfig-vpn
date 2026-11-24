@@ -210,16 +210,19 @@ class ObserverAuthenticationTests(unittest.TestCase):
     def test_registry_rejects_duplicate_identity_and_unknown_domain(self):
         base = json.loads(registry_bytes())
         base["identities"].append(dict(base["identities"][0]))
-        raw = canonical(base)
         with self.assertRaisesRegex(ObserverAuthenticationError, "duplicate identities"):
-            make_verifier(registry_raw=raw)
+            make_verifier(registry_raw=canonical(base))
+
+        base = json.loads(registry_bytes())
         base["identities"][0]["observer_domain"] = "provider_api"
         with self.assertRaisesRegex(ObserverAuthenticationError, "unknown trust domain"):
             make_verifier(registry_raw=canonical(base))
+
         base["identities"][0]["observer_domain"] = ["host_controller"]
         with self.assertRaises(ObserverAuthenticationError):
             make_verifier(registry_raw=canonical(base))
-        base["identities"][0]["observer_domain"] = DOMAIN
+
+        base = json.loads(registry_bytes())
         base["identities"][0]["status"] = ["active"]
         with self.assertRaises(ObserverAuthenticationError):
             make_verifier(registry_raw=canonical(base))

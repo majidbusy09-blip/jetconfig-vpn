@@ -277,3 +277,10 @@ python -m unittest discover -s tools/task_orchestrator/tests -p 'test_*.py' -v
 ### CI evidence requirement for cryptographic verifier changes
 
 A pull request that changes the trust-store verifier or its cryptographic backend is not validated by the memory audit or PR-scope guard alone. Require an actual successful run of both `JET VPN - Task Orchestrator Tests` and `JET VPN - Non-production PR Validation` on the exact final PR head. A missing, skipped, or job-less workflow run is not a passing test result. Do not merge until both test workflows have completed successfully for the current head SHA.
+
+## Protected trust control plane — design contract
+
+See `docs/PROTECTED_TRUST_CONTROL_PLANE_DESIGN.md`. The design specifies a root-authenticated configuration envelope, exact audience and expiry checks, independently pinned trust-store digest, monotonic epoch/version floors backed by a transactional compare-and-swap store, key rotation/revocation, append-only audit, and fail-closed recovery.
+
+This is design only. No service, KMS/HSM, root key, durable monotonic store, or provider integration exists. Any future local/in-memory store in tests is a fake and must never be described as production anti-rollback. The next implementation phase may add a provider-neutral validator/protocol, but production acceptance remains blocked until the actual protected infrastructure is separately selected, provisioned, and independently reviewed.
+

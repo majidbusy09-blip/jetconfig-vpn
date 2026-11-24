@@ -12,7 +12,7 @@ import json
 import re
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
-from typing import Any, Protocol
+from typing import Any, Protocol, runtime_checkable
 
 
 MAX_REPORT_BYTES = 256 * 1024
@@ -72,6 +72,7 @@ class SandboxEvidenceError(ValueError):
     """Signed runtime evidence is malformed, stale, untrusted, or incomplete."""
 
 
+@runtime_checkable
 class SignatureVerifier(Protocol):
     """Trusted verifier configured outside the sandbox/provider trust domain."""
 

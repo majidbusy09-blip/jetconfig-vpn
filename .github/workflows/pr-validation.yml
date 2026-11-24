@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - integration/memory-and-recovery-20261122
+      - 'feat/**'
   pull_request:
     branches:
       - main

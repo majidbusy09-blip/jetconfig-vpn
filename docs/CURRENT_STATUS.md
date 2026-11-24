@@ -4,8 +4,8 @@
 
 - Repository: `majidbusy09-blip/jetconfig-vpn`.
 - Default branch: `main`.
-- Current main HEAD: `1438d0a047523a22fee26e72ae12cf34cebbb95e` (PR #51 squash merge).
-- PR #20, PRs #38–#44, and PRs #46–#51 are merged.
+- Current main HEAD: `440569f769fd0d6871ac370d7923417637f90dc8` (PR #52 squash merge).
+- PR #20, PRs #38–#44, and PRs #46–#52 are merged.
 - PR #47 introduced the synthetic-only sandbox lifecycle contract.
 - PR #48 refreshed project memory after PR #47.
 - PR #49 added the independent signed-evidence verifier and its 12 adversarial tests.\n- PR #50 refreshed project memory after PR #49.\n- PR #51 binds every signed probe digest to the exact supplied raw evidence bytes, recomputes SHA-256, enforces exact evidence inventory, and caps each blob at 128 KiB / aggregate evidence at 2 MiB.

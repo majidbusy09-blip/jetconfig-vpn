@@ -279,3 +279,12 @@ The earlier instruction to build a paid/read-only provider adapter, configure mo
 Immediate work is to complete and validate the GitHub connector runbook, verify each connector's actual write capabilities, and perform a harmless documentation-only pilot with one active lease, a remote branch pinned to the exact base SHA, PR scope guard, exact-head Actions checks, and read-only review by the other agent. The production sandbox remains a separate track and is not a prerequisite for this workflow.
 
 Do not merge PRs, alter branch protection, provision infrastructure, create API keys, use paid model APIs, upload private source to external APIs, or authorize untrusted execution without separate explicit approval.
+
+
+## Updated connector pilot status — 2026-11-24
+
+- ChatGPT's documentation-only GitHub connector pilot is complete and verified on PR #91. The exact final head passed the trusted PR scope guard, Non-production PR Validation, and Project Memory Audit. The lease was released. Do not repeat the ChatGPT pilot unless the connector behavior changes.
+- Next independent validation is Grok: have the Grok chat read PR #91 in read-only mode and return a source-grounded review of the pilot protocol, PR metadata, scope, and CI evidence. This review does not need an implementation lease and must not modify the branch.
+- Then verify Grok's actual GitHub operations separately. If a Grok write pilot is needed, create a new low-risk docs-only Issue assigned to grok, claim its own lease, use a separate remote branch from the pinned base, open a Draft PR, and release the lease after exact-head checks pass.
+- Keep PR #89 Draft/open until human review; it carries the candidate v1.2 memory contract and enforced memory gate. The current main branch does not yet contain those candidate features.
+- No model API key, paid model API, external source upload, provider account, arbitrary untrusted execution, merge, release, or deployment is authorized.

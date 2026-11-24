@@ -1,6 +1,6 @@
 # JET VPN — Project Memory Automation
 
-> Current main snapshot: `f360d50b13064c7136eb7ce4a3b38e3413e5b333` (PR #47 merged, verified 2026-11-24). The application source fingerprint remains unchanged by PR #20, PRs #38–#44, PR #46, and PR #47.
+> Current main snapshot: `53e00ac2ad5e260a4d214772da4ba9bccd3499f4` (PR #47 merged, verified 2026-11-24). The application source fingerprint remains unchanged by PR #20, PRs #38–#44, PR #46, PR #47, and PR #48.
 
 ## Purpose
 
@@ -73,3 +73,8 @@ An analyzer Element is a statically resolved symbol, not proof of runtime execut
 
 The application regression suite, static semantic tooling, and local task-execution orchestrator are now present. PR #20 merged the orchestrator, contract validation, context selection, and fixture-only read-only adapter. PRs #38–#44 added the content-addressed patch, ingestion, live review gate, and end-to-end review-only tests. The next maturity step is a provider-neutral sandbox lifecycle contract and fake-adapter failure tests; no untrusted code execution is enabled. Cross-language/runtime evidence for the native VPN boundary remains a separate future improvement.
 
+
+
+## Sandbox acceptance evidence verifier
+
+The independent report verifier and adversarial tests are part of the orchestrator tooling. This is not a source-index input and does not alter the application source fingerprint. The test suite runs through the existing Task Orchestrator workflow.

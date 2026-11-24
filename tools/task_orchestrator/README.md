@@ -386,3 +386,11 @@ The current no-model-API route uses the user's existing ChatGPT and Grok chat se
 The Issue workflow and lease artifacts do not wake a model or continuously poll. jet-agent-handoff is an audit snapshot; jet-agent-input is a local envelope artifact from an ephemeral Actions workspace and is not automatically attached to a chat. The remote implementation branch must be created separately from the pinned base SHA. This route uses no model API key, paid model API endpoint, or external source-upload adapter. GitHub content is still processed through the connected provider integration; do not claim otherwise.
 
 A production sandbox is not a prerequisite for this connector-based workflow because no arbitrary untrusted code is run inside the chat. GitHub Actions runs the fixed verification profiles; preserve the separate sandbox execution flags as false.
+
+### PR envelope placement
+
+The `jet-agent-pr:v1` marker and its single fenced JSON object must be the final content in the PR body. The trusted parser rejects a marker placed at the beginning when prose follows it, or any trailing prose after the JSON fence. Put the PR summary, verification, and safety notes first, then append the marker and JSON block as the last lines.
+
+### ChatGPT connector pilot evidence
+
+The documentation-only Issue #90 / PR #91 pilot verified that the ChatGPT GitHub integration in this session can post Issue comments, read lease refs/files, create a remote branch from the pinned base, commit a Markdown file, and open a Draft PR. The final PR head passed the trusted scope guard, Non-production PR Validation, and Project Memory Audit; the lease was released. Grok remains unverified and must be tested independently.

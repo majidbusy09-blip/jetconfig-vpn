@@ -13,6 +13,7 @@ import re
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from types import MappingProxyType
 from typing import Mapping
 
 from tools.task_orchestrator.sandbox_acceptance import REQUIRED_PROBES
@@ -150,23 +151,29 @@ class HostEvidenceCollector:
             raise HostEvidenceError("Observations must be supplied as a bounded list.")
 
         required = _required_domains()
+        max_observations = sum(len(domains) for domains in required.values())
+        if len(observations) > max_observations:
+            raise HostEvidenceError("Observation count exceeds the exact suite contract.")
         grouped: dict[str, dict[str, dict[str, object]]] = {probe_id: {} for probe_id in REQUIRED_PROBES}
         for observation in observations:
             if not isinstance(observation, ProbeObservation):
                 raise HostEvidenceError("Every observation must use the typed observation contract.")
-            if observation.probe_id not in REQUIRED_PROBES:
+            if not isinstance(observation.probe_id, str) or observation.probe_id not in REQUIRED_PROBES:
                 raise HostEvidenceError("Unknown probe observation.")
             if observation.attempt_id != attempt_id:
                 raise HostEvidenceError("Observation belongs to a different attempt.")
-            if observation.observer_domain not in _OBSERVER_DOMAINS:
+            if not isinstance(observation.observer_domain, str) or observation.observer_domain not in _OBSERVER_DOMAINS:
                 raise HostEvidenceError("Unrecognized observer trust domain.")
             if observation.observer_domain not in required[observation.probe_id]:
                 raise HostEvidenceError("Observer domain is not authorized for this probe.")
-            if observation.observer_id not in self._trusted_observers[observation.observer_domain]:
+            if (
+                not isinstance(observation.observer_id, str)
+                or observation.observer_id not in self._trusted_observers[observation.observer_domain]
+            ):
                 raise HostEvidenceError("Observer identity is not in the out-of-band trust configuration.")
             if observation.observer_domain in grouped[observation.probe_id]:
                 raise HostEvidenceError("Duplicate observation from the same trust domain.")
-            if observation.outcome not in {"pass", "fail"}:
+            if not isinstance(observation.outcome, str) or observation.outcome not in {"pass", "fail"}:
                 raise HostEvidenceError("Observation outcome must be pass or fail.")
             if not isinstance(observation.payload, bytes) or not observation.payload:
                 raise HostEvidenceError("Raw observer payload is missing or invalid.")
@@ -221,8 +228,8 @@ class HostEvidenceCollector:
         status = "all_observers_reported_pass" if all(value == "pass" for value in outcomes.values()) else "one_or_more_probes_failed"
         return CollectedEvidenceBundle(
             attempt_id=attempt_id,
-            probe_evidence=evidence,
-            probe_outcomes=outcomes,
-            probe_digests=digests,
+            probe_evidence=MappingProxyType(evidence),
+            probe_outcomes=MappingProxyType(outcomes),
+            probe_digests=MappingProxyType(digests),
             status=status,
         )

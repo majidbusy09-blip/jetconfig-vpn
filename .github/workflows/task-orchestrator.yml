@@ -1,9 +1,6 @@
 name: JET VPN - Task Orchestrator Tests
 
 on:
-  push:
-    branches:
-      - 'feat/**'
   pull_request:
     branches:
       - main

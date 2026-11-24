@@ -227,3 +227,17 @@ PR #80 is design-only. Schema v2 does not bind a staging-manifest digest; no raw
 7. **Trusted filesystem staging and production gates:** actual no-follow host storage, durable replay database, KMS/HSM, VM/provider, API keys, private-source transfer, paid services and spend require separate trust-boundary review and explicit approval.
 
 PR #82 is a design contract only. It does not sign reports, create keys, persist replay state, store files, execute probes, or authorize untrusted code. Keep `execution_authorized: false` and `eligible_for_untrusted_execution: false`.
+
+
+## Current baseline after PR #82 (2026-11-24)
+
+- PR #82 merged as `d7ef7ed4266ea2606acd76f6e36fb4822af7d179`; final-head checks all passed.
+- The signer contract is documented but not implemented. `AuthenticatedObserverResult` must not be trusted by type alone; the future signer must independently validate raw envelopes and match read-only trusted replay receipts.
+- Immediate implementation sequence:
+  1. Add replay acceptance receipt read protocol and immutable in-memory fake, retaining all fields and ledger revision/fencing epoch.
+  2. Add pure schema-v3 report builder that validates exact probe/domain inventory, raw envelope bytes, Ed25519 signatures, receipt context, evidence bytes and staging manifest.
+  3. Add injected report-signing and verification protocols with deterministic fake implementations only.
+  4. Add strict schema-v3 verifier binding the pre-acceptance observer-envelope manifest digest; leave v1/v2 unchanged.
+  5. Add end-to-end adversarial tests for signer output and independent verification.
+  6. Continue with host challenge/transport and protected identity lifecycle design.
+- Do not create keys, a real signer, durable replay storage, filesystem staging, network, VM/provider, or execute probes without separate review/approval. Keep both execution flags false.

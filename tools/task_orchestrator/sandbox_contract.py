@@ -144,9 +144,11 @@ class SandboxSnapshot:
     runtime_class: str
     image_digest: str
     egress_state: str
+    ephemeral_vm: bool
     dedicated_kernel: bool
     resource_limits_enforced: bool
     credentials_present: bool
+    host_sockets_present: bool
     process_tree_termination: bool
 
 
@@ -201,12 +203,16 @@ def _validate_ready_snapshot(snapshot: SandboxSnapshot, request: SandboxRequest)
         raise SandboxContractError("Sandbox runtime class or pinned image digest does not match.")
     if snapshot.egress_state != "blocked":
         raise SandboxContractError("Sandbox deny-all egress was not observed.")
+    if snapshot.ephemeral_vm is not True:
+        raise SandboxContractError("Sandbox is not confirmed to be ephemeral.")
     if snapshot.dedicated_kernel is not True:
         raise SandboxContractError("A dedicated guest kernel was not observed.")
     if snapshot.resource_limits_enforced is not True:
         raise SandboxContractError("Sandbox resource limits were not observed as enforced.")
     if snapshot.credentials_present is not False:
         raise SandboxContractError("Sandbox guest must not contain credentials.")
+    if snapshot.host_sockets_present is not False:
+        raise SandboxContractError("Host sockets must not be exposed to the sandbox guest.")
     if snapshot.process_tree_termination is not True:
         raise SandboxContractError("Process-tree termination capability was not observed.")
 

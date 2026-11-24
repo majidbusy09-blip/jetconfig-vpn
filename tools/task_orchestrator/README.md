@@ -284,3 +284,19 @@ See `docs/PROTECTED_TRUST_CONTROL_PLANE_DESIGN.md`. The design specifies a root-
 
 This is design only. No service, KMS/HSM, root key, durable monotonic store, or provider integration exists. Any future local/in-memory store in tests is a fake and must never be described as production anti-rollback. The next implementation phase may add a provider-neutral validator/protocol, but production acceptance remains blocked until the actual protected infrastructure is separately selected, provisioned, and independently reviewed.
 
+
+## Trust configuration acceptance (reference-only; PR #59)
+
+`trust_config_acceptance.py` provides provider-neutral validation for a schema-v1 signed trust-configuration envelope. It checks canonical/bounded JSON, audience, trusted UTC validity and expiry, root signature through an injected verifier, exact SHA-256 binding to the trust-store bytes, and trust-store policy through `PinnedTrustStoreVerifier`.
+
+The monotonic-store Protocol requires a durable atomic compare-and-swap and append-only audit in one transaction. The acceptance result is exposed only after successful commit. The included in-memory CAS, fake root verifier, and fake crypto backend are test fixtures only.
+
+**Production boundary:** this module is not a deployed trust control plane. No production root key/verifier, durable monotonic store, transactional audit backend, KMS/HSM, network service, provider, or VM is provisioned. A Protocol definition does not prove a concrete storage backend is atomic, durable, rollback-resistant, or crash-safe.
+
+Run the focused tests:
+
+```bash
+python -m unittest discover -s tools/task_orchestrator/tests -p 'test_trust_config_acceptance.py' -v
+```
+
+Keep `execution_authorized: false` and `eligible_for_untrusted_execution: false`. Do not use this module's test success as permission to execute untrusted code.

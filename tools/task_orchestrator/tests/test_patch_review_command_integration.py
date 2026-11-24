@@ -44,7 +44,7 @@ class PatchReviewCommandIntegrationTests(unittest.TestCase):
             patch.object(command.orchestrator, "repository_root", return_value=self.root),
             patch.object(command.orchestrator, "load_record",
                          return_value=(self.record, self.record_path)),
-            patch.object(command.orchestrator, "run_git", return_value="https://github.com/" + REPO + ".git"),
+            patch.object(command.orchestrator, "run_git", side_effect=lambda _root, *args, **kwargs: HEAD if args[:2] == ("rev-parse", "HEAD") else "https://github.com/" + REPO + ".git"),
             patch.object(command.orchestrator, "safe_remote_identity",
                          return_value="https://github.com/" + REPO + ".git"),
             patch.object(command.orchestrator, "current_branch", return_value="agent/" + TASK),

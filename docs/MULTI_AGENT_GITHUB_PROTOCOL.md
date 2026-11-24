@@ -74,20 +74,6 @@ This route does not call a separate model API, require an API key, or manually u
 - Keep one active implementation agent per task; read-only review by the other agent is permitted.
 - Human review and explicit approval for merge/release/deploy remain mandatory.
 
-## Current rollout status
-
-- v1 payload schema and local validator: implemented and tested.
-- GitHub Issue template and event-driven intake validation/artifact workflow: active on the default branch; it validates and packages tasks but does not dispatch an agent.
-- Lease state machine: implemented and tested, including renewal.
-- Git transport adapter: implemented; CI verifies its commit construction and server-side force-with-lease behavior against a local bare remote.
-- Live GitHub ref-CAS race: passed on 2026-11-23 (Actions run `45176916962`); exactly one of two concurrent writers won and the probe branch was removed.
-- Lease command workflow: claim, renew, and release are available through trusted Issue comments.
-- Lease-verified handoff artifact: successful claim/renew creates a 14-day GitHub Actions artifact binding the validated task payload, Issue-body digest, active lease, pinned base SHA, and workflow run identity.
-- Provider runtime integration and automatic ChatGPT/Grok wake-up: not implemented.
-- Until provider runtime integration and isolated execution are complete, agents must still obtain the handoff artifact and verify current lease/context before editing. Keep one active implementation agent per task; read-only review by another agent is permitted.
-- Human review and explicit approval for merge/release/deploy remain mandatory.
-
-
 ## Comment-based lease operations
 
 For an open task Issue carrying the \`agent-task\` label, an OWNER, MEMBER, or COLLABORATOR may issue one of these exact single-line comments:

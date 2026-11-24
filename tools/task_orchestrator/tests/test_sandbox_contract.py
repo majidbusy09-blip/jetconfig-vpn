@@ -118,8 +118,7 @@ class SandboxContractTests(unittest.TestCase):
         ])
         self.assertTrue(result["sandbox_destroyed"])
         self.assertFalse(result["patch_applied"])
-        self.assertEqual(provider.calls[-3:], ["terminate", "inspect", "destroy"] if False else ["terminate", "inspect", "destroy"])
-        self.assertIn("inspect", provider.calls[-1:]) is False
+        self.assertEqual(provider.calls[-4:], ["terminate", "inspect", "destroy", "inspect"])
 
     def test_missing_capability_fails_before_sandbox_creation(self):
         caps = good_capabilities()
@@ -171,9 +170,9 @@ class SandboxContractTests(unittest.TestCase):
 
     def test_create_failure_does_not_leak_provider_error(self):
         provider = FakeSandboxProvider(fail_create=True)
-        with self.assertRaisesRegex(SandboxContractError, "acceptance failed"):
+        with self.assertRaisesRegex(SandboxContractError, "acceptance failed") as caught:
             run_synthetic_acceptance(provider, request())
-        self.assertNotIn("provider detail", str(self.assertRaises))
+        self.assertNotIn("provider detail", str(caught.exception))
 
     def test_request_rejects_network_allowlist_and_non_synthetic_payload(self):
         with self.assertRaises(SandboxContractError):

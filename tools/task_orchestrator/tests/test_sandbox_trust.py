@@ -87,8 +87,8 @@ class PinnedSandboxTrustStoreTests(unittest.TestCase):
             trusted = verifier(canonical(value))
             self.assertFalse(trusted.verify(value["keys"][0]["key_id"], b"message", b"signature"))
         for field, value in (
-            ("not_before", "2027-01-01T00:00:00Z"),
-            ("not_after", "2026-01-01T00:00:00Z"),
+            ("not_before", "2026-12-01T00:00:00Z"),
+            ("not_after", "2026-11-24T07:59:59Z"),
         ):
             item = document()
             item["keys"][0][field] = value

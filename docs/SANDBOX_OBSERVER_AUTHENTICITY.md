@@ -70,8 +70,11 @@ See [the durable replay-store design](SANDBOX_REPLAY_STORE_DESIGN.md) for the tr
 ## Rotation, revocation, and operational requirements
 
 - Publish registry changes only through the protected root-signed trust configuration flow with a strictly higher registry version/config epoch.
-- Planned rotation may use a bounded overlap of old/new observer keys; retired keys must fail after the overlap.
-- Emergency revocation must publish a higher protected epoch and invalidate cached registry state within a defined maximum TTL.
+- Registry entries are keyed by the pair `(observer_id, key_id)`. This permits a stable observer identity to have two separately pinned keys during a bounded rotation overlap; the trust domain must remain identical across those keys.
+- Planned rotation publishes the new key as active alongside the old active key, verifies the new key through known-answer/integration tests, then marks the old key retired in a later higher registry version. Replay sequence state remains keyed by stable `observer_id`, not `key_id`, so rotation cannot reset the monotonic sequence.
+- Emergency revocation marks the compromised key ID revoked in a higher protected registry version/epoch. The other active key may remain valid; revoked key acceptance must fail closed. Emergency revocation must invalidate cached registry state within a defined maximum TTL.
+- The host-local `issue_observer_challenge` factory now obtains exactly 32 nonce bytes from Python's OS-backed `secrets.token_bytes`, validates the pinned observer/key, binds the exact audience/attempt/runtime/policy/probe context, and enforces the key-validity and 120-second maximum lifetime. If randomness or identity validation fails, issuance fails closed.
+- Challenge generation is not authenticated transport and does not persist challenge issuance. Production Host↔Observer delivery still requires independently reviewed mTLS/workload identity, audience binding, server authentication, retry/lost-response handling, and protected host-only access.
 - Root-key rotation remains governed by the offline/cross-sign ceremony in the protected trust control-plane design.
 - Use mutual TLS/workload identity for host-to-canary transport in production; message signatures remain necessary for end-to-end provenance and replay protection.
 - Audit identity changes, key rotation/revocation, challenge issuance, accepted/rejected envelope digests, replay-store failures, and recovery events. Never log private keys, raw credentials, or private source.

@@ -57,13 +57,8 @@ jobs:
           fi
 
           BASE_SHA="${{ github.event.pull_request.base.sha }}"
-          if git diff --name-only "$BASE_SHA" "$GITHUB_SHA" | grep -Eq '^(lib/|test/|android/|assets/|fonts/|gradle/|tools/v2ray_notif_patch/|pubspec\.(yaml|lock)$|analysis_options\.yaml$|[^/]+\.gradle(\.kts)?$|\.github/workflows/pr-validation\.yml$)'; then
-            echo "app_build=true" >> "$GITHUB_OUTPUT"
-            echo "Application/build-affecting paths changed: full Flutter validation will run."
-          else
-            echo "app_build=false" >> "$GITHUB_OUTPUT"
-            echo "No application/build-affecting paths changed: running Python safety/tooling checks only."
-          fi
+          git diff --name-only "$BASE_SHA" "$GITHUB_SHA" |
+            python3 tools/validation/classify_ci_scope.py
 
       - name: Set up Java
         if: steps.scope.outputs.app_build == 'true'

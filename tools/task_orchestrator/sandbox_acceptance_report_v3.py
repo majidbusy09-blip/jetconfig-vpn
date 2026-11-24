@@ -36,9 +36,10 @@ from tools.task_orchestrator.sandbox_acceptance_provenance import (
     _PROBE_KEYS,
     _parse_canonical_object,
 )
-from tools.task_orchestrator.sandbox_host_evidence import _required_domains
+from tools.task_orchestrator.sandbox_host_evidence import ProbeObservation, _required_domains
 from tools.task_orchestrator.sandbox_observer_auth import (
     MAX_ENVELOPE_BYTES,
+    MAX_PAYLOAD_BYTES,
     AuthenticatedObserverResult,
     ObserverReplayReceipt,
     ObserverSignatureVerifier,
@@ -282,6 +283,7 @@ def build_schema_v3_report_draft(
     seen_nonces: set[str] = set()
     seen_envelopes: set[str] = set()
     seen_sequences: set[tuple[str, int]] = set()
+    seen_fencing_epochs: set[int] = set()
     envelope_total = 0
     evidence_total = 0
 
@@ -329,6 +331,10 @@ def build_schema_v3_report_draft(
             if type(result) is not AuthenticatedObserverResult:
                 raise AcceptanceReportV3Error("Observer result must be an exact verifier result type.")
             observation = result.observation
+            if type(observation) is not ProbeObservation:
+                raise AcceptanceReportV3Error("Observer result does not contain an exact ProbeObservation.")
+            if result.signature_algorithm != "Ed25519":
+                raise AcceptanceReportV3Error("Only Ed25519 observer results are accepted.")
             if (
                 observation.probe_id != probe_id
                 or observation.observer_domain != domain
@@ -350,6 +356,18 @@ def build_schema_v3_report_draft(
 
             raw_envelope = raw_observer_envelopes[pair]
             envelope = _parse_envelope(raw_envelope)
+            if (
+                isinstance(envelope["sequence"], bool)
+                or not isinstance(envelope["sequence"], int)
+                or not 1 <= envelope["sequence"] <= 2**63 - 1
+            ):
+                raise AcceptanceReportV3Error("Raw observer envelope sequence is invalid.")
+            for counter_name in ("monotonic_start_ns", "monotonic_end_ns"):
+                counter = envelope[counter_name]
+                if isinstance(counter, bool) or not isinstance(counter, int) or not 0 <= counter <= 2**63 - 1:
+                    raise AcceptanceReportV3Error(f"Raw observer envelope {counter_name} is invalid.")
+            if envelope["monotonic_end_ns"] < envelope["monotonic_start_ns"]:
+                raise AcceptanceReportV3Error("Raw observer envelope monotonic interval is reversed.")
             envelope_digest = hashlib.sha256(raw_envelope).hexdigest()
             if result.envelope_sha256 != envelope_digest:
                 raise AcceptanceReportV3Error("Exact retained envelope digest differs from verifier result.")
@@ -373,6 +391,8 @@ def build_schema_v3_report_draft(
                     raise AcceptanceReportV3Error(f"Raw envelope {field} mismatch: {probe_id}/{domain}.")
             nonce = _decode_b64(envelope["nonce_b64"], "Observer nonce", exact_length=32)
             payload = _decode_b64(envelope["payload_b64"], "Observer payload")
+            if not payload or len(payload) > MAX_PAYLOAD_BYTES:
+                raise AcceptanceReportV3Error("Raw observer payload is empty or oversized.")
             if payload != observation.payload:
                 raise AcceptanceReportV3Error("Raw envelope payload differs from verified observation bytes.")
             if envelope["payload_sha256"] != hashlib.sha256(payload).hexdigest():
@@ -415,6 +435,21 @@ def build_schema_v3_report_draft(
                 registry=registry, attempt_id=base.attempt_id,
                 runtime_id=expectation.runtime_id, policy_digest=base.policy_digest,
             )
+            accepted_at = _parse_accepted_at(receipt.accepted_at)
+            expires_at = _parse_utc(receipt.challenge_expires_at, "challenge_expires_at")
+            observed_at = _parse_utc(observation.observed_at, "observer observed_at")
+            if (
+                accepted_at < started - timedelta(seconds=base.allowed_clock_skew_seconds)
+                or accepted_at > completed + timedelta(seconds=base.allowed_clock_skew_seconds)
+                or accepted_at > now + timedelta(seconds=base.allowed_clock_skew_seconds)
+                or (now - accepted_at).total_seconds() > base.max_age_seconds
+                or observed_at > accepted_at + timedelta(seconds=base.allowed_clock_skew_seconds)
+                or accepted_at > expires_at
+            ):
+                raise AcceptanceReportV3Error("Observer acceptance time is outside the pinned attempt/challenge window.")
+            seen_fencing_epochs.add(receipt.fencing_epoch)
+            if len(seen_fencing_epochs) != 1:
+                raise AcceptanceReportV3Error("Replay receipts do not share one stable fencing epoch.")
 
             provenance.append({
                 "probe_id": probe_id,

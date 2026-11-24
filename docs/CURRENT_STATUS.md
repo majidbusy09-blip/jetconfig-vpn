@@ -15,6 +15,7 @@
 - PR #44 merged at `f682c56331bfb7c07bc4c5be26fddc33a3043969`: ingestion-to-live-review integration test; the exact content-addressed patch reaches `ready_for_human_review` and remains unapplied.
 - PR #44 head `af5fc704f61fd8a656966b35ddbe9450630d8c1f` passed three workflows: Task Orchestrator Tests [#45307323849], Non-production PR Validation [#45307323773], and Project Memory Audit [#45307323780].
 - `lib/main.dart` blob remains `3d28693b7be8bfe309a850923599830e1a65ab59`; `pubspec.yaml` blob remains `adc3b22a4538db4738bec789e3c3badf26e4f710`; app version remains `2.4.5+284`.
+- `lib/main.dart` source metrics: 9,008 lines / 352,770 UTF-8 bytes / 336,710 Unicode code points (verified by the memory audit).
 - Active `main-protection` ruleset requires PRs and the `Verify generated code index and memory freshness` status check, blocks deletion/force pushes, allows Squash only, and has no bypass actors.
 
 ## Current collaborator capabilities

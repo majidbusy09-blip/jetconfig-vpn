@@ -304,7 +304,7 @@ Keep `execution_authorized: false` and `eligible_for_untrusted_execution: false`
 ## Host-side Sandbox evidence collector contract
 
 - `sandbox_host_evidence.py` assembles bounded observations from explicitly trusted host, guest, and external-canary observer identities according to the pinned 20-probe manifest.
-- It enforces attempt binding, required independent observer domains, duplicate rejection, timestamp freshness, per-observation/probe/aggregate size limits, deterministic evidence encoding, and host-side payload digests.
+- It enforces attempt/runtime/policy binding, required independent observer domains, monotonic offsets, duplicate rejection, timestamp freshness, per-observation/probe/aggregate size limits, deterministic evidence encoding, and host-side payload digests.
 - It preserves failed outcomes and rejects missing or untrusted observations. Returned evidence maps are immutable.
 - This is an evidence-assembly contract only: no probe runner, subprocess, VM, socket, network client, provider, identity provisioning, signature creation, or execution authorization exists.
 - The observer identity sets must eventually come from a protected out-of-band trust source; this module does not cryptographically authenticate them.

@@ -116,3 +116,12 @@ This section supersedes the earlier PR #53 baseline above.
 - The collector is not a host runtime controller: it cannot launch or inspect a VM, process, guest, filesystem, network, or provider; it does not cryptographically authenticate observer IDs or sign acceptance reports. Out-of-band identity provisioning remains unimplemented.
 - PR #67 also adds a unit-tested CI path classifier. Tooling-only changes retain Python safety checks and can skip Flutter/Android APK build steps; application/build-affecting paths still trigger full app validation.
 - No production Sandbox or untrusted-code execution was enabled. `execution_authorized: false` and `eligible_for_untrusted_execution: false` remain mandatory.
+
+
+## Latest host lifecycle update — PR #70 merged (2026-11-24)
+
+- PR #70 squash merge: `e699293c1495f3137dd319e37764a2db6c5dfff3`; final head `a4b79467d850663ae10f8ffebb8e544f9ecf199e`.
+- Final-head CI passed: Task Orchestrator Tests `45377376254`, Non-production PR Validation `45377376173`, Project Memory Audit `45377376300`.
+- `tools/task_orchestrator/sandbox_host_lifecycle.py` adds a pure lifecycle state-transition validator. It pins attempt/runtime/policy identity and monotonic deadline, restricts event names and transitions, distinguishes accepted/rejected evidence, and requires explicit termination plus cleanup confirmation. Cleanup failure is terminal.
+- The module performs no I/O and invokes no adapter; it is not a process supervisor, timeout killer, VM controller, or proof of cleanup. The state machine only validates reported events.
+- No runtime probes have been executed and no untrusted-code execution is enabled. Both execution flags remain false.

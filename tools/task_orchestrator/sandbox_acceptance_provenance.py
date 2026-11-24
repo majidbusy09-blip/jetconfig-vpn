@@ -177,6 +177,7 @@ def verify_signed_acceptance_report_v2(
     expected_bindings = {
         "provider_id": base.provider_id,
         "region": base.region,
+        "runtime_id": expectation.runtime_id,
         "task_id": base.task_id,
         "attempt_id": base.attempt_id,
         "image_digest": base.image_digest,
@@ -281,6 +282,14 @@ def verify_signed_acceptance_report_v2(
         seen_envelopes.add(envelope_digest)
         seen_sequences.add(sequence_key)
         expected_provenance[sort_key] = record
+
+    required_provenance_keys = {
+        (probe_id, domain)
+        for probe_id, domains in required_domains.items()
+        for domain in domains
+    }
+    if set(expected_provenance) != required_provenance_keys:
+        raise AcceptanceProvenanceError("Observer provenance inventory must exactly match raw evidence observations.")
 
     probes = report["probes"]
     if not isinstance(probes, list) or len(probes) != len(REQUIRED_PROBES):

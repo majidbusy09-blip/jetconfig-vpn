@@ -492,3 +492,13 @@ Append-only record of meaningful project work. Each entry should include branch/
 - Tests cover success and failure paths, cancellation, deadline expiry, adapter error, cleanup failure, identity mismatches, out-of-order events and malformed payloads.
 - Final-head CI: Task Orchestrator Tests `45377376254`, Non-production PR Validation `45377376173`, Project Memory Audit `45377376300` — all success.
 - No process, VM, provider, network, guest, filesystem, credential, or untrusted code was accessed. The state machine does not prove actual termination or cleanup.
+
+
+## 2026-11-24 — PR #72 bounded artifact collector contract
+
+- PR #72 squash-merged as `a199b82ef70f492c2b8df42087992a917d293c7c`; final head `26edb96019e3816e4e23cff24b957f2d0187ca12`.
+- Added `tools/task_orchestrator/sandbox_artifacts.py`, `tools/task_orchestrator/tests/test_sandbox_artifacts.py`, and `docs/SANDBOX_ARTIFACT_COLLECTOR.md`; updated `tools/task_orchestrator/README.md`.
+- The pure in-memory validator checks normalized relative allowlisted paths, rejects traversal and unsupported path components, rejects declared symlinks/directories/devices and link counts other than one, rejects duplicate paths and empty files, bounds file count/per-file/aggregate bytes/retention metadata, recomputes SHA-256 from exact supplied bytes, and emits a sorted canonical manifest bound to attempt/runtime/policy/evidence/report digests.
+- Added adversarial coverage for hard-link metadata and malformed link-count values.
+- Final-head CI passed: Task Orchestrator Tests `45379646169`, Non-production PR Validation `45379646094`, Project Memory Audit `45379646100`.
+- The module does not open/stat files, authenticate metadata or signed reports, retain/delete files, or enforce actual retention. No filesystem collection, VM, provider, network, credentials, or untrusted code was used.

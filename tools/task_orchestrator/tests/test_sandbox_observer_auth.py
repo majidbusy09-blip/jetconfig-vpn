@@ -309,7 +309,7 @@ class ObserverAuthenticationTests(unittest.TestCase):
     def test_registry_rejects_duplicate_identity_and_unknown_domain(self):
         base = json.loads(registry_bytes())
         base["identities"].append(dict(base["identities"][0]))
-        with self.assertRaisesRegex(ObserverAuthenticationError, "duplicate identities"):
+        with self.assertRaisesRegex(ObserverAuthenticationError, "duplicate observer/key pair"):
             make_verifier(registry_raw=canonical(base))
 
         base = json.loads(registry_bytes())
@@ -518,3 +518,37 @@ class ObserverChallengeIssuerTests(unittest.TestCase):
         near_expiry = datetime(2026, 11, 25, 9, 59, 30, tzinfo=timezone.utc)
         with self.assertRaises(ObserverAuthenticationError):
             self.issue(now=near_expiry, lifetime_seconds=60)
+
+
+    def test_registry_supports_bounded_overlapping_key_rotation(self):
+        document = json.loads(registry_bytes())
+        old_key = dict(document["identities"][0])
+        new_key = dict(old_key, key_id="host-key-02")
+        document["identities"] = [old_key, new_key]
+        raw = canonical(document)
+        registry = PinnedObserverRegistry(
+            raw,
+            expected_sha256=hashlib.sha256(raw).hexdigest(),
+            minimum_version=3,
+            expected_audience=AUDIENCE,
+            now=NOW,
+        )
+        self.assertEqual(registry.resolve(OBSERVER, DOMAIN, KEY_ID).key_id, KEY_ID)
+        self.assertEqual(registry.resolve(OBSERVER, DOMAIN, "host-key-02").key_id, "host-key-02")
+
+    def test_registry_revokes_old_key_without_revoking_rotated_key(self):
+        document = json.loads(registry_bytes())
+        old_key = dict(document["identities"][0], status="revoked")
+        new_key = dict(document["identities"][0], key_id="host-key-02", status="active")
+        document["identities"] = [old_key, new_key]
+        raw = canonical(document)
+        registry = PinnedObserverRegistry(
+            raw,
+            expected_sha256=hashlib.sha256(raw).hexdigest(),
+            minimum_version=3,
+            expected_audience=AUDIENCE,
+            now=NOW,
+        )
+        with self.assertRaisesRegex(ObserverAuthenticationError, "retired or revoked"):
+            registry.resolve(OBSERVER, DOMAIN, KEY_ID)
+        self.assertEqual(registry.resolve(OBSERVER, DOMAIN, "host-key-02").key_id, "host-key-02")

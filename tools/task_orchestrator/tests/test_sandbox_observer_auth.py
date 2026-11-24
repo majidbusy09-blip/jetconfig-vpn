@@ -207,6 +207,30 @@ class ObserverAuthenticationTests(unittest.TestCase):
         with self.assertRaisesRegex(ObserverAuthenticationError, "retired or revoked"):
             revoked.verify(make_envelope(), challenge=challenge())
 
+    def test_registry_identity_expiry_is_checked_at_envelope_verification_time(self):
+        registry_raw = registry_bytes()
+        registry = PinnedObserverRegistry(
+            registry_raw,
+            expected_sha256=hashlib.sha256(registry_raw).hexdigest(),
+            minimum_version=1,
+            expected_audience=AUDIENCE,
+            now=NOW,
+        )
+        later = datetime(2026, 11, 25, 10, 0, 0, tzinfo=timezone.utc)
+        verifier = ObserverEnvelopeVerifier(
+            registry=registry,
+            signature_verifier=FakeSignatureVerifier(),
+            replay_store=MemoryReplayStore(),
+            now=later,
+        )
+        later_challenge = challenge(
+            issued_at=later - timedelta(seconds=30),
+            expires_at=later + timedelta(seconds=30),
+        )
+        envelope = make_envelope(observed_at="2026-11-25T10:00:00Z")
+        with self.assertRaisesRegex(ObserverAuthenticationError, "outside its validity window"):
+            verifier.verify(envelope, challenge=later_challenge)
+
     def test_registry_rejects_duplicate_identity_and_unknown_domain(self):
         base = json.loads(registry_bytes())
         base["identities"].append(dict(base["identities"][0]))

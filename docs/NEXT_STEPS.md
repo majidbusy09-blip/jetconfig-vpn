@@ -176,3 +176,16 @@ PR #72 completes only the in-memory artifact validation contract. It does not co
 7. **Operational gates remain closed:** any VM/provider, account, API key, private-source transfer, KMS/HSM, paid service, or spend requires separate explicit approval and independent security review.
 
 PR #74 authenticates candidate observer envelopes only when supplied with externally pinned registry data, a trusted signature verifier, and an atomic replay-store implementation. Only fake verifier/replay-store implementations are tested. It does not issue challenges, authenticate network transport, persist replay state, execute probes, or bind provenance into the final signed report. Keep `execution_authorized: false` and `eligible_for_untrusted_execution: false`.
+
+
+## Current next steps after PR #76 (2026-11-24)
+
+1. **Durable replay-store design:** define the atomic transaction for nonce consumption, sequence advancement, envelope digest persistence, and crash/failover recovery. Include backup restore anti-rollback, concurrent observers, idempotency, audit, retention, and corruption fail-closed behavior. Keep implementation fake-only until a trusted persistence boundary is approved.
+2. **Raw observer-envelope retention:** define protected storage and manifest binding for exact signed envelope bytes referenced by v2 digests; include bounded paths/sizes, access controls, retention, and independent re-verification.
+3. **Report signer contract:** specify how a trusted acceptance-suite signer consumes only verified `AuthenticatedObserverResult` values and emits schema v2. No private signing key or signing service until separately approved.
+4. **Host challenge and transport design:** specify CSPRNG nonce generation, challenge issuance/expiry, authenticated host-to-observer transport, mutual TLS/workload identity, canary separation, and retry behavior after crash/lost response. No live network code yet.
+5. **Protected identity lifecycle:** define registry signing/pinning, key rotation overlap, emergency revocation, cache TTL, audit, and recovery through the protected trust control plane.
+6. **Trusted filesystem collector:** design descriptor-relative no-follow traversal, `fstat`, same-descriptor hashing/copying, TOCTOU defenses, file identity checks, quotas, retention, and crash-safe cleanup. Current artifact collector remains an in-memory validator only.
+7. **Threat-model review and operational gates:** cancellation races, deadlines, kill escalation, cleanup recovery, external-canary independence, IPv4/IPv6/DNS/QUIC egress, resource caps, and cross-attempt residue. VM/provider, API key, private-source transfer, KMS/HSM, paid service, or spend still require separate explicit approval.
+
+PR #76 verifies a signed schema-v2 report and cross-binds observer provenance to raw probe evidence, but does not sign reports, persist replay state, retain raw envelopes, or execute probes. V1 remains unchanged and must not be treated as observer-authenticated. Keep `execution_authorized: false` and `eligible_for_untrusted_execution: false`.

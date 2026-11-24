@@ -148,3 +148,14 @@ PR #49 merged `sandbox_acceptance.py`, a strict verifier for independently signe
 - PR #57 adds the design in `docs/PROTECTED_TRUST_CONTROL_PLANE_DESIGN.md` and records decision D-013. It is design documentation only; it does not provision a root key, KMS/HSM, transactional store, service, provider, VM, or production anti-rollback mechanism.
 - Next safe implementation is a provider-neutral signed-envelope acceptance module with injected root-signature verification and a monotonic-store interface. Tests may use deterministic fake verification and an in-memory CAS store only; these are not production trust or durable anti-rollback.
 - Keep `execution_authorized: false` and `eligible_for_untrusted_execution: false`. Do not execute untrusted code or provision external infrastructure without the separate approvals described above.
+
+
+
+## Authoritative snapshot superseding earlier entries — PR #59 (2026-11-24)
+
+- Current verified main includes PR #59, squash merge commit `1e332fcd8f13c5ccebb352c31b72bbf09a27a1bb`; this supersedes all earlier main HEAD values recorded above.
+- PR #59 adds `tools/task_orchestrator/trust_config_acceptance.py` and `tools/task_orchestrator/tests/test_trust_config_acceptance.py`.
+- The module is a provider-neutral reference acceptance layer: strict canonical signed-envelope parsing, audience/time/digest checks, injected root-signature verification, trust-store validation, and a monotonic-store protocol whose contract requires atomic durable CAS plus append-only audit.
+- It is not production-ready. No production root verifier/key is provisioned; no durable CAS/audit implementation exists. In-memory store and fake verifiers/backends are test-only.
+- PR #59 final head `177a4090effd838add36188578a5d7e8a7c671f5` passed Task Orchestrator Tests run `45361973408`, Project Memory Audit run `45361973336`, Non-production PR Validation run `45361973411`, and `validate-agent-pr` check `138334033651`; then squash-merged.
+- Preserve `execution_authorized: false` and `eligible_for_untrusted_execution: false`. Do not provision a root key, production persistence, provider, VM, or run untrusted code without separate approval and independent evidence.

@@ -1,7 +1,7 @@
 # JET VPN — Task Execution Orchestrator Design
 
-> Status: implemented and merged in PR #20; subsequent patch-ingestion and live-review stages were merged in PRs #38–#44. Current verified main: `f360d50b13064c7136eb7ce4a3b38e3413e5b333` (2026-11-24).
-> Design baseline: current `main` `f360d50b13064c7136eb7ce4a3b38e3413e5b333` (2026-11-24).
+> Status: implemented and merged in PR #20; subsequent patch-ingestion and live-review stages were merged in PRs #38–#44. Current verified main: `53e00ac2ad5e260a4d214772da4ba9bccd3499f4` (2026-11-24).
+> Design baseline: current `main` `53e00ac2ad5e260a4d214772da4ba9bccd3499f4` (2026-11-24).
 
 ## 1. Objective and boundary
 
@@ -180,4 +180,13 @@ PR #47 adds a provider-neutral `SandboxProvider` protocol and explicit lifecycle
 
 The contract rejects non-VM/shared-kernel runtime declarations, missing capabilities, non-pinned image/policy digests, network policy other than deny-all, provider-reported open egress, exposed credentials/host sockets, missing resource/process-tree controls, timeouts, invalid/oversized artifacts, and unconfirmed destruction. It attempts cleanup after ordinary failures and keyboard/system interrupts.
 
-Provider capability declarations and snapshots are untrusted metadata, not independent attestation. Passing this synthetic check never authorizes untrusted execution; the result always records `eligible_for_untrusted_execution: false` and `patch_applied: false`. The 247-test Task Orchestrator suite and Project Memory Audit passed on the PR head; non-production APK validation was still running at the latest snapshot.
+Provider capability declarations and snapshots are untrusted metadata, not independent attestation. Passing this synthetic check never authorizes untrusted execution; the result always records `eligible_for_untrusted_execution: false` and `patch_applied: false`. The 247-test Task Orchestrator suite and Project Memory Audit passed on the PR head; non-production validation retry #45313415713 also passed after the first attempt hit Maven Central HTTP 429.
+
+
+## 14. Independent sandbox acceptance evidence verifier
+
+`sandbox_acceptance.py` validates a fresh canonical signed report from an independent suite and pins the suite version, signing key ID, provider/region/runtime/task/attempt, image/policy digests, and exact required probe inventory. The report is bounded, rejects duplicate JSON keys, and each probe must include a SHA-256 digest of its raw evidence.
+
+The verifier covers evidence categories for VM/kernel separation, guest privilege, Seccomp, cgroup/disk enforcement, source/scratch mounts, secret/socket/device/metadata isolation, IPv4/IPv6/DNS/QUIC egress, external canary, timeout, process-tree termination, artifact integrity, cleanup, and cross-attempt residue.
+
+It does not run probes, provision a VM, establish the trust root, implement cryptographic verification, or authorize execution. Production requires an independently controlled signing service and pinned-key asymmetric verifier. Passing evidence still returns `execution_authorized: false` and `eligible_for_untrusted_execution: false`. See `docs/SANDBOX_RUNTIME_ACCEPTANCE.md`.

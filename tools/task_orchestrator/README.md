@@ -240,3 +240,26 @@ Run the focused tests:
 ```bash
 python -m unittest discover -s tools/task_orchestrator/tests -p 'test_sandbox_contract.py'
 ```
+
+
+## Independent sandbox runtime acceptance evidence
+
+- `sandbox_acceptance.py` validates a strict, canonical, bounded, signed report from a separately trusted runtime-acceptance suite.
+- It pins the suite ID/version, signing key ID, provider, region, task, attempt, image digest, policy digest, UTC time window, and exact 20-probe inventory.
+- Required probes cover VM/kernel separation, non-root/capabilities, Seccomp, cgroup CPU/memory/PID, disk quota, read-only source, secrets/sockets/devices, metadata, IPv4/IPv6, DNS, QUIC, external canary, timeout, process-tree kill, artifact integrity, cleanup failure paths, and fresh-attempt residue.
+- Duplicate JSON keys, unknown/missing probes, stale/future reports, identity mismatches, non-canonical bytes, oversized evidence, and invalid signatures fail closed.
+- The signature verifier is injected. Production must supply an audited asymmetric verifier (for example Ed25519) backed by an out-of-band pinned public key. The unit-test verifier is a test double only.
+- This is an evidence verifier, not the probe runner, VM provisioner, attestation service, or execution authorization. A passing report always has `execution_authorized: false` and `eligible_for_untrusted_execution: false`.
+- No real provider, sandbox, network probe, signing key, private source, API key, or spend is involved.
+
+Run the focused verifier tests:
+
+```bash
+python -m unittest discover -s tools/task_orchestrator/tests -p 'test_sandbox_acceptance.py'
+```
+
+Full suite:
+
+```bash
+python -m unittest discover -s tools/task_orchestrator/tests -p 'test_*.py' -v
+```

@@ -2,35 +2,33 @@
 
 ## Verified baseline — 2026-11-24
 
-- Current `main`: `f360d50b13064c7136eb7ce4a3b38e3413e5b333` (PR #47 merged).
-- PR #20, PRs #38–#44, PR #46, and PR #47 are merged.
-- PR #47 Task Orchestrator Tests #45314331567 passed 247 Python tests, including all 13 sandbox lifecycle tests; Project Memory Audit #45314331612 passed. Non-production PR Validation #45314331545 was still running at this snapshot.
+- Current `main`: `53e00ac2ad5e260a4d214772da4ba9bccd3499f4` (PR #48 merged).
+- PR #20, PRs #38–#44, and PRs #46–#48 are merged.
+- PR #48 Task Orchestrator Tests, Project Memory Audit, and Non-production PR Validation all passed.
 - App source/version remain unchanged: `lib/main.dart` blob `3d28693b7be8bfe309a850923599830e1a65ab59`; version `2.4.5+284`.
-- Validated flow: task envelope → fixture dispatch → local result ingestion → content-addressed patch → live Issue/lease review gate → `ready_for_human_review`, `applied: false`.
+- Validated handoff remains: task envelope → fixture dispatch → local result ingestion → content-addressed patch → live Issue/lease review gate → `ready_for_human_review`, `applied: false`.
 
-## P0 — Trusted runtime-acceptance harness
+## P0 — Independent runtime acceptance suite
 
-The synthetic-only lifecycle contract is merged. The next task is not to connect a model; it is to build an independent acceptance harness for an actual candidate runtime.
+The verifier in `sandbox_acceptance.py` is now implemented on `feat/trusted-sandbox-evidence-gate-20261124`. It accepts only a fresh canonical report signed by an out-of-band trusted key and containing all 20 required probe outcomes. It does not execute probes or authorize code.
 
-1. Define a trusted probe runner separate from the provider adapter; the provider must not author its own pass/fail evidence.
-2. Verify actual guest class and unique kernel, pinned image digest, read-only source, isolated scratch, no credentials, host sockets, devices, or metadata access.
-3. Verify deny-all egress from inside the guest and an external canary, including DNS and QUIC/HTTP3 bypass attempts.
-4. Apply harmless synthetic load and verify enforced CPU, memory, PID, disk, and wall-clock limits.
-5. Verify timeout/cancellation kills the full process tree and that termination/destruction are independently observable.
-6. Verify artifact bounds, digest, path allowlist, and cleanup on every success/failure/interruption path.
-7. Require evidence to be bound to provider/runtime identity, image/policy digests, attempt ID, timestamps, and test-suite version. Provider-reported metadata alone is never sufficient.
-8. Keep the harness synthetic-only; no private source, model-generated code, credentials, or live provider until a separate approval.
+1. Implement the fixed guest-side probe runner and an independent external canary controller. Do not let provider SDK status or provider-generated JSON count as test evidence.
+2. Make probe outputs bounded and deterministic; hash exact raw bytes and bind each digest into the signed report.
+3. Cover VM/kernel separation, non-root/capabilities, Seccomp negative tests, enforced cgroup CPU/memory/PID limits, disk quota, read-only source/scratch, secret/socket/device/metadata absence, IPv4/IPv6, DNS, QUIC, external canary, timeout, process-tree kill, artifact integrity, cleanup on success/failure/timeout, and cross-attempt residue.
+4. Establish a separate signing service and audited Ed25519 implementation with pinned public-key ID, rotation, and revocation. Do not place signing private keys in the provider or guest.
+5. Run the suite against the exact provider, region, VM image, and policy intended for a pilot; preserve signed report and raw evidence.
+6. Keep `execution_authorized: false` until the owner explicitly approves a pilot and a separate policy gate is implemented.
 
 ## P1 — Provider and data-governance decision
 
 - E2B remains blocked by prior-written-consent requirement before testing and EU workspace payment-method verification.
 - Daytona's strict sandbox-level `networkBlockAll` is tier-gated; documented Tier 3 requires a $500 top-up.
 - Do not create accounts, add payment methods, provision sandboxes, upload source, or spend without separate approval.
-- Evaluate any alternative against the same VM, network, limits, lifecycle, data residency, retention, DPA, and audit requirements.
+- Evaluate alternatives against VM boundary, network controls, limits, lifecycle, region, retention, DPA, signature trust, and audit requirements.
 
 ## P2 — Complete multi-agent implementation integration
 
-- Connect the sandbox broker to task leases and the existing dispatcher only after P0 acceptance evidence passes.
+- Connect a sandbox broker to task leases and the existing dispatcher only after the external suite, signature trust root, and actual runtime pass acceptance.
 - Keep model API credentials in the provider control plane, never in the code-execution guest.
 - Keep patch application separate, human-reviewed, and disabled until its own scope/rollback/recovery gates are implemented.
 - Add task status reporting that distinguishes planning, dispatch, execution, ingestion, validation, review, and rejection.
@@ -42,5 +40,5 @@ The synthetic-only lifecycle contract is merged. The next task is not to connect
 
 ## Deferred
 
-- Live model calls, API keys, paid services, vendor accounts, sandbox provisioning, private-source transfer, and provider spend: separate approval required.
+- Live model calls, API keys, paid services, vendor accounts, sandbox provisioning, private-source transfer, signing keys, and provider spend: separate approval required.
 - Production release, deployment, signing, app version changes, bot/payment/backend/server changes: separate explicit approval required.

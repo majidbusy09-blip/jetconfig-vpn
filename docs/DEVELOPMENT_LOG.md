@@ -362,3 +362,17 @@ Append-only record of meaningful project work. Each entry should include branch/
 - **Test evidence:** Task Orchestrator Tests #45314331567 passed 247 Python tests, including all 13 new sandbox tests. Project Memory Audit #45314331612 passed; `validate-agent-pr` passed. Non-production PR Validation #45314331545 was still running at this log snapshot.
 - **Security boundary:** fixed synthetic payload only; no arbitrary shell, source upload, credentials, model-generated code, real provider, real sandbox, or external spend. The result always records `eligible_for_untrusted_execution: false` and `patch_applied: false`.
 - **Next:** independently test a real candidate runtime only after a separate account/consent/cost decision. Do not treat provider-reported snapshots or fake-provider tests as isolation proof.
+
+
+## 2026-11-24 — Independent signed sandbox acceptance evidence verifier
+
+- **Base:** `main` `53e00ac2ad5e260a4d214772da4ba9bccd3499f4` (PR #48 merged).
+- **Branch:** `feat/trusted-sandbox-evidence-gate-20261124`.
+- **Goal:** Make the sandbox trust boundary depend on independently signed evidence rather than provider-declared capabilities or snapshots.
+- **Added:** `tools/task_orchestrator/sandbox_acceptance.py`, `tools/task_orchestrator/tests/test_sandbox_acceptance.py`, and `docs/SANDBOX_RUNTIME_ACCEPTANCE.md`.
+- **Verifier:** strict canonical UTF-8 JSON; duplicate-key and non-finite-number rejection; exact schema/suite/version; pinned provider, region, task, attempt, image, policy and key ID; fresh UTC timestamps; exact 20-probe inventory; per-probe SHA-256 evidence digests; bounded report/signature; injected signature-verifier interface.
+- **Adversarial tests:** missing/duplicate/failed/unknown probes, identity mismatch, stale/future/overlong report, bad key/signature, duplicate JSON keys, noncanonical encoding, oversized report/signature, verifier exception, and invalid trusted clock.
+- **Critical limitation:** The implementation verifies a report; it does not run the guest probes, provide an Ed25519 implementation, create a signing service, provision a VM, or authorize execution. Production requires an out-of-band pinned public key and an audited asymmetric verifier. Test verifier is a fake only.
+- **Safety:** Every passing result remains `execution_authorized: false`, `eligible_for_untrusted_execution: false`, and `patch_applied: false`. No account, provider, network probe, key, source transfer, sandbox, or spend is involved.
+- **Verification:** To be run by the Task Orchestrator CI workflow after PR creation; no local/device/runtime test is claimed.
+- **Next:** Build the fixed external probe runner and independently controlled signing trust root, then test an approved real candidate VM.

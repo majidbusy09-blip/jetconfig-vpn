@@ -1,7 +1,7 @@
 # JET VPN — Coding Agent Adapter Contract
 
 > Status: provider-neutral design contract; task/result validation, local ingestion, content-addressed artifacts, and review-only gates are implemented. No live model provider or OS sandbox is connected.
-> Baseline: current `main` `f360d50b13064c7136eb7ce4a3b38e3413e5b333` (2026-11-24); PR #20, PRs #38–#44, PR #46, and PR #47 are merged.
+> Baseline: current `main` `53e00ac2ad5e260a4d214772da4ba9bccd3499f4` (2026-11-24); PR #20, PRs #38–#44, PR #46, PR #47, and PR #48 are merged.
 
 ## 1. Purpose
 
@@ -205,3 +205,14 @@ PR #47 merged `sandbox_contract.py` and fake-provider tests. The contract curren
 It requires a declared Linux VM capability set, pinned image/policy digests, deny-all network policy, explicit resource limits, provider-reported runtime checks, bounded SHA-256-verified acceptance artifact, and confirmed terminate/destroy lifecycle. Provider declarations and snapshots are not independent security attestation. A trusted control plane must independently test the actual runtime before relying on any real adapter.
 
 The success record explicitly sets `eligible_for_untrusted_execution: false` and `patch_applied: false`. The fake adapter is not a sandbox, no real provider is connected, and no model-generated code is executed. The 247-test Task Orchestrator suite and Project Memory Audit passed on the PR head.
+
+
+## 12. Independent sandbox runtime acceptance evidence verifier
+
+The new `sandbox_acceptance.py` module validates a signed, canonical report from a separately trusted acceptance suite. It pins suite ID/version, key ID, provider, region, task, attempt, image and policy digests; checks bounded UTC freshness; rejects duplicate JSON keys and noncanonical bytes; and requires the exact 20-probe inventory with SHA-256 evidence digests.
+
+The suite inventory covers the VM/kernel boundary, guest privilege and Seccomp, enforced cgroups and disk quota, read-only source/scratch, secrets/sockets/devices/metadata, IPv4/IPv6, DNS, QUIC, external canary, timeout, process-tree termination, artifact integrity, cleanup failure paths, and cross-attempt residue.
+
+The signature verifier is an injected trust boundary. Production must supply an audited asymmetric verifier (for example Ed25519) backed by a public key pinned out of band. The included test verifier is not cryptographic security. The probe runner, signing service, key distribution, and actual runtime validation are not implemented by this stage.
+
+A passing report is evidence only; the verifier always returns `execution_authorized: false`, `eligible_for_untrusted_execution: false`, and `patch_applied: false`. See `docs/SANDBOX_RUNTIME_ACCEPTANCE.md`.

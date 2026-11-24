@@ -156,7 +156,19 @@ class TrustConfigAcceptanceTests(unittest.TestCase):
         with self.assertRaisesRegex(TrustConfigError, "UTC"):
             accept(envelope(), MemoryCASStore(), now=datetime(2026,11,24,8,0))
 
-    def test_envelope_size_and_nesting_limits(self):
+
+    def test_oversized_integer_is_normalized_to_trust_config_error(self):
+        raw = envelope().replace(b'"config_epoch":1', b'"config_epoch":' + b'9' * 5000)
+        with self.assertRaises(TrustConfigError):
+            accept(raw, MemoryCASStore())
+
+    def test_unexpected_monotonic_state_type_fails_closed(self):
+        class InvalidStateStore(MemoryCASStore):
+            def read(self, audience):
+                return {"revision": 1, "config_epoch": 1}
+        with self.assertRaisesRegex(TrustConfigError, "unexpected type"):
+            accept(envelope(epoch=2), InvalidStateStore())
+\n    def test_envelope_size_and_nesting_limits(self):
         with self.assertRaisesRegex(TrustConfigError, "size"):
             accept(b"x" * (128 * 1024 + 1), MemoryCASStore())
         doc = json.loads(envelope())

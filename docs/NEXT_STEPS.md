@@ -214,3 +214,16 @@ PR #78 completes the replay-store transaction design and expands the protocol/te
 6. **Threat-model review and operational gates:** cancellation races, deadlines, kill escalation, cleanup recovery, external-canary independence, IPv4/IPv6/DNS/QUIC egress, resource caps, and cross-attempt residue. VM/provider, API key, private-source transfer, KMS/HSM, paid service, or spend still require separate explicit approval.
 
 PR #80 is design-only. Schema v2 does not bind a staging-manifest digest; no raw envelope storage exists. Keep `execution_authorized: false` and `eligible_for_untrusted_execution: false`.
+
+
+## Current next steps after PR #82 (2026-11-24)
+
+1. **Replay acceptance receipt read contract:** add a read-only receipt lookup to the observer replay-store protocol and strengthen the in-memory fake. A receipt must expose the committed observer/attempt/runtime/policy/probe, registry/key, nonce/envelope digest, sequence, challenge expiry, acceptance timestamp and ledger revision/fencing epoch. Production storage remains gated.
+2. **Pure schema-v3 report builder:** assemble deterministic report bytes from the exact evidence, raw envelope bytes, pinned registry, successful observer results and matching replay receipts. Re-verify envelope signatures and every binding; do not treat the dataclass as proof.
+3. **Injected report signer and verifier:** add a narrow `sign(key_id, canonical_bytes)` protocol plus deterministic fake implementation. No private key, real signing service, key generation or network.
+4. **Strict schema-v3 report verifier:** bind the pre-acceptance observer-envelope manifest digest and retain v1/v2 verifiers unchanged. Verify generated fake reports end-to-end.
+5. **Host challenge/transport design:** CSPRNG nonce generation, challenge issuance/expiry, authenticated host-to-observer transport, mutual TLS/workload identity, canary separation and crash/retry behavior.
+6. **Protected identity lifecycle:** registry signing/pinning, rotation overlap, emergency revocation, cache TTL, audit and recovery through the protected trust control plane.
+7. **Trusted filesystem staging and production gates:** actual no-follow host storage, durable replay database, KMS/HSM, VM/provider, API keys, private-source transfer, paid services and spend require separate trust-boundary review and explicit approval.
+
+PR #82 is a design contract only. It does not sign reports, create keys, persist replay state, store files, execute probes, or authorize untrusted code. Keep `execution_authorized: false` and `eligible_for_untrusted_execution: false`.

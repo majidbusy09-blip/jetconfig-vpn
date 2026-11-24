@@ -241,3 +241,14 @@ The next acceptance-report schema should bind the staging-manifest digest. After
 - Storage requires a trusted host implementation with descriptor-relative no-follow traversal, same-descriptor hashing, path derivation, size/count limits, quarantine, retention, and crash-safe cleanup.
 - No filesystem collector or storage backend exists. The artifact collector remains a pure in-memory validator.
 - `execution_authorized: false` and `eligible_for_untrusted_execution: false` remain mandatory.
+
+
+## D-022 — Acceptance report signing must revalidate observer evidence and replay receipts (2026-11-24)
+
+**Status:** Design accepted; no signer implementation or key provisioning.
+
+PR #82 adds `docs/SANDBOX_TRUSTED_REPORT_SIGNER.md`. A report signer must not treat a caller-created `AuthenticatedObserverResult` as proof. It must independently verify exact raw envelope bytes and Ed25519 signatures, match every record to a read-only trusted replay-acceptance receipt, cross-bind raw probe evidence and the pre-acceptance envelope staging manifest, and produce deterministic canonical report bytes.
+
+The next schema is v3 because it must bind `observer_envelope_manifest_sha256`. Schema v1/v2 remain unchanged. A successful report must be independently verified after signing before it is accepted.
+
+Tests may use fake signers and in-memory replay receipts only. No private key, signing service, durable replay DB, filesystem collector, network, VM, provider or untrusted execution is authorized. Keep both execution flags false.

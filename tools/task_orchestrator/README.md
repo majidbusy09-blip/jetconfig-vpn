@@ -357,3 +357,12 @@ Keep `execution_authorized: false` and `eligible_for_untrusted_execution: false`
 - `docs/SANDBOX_OBSERVER_ENVELOPE_RETENTION.md` specifies a two-phase model: pre-acceptance content-addressed raw-envelope staging and post-acceptance artifact packaging bound to the verified report digest.
 - The next report schema should bind the pre-acceptance envelope-manifest digest; schema v2 remains unchanged and currently binds only the exact envelope digests/provenance records.
 - No storage service or filesystem collector is implemented. Current artifact and replay collectors remain pure contracts/test fakes.
+
+
+## Trusted acceptance report signer contract
+
+- `docs/SANDBOX_TRUSTED_REPORT_SIGNER.md` defines the trusted host-side signer boundary and the schema-v3 requirements.
+- A caller-created `AuthenticatedObserverResult` is not a trust root. A future signer must independently recheck exact raw envelope bytes and Ed25519 signatures, and match each record to a read-only trusted replay-acceptance receipt.
+- Schema v3 should bind the pre-acceptance raw-envelope staging-manifest digest. Existing v1/v2 verifiers remain unchanged.
+- The signer API must be narrow and injected. Unit tests may use deterministic fake signing and replay-receipt implementations only; no private key or production signing service.
+- The report must be independently verified after signing. Neither execution authorization flag may be enabled.

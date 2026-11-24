@@ -23,7 +23,7 @@ The report digest is a content binding only. This module does not verify the rep
 
 - Only normalized, relative POSIX paths under `artifacts/` or `reports/` are accepted.
 - Absolute paths, Windows drive paths, backslashes, NUL, empty components, dot components, parent traversal, duplicate paths, hidden/unsupported components, and overlong paths are rejected.
-- Only the typed `regular_file` kind is accepted. Symlink, directory, device, and symlink-target declarations are rejected.
+- Only the typed `regular_file` kind is accepted. Symlink, directory, device, symlink-target declarations, and records with a link count other than exactly one are rejected.
 - The allowlisted path is a logical artifact name, not a path that this module opens.
 
 ## Resource and retention limits
@@ -46,7 +46,7 @@ The retention field is policy metadata only. No storage, expiration timer, delet
 A real collector must be a separately reviewed host-side implementation and must not trust candidate path strings or caller-supplied object kinds. At minimum it must:
 1. Anchor traversal to a pre-opened, trusted artifact root directory descriptor.
 2. Walk components using descriptor-relative operations (for example, `openat` with `O_NOFOLLOW`) and reject `.`, `..`, absolute paths, mount crossings where policy requires, and unexpected path components.
-3. Use `fstat` on the opened descriptor and accept only regular files; reject symlinks, directories, sockets, FIFOs, block/character devices, and hard-link cases outside the explicit policy.
+3. Use `fstat` on the opened descriptor and accept only regular files; reject symlinks, directories, sockets, FIFOs, block/character devices, and hard-linked files unless a separately reviewed policy explicitly permits them.
 4. Avoid time-of-check/time-of-use races by hashing and copying from the same already-open descriptor, enforcing size limits while streaming, and checking file identity/size before and after collection.
 5. Recompute SHA-256 on the host, enforce file-count/per-file/aggregate limits before retaining content, and produce the same canonical manifest format.
 6. Bind the manifest to the exact attempt, runtime, policy, evidence bundle, and independently verified signed acceptance report.

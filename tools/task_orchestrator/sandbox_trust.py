@@ -1,9 +1,9 @@
 """Fail-closed, out-of-band pinned-key policy for sandbox evidence signatures.
 
-This module deliberately delegates Ed25519 mathematics to an injected audited
-backend. It validates the trust-store bytes against an independently pinned
+This module validates trust-store bytes against an independently pinned
 SHA-256 digest and caller-supplied minimum version before selecting a key.
-It does not create keys, persist rollback state, or authorize execution.
+Production callers may inject CryptographyEd25519Backend from ed25519_backend;
+the verifier itself does not create keys, persist rollback state, or authorize execution.
 """
 from __future__ import annotations
 

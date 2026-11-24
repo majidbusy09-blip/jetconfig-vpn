@@ -162,7 +162,7 @@ The package is persisted in `.agent/tasks/<task-id>/task.json` for later adapter
 
 ## Deterministic Envelope Builder (local implementation)
 
-`tools/task_orchestrator/envelope_builder.py` transforms the persisted context package into the exact v1.1 task-envelope schema. The CLI command is:
+`tools/task_orchestrator/envelope_builder.py` transforms the persisted context package into the exact v1.2 task-envelope schema. The CLI command is:
 
 ```sh
 python tools/task_orchestrator/task_orchestrator.py build-envelope --task-id <task-id>
@@ -172,7 +172,7 @@ Before writing, it fails closed unless:
 - The package schema, task ID, and source revision match the task record and pinned `base_sha`.
 - The canonical package SHA-256, every document SHA-256, UTF-8 content, and aggregate byte count recompute exactly.
 - Every source-context path remains within the task allowlist and outside exclusions.
-- Repository identity, branch, scope, risk, task goal, and fixed verification profiles pass the v1.1 validator.
+- Repository identity, branch, scope, risk, task goal, and fixed verification profiles pass the versioned validator.
 
 The builder derives only a deterministic workspace identifier; it does not create a workspace. Ambiguous capability descriptions map conservatively to `investigation`. Semantic context is marked unavailable (or stale when explicitly recorded as unverified); it is never promoted to current by inference. The output is written atomically to `.agent/tasks/<task-id>/agent_input.json`. A different existing output is not overwritten. This file duplicates source text and is local-only task metadata. The repository ignores `.agent/tasks/` by default; do not force-add or upload this file to a model provider.
 
@@ -216,3 +216,10 @@ The suite inventory covers the VM/kernel boundary, guest privilege and Seccomp, 
 The signature verifier is an injected trust boundary. Production must supply an audited asymmetric verifier (for example Ed25519) backed by a public key pinned out of band. The included test verifier is not cryptographic security. The probe runner, signing service, key distribution, and actual runtime validation are not implemented by this stage.
 
 A passing report is evidence only; the verifier always returns `execution_authorized: false`, `eligible_for_untrusted_execution: false`, and `patch_applied: false`. See `docs/SANDBOX_RUNTIME_ACCEPTANCE.md`.
+
+
+## Project-memory envelope version 1.2
+
+New envelopes use contract version `1.2` and carry eight required project-memory documents in canonical order: `AGENTS.md`, `docs/PROJECT_CONTEXT.md`, `docs/CURRENT_STATUS.md`, `docs/NEXT_STEPS.md`, `docs/TASK_TEMPLATE.md`, `docs/DEVELOPMENT_LOG.md`, `docs/DECISIONS.md`, and `docs/KNOWN_ISSUES.md`. Each document is loaded from the pinned base commit and participates in the per-document and package SHA-256 fingerprints.
+
+The validator continues to accept legacy v1.1 envelopes and matching v1.1 results for compatibility. A v1.2 result must echo v1.2; the result version must always match its input envelope. V1.2 envelopes must include the exact eight-document manifest in canonical order. The 512 KiB package ceiling remains unchanged, and context overflow fails closed rather than truncating.

@@ -1,65 +1,65 @@
 # JET VPN — Prioritized Next Steps
 
-## Verified baseline — 2026-11-24
+## Current authoritative roadmap — 2026-11-24
 
-- Current `main`: `3e613a8c03a39e4440c3702ac3505acb7b2eae27` (PR #53 merged).
-- PR #20, PRs #38–#44, and PRs #46–#53 are merged.
-- PR #49 Task Orchestrator Tests #45320041554 passed 259 tests, Project Memory Audit #45320041561 passed, and Agent PR Lease and Scope Guard #45320038880 passed.
-- PR #50 validation completed successfully. PR #51 all four checks passed: Task Orchestrator Tests #45325193322, Project Memory Audit #45325193253, Agent PR Lease and Scope Guard #45325195790, and Non-production PR Validation #45325193266.
-- App source/version remain unchanged: `lib/main.dart` blob `3d28693b7be8bfe309a850923599830e1a65ab59`; version `2.4.5+284`.
-- Validated handoff remains: task envelope → fixture dispatch → local result ingestion → content-addressed patch → live Issue/lease review gate → `ready_for_human_review`, `applied: false`.
+### Baseline and operating constraints
 
-## P0 — Build the actual independent runtime probe suite
+- Live `main` at the start of this checkpoint: `dcb9d1c01a50974d9ef38bdf5f0e4aaf744b409e` (PR #84 merge). Re-fetch the live ref before every session; this SHA is a historical checkpoint, not a permanent pointer.
+- PR #89 is Draft/open/unmerged. Its v1.2 eight-document context contract and enforced project-memory change gate are candidate-branch features until a human-approved merge.
+- PR #91 is Draft/open/unmerged and records the successful ChatGPT documentation-only GitHub-connector pilot. Its lease is released and its exact-head checks passed.
+- The approved model interaction route is only the user's ChatGPT and Grok chat sessions through their existing GitHub connections. No model API key, paid model API, external source-upload adapter, or autonomous background polling.
+- GitHub is the shared task inbox, lease authority, source of truth, PR history, and durable project memory. One implementation agent per task; the other may review read-only.
+- The sandbox track remains separate. No arbitrary untrusted-code execution, provider provisioning, external spend, merge, release, or deployment is authorized by this roadmap.
 
-The signed-evidence verifier was introduced in PR #49 and hardened in PR #51. It validates canonical signed reports, exact 20-probe inventory, and raw evidence bytes by recomputing SHA-256; it still does not execute probes, provision a VM, establish a production trust root, or authorize code.
+### P0 — Independent Grok read-only review of PR #91 (NEXT ACTION)
 
-1. Implement a fixed guest-side probe runner and an independent external canary controller. Provider SDK status and provider-generated JSON must never count as independent test evidence.
-2. Make probe outputs bounded and deterministic; PR #51 now requires exact raw evidence bytes, recomputes each digest, and rejects missing, extra, empty, altered, and oversized evidence.
-3. Cover VM/kernel separation, non-root/capabilities, Seccomp negative tests, enforced cgroup CPU/memory/PID limits, disk quota, read-only source/scratch, secret/socket/device/metadata absence, IPv4/IPv6, DNS, QUIC, external canary, timeout, process-tree kill, artifact integrity, cleanup on success/failure/timeout, and cross-attempt residue.
-4. Define the trust-root lifecycle before selecting crypto packaging: out-of-band public-key pinning, key IDs, activation/expiry, rotation, revocation, rollback protection, signer access policy, audit trail, and disaster recovery. Then add an audited Ed25519 implementation using an explicitly approved dependency; never create or commit a private key, and never place signing material in the provider or guest.
-5. Run the suite against the exact provider, region, VM image, and policy intended for a pilot; preserve signed report and raw evidence.
-6. Keep `execution_authorized: false` and `eligible_for_untrusted_execution: false` until a real independent suite, external signer, pinned trust root, candidate runtime validation, and separate owner-approved policy gate exist.
+**Owner:** user-activated Grok chat. **Lease:** not required; review must be read-only.
 
-## P0a — Complete protected trust-root integration
+- Read PR #91, Issue #90, the exact PR head, changed file, PR envelope, and exact-head check-runs directly through Grok's existing GitHub integration.
+- Review whether the ChatGPT pilot genuinely satisfies the lease, pinned-base, allowlist, branch/commit/PR metadata, scope-guard, and release requirements. Separate verified evidence from assumptions.
+- Return findings with severity, exact file/line or API evidence, and an explicit pass/fail recommendation. Do not write comments, commits, branches, or PR changes.
 
-PR #53 implements policy validation, not production cryptography. Next safe work:
+**Acceptance:** an independent review report grounded in PR #91's exact head and check-run IDs, with no repository mutations.
 
-1. Inspect existing Python/tooling dependency policy and workflow pinning. Compare maintained Ed25519 libraries, security history, reproducible installation, and transitive risk; do not add a dependency before review.
-2. Design a protected control plane supplying trust-store bytes, an independently pinned SHA-256 digest, and a monotonic minimum version. Specify atomic update, rollback prevention, revocation, audit, and recovery. Never persist the version floor in the guest/provider.
-3. After dependency approval, implement a narrow Ed25519 adapter with known-answer, tamper, and invalid-signature tests. No private key is created or committed.
-4. Keep execution authorization false; trust-store validation alone is not runtime acceptance.
+### P1 — Verify Grok's GitHub write path independently
 
-## P0b — Independent runtime acceptance suite
+- After the read-only review, create a new low-risk documentation-only Issue assigned to `grok`, with a narrow allowlist and fixed Python-tooling verification profile.
+- Activate the Grok chat; claim a new lease; independently verify the lock ref, owner, claim ID, expiry, and pinned base SHA.
+- Require Grok to create its own remote branch from that exact SHA, commit one in-scope Markdown artifact, and open a Draft PR with the exact final-body `jet-agent-pr:v1` envelope.
+- Run and inspect the trusted scope guard and all required checks on the exact final PR head; release and verify the lease.
 
-1. Specify the 20 probes as host-observable assertions with bounded evidence and explicit failure semantics.
-2. Implement a fixed guest probe runner plus an independent host controller/canary. Provider status and guest-generated claims alone are not independent evidence.
-3. Cover VM/kernel boundary, privilege/capabilities, Seccomp, enforced CPU/memory/PID/disk limits, read-only mounts, secrets/sockets/devices/metadata, IPv4/IPv6, DNS/QUIC/egress, timeout/process-tree kill, artifact integrity, cleanup, and cross-attempt residue.
-4. Test against deterministic fake runtimes first; real VM validation requires separate account, consent, data-governance, and cost approval.
-5. Bind exact raw evidence to the signed report and trusted key identity. Do not authorize execution from provider assertions or unit tests alone.
+**Acceptance:** a Grok-owned Draft PR with a single allowed file, exact-base provenance, green exact-head checks, and a verified released lease. If a connector operation is unavailable, record it as unavailable and let the user perform only that discrete action; do not claim it succeeded.
 
-## P1 — Provider and data-governance decision
+### P2 — Complete one real coding task end to end
 
-- E2B remains blocked by prior-written-consent requirement before testing and EU workspace payment-method verification.
-- Daytona's strict sandbox-level `networkBlockAll` is tier-gated; documented Tier 3 requires a $500 top-up.
-- Do not create accounts, add payment methods, provision sandboxes, upload source, or spend without separate approval.
-- Evaluate alternatives against VM boundary, network controls, limits, lifecycle, region, retention, DPA, signature trust, and audit requirements.
+- Select one small, evidence-backed, non-sensitive source-code task with a clear regression test and a narrow allowlist. Do not choose a sandbox/provider task or a production/payment/credential change.
+- Use one implementation chat and one active lease. Read the pinned project memory and only the selected in-scope source; create a remote branch from the pinned base SHA; implement and test; open a Draft PR.
+- Have the other chat perform a read-only review against the exact PR head. Resolve findings under the same task/lease protocol; do not let both agents write concurrently.
+- Update durable memory in the same PR and verify all required exact-head checks.
 
-## P2 — Complete multi-agent implementation integration
+**Acceptance:** an actual application/tooling code change (not only documentation) implemented through the chat connector, regression tests passing, independent review completed, scope guard passing, lease released, and complete audit trail.
 
-- Connect a sandbox broker to task leases and the existing dispatcher only after the external suite, signature trust root, and actual runtime pass acceptance.
-- Keep model API credentials in the provider control plane, never in the code-execution guest.
-- Keep patch application separate, human-reviewed, and disabled until its own scope/rollback/recovery gates are implemented.
-- Add task status reporting that distinguishes planning, dispatch, execution, ingestion, validation, review, and rejection.
+### P3 — Stabilize memory enforcement and session continuity
 
-## P3 — Cross-repository project memory
+- Independently review PR #89's memory-diff gate, v1.2 eight-document contract, legacy v1.1 compatibility, exact-base pinning, size cap, and documentation accuracy.
+- Obtain the user's explicit merge decision; do not merge PR #89 automatically. Until merged, do not describe its gate or v1.2 contract as a main-branch capability.
+- At every session start, fetch live main/PR/Issue/lease/check state. At every pause, update CURRENT_STATUS, NEXT_STEPS, DEVELOPMENT_LOG, and DECISIONS. Follow the mandatory anti-drift procedure in AGENTS.md.
+- After an approved merge, verify the ruleset's required memory check against the actual main branch and run a safe negative test proving incomplete memory updates are blocked.
 
-- Perform read-only architecture/workflow inventories of `jetconfig-vpn-tv` and `hesabgar_man`.
-- Add repository-specific instructions and a shared project map only after verifying each repository's current source.
+**Acceptance:** one current authoritative roadmap, no contradictory active priorities, exact GitHub state at every checkpoint, and a reproducible resume path after interruption.
 
-## Deferred
+### P4 — Triage the legacy open-PR backlog
 
-- Live model calls, API keys, paid services, vendor accounts, sandbox provisioning, private-source transfer, signing keys, and provider spend: separate approval required.
-- Production release, deployment, signing, app version changes, bot/payment/backend/server changes: separate explicit approval required.
+- GitHub showed 18 open PRs at the audit checkpoint. PRs #89 and #91 are on the current connector/memory path; PRs #86–#88 are a separate sandbox stack. Older PRs must be reviewed for dependency, relevance, supersession, and risk before any work resumes.
+- Do not merge, close, rebase, or rewrite legacy PRs in bulk. Create a disposition list and handle each only after checking its current exact head and dependencies.
+
+**Acceptance:** every open PR is classified as active, blocked, superseded, or awaiting human decision; no stale branch is mistaken for the current task.
+
+### Separate, deferred track — sandbox and untrusted execution
+
+PRs #86–#88 continue the synthetic schema-v3 report pipeline. They are not prerequisites for chat-based repository work. Real filesystem staging, durable replay storage, mTLS/workload identity, KMS/HSM, VM/provider, production signer, external spend, and any arbitrary untrusted execution remain blocked pending separate security review and explicit approval. Preserve `execution_authorized: false` and `eligible_for_untrusted_execution: false`.
+
+## Historical roadmap and milestones (superseded)
 
 ## Verified baseline update — PR #55 merged (2026-11-24)
 
@@ -241,3 +241,50 @@ PR #82 is a design contract only. It does not sign reports, create keys, persist
   5. Add end-to-end adversarial tests for signer output and independent verification.
   6. Continue with host challenge/transport and protected identity lifecycle design.
 - Do not create keys, a real signer, durable replay storage, filesystem staging, network, VM/provider, or execute probes without separate review/approval. Keep both execution flags false.
+
+
+## Project-memory reliability follow-up — 2026-11-24
+
+1. Validate the implementation-sensitive PR memory gate on its exact candidate head: unit tests, Project Memory Audit, and required-check status.
+2. Verify that PR #88's same-PR memory refresh satisfies the new gate once the workflow is available; do not mistake the prior pre-gate success for proof.
+3. After any approved merge, verify the ruleset requires the Project Memory Audit check and test a deliberately incomplete implementation PR in a safe test branch to prove the gate blocks it.
+4. Keep reviewing factual accuracy manually: this gate only requires relevant docs to change; it cannot determine whether a summary is truthful or complete.
+5. Resume the schema-v3 production gates only after independent review and platform decisions: mTLS/workload identity, KMS/HSM key custody, isolated signer, and durable anti-replay ledger.
+
+Do not merge PRs, alter branch protection, provision infrastructure, or authorize execution without explicit approval.
+
+
+## Agent context completeness follow-up — 2026-11-24
+
+- Confirm the expanded mandatory context (decisions and known issues) passes context-builder and orchestrator integration tests and remains within the 512 KiB cap.
+- Review whether the full development log should eventually be replaced in routine task context by a compact, commit-pinned summary plus task-relevant log excerpts. Do not reduce history or omit decisions without a tested retrieval design.
+- Keep source selection explicit and bounded; semantic suggestions remain advisory and never expand task scope automatically.
+
+
+## Versioned agent memory contract follow-up — 2026-11-24
+
+1. Run exact-head Task Orchestrator Tests, Non-production PR Validation, and Project Memory Audit after contract v1.2 changes.
+2. Confirm legacy v1.1 envelopes/results remain accepted as a matched pair and new v1.2 envelopes/results require the exact eight-document manifest.
+3. Confirm the GitHub task-handoff fixture includes decisions and known issues at the pinned base and emits an eight-document context package.
+4. If context exceeds the existing 512 KiB cap, fail closed and select a smaller explicit source context; do not silently truncate project memory.
+5. After CI succeeds, update this status with the exact head SHA and check run IDs. Do not merge either draft PR without explicit approval.
+
+
+## After exact-head validation of PR #89 — superseded operating plan (2026-11-24)
+
+PR #89 remains Draft/open/unmerged pending human review. The v1.2 eight-document context contract and project-memory change gate are candidate-branch capabilities until an explicit merge. Verify its exact-head checks and the ruleset before any approved merge.
+
+The earlier instruction to build a paid/read-only provider adapter, configure model credentials, transfer source to an external API, and wait for isolated provider execution is superseded by the user's accepted architecture: ChatGPT and Grok chat sessions use their existing GitHub connections, with no model API key or paid model API. The connector-based route is user-activated and does not wake chats or poll in the background.
+
+Immediate work is to complete and validate the GitHub connector runbook, verify each connector's actual write capabilities, and perform a harmless documentation-only pilot with one active lease, a remote branch pinned to the exact base SHA, PR scope guard, exact-head Actions checks, and read-only review by the other agent. The production sandbox remains a separate track and is not a prerequisite for this workflow.
+
+Do not merge PRs, alter branch protection, provision infrastructure, create API keys, use paid model APIs, upload private source to external APIs, or authorize untrusted execution without separate explicit approval.
+
+
+## Updated connector pilot status — 2026-11-24
+
+- ChatGPT's documentation-only GitHub connector pilot is complete and verified on PR #91. The exact final head passed the trusted PR scope guard, Non-production PR Validation, and Project Memory Audit. The lease was released. Do not repeat the ChatGPT pilot unless the connector behavior changes.
+- Next independent validation is Grok: have the Grok chat read PR #91 in read-only mode and return a source-grounded review of the pilot protocol, PR metadata, scope, and CI evidence. This review does not need an implementation lease and must not modify the branch.
+- Then verify Grok's actual GitHub operations separately. If a Grok write pilot is needed, create a new low-risk docs-only Issue assigned to grok, claim its own lease, use a separate remote branch from the pinned base, open a Draft PR, and release the lease after exact-head checks pass.
+- Keep PR #89 Draft/open until human review; it carries the candidate v1.2 memory contract and enforced memory gate. The current main branch does not yet contain those candidate features.
+- No model API key, paid model API, external source upload, provider account, arbitrary untrusted execution, merge, release, or deployment is authorized.

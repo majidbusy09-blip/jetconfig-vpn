@@ -9,7 +9,7 @@ The handoff artifact binds a validated GitHub task Issue to the exact, remotely 
 - A successful `/jet-agent claim` creates a handoff artifact.
 - A successful `/jet-agent renew` creates a replacement handoff artifact with the new claim ID and expiry.
 - A `/jet-agent release` does not create a handoff.
-- The workflow uploads the JSON handoff artifact to the same GitHub Actions run for 14 days, then automatically accepts it in a clean local runner workspace and uploads a second `jet-agent-input` artifact containing the prepared contract v1.1 agent envelope. Both artifacts are linked from the Issue comment.
+- The workflow uploads the JSON handoff artifact to the same GitHub Actions run for 14 days, then automatically accepts it in a clean local runner workspace and uploads a second `jet-agent-input` artifact containing the prepared contract v1.2 agent envelope. The Issue comment reports the workflow run URL and artifact names; open the run to retrieve each artifact.
 
 ## Contents and integrity
 
@@ -27,7 +27,7 @@ The builder validates the Issue event again and requires an exact match between 
 
 The handoff builder is local and data-only. It does not make network requests, read repository source files, invoke a model, run commands from the Issue, or modify the lease. The only uploaded file is the bounded JSON task/lease manifest, stored as a GitHub Actions artifact in the same repository.
 
-The artifact is an execution handoff, not proof that a model has been awakened or that a runtime is available. An agent must still verify the lease is current before editing, obtain current project memory/source context through an authorized channel, work in an isolated runtime, validate its patch, and submit a PR. Human review and explicit approval remain required for merge, release, and deployment.
+The artifact is an audit snapshot, not proof that a model has been awakened or that a runtime is available. A user-activated ChatGPT or Grok chat verifies the current lease, reads project memory and in-scope source at the pinned base through its existing GitHub integration, creates a dedicated remote branch, validates changes through GitHub Actions, and submits a Draft PR. This connector-based route does not require a separate model API, source upload, or arbitrary-code runtime. Human review and explicit approval remain required for merge, release, and deployment.
 
 ## Retention
 
@@ -35,20 +35,18 @@ Artifacts are retained for 14 days by default. The GitHub lease ref remains the 
 
 ## Local acceptance and recovery
 
-The normal claim/renew workflow automatically creates the local agent-input envelope and uploads it as `jet-agent-input-<issue>-<run>`. Download that artifact when handing the task to an agent. The separate `jet-agent-handoff-<issue>-<run>` artifact preserves the lease and Issue provenance.
+The normal claim/renew workflow creates a lease-verified handoff artifact and attempts to prepare a local agent-input envelope in the ephemeral Actions workspace. These are audit/recovery artifacts; they are not automatically attached to a ChatGPT/Grok chat. For the approved connector route, the agent reads the Issue, lock ref, pinned project-memory documents, and relevant in-scope files directly through GitHub. The handoff artifact is optional unless a local clone needs its machine-readable snapshot.
 
-If automatic preparation fails, or an agent is running in a separate local clone, download the handoff ZIP. The acceptance command re-fetches the current Issue and lease and can create the task branch itself from the exact pinned base SHA:
+If automatic preparation fails, or an agent is running in a separate local clone, download the handoff ZIP. The acceptance command re-fetches the current Issue and lease and can create the task branch in that local clone from the exact pinned base SHA. Use a short-lived token with only the required read permissions for acceptance; separate write permissions are needed only if the local clone later pushes commits. Never put a token in an Issue, task file, or commit.
 
-```bash
-GITHUB_REPOSITORY=owner/repository \
-GITHUB_TOKEN="$GITHUB_TOKEN" \
-python -m tools.task_orchestrator.github_task_handoff_accept \
-  --handoff-file /path/to/jet-agent-handoff.zip \
-  --create-branch
-```
+The acceptance command does not push the branch, modify the remote lease, invoke a model, upload source, or apply a patch. Source files are not automatically added to context; use the existing advisory suggest-context and explicit accept-context --path commands when running the local CLI.
 
-Use a read-only token with `contents:read` and `issues:read`. The command reads the ZIP in memory without extracting paths, verifies the Issue-body digest, task payload, current claim ID, lock commit, expiry, repository identity, local origin, clean worktree, and exact pinned base SHA. It then initializes the existing local Task Orchestrator, builds the six required project-memory documents, and writes a contract v1.1 `agent_input.json` under the ignored local `.agent/tasks/<task-id>/` directory.
+If the lease is renewed after the local task was prepared, download the newest handoff artifact and rerun with --refresh-existing; it updates only lease provenance in the local task record and leaves the agent envelope and working files untouched. Refresh is accepted only when the Issue body, owner, task definition, pinned base, and exact previous claim ID all match. If the lease was released, expired, or changed incompatibly, acceptance is rejected.
 
-The command does not push the branch, modify the remote lease, invoke a model, upload source, or apply a patch. Source files are not automatically added to context; use the existing advisory `suggest-context` and explicit `accept-context --path` commands when relevant.
+## Approved ChatGPT/Grok connector route
 
-If the lease is renewed after the local task was prepared, download the newest handoff artifact and rerun with `--refresh-existing`; it updates only lease provenance in the local task record and leaves the agent envelope and working files untouched. Refresh is accepted only when the Issue body, owner, task definition, pinned base, and exact previous claim ID all match. If the lease was released, expired, or changed incompatibly, acceptance is rejected.
+The user activates one implementation chat at a time and supplies the task Issue URL. The chat uses its existing GitHub integration; no model API key, paid model API endpoint, or external source-upload adapter is part of this design. If the integration cannot post Issue comments, the user posts the /jet-agent claim command. The agent waits for the trusted workflow's verified result, then independently reads the agent-locks/<task_id> ref and checks owner, claim ID, active status, expiry, pinned base SHA, and lock commit.
+
+The agent creates its remote implementation branch from the exact pinned base SHA. The ephemeral branch created by local acceptance in Actions is not the remote implementation branch. The agent reads the required memory documents and only files allowed by the Issue, commits through the GitHub integration, opens a Draft PR with jet-agent-pr:v1 metadata, and reports exact commit/check evidence. A second agent may review read-only but must not edit the same task. Chat sessions do not wake automatically or poll in the background.
+
+The connector may process GitHub content under the provider's integration and account policies; do not claim that data never leaves GitHub. The user-approved restriction is no separate paid model API, API key, or manual source upload to an external model endpoint. Arbitrary untrusted-code execution remains disabled; fixed CI checks and human review are separate controls.

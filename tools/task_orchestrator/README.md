@@ -48,7 +48,7 @@ The example is illustrative: choose only checks appropriate to the actual task. 
 
 - `init`: requires an initially clean worktree and explicit allowed paths and named checks. Repository-wide patterns (`*`, `**`, `**/*`) require `--risk high` and `--scope-reason`.
 - `prepare`: rejects main/master/the detected `origin/HEAD` default branch, detached HEAD, pre-existing changes, and changed repository origin; pins the base SHA and working branch, then builds context from that exact Git revision. Required project documents are automatic; source files are explicitly selected with repeatable `--context REPO_PATH` options at `init`. Each selected source file must match the task allowlist and avoid exclusions.
-- `build-envelope`: re-verifies the complete context package against task ID and pinned base SHA, validates every document hash and scope, then writes a deterministic v1.1 `agent_input.json` under the task's local `.agent/tasks/<task-id>/` directory. Existing different output is never overwritten.
+- `build-envelope`: re-verifies the complete context package against task ID and pinned base SHA, validates every document hash and scope, then writes a deterministic v1.2 `agent_input.json` under the task's local `.agent/tasks/<task-id>/` directory. Existing different output is never overwritten.
 - `impact`: calculates the task's complete changed-path set from its pinned base, then maps indexed Dart changes to resolved declarations, call sites, and curated critical paths. It verifies that the resolved index and critical-path report share the same source manifest and checks each changed indexed file's Git blob against the pinned base. It writes `.agent/tasks/<task-id>/impact_report.json`, records report provenance in `task.json`, flags out-of-scope paths, and labels files absent from the index as unknown. Pass `--resolved-index` and `--critical-paths` when the generated artifacts are stored elsewhere. Suggested verification profiles are advisory; the task's declared checks remain authoritative. Static analysis cannot prove runtime impact.
 - `suggest-context`: ranks source files from the analyzer-resolved index and curated critical-path report. It verifies that both reports describe the same file manifest and that every indexed Dart file's Git blob SHA matches the task's pinned base commit. It suggests only files inside the task allowlist and outside exclusions. The deterministic ranking uses request terms, paths, resolved declaration/call names, and matched curated critical paths. It writes a local advisory artifact; it never changes `context_paths`, expands scope, or builds an agent envelope.
 - `accept-context`: accepts only paths explicitly selected with repeatable `--path` arguments from a task-local suggestion artifact. It rechecks the suggestion's task/base identity, the selected Git blob SHA, and the existing task scope, then rebuilds the full-text context package from the pinned commit. It is allowed only while the task is prepared and before an agent envelope exists. It cannot widen the allowlist or silently accept all suggestions.
@@ -64,7 +64,7 @@ Task records and handoffs are stored under `.agent/tasks/<task-id>/`. The task r
 - `context_builder.py` reads required project documents and explicitly selected source files from the pinned Git commit, never from mutable working-tree contents.
 - Source selection is explicit via repeatable `--context`; this avoids copying the entire repository into the agent context by default.
 - Rejects path traversal, protected paths, missing or untracked paths, symlinks, submodules, non-UTF-8/binary content, and size overflow. It never silently truncates.
-- Produces reproducible full-text documents with per-file SHA-256 and a canonical package SHA-256. The package is persisted in the task record. `build-envelope` converts it into the exact v1.1 contract (Git base IDs accept SHA-1/SHA-256 object-ID lengths; content hashes remain SHA-256; this distinction is covered by adversarial tests; the integration fixture also checks exact UTF-8 source text) only after recomputing the package digest, checking task/base identity, document hashes, byte totals, and source-path scope.
+- Produces reproducible full-text documents with per-file SHA-256 and a canonical package SHA-256. The package is persisted in the task record. `build-envelope` converts it into the exact v1.2 contract (Git base IDs accept SHA-1/SHA-256 object-ID lengths; content hashes remain SHA-256; this distinction is covered by adversarial tests; the integration fixture also checks exact UTF-8 source text) only after recomputing the package digest, checking task/base identity, document hashes, byte totals, and source-path scope.
 - Repository text is untrusted data and cannot override the agent's safety or permission boundaries.
 - Local-only and provider-neutral: `agent_input.json` duplicates bounded source text under the ignored local task-metadata directory; the repository now ignores `.agent/tasks/` by default, and it is not sent to a provider. Do not force-add these source-bearing local artifacts; the ignore rule is a convenience guard, not a security boundary. No model call, API key, or sandbox is involved.
 
@@ -73,7 +73,7 @@ The integration suite uses temporary Git repositories and covers lifecycle, scop
 
 ## Coding-agent contract validation (provider-neutral)
 
-- `agent_contract.py` validates task envelopes and structured results against contract version `1.1`; it is data validation only and does not connect a provider, execute commands, fetch artifacts, or apply patches.
+- `agent_contract.py` validates task envelopes and structured results against contract version `1.2`; it is data validation only and does not connect a provider, execute commands, fetch artifacts, or apply patches.
 - Rejects unknown/missing fields, duplicate JSON keys, malformed/oversized JSON, invalid enums/types, unsafe or protected paths, out-of-scope/excluded changes, unknown verification profiles, arbitrary URL/shell patch references, invalid budgets/usage, and stale or mismatched context fingerprints, missing context text, content/hash mismatches, and per-file/total context-size limits.
 - Patch references are opaque `artifact:sha256:<64-hex>` identifiers only. The artifact itself still requires independent patch parsing and acceptance gates before any future application.
 - Agent status and assertions are not verification evidence. Non-completed statuses cannot carry a patch; only the orchestrator may later record actual check outcomes or advance task state.
@@ -106,7 +106,7 @@ This MVP cannot create commits, push branches, call GitHub write APIs, open or m
 
 Changes to this orchestrator, its tests, or the adapter contract run `.github/workflows/task-orchestrator.yml`, which compiles the Python modules and executes the complete standard-library test suite on Python 3.12.
 
-Envelope provenance is checked against the pinned Git blobs immediately before serialization; a matching package hash alone is not treated as proof of source authenticity; the CLI also re-reads the pinned Git objects; fixture coverage uses the full six-document project-memory set.
+Envelope provenance is checked against the pinned Git blobs immediately before serialization; a matching package hash alone is not treated as proof of source authenticity; the CLI also re-reads the pinned Git objects; fixture coverage uses the full eight-document v1.2 project-memory set, with legacy v1.1 compatibility tests.
 
 
 ## Verified Impact Analyzer
@@ -138,7 +138,7 @@ Context-selection integration tests verify explicit acceptance, rejection of pat
 - It deliberately excludes repository identity, branch/base identifiers, project-memory documents, source files, context packages, semantic indexes, Git history, credentials, and prior conversation content. No source code is uploaded.
 - No tools are declared or enabled. The model cannot access the filesystem, shell, Git, GitHub, secrets, or patch application through this adapter. Its output is a bounded JSON plan, not an implementation patch or verification evidence.
 - It requires `OPENAI_API_KEY` and `OPENAI_MODEL` in the environment. Set `OPENAI_MODEL` to a model enabled for the API project; the adapter intentionally does not guess a model entitlement. Neither setting is stored in the repository or task record. The API endpoint is fixed to OpenAI over HTTPS; the adapter does not accept a custom base URL. Standard Python HTTPS proxy environment settings may still affect network routing. A missing setting fails before any request.
-- This command is explicitly opt-in and may incur API usage charges when invoked: `python -m tools.task_orchestrator.openai_planner --task-id <task-id>`. Do not run it until the owner has separately configured an API key and approved the intended request. No key is present in CI and CI tests use a fake transport only.
+- The optional openai_planner module is retained for historical/experimental planning-only tests, but it is disabled and out of scope for the current approved architecture. Do not invoke it, request an API key, or configure a paid model endpoint. The user has selected ChatGPT and Grok chat sessions through their existing GitHub connections instead. No key is present in CI and tests use a fake transport only.
 - Responses are size-bounded, schema-validated (including requiring at least one planning step), and errors are sanitized. There are no automatic retries. This does not yet connect the planner to the orchestrator lifecycle or authorize sending source context.
 
 
@@ -156,13 +156,13 @@ python -m tools.task_orchestrator.github_task_protocol --body-file issue-body.md
 
 The validator is local-only: it performs no GitHub API call, model request, shell execution, or patch application. It enforces a strict schema, supported agent/capability/risk values, fixed verification profiles, bounded text, and protected-path rules. See `docs/MULTI_AGENT_GITHUB_PROTOCOL.md`.
 
-Important: Issue comments are not an atomic lock. Acquire a lease with `github_lease_git.py` before editing; until provider runtimes and automatic dispatch are connected, keep one active implementation agent per task. Other agents may perform read-only review. This protocol does not imply that each GitHub App has the same write, shell, or Actions permissions.
+Important: Issue comments are not an atomic lock. Acquire and verify a lease with the trusted Issue-comment command workflow before editing. In the current user-activated ChatGPT/Grok GitHub-connector route, keep one active implementation agent per task; the other agent may perform read-only review. This route does not depend on provider runtimes or automatic model dispatch. Each GitHub integration's write, shell, and Actions permissions must be checked independently.
 
 ## GitHub Issue intake bridge
 
 Add the `agent-task` label to an open Issue containing the v1 marker and JSON payload. The `.github/workflows/agent-task-intake.yml` workflow validates the GitHub event with `github_issue_intake.py` and uploads a bounded JSON artifact for retrieval. The artifact binds the parsed task to the Issue URL, repository, issue number, and body digest.
 
-This is an intake/validation bridge only. It does not create a local task branch, claim a lease, invoke ChatGPT/Grok, call a model API, run implementation commands, apply patches, or upload source files. A validated artifact is marked `validated-awaiting-claim`; an agent must separately verify assignment, acquire a proven lease through a trusted CAS adapter, and prepare its isolated task workspace. Invalid or closed Issues fail closed.
+This is an intake/validation bridge only. It does not create a remote implementation branch, claim a lease, invoke ChatGPT/Grok, call a model API, run implementation commands, apply patches, or upload source files. A validated artifact is marked `validated-awaiting-claim`; the user activates one chat, and that agent separately verifies assignment and acquires a proven lease through the trusted CAS workflow before creating its remote task branch from the pinned base SHA. Invalid or closed Issues fail closed.
 
 
 ### Atomic GitHub task leases
@@ -190,7 +190,7 @@ On an open Issue with the \`agent-task\` label and a valid v1 task payload, a re
 
 Use \`grok\` instead of \`chatgpt\` for the other agent. Claim IDs are 16-64 lowercase hexadecimal characters; lease duration defaults to 60 minutes and is capped at 240. The workflow verifies the task assignment, uses the trusted default-branch code and short-lived GitHub token, and posts the verified lock ref/base SHA back to the Issue. A claim pins the current \`main\` commit; renewal reads and preserves that original base. Issue text is parsed as data and never run as shell input.
 
-This is a manual lease-control bridge, not an agent wake-up mechanism. It does not invoke ChatGPT/Grok or start implementation. The provider runtime must still be active and independently verify the returned lease before editing.
+This is a manual lease-control bridge, not an agent wake-up mechanism. It does not invoke ChatGPT/Grok or start implementation. The user must activate the intended chat, and that chat must independently verify the returned lease before editing through its GitHub integration.
 
 
 The live Issue command workflow was end-to-end tested on temporary Issue #24: claim, renew, and release succeeded, the final lease record was verified as released, and the test Issue was closed. Evidence: Actions runs 45178623063, 45178678823, 45178732222.
@@ -218,7 +218,7 @@ GITHUB_REPOSITORY=owner/repository GITHUB_TOKEN="$GITHUB_TOKEN" \
   --handoff-file /path/to/jet-agent-handoff.zip --create-branch
 ```
 
-The acceptance command rechecks the live Issue and lock ref through read-only GitHub APIs, verifies the body digest and active claim/expiry, checks that the local origin and HEAD match the repository and pinned base, and requires a clean worktree on a non-default branch. It then creates the local task record and contract v1.1 `agent_input.json` with the six required project-memory documents. The downloaded ZIP is read without extracting its contents to disk.
+The acceptance command rechecks the live Issue and lock ref through read-only GitHub APIs, verifies the body digest and active claim/expiry, checks that the local origin and HEAD match the repository and pinned base, and requires a clean worktree on a non-default branch. It then creates the local task record and contract v1.2 `agent_input.json` with the eight required project-memory documents. The downloaded ZIP is read without extracting its contents to disk.
 
 This prepares a local agent envelope; it does not invoke ChatGPT/Grok, execute agent code, upload source, create/push branches, modify the lease, or apply patches. Source context remains empty until an agent explicitly selects in-scope files through the existing context-selection workflow.
 
@@ -374,3 +374,23 @@ Keep `execution_authorized: false` and `eligible_for_untrusted_execution: false`
 - The verifier checks the returned receipt's full context, positive ledger revision/fencing epoch, and exact readback equality before returning an authenticated result.
 - The result carries challenge expiry, trusted acceptance timestamp, ledger revision and fencing epoch for the future schema-v3 report signer.
 - The implementation and fake remain non-production: no durable replay database, authenticated store transport, protected high-water checkpoint or real fencing authority exists.
+
+
+New envelopes use contract v1.2 and include the decisions and known-issues documents in the pinned project-memory package. The validator still accepts legacy v1.1 envelopes and requires each result to echo the matching envelope version.
+
+
+## User-activated ChatGPT/Grok GitHub connector route
+
+The current no-model-API route uses the user's existing ChatGPT and Grok chat sessions and their GitHub integrations. The user activates one implementation chat at a time. The agent reads the task Issue, verifies the active agent-locks/<task_id> lease and pinned base SHA, creates a remote implementation branch from that exact SHA, reads pinned memory and only in-scope source, commits through the GitHub integration, and opens a Draft PR with jet-agent-pr:v1 metadata. The other agent may perform read-only review. If a connector cannot create Issue comments or perform a required write, the user performs that discrete action.
+
+The Issue workflow and lease artifacts do not wake a model or continuously poll. jet-agent-handoff is an audit snapshot; jet-agent-input is a local envelope artifact from an ephemeral Actions workspace and is not automatically attached to a chat. The remote implementation branch must be created separately from the pinned base SHA. This route uses no model API key, paid model API endpoint, or external source-upload adapter. GitHub content is still processed through the connected provider integration; do not claim otherwise.
+
+A production sandbox is not a prerequisite for this connector-based workflow because no arbitrary untrusted code is run inside the chat. GitHub Actions runs the fixed verification profiles; preserve the separate sandbox execution flags as false.
+
+### PR envelope placement
+
+The `jet-agent-pr:v1` marker and its single fenced JSON object must be the final content in the PR body. The trusted parser rejects a marker placed at the beginning when prose follows it, or any trailing prose after the JSON fence. Put the PR summary, verification, and safety notes first, then append the marker and JSON block as the last lines.
+
+### ChatGPT connector pilot evidence
+
+The documentation-only Issue #90 / PR #91 pilot verified that the ChatGPT GitHub integration in this session can post Issue comments, read lease refs/files, create a remote branch from the pinned base, commit a Markdown file, and open a Draft PR. The final PR head passed the trusted scope guard, Non-production PR Validation, and Project Memory Audit; the lease was released. Grok remains unverified and must be tested independently.

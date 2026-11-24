@@ -259,3 +259,62 @@ Tests may use fake signers and in-memory replay receipts only. No private key, s
 - The trusted report signer design is recorded in `docs/SANDBOX_TRUSTED_REPORT_SIGNER.md`.
 - Current implementation remains verifier-only for v1/v2. There is no report builder/signer, schema-v3 verifier, private key, signing service, replay receipt reader, or production ledger.
 - Next code work is the read-only replay acceptance receipt protocol and in-memory fake, followed by a pure schema-v3 builder and injected fake signer/verifier. Any real signing backend or durable replay store requires separate trust-boundary review and explicit approval.
+
+
+## D-024 — Enforce project-memory updates in implementation-sensitive pull requests (2026-11-24)
+
+**Status:** Implemented as a required Project Memory Audit step on the candidate branch; production/main enforcement is pending merge and branch-protection verification.
+
+A green lexical-index freshness check is insufficient to prove that project status, architecture context, decisions, and next steps are current. The Project Memory Audit must inspect the exact PR base-to-head changed-path set and require relevant Git-tracked memory documents to be included in the same PR.
+
+- App/source/test/package changes require `CURRENT_STATUS.md`, `NEXT_STEPS.md`, `DEVELOPMENT_LOG.md`, and `PROJECT_CONTEXT.md`.
+- Task-orchestrator, project-memory, validation, and workflow changes additionally require `AGENTS.md` and `DECISIONS.md`.
+- Project-memory tooling and workflow changes additionally require `PROJECT_MEMORY_AUTOMATION.md`.
+- The gate validates change presence only; it does not certify factual accuracy or replace source review.
+- CI semantic/resolved/critical-path JSON outputs remain 30-day artifacts, not durable memory.
+
+The purpose is to prevent an implementation PR from passing CI while leaving the next agent with stale project state. The gate does not authorize merges, releases, deployments, or execution.
+
+
+## D-025 — Load recorded decisions and known issues into every coding task context (2026-11-24)
+
+**Status:** Implemented on candidate branch; exact-head CI pending.
+
+Every task context package must include the pinned contents of `docs/DECISIONS.md` and `docs/KNOWN_ISSUES.md` alongside the existing core project-memory documents. Decisions explain why architectural constraints exist; known issues prevent an agent from reintroducing already observed failures or presenting unresolved behavior as verified.
+
+The context builder must read these files from the task's pinned Git commit, include their SHA-256 fingerprints in the canonical package, reject missing/unsafe/oversized content, and fail rather than truncate if the 512 KiB combined limit is exceeded. This adds durable rationale and blocker awareness without treating the documents as permission to bypass scope or safety gates.
+
+
+## D-026 — Version the expanded coding-agent project-memory envelope (2026-11-24)
+
+**Status:** Implemented on candidate branch; exact-head CI pending.
+
+Do not silently change the required project-context manifest under contract v1.1. New envelopes use contract v1.2 with eight canonical pinned documents: `AGENTS.md`, `docs/PROJECT_CONTEXT.md`, `docs/CURRENT_STATUS.md`, `docs/NEXT_STEPS.md`, `docs/TASK_TEMPLATE.md`, `docs/DEVELOPMENT_LOG.md`, `docs/DECISIONS.md`, and `docs/KNOWN_ISSUES.md`.
+
+The validator continues to accept legacy v1.1 envelopes and matching v1.1 results. For v1.2, it requires the exact eight-document path sequence and each result must echo the version of its input envelope. The orchestrator, envelope builder, and validator share one canonical manifest. The context package remains pinned to the exact Git base, hashes every document, and fails closed at the existing 512 KiB total limit.
+
+
+## D-024/D-026 validation status — PR #89 exact head (2026-11-24)
+
+Both decisions are implemented on candidate PR #89 and passed exact-head validation at `bcce39bb22bf9305a405cfc1dcc76ead0ffe6cb7`. Task Orchestrator Tests passed 359 tests; Non-production PR Validation, Project Memory Audit, and Agent PR Lease/Scope Guard all succeeded. The Project Memory Audit ran 9 gate tests and confirmed that 7 required memory documents were updated in the same PR. New v1.2 envelopes carry the exact eight-document manifest; legacy v1.1 compatibility remains covered. PR #89 remains Draft/unmerged pending human review and explicit approval.
+
+
+## D-027 — Use existing ChatGPT and Grok GitHub connections; no model API keys (2026-11-24)
+
+**Status:** Accepted by the user; governs the current JET AI implementation route.
+
+**Decision:** Use only the user's ChatGPT and Grok chat sessions through the GitHub connections already available in those products. Do not add, request, configure, or call OpenAI/Grok model APIs, API keys, paid model endpoints, or external source-upload adapters. GitHub is the shared task inbox, lease authority, source of truth, durable project memory, and PR/audit history.
+
+**Rationale:** Avoid separate API consumption costs while retaining independent agent analysis and repository work through the existing chat products.
+
+**Consequences:** The user activates one chat at a time. The agent verifies the Issue and active Git lease, creates a remote task branch from the pinned base SHA, reads only pinned memory and in-scope source through its GitHub integration, commits through that integration, and opens a Draft PR. If a connector lacks a required write operation, the user performs that discrete operation. GitHub Issues do not wake chats and chats do not continuously poll in the background. The lease owner string is a protocol label, not cryptographic model identity. No arbitrary untrusted-code execution is introduced; the production sandbox remains a separate security track. Human approval remains required for merge/release/deploy.
+
+## D-028 — Mandatory live-state session continuity and anti-drift protocol (2026-11-24)
+
+**Status:** Accepted operating rule; documented in `AGENTS.md`, `docs/CURRENT_STATUS.md`, and `docs/NEXT_STEPS.md`.
+
+At the start of every session, agents must reconcile live GitHub main/branch refs, open PRs, exact-head check-runs, task Issues, and lease refs with the pinned project-memory checkpoint. Live GitHub state establishes current repository facts; project memory establishes accepted decisions and sequence; chat summaries are recovery aids, never status authority. Candidate-branch capabilities must not be described as merged/main capabilities.
+
+At every pause, the active task, exact refs, completed acceptance criteria, lease status, unresolved blockers, and single next action must be recorded in CURRENT_STATUS, NEXT_STEPS, and DEVELOPMENT_LOG; architectural changes also update DECISIONS. Resume the earliest incomplete acceptance criterion rather than restarting or jumping to a newer unrelated branch. Parallel work is allowed only for independent scopes with isolated branches; one implementation agent may hold a task lease, while another may review read-only.
+
+This rule preserves the approved no-model-API route: user-activated ChatGPT/Grok chats through their existing GitHub integrations only. It does not imply background polling or autonomous wake-up.

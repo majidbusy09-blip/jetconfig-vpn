@@ -26,6 +26,37 @@ Before proposing or changing code:
 
 Do not assume previous chat context is complete. Git-tracked project memory is the durable baseline.
 
+## Session continuity and anti-drift protocol
+
+This protocol is mandatory at the beginning and end of every work session, including after a long pause or a new chat.
+
+### Before resuming work
+1. Fetch the live `main` ref and record its exact commit SHA. Never trust a SHA copied from an old chat, an old status paragraph, or a historical PR body.
+2. Enumerate the repository's open pull requests. For every PR relevant to the current task, fetch its live state, draft/merged status, base SHA, head branch, exact head SHA, changed paths, and check-runs for that exact head. Do not infer a current PR head from an old CI run or a branch name.
+3. Identify the unfinished task from the latest `docs/CURRENT_STATUS.md`, `docs/NEXT_STEPS.md`, and `docs/DEVELOPMENT_LOG.md`; then verify its Issue, comments, active lease ref, expiry, and linked PR directly on GitHub. A handoff artifact or old claim comment is not proof of a current lease.
+4. Read the required project-memory documents from the exact target base SHA. If the target is a candidate PR branch, label every feature there as candidate-only until merged.
+5. Reconcile the live GitHub facts with the documented checkpoint. If they disagree, stop and correct the checkpoint before starting new implementation. Do not repeat a completed step merely because the chat summary is behind.
+
+### Source-of-truth order
+- Live GitHub refs, PR/Issue state, lease refs, and exact-head check-runs establish current repository state.
+- The pinned Git-tracked project memory establishes accepted decisions, rationale, and the planned sequence, subject to reconciliation with live GitHub.
+- Conversation history and model memory help recover intent and decisions; they never override newer repository evidence.
+- Always distinguish merged/main capability, open candidate-branch capability, historical work, and unverified claims.
+
+### While working
+- Maintain one explicit active task and one next action. Parallelize only genuinely independent tasks with separate scopes/branches; never allow two implementation agents to write the same task concurrently.
+- Resume the earliest incomplete acceptance criterion. Do not jump to a later phase because it looks interesting or because an unrelated PR has newer commits.
+- The user's approved route remains ChatGPT and Grok chat sessions through their existing GitHub connections only. No model API keys, paid model APIs, or external source-upload adapters.
+- Chat sessions are user-activated; Issues do not wake them and they do not continuously poll in the background.
+
+### Before pausing or ending a session
+- Update `docs/CURRENT_STATUS.md` with what is verified, the exact main/base and candidate refs checked, active task/lease state, completed acceptance criteria, and unresolved blockers.
+- Update `docs/NEXT_STEPS.md` so the first item is the single next action, with owner, inputs, acceptance criteria, and stop conditions. Mark superseded plans explicitly; do not leave old priorities looking current.
+- Append evidence and exact check-run IDs to `docs/DEVELOPMENT_LOG.md`; record changed architectural choices in `docs/DECISIONS.md`.
+- Leave the task in a resumable state: exact Issue/PR URLs, branch names, latest known SHAs, lease status, and the precise next unfinished step. Never claim background progress or a released/active lease without rechecking it.
+- Keep PRs Draft/open and do not merge, release, deploy, spend, provision external services, or enable untrusted execution without the required separate approval.
+
+
 ## Scope and repository boundaries
 
 - This repository is the Flutter Android JET VPN client.
@@ -86,7 +117,16 @@ A successful build is not a runtime/device test. A CI workflow definition is not
 - If source changes invalidate a document, update it or explicitly mark it stale in the same PR.
 - Do not overwrite history: append log entries and preserve superseded decisions with status.
 
-## Current authoritative source snapshot
+## Live repository and collaboration snapshot — 2026-11-24
+
+- Live `main` at the continuity audit: `dcb9d1c01a50974d9ef38bdf5f0e4aaf744b409e` (PR #84 merge). Re-fetch the branch ref every session; do not treat this recorded SHA as current indefinitely.
+- PR #89 is the open Draft candidate for the project-memory diff gate and v1.2 eight-document task context. Its features are not on `main` until human-approved merge.
+- PR #91 is the open Draft documentation-only ChatGPT connector pilot. Its exact head `652e3d38a594adfb4b0784971c25010b5a5e3382` passed the trusted scope guard, Non-production PR Validation, and Project Memory Audit. Issue #90's lease is released.
+- ChatGPT's existing GitHub integration has completed one docs-only write pilot. Grok's independent connector/review remains unverified; the next action is read-only Grok review of PR #91.
+- PRs #86–#88 are a separate Draft sandbox/schema-v3 stack. They are not prerequisites for the approved connector-based coding workflow. Preserve `execution_authorized: false` and `eligible_for_untrusted_execution: false`.
+- The user's approved model route remains existing ChatGPT/Grok chat sessions via their GitHub integrations only: no model API keys, paid model APIs, or external source-upload adapter. Chat sessions are user-activated and do not continuously poll or wake from Issue events.
+
+## Historical source snapshot — PR #53-era baseline (superseded by live snapshot above)
 
 - Repository: `majidbusy09-blip/jetconfig-vpn`
 - Branch: `main`
@@ -244,3 +284,43 @@ PR #49 merged `sandbox_acceptance.py`, a strict verifier for independently signe
 - A caller-created `AuthenticatedObserverResult` is not a trust root. A future signer must match every result and exact raw envelope to the committed replay ledger receipt, including ledger revision/fencing epoch.
 - Schema v1/v2 remain unchanged. Schema v3 is only a design target; no report builder, signer, verifier, key, signing service, replay database, or filesystem collector was added.
 - No probe execution, VM/provider, network, credentials, production signing, release, deployment, or spend occurred. Keep `execution_authorized: false` and `eligible_for_untrusted_execution: false`.
+
+
+## Automated project-memory update gate
+
+For every pull request that changes implementation-sensitive paths (`lib/`, `test/`, `android/`, `ios/`, `tools/task_orchestrator/`, `tools/project_memory/`, `tools/validation/`, `.github/workflows/`, or app package/analyzer configuration), update durable project memory in the same PR. The required documents are computed by `tools/project_memory/verify_change_memory.py`:
+- Always: `docs/CURRENT_STATUS.md`, `docs/NEXT_STEPS.md`, `docs/DEVELOPMENT_LOG.md`, and `docs/PROJECT_CONTEXT.md`.
+- Task-orchestrator, project-memory, validation, or workflow changes additionally require `AGENTS.md` and `docs/DECISIONS.md`.
+- Project-memory tooling or workflow changes additionally require `docs/PROJECT_MEMORY_AUTOMATION.md`.
+
+The Project Memory Audit runs this gate against the exact PR base/head diff. A document that is unchanged in the PR does not satisfy the requirement merely because it exists in the repository. The gate checks presence, not factual correctness; reviewers and agents must still verify every claim against source and CI.
+
+
+## Mandatory project-memory context for coding tasks
+
+The local task orchestrator now includes `docs/DECISIONS.md` and `docs/KNOWN_ISSUES.md` in every pinned task context package, in addition to the existing agent instructions, project context, current status, next steps, task template, and development log. Read the recorded decisions and evidence-backed blockers before changing architecture or touching a known issue. The context builder reads all required documents from the exact pinned Git commit and fails closed on missing files or size overflow.
+
+
+## Versioned coding-agent memory contract
+
+New task envelopes use contract v1.2 and include eight pinned project-memory documents: agent instructions, project context, current status, next steps, task template, development log, architectural decisions, and known issues. The task orchestrator and envelope builder use one canonical manifest from `agent_contract.py`. The validator accepts legacy v1.1 envelopes/results for compatibility, but v1.2 requires the exact eight paths in canonical order and each result must echo the envelope's version. Never silently downgrade a v1.2 task or drop decision/issue documents.
+
+
+## Verified PR #89 memory capability status — 2026-11-24
+
+- Candidate PR #89 exact head `bcce39bb22bf9305a405cfc1dcc76ead0ffe6cb7` passed all four checks: Task Orchestrator Tests `45440623118` (359 tests), Non-production PR Validation `45440623111`, Project Memory Audit `45440623455`, and Agent PR Lease/Scope Guard `45440622712`.
+- The Project Memory Audit ran the new change-gate unit suite (9 tests) and reported: `Project-memory update gate passed (7 required documents updated).`
+- New task envelopes use v1.2 with eight canonical pinned documents; legacy v1.1 envelope/result pairs remain supported. The current required memory package is 230,628 bytes, leaving 281,372 bytes under the 512,000-byte total cap for selected source context.
+- PR #89 remains Draft/open/unmerged. Do not treat green CI as merge authorization or proof that branch protection has been changed.
+
+
+## ChatGPT/Grok GitHub-connector operating constraints
+
+- Use only the ChatGPT and Grok chat sessions through their existing GitHub connections for model interaction. Do not add or call model APIs, API keys, paid model endpoints, or external source-upload adapters.
+- GitHub is the task inbox, lease authority, source of truth, and durable project memory. Read the task Issue, current lease, pinned base SHA, and canonical memory before editing.
+- Only one implementation chat may hold an active lease for a task. The other agent may review read-only. Verify the actual lock ref; a comment or owner label alone is not proof.
+- Create a remote implementation branch from the exact pinned base SHA. Do not confuse the ephemeral Actions acceptance branch with a remote branch.
+- Use only the connected GitHub operations actually available. If the integration cannot comment, branch, commit, or open a PR, ask the user to perform that discrete action; do not claim it succeeded.
+- ChatGPT/Grok are user-activated and do not continuously poll or wake from Issue events. Do not describe this as autonomous background execution.
+- Handoff/input artifacts are not automatically attached to chats. Read pinned memory and in-scope source directly through the GitHub integration. Do not upload source to a separate model API.
+- Keep the sandbox track separate. No arbitrary untrusted-code execution, provider provisioning, API key, paid service, external source upload, merge, release, or deployment without separate explicit approval.

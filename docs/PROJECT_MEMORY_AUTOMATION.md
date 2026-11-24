@@ -78,3 +78,29 @@ The application regression suite, static semantic tooling, and local task-execut
 ## Sandbox acceptance evidence verifier
 
 The independent report verifier and adversarial tests are part of the orchestrator tooling. This is not a source-index input and does not alter the application source fingerprint. The test suite runs through the existing Task Orchestrator workflow.
+
+
+## Pull-request project-memory freshness gate
+
+The lexical source-index audit alone is not a complete project-memory audit: it can pass while architecture, decisions, status, and next steps are stale. The PR gate in `tools/project_memory/verify_change_memory.py` checks the exact base-to-head changed-path set and requires durable memory files to be updated in the same implementation-sensitive PR.
+
+Required updates:
+- All implementation-sensitive changes: `docs/CURRENT_STATUS.md`, `docs/NEXT_STEPS.md`, `docs/DEVELOPMENT_LOG.md`, and `docs/PROJECT_CONTEXT.md`.
+- Task orchestrator, project-memory, validation, or workflow changes: additionally `AGENTS.md` and `docs/DECISIONS.md`.
+- Project-memory tooling or workflow changes: additionally this document.
+
+The gate is deliberately narrow: it verifies that the required files are part of the PR diff, not that their prose is true. Source/commit verification and human review remain mandatory. The audit workflow fetches full Git history so the PR base and head commits can be compared deterministically. Unit tests cover app, orchestrator, workflow, project-memory, and documentation-only changes.
+
+### Artifact retention boundary
+
+The analyzer-resolved index and generated critical-path report are generated and uploaded by CI with 30-day retention. They are reproducible analysis artifacts, not durable project memory. Durable decisions, project status, known limitations, and next actions must remain in Git-tracked documents. Do not imply that a prior workflow artifact is permanently available.
+
+
+## Mandatory context supplied to coding agents
+
+The task orchestrator's current contract v1.2 supplies eight pinned memory documents in canonical order: `AGENTS.md`, `docs/PROJECT_CONTEXT.md`, `docs/CURRENT_STATUS.md`, `docs/NEXT_STEPS.md`, `docs/TASK_TEMPLATE.md`, `docs/DEVELOPMENT_LOG.md`, `docs/DECISIONS.md`, and `docs/KNOWN_ISSUES.md`. The manifest is centralized in `tools/task_orchestrator/agent_contract.py`. Legacy v1.1 remains accepted for existing envelopes; new envelopes must use v1.2 and may not omit the decision or issue files.
+
+
+## Verified change-gate result — PR #89 (2026-11-24)
+
+The first full enforcement run passed on PR #89 head `bcce39bb22bf9305a405cfc1dcc76ead0ffe6cb7`. The gate's 9 unit tests succeeded and the exact PR diff check reported `Project-memory update gate passed (7 required documents updated).` The same Project Memory Audit also passed app regression tests, semantic indexer tests/generation, deterministic output, real-source task-intelligence smoke, and lexical-index verification. This validates the mechanism on one implementation-sensitive PR; it does not prove factual accuracy of memory prose or replace human review.

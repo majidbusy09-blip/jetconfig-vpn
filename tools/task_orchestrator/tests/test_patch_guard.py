@@ -1,6 +1,6 @@
 import unittest
 
-from tools.task_orchestrator.agent_contract import CONTRACT_VERSION
+from tools.task_orchestrator.agent_contract import LEGACY_CONTRACT_VERSION
 from tools.task_orchestrator.patch_guard import (
     PatchValidationError,
     validate_patch_text,
@@ -9,7 +9,7 @@ from tools.task_orchestrator.patch_guard import (
 
 def envelope():
     return {
-        "contract_version": CONTRACT_VERSION,
+        "contract_version": LEGACY_CONTRACT_VERSION,
         "task_id": "patch-guard-test",
         "goal": "Validate a proposed patch safely",
         "capability": "bug_fix",

@@ -216,6 +216,8 @@ class HandoffAcceptanceTests(unittest.TestCase):
                 "docs/NEXT_STEPS.md": "Next steps.\n",
                 "docs/TASK_TEMPLATE.md": "Task template.\n",
                 "docs/DEVELOPMENT_LOG.md": "Development log.\n",
+                "docs/DECISIONS.md": "Recorded decisions.\n",
+                "docs/KNOWN_ISSUES.md": "Known issues.\n",
             }
             for name, body in docs.items():
                 target = root / name
@@ -268,7 +270,7 @@ class HandoffAcceptanceTests(unittest.TestCase):
             envelope = json.loads(output.read_text(encoding="utf-8"))
             self.assertEqual(envelope["task_id"], TASK_ID)
             self.assertEqual(git("branch", "--show-current"), "agent/" + TASK_ID)
-            self.assertEqual(len(envelope["project_context"]), 6)
+            self.assertEqual(len(envelope["project_context"]), 8)
             self.assertEqual(envelope["source_context"], [])
             record = json.loads(
                 (root / ".agent" / "tasks" / TASK_ID / "task.json").read_text(encoding="utf-8")

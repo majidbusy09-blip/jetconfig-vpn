@@ -558,3 +558,88 @@ Append-only record of meaningful project work. Each entry should include branch/
 - Explicitly documented that a caller-created `AuthenticatedObserverResult` is not proof of verifier execution.
 - Final-head CI: Task Orchestrator Tests `45390283412`, Non-production PR Validation `45390283324`, Project Memory Audit `45390283473` — all success.
 - No signer/key/service, durable replay DB, filesystem collector, network, VM, provider, probe execution or untrusted execution was introduced.
+
+
+## 2026-11-24 — Project-memory freshness enforcement candidate
+
+- Identified a process gap: Project Memory Audit could pass source-index freshness and semantic-index generation while project-level status and next-step documents remained behind the current merged baseline.
+- Added `tools/project_memory/verify_change_memory.py` to compare the exact PR base/head diff and require memory documents according to implementation scope.
+- Added unit tests for documentation-only, app, orchestrator, project-memory, workflow, package, and native-source change classes.
+- Updated Project Memory Audit to test the gate and run it for pull requests; checkout now fetches full history for deterministic base/head comparison.
+- The gate verifies that required memory files are changed in the PR; it does not verify factual accuracy. Manual source review remains required.
+- Candidate branch: `feat/enforce-project-memory-pr-gate-20261124`, based on main `dcb9d1c01a50974d9ef38bdf5f0e4aaf744b409e`. CI validation pending at this log entry.
+
+
+## 2026-11-24 — Include decisions and known issues in every coding-agent task context
+
+- Expanded `REQUIRED_CONTEXT` in `tools/task_orchestrator/task_orchestrator.py` to include `docs/DECISIONS.md` and `docs/KNOWN_ISSUES.md`.
+- Updated temporary-Git integration fixtures and context-builder assertions to verify these documents are included in the pinned full-text package.
+- This improves the agent's access to architectural rationale and evidence-backed blockers before source changes. The 512 KiB total context limit remains unchanged; overflow still fails closed.
+- Exact-head test results are pending in PR #89.
+
+
+## 2026-11-24 — Versioned agent envelope v1.2 after context-contract test failure
+
+- The first attempt to add decisions/known issues to mandatory task context failed two integration tests: the GitHub handoff fixture lacked the new files, and the envelope builder still enforced exactly six project documents.
+- Introduced contract v1.2 and a canonical eight-document project-memory manifest shared by `agent_contract.py`, `envelope_builder.py`, and `task_orchestrator.py`.
+- Kept legacy v1.1 envelope validation and matching v1.1 results available; result contract version must match the input envelope. V1.2 requires the exact eight paths in canonical order.
+- Updated the v1.2 envelope, handoff, context-builder, orchestrator, and legacy patch-guard fixtures/tests; updated the adapter contract, task handoff guide, and orchestrator README.
+- The first failing CI run was Non-production PR Validation run `45439181931` on an earlier PR #89 head. The failure was not ignored; this entry records the corrective work. Exact-head revalidation is pending.
+
+
+## 2026-11-24 — PR #89 project-memory gate and v1.2 task context validated
+
+- Final exact PR #89 head: `bcce39bb22bf9305a405cfc1dcc76ead0ffe6cb7`, base `dcb9d1c01a50974d9ef38bdf5f0e4aaf744b409e`. PR remains Draft/open/unmerged.
+- Task Orchestrator Tests run `45440623118`: success, 359 tests.
+- Non-production PR Validation run `45440623111`: success; app/APK steps skipped for tooling/docs-only changes.
+- Project Memory Audit run `45440623455`: success. App regression tests, semantic AST/resolved/critical-path indexer tests and generation, deterministic output, real-source task-intelligence smoke, lexical index check, 9 memory-gate tests, and exact PR memory-diff enforcement passed.
+- The gate reported `Project-memory update gate passed (7 required documents updated).`
+- New v1.2 envelopes include eight pinned memory documents. Legacy v1.1 envelopes/results remain accepted as matching pairs. The current full project-memory package is 230,628 bytes, leaving 281,372 bytes for explicit source context under the 512,000-byte ceiling.
+- An earlier intermediate run failed because the old contract enforced six documents; the versioned fix and updated handoff fixtures passed on the final head.
+- No application code, release, deployment, credentials, branch protection, production resources, or execution flags were changed.
+
+
+## 2026-11-24 — Reprioritize multi-agent implementation around existing GitHub connections
+
+- Audited the Issue intake, comment lease command, Git CAS lease transport, handoff builder/acceptance, PR scope guard, and current runbooks on main and the PR #89 candidate branch.
+- Confirmed the existing pipeline validates task Issues, atomically claims/renews/releases a lease, creates a lease-bound handoff artifact, and has a PR guard. It does not wake ChatGPT/Grok, continuously poll, create the remote implementation branch, or dispatch implementation.
+- Diagnosed the historical Issue #36 smoke failure: the claim and handoff upload succeeded; local acceptance failed because earlier Python imports left untracked bytecode files. The fix to suppress/ignore bytecode was subsequently merged in PR #64 (97ba8dce2e2750b9b9cb71342fb2a477103752d2). The historical lease has expired.
+- Found stale next-step/runbook language requiring a model API adapter, provider runtime, source upload, and isolated execution before agent work. These are not prerequisites for the selected chat + GitHub connector route and are now explicitly superseded.
+- Recorded the user-approved no-API decision and clarified that ChatGPT/Grok are user-activated; each connector's actual write permissions must be verified. Handoff artifacts do not automatically enter a chat, and the ephemeral Actions branch is not the remote implementation branch.
+- No code execution, API key, paid API, external source upload, provider account, production sandbox, merge, release, or deployment was performed.
+
+## 2026-11-24 — ChatGPT GitHub connector end-to-end documentation pilot
+
+- Created documentation-only task Issue #90 with a strict allowlist of `docs/agent-connector-pilot/**` and owner `chatgpt`.
+- Claimed via the trusted Issue-comment workflow. Active lease pinned to main SHA `dcb9d1c01a50974d9ef38bdf5f0e4aaf744b409e`; lock commit `ee479b5aef75134dc8cb8f88474ca0d815463a83` was read back twice with identical ref SHA.
+- Used the ChatGPT GitHub integration to create remote branch `agent/github-connector-docs-pilot` from the exact pinned SHA, commit one Markdown file, and open Draft PR #91. This confirms the connector's Issue-comment, branch, file-commit, and PR operations in this session.
+- First PR guard run `45461103723` correctly rejected the envelope because the marker was at the top of the body. Moved the marker and single fenced JSON envelope to the end, pushed a documentation-only follow-up commit, and the exact final head `652e3d38a594adfb4b0784971c25010b5a5e3382` passed Agent PR Scope Guard `45461329913`.
+- Non-production PR Validation `45461334216` and Project Memory Audit `45461334389` also passed. Only one file changed; no application code or workflow was touched.
+- Released the lease through the trusted command workflow. Final lock commit `9c0ae0b94e79b75953ae046e385885e6569f15d2` records status `released`.
+- PR #91 remains Draft/open/unmerged. Grok's separate connector has not been tested from this session. No model API, key, paid endpoint, source upload, untrusted execution, merge, or deployment was used.
+
+
+## 2026-11-24 — PR #89 connector architecture and memory-gate validation checkpoint
+
+- Candidate head `731496b745e9f708cb82d2b9911a956090776a9a` passed Task Orchestrator Tests run `45462003973` (359 tests), Project Memory Audit run `45462004236`, and Agent PR Scope Guard run `45461997027`.
+- Project Memory Audit verified four real source files and four context suggestions, passed deterministic semantic index generation and lexical freshness, and reported `Project-memory update gate passed (7 required documents updated).`
+- Non-production PR Validation run `45462004191` was cancelled before job creation. It is recorded as cancelled, not successful. A new exact-head run is required.
+- The PR branch now records the approved ChatGPT/Grok GitHub connector architecture and the completed ChatGPT pilot. Grok's independent connector/review remains the next human-activated validation.
+
+
+## 2026-11-24 — PR #89 final exact-head validation
+
+- Final validation checkpoint `cc602e31f5920b7304a3de50a10f1f940502a292` passed all four checks: Task Orchestrator Tests `45462594178` (359 tests), Non-production PR Validation `45462594228`, Project Memory Audit `45462594156`, and Agent PR Lease/Scope Guard `45462594006`.
+- The memory audit passed deterministic semantic indexing, real-source task-intelligence smoke (4 files / 4 suggestions), lexical freshness, and the exact diff gate requiring 7 memory documents.
+- PR #89 remains Draft/open/unmerged; no merge, release, deployment, or production action was performed.
+
+
+## 2026-11-24 — Full continuity audit and roadmap correction
+
+- Recovered the user's approved architecture from prior conversation history: only the existing ChatGPT and Grok chat sessions through their GitHub integrations; no model API keys, paid model APIs, or external source-upload adapter; GitHub remains the durable task inbox, lease authority, source of truth, and project memory.
+- Re-queried live GitHub refs, PRs, Issues, lease state, and exact-head checks. Main was `dcb9d1c01a50974d9ef38bdf5f0e4aaf744b409e`; PR #89 candidate head at audit start was `cd6d098d2707f888b01d9b2599d37a0ab6ef3a44`; PR #91 final head was `652e3d38a594adfb4b0784971c25010b5a5e3382`.
+- Verified PR #89's four exact-head checks succeeded (runs `45463054475`, `45463054008`, `45463053877`, `45463053895`). Verified PR #91's three exact-head checks succeeded (runs `45461329913`, `45461334216`, `45461334389`). Issue #90's lease is released at lock commit `9c0ae0b94e79b75953ae046e385885e6569f15d2`.
+- Identified stale PR #53-era main-SHA and sandbox-first roadmap text that contradicted the newer connector-first decision. Replaced the active roadmap and marked the older sandbox plan as historical/superseded; the sandbox stack remains separate and execution-disabled.
+- Added mandatory session-start live-state reconciliation and session-end checkpoint rules. This is intended to prevent stale chat summaries, old PR heads, expired leases, and interrupted sessions from resetting the project sequence.
+- Current resume point: Grok performs a read-only review of PR #91; then a separate Grok docs-only write pilot; then one real bounded code task with read-only review by the other agent. No Grok capability is claimed until independently verified.
+- This documentation update does not merge any PR, change branch protection, use a model API, create credentials, provision a provider, execute untrusted code, or perform production actions.

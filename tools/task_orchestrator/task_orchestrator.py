@@ -52,15 +52,16 @@ except ImportError:
     except ImportError:
         from impact_analyzer import ImpactAnalysisError, analyze_impact
 
+try:
+    from .agent_contract import REQUIRED_PROJECT_CONTEXT
+except ImportError:
+    try:
+        from tools.task_orchestrator.agent_contract import REQUIRED_PROJECT_CONTEXT
+    except ImportError:
+        from agent_contract import REQUIRED_PROJECT_CONTEXT
+
 SCHEMA_VERSION = 1
-REQUIRED_CONTEXT = (
-    "AGENTS.md",
-    "docs/PROJECT_CONTEXT.md",
-    "docs/CURRENT_STATUS.md",
-    "docs/NEXT_STEPS.md",
-    "docs/TASK_TEMPLATE.md",
-    "docs/DEVELOPMENT_LOG.md",
-)
+REQUIRED_CONTEXT = REQUIRED_PROJECT_CONTEXT
 PROTECTED_BRANCHES = {"main", "master"}
 TASK_DIR = Path(".agent/tasks")
 TASK_ID_RE = re.compile(r"^[a-z0-9][a-z0-9-]{2,63}$")
@@ -454,7 +455,7 @@ def command_build_envelope(args: argparse.Namespace) -> None:
     temporary.write_bytes(encoded)
     temporary.replace(target)
     print(
-        f"Built contract v1.1 envelope for {args.task_id}: "
+        f"Built contract v1.2 envelope for {args.task_id}: "
         f"{len(envelope['project_context'])} project and "
         f"{len(envelope['source_context'])} source documents. "
         "Local-only; no provider was called and no source was uploaded."
@@ -906,7 +907,7 @@ def build_parser() -> argparse.ArgumentParser:
     suggest.add_argument("--critical-paths", required=True, metavar="JSON_PATH")
     suggest.add_argument("--limit", type=int, default=12)
     suggest.set_defaults(func=command_suggest_context)
-    envelope = sub.add_parser("build-envelope", help="Verify the pinned context and create a local v1.1 agent input envelope.")
+    envelope = sub.add_parser("build-envelope", help="Verify the pinned context and create a local v1.2 agent input envelope.")
     envelope.add_argument("--task-id", required=True)
     envelope.set_defaults(func=command_build_envelope)
     for name, func, help_text in [

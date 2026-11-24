@@ -1,7 +1,7 @@
 # JET VPN — Project Context
 
-> Current verified repository snapshot: `main` at `3e613a8c03a39e4440c3702ac3505acb7b2eae27` (2026-11-24).
-> PR #20, PRs #38–#44, PR #46–#53 are merged.
+> Live main snapshot verified at audit start: `main` at `dcb9d1c01a50974d9ef38bdf5f0e4aaf744b409e` (PR #84 merge, 2026-11-24). Always re-fetch the live ref before work; do not reuse this SHA as a current pointer.
+> PR #89 and PR #91 are Draft/open/unmerged candidate branches; PRs #86–#88 are a separate Draft sandbox stack. Their changes are not present on main until merged.
 > Main source blob: `lib/main.dart` = `3d28693b7be8bfe309a850923599830e1a65ab59`.
 > App version: `2.4.5+284` (`pubspec.yaml` blob `adc3b22a4538db4738bec789e3c3badf26e4f710`).
 > PR #47 Task Orchestrator Tests #45314331567 (247 tests), Project Memory Audit #45314331612, and non-production validation retry #45313415713 passed. PR #48 Task Orchestrator Tests, Project Memory Audit, and Non-production PR Validation #45314885244 all passed.
@@ -27,6 +27,14 @@
 ## Product context versus source truth
 
 Smart routing, direct/domestic app handling, account profiles, purchase/renewal, free tests, server ping, automatic recovery, and APK update are known product areas. Before changing any behavior, verify the implementation in the current source and update the relevant technical documents.
+
+## Approved ChatGPT/Grok collaboration route
+
+- Use only the user's existing ChatGPT and Grok chat sessions through their existing GitHub integrations. No model API keys, paid model API endpoints, or external source-upload adapters.
+- GitHub Issues, verified lease refs, pinned base SHAs, Draft PRs, exact-head checks, and tracked project memory form the workflow record.
+- The ChatGPT docs-only connector pilot is verified in PR #91; Grok remains unverified. The next step is Grok's read-only review of PR #91, followed by a separate Grok write pilot and then one real bounded code task with cross-agent review.
+- Chats are user-activated; GitHub Issues do not wake chats and there is no continuous background polling. A read-only reviewer must not modify the implementation branch.
+- See `AGENTS.md` for the mandatory session continuity and anti-drift procedure.
 
 ## Collaboration contract
 
@@ -191,3 +199,32 @@ The current execution policy is unchanged: `execution_authorized: false`; `eligi
 - Exact final-head CI passed: Task Orchestrator Tests `45390283412`, Non-production PR Validation `45390283324`, Project Memory Audit `45390283473`.
 - Next focus: replay receipt read contract, pure schema-v3 builder, injected fake signer/verifier, then schema-v3 independent verifier.
 - Keep `execution_authorized: false` and `eligible_for_untrusted_execution: false`.
+
+
+## Project-memory freshness gate — candidate implementation (2026-11-24)
+
+A new PR audit helper, `tools/project_memory/verify_change_memory.py`, computes the exact base-to-head changed-path set and requires the appropriate durable memory files to be changed in implementation-sensitive PRs. App/source/test/package changes require current status, next steps, development log, and project context. Orchestrator, validation, project-memory, and workflow changes also require agent instructions and recorded decisions; project-memory tooling/workflow changes additionally require the automation guide. Unit tests cover these path classes. The gate checks that the documents are included in the PR diff, not that their claims are factually correct. It is a candidate until CI and branch-protection verification succeed.
+
+
+## Mandatory task context expansion — candidate PR #89 (2026-11-24)
+
+The orchestrator's required pinned context now includes `docs/DECISIONS.md` and `docs/KNOWN_ISSUES.md`. This ensures a coding agent receives not only the current status and development history, but also the rationale behind accepted design choices and the repository's evidence-backed unresolved issues. Both files are loaded from the task's exact base commit and participate in per-file and package hashes. The existing 512 KiB total context limit is unchanged; the builder fails closed if the complete package plus explicitly selected source files does not fit.
+
+
+## Coding-agent context contract v1.2 — candidate PR #89 (2026-11-24)
+
+New task contexts now carry eight required project-memory documents, adding architectural decisions and known issues to the previous six. The manifest is defined once in `agent_contract.py` and consumed by the orchestrator and envelope builder. New envelopes use contract v1.2; the validator preserves legacy v1.1 compatibility and requires the result version to match its input envelope. V1.2 requires the exact eight paths in canonical order. Context remains full-text, SHA-256 fingerprinted, and pinned to the task base commit; the 512 KiB package ceiling remains unchanged.
+
+
+## Verified PR #89 memory system result — 2026-11-24
+
+PR #89's exact head `bcce39bb22bf9305a405cfc1dcc76ead0ffe6cb7` passed Task Orchestrator Tests (359 tests), Non-production PR Validation, Project Memory Audit, and Agent PR Lease/Scope Guard. The Project Memory Audit verified the real PR diff and reported 7 required memory documents updated; its 9 new gate tests passed. It also regenerated semantic AST, analyzer-resolved, and critical-path indexes, passed deterministic generation, and smoke-tested task intelligence against the real indexed source. The v1.2 envelope now supplies eight pinned memory documents while preserving legacy v1.1 support. PR #89 remains Draft/unmerged; CI success does not authorize merge or production deployment.
+
+
+## Approved JET AI collaboration model — ChatGPT + Grok via GitHub
+
+The current collaboration design uses the ChatGPT and Grok chat sessions with their existing GitHub connections. Do not introduce model API keys, paid model API calls, or external source-upload adapters. GitHub is the shared command center and durable memory. A human activates one implementation chat at a time; the chat reads an Issue, verifies the active Git CAS lease, reads pinned memory and in-scope source, creates a remote branch from the exact base SHA, commits through the GitHub integration, and opens a Draft PR. A second agent may perform read-only review. If a connector cannot post an Issue comment or perform a write, the user performs that discrete operation. The chats are not background daemons and Issues do not wake them automatically.
+
+The lease owner (chatgpt or grok) is a protocol label selected by the user, not cryptographic proof of model identity. The Actions handoff artifact is an audit snapshot; the local agent_input.json is created in a temporary runner workspace and is not automatically injected into either chat. Agents should read repository content directly through their authorized GitHub integration and must not claim that GitHub data never passes through the provider integration.
+
+This connector-based development route does not require arbitrary untrusted-code execution or a production sandbox. GitHub Actions runs fixed verification workflows and human review remains mandatory. Sandbox/runtime isolation stays a separate gated track; preserve execution_authorized: false and eligible_for_untrusted_execution: false.

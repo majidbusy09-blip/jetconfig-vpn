@@ -11,7 +11,8 @@ from pathlib import Path
 from tools.task_orchestrator.context_builder import ContextBuildError, MAX_CONTEXT_FILE_BYTES, build_context
 
 REQUIRED = ("AGENTS.md", "docs/PROJECT_CONTEXT.md", "docs/CURRENT_STATUS.md",
-            "docs/NEXT_STEPS.md", "docs/TASK_TEMPLATE.md", "docs/DEVELOPMENT_LOG.md")
+            "docs/NEXT_STEPS.md", "docs/TASK_TEMPLATE.md", "docs/DEVELOPMENT_LOG.md",
+            "docs/DECISIONS.md", "docs/KNOWN_ISSUES.md")
 
 
 def git(root: Path, *args: str) -> str:
@@ -51,6 +52,9 @@ class ContextBuilderTests(unittest.TestCase):
     def test_full_text_hash_and_deterministic_package(self):
         first = self.build()
         self.assertEqual(first, self.build())
+        project_paths = {item["path"] for item in first["project_context"]}
+        self.assertIn("docs/DECISIONS.md", project_paths)
+        self.assertIn("docs/KNOWN_ISSUES.md", project_paths)
         doc = first["source_context"][0]
         self.assertEqual(doc["content"], "void main() { print('pinned'); }\n")
         self.assertEqual(doc["sha256"], hashlib.sha256(doc["content"].encode()).hexdigest())

@@ -12,7 +12,17 @@ import re
 from pathlib import PurePosixPath
 from typing import Any
 
-CONTRACT_VERSION = "1.1"
+LEGACY_CONTRACT_VERSION = "1.1"
+CONTRACT_VERSION = "1.2"
+SUPPORTED_CONTRACT_VERSIONS = {LEGACY_CONTRACT_VERSION, CONTRACT_VERSION}
+LEGACY_PROJECT_CONTEXT_V1_1 = (
+    "AGENTS.md", "docs/PROJECT_CONTEXT.md", "docs/CURRENT_STATUS.md",
+    "docs/NEXT_STEPS.md", "docs/TASK_TEMPLATE.md", "docs/DEVELOPMENT_LOG.md",
+)
+REQUIRED_PROJECT_CONTEXT = (
+    *LEGACY_PROJECT_CONTEXT_V1_1,
+    "docs/DECISIONS.md", "docs/KNOWN_ISSUES.md",
+)
 ALLOWED_CAPABILITIES = {"implementation", "bug_fix", "refactor", "documentation", "investigation"}
 ALLOWED_RISKS = {"low", "medium", "high"}
 ALLOWED_STATUSES = {"completed", "needs_clarification", "blocked", "failed"}
@@ -230,7 +240,8 @@ def validate_envelope(data: Any) -> dict:
         "constraints", "budgets", "verification_profiles",
     }
     obj = _object(data, "task envelope", required)
-    if obj["contract_version"] != CONTRACT_VERSION:
+    version = obj["contract_version"]
+    if not isinstance(version, str) or version not in SUPPORTED_CONTRACT_VERSIONS:
         _fail("unsupported contract_version")
     if not isinstance(obj["task_id"], str) or not TASK_ID_RE.fullmatch(obj["task_id"]):
         _fail("invalid task_id")
@@ -259,6 +270,10 @@ def validate_envelope(data: Any) -> dict:
     _text(scope["scope_reason"], "scope.scope_reason", 2_000, empty=True)
 
     _context_documents(obj["project_context"], "project_context")
+    if version == CONTRACT_VERSION:
+        project_paths = [item["path"] for item in obj["project_context"]]
+        if project_paths != list(REQUIRED_PROJECT_CONTEXT):
+            _fail("v1.2 project_context must contain the eight required memory documents in canonical order")
     _context_documents(obj["source_context"], "source_context")
     semantic = _object(obj["semantic_context"], "semantic_context",
                        {"status", "source_sha", "summary", "limitations"})
@@ -291,7 +306,7 @@ def validate_result(data: Any, envelope: dict) -> dict:
         "verification_requests", "risks", "handoff_notes", "usage", "context_fingerprints",
     }
     obj = _object(data, "agent result", required)
-    if obj["contract_version"] != CONTRACT_VERSION or obj["task_id"] != envelope["task_id"]:
+    if obj["contract_version"] != envelope["contract_version"] or obj["task_id"] != envelope["task_id"]:
         _fail("result contract version or task_id does not match the envelope")
     _text(obj["provider"], "provider", 128)
     _text(obj["model"], "model", 256)

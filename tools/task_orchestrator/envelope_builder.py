@@ -1,4 +1,4 @@
-"""Build and verify the exact v1.1 agent envelope from a task's pinned context."""
+"""Build and verify the exact v1.2 agent envelope from a task's pinned context."""
 from __future__ import annotations
 
 import hashlib
@@ -8,18 +8,21 @@ from typing import Any
 from urllib.parse import urlsplit
 
 try:
-    from .agent_contract import ContractValidationError, validate_envelope, _path_matches
+    from .agent_contract import (
+        ContractValidationError, validate_envelope, _path_matches, CONTRACT_VERSION,
+        REQUIRED_PROJECT_CONTEXT as CANONICAL_PROJECT_CONTEXT,
+    )
 except ImportError:
-    from agent_contract import ContractValidationError, validate_envelope, _path_matches
+    from agent_contract import (
+        ContractValidationError, validate_envelope, _path_matches, CONTRACT_VERSION,
+        REQUIRED_PROJECT_CONTEXT as CANONICAL_PROJECT_CONTEXT,
+    )
 
 PACKAGE_FIELDS = {"schema_version", "task_id", "source_revision", "project_context",
                   "source_context", "total_bytes", "context_sha256"}
 MAX_PACKAGE_BYTES = 512_000
 MAX_CONTEXT_FILES = 100
-REQUIRED_PROJECT_CONTEXT = [
-    "AGENTS.md", "docs/PROJECT_CONTEXT.md", "docs/CURRENT_STATUS.md",
-    "docs/NEXT_STEPS.md", "docs/TASK_TEMPLATE.md", "docs/DEVELOPMENT_LOG.md",
-]
+REQUIRED_PROJECT_CONTEXT = list(CANONICAL_PROJECT_CONTEXT)
 
 
 class EnvelopeBuildError(ValueError):
@@ -85,7 +88,7 @@ def _verify_package(package: Any, task_id: str, base_sha: str) -> dict:
     if len(docs) + len(sources) > MAX_CONTEXT_FILES:
         raise EnvelopeBuildError("Context package exceeds the maximum document count.")
     if [item.get("path") for item in docs if isinstance(item, dict)] != REQUIRED_PROJECT_CONTEXT:
-        raise EnvelopeBuildError("Project context must contain exactly the six required project-memory documents in canonical order.")
+        raise EnvelopeBuildError("Project context must contain exactly the required project-memory documents in canonical order.")
     total = 0
     seen = set()
     for collection in (docs, sources):
@@ -158,7 +161,7 @@ def build_agent_envelope(record: dict, *, repository_name: str | None = None) ->
         semantic_status = "stale"
         semantic_summary = "Semantic artifacts were recorded as present but remain unverified."
     envelope = {
-        "contract_version": "1.1",
+        "contract_version": CONTRACT_VERSION,
         "task_id": task_id,
         "goal": record.get("goal"),
         "capability": _capability(record.get("capability_improved")),

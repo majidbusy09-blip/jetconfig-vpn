@@ -16,6 +16,7 @@ def package(task_id="sample-task", revision="a" * 40):
     project_paths = [
         "AGENTS.md", "docs/PROJECT_CONTEXT.md", "docs/CURRENT_STATUS.md",
         "docs/NEXT_STEPS.md", "docs/TASK_TEMPLATE.md", "docs/DEVELOPMENT_LOG.md",
+        "docs/DECISIONS.md", "docs/KNOWN_ISSUES.md",
     ]
     project_context = []
     for path in project_paths:
@@ -58,6 +59,7 @@ def task_record():
         "required_context": [
             "AGENTS.md", "docs/PROJECT_CONTEXT.md", "docs/CURRENT_STATUS.md",
             "docs/NEXT_STEPS.md", "docs/TASK_TEMPLATE.md", "docs/DEVELOPMENT_LOG.md",
+            "docs/DECISIONS.md", "docs/KNOWN_ISSUES.md",
         ],
         "context_paths": ["lib/routing.py"],
         "context_package": package(revision=base),
@@ -72,6 +74,8 @@ class EnvelopeBuilderTests(unittest.TestCase):
         second = build_agent_envelope(record)
         self.assertEqual(first, second)
         self.assertEqual(validate_envelope(first), first)
+        self.assertEqual(first["contract_version"], "1.2")
+        self.assertEqual(len(first["project_context"]), 8)
         self.assertEqual(first["repository"]["name"], "owner/repo")
         self.assertEqual(first["repository"]["base_sha"], record["repository"]["base_sha"])
         self.assertEqual(first["source_context"][0]["content"], "def route(): return True\n")
@@ -142,7 +146,7 @@ class EnvelopeBuilderTests(unittest.TestCase):
     def test_fixture_readonly_adapter_accepts_built_envelope_and_rejects_bad_one(self):
         envelope = build_agent_envelope(task_record())
         result = {
-            "contract_version": "1.1", "task_id": envelope["task_id"],
+            "contract_version": envelope["contract_version"], "task_id": envelope["task_id"],
             "provider": "local-fixture", "model": "no-model",
             "status": "needs_clarification",
             "summary": "Fixture only; no provider or model was called.",

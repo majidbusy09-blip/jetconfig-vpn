@@ -32,6 +32,7 @@ class ArtifactCandidate:
     kind: str
     content: bytes
     symlink_target: str | None = None
+    link_count: int = 1
 
 
 @dataclass(frozen=True)
@@ -147,6 +148,8 @@ class ArtifactCollector:
                 raise ArtifactCollectionError("Only regular files are eligible; symlinks, directories, and devices are rejected.")
             if candidate.symlink_target is not None:
                 raise ArtifactCollectionError("Symlink metadata is forbidden for artifact candidates.")
+            if isinstance(candidate.link_count, bool) or not isinstance(candidate.link_count, int) or candidate.link_count != 1:
+                raise ArtifactCollectionError("Hard-linked or invalid file records are rejected.")
             if not isinstance(candidate.content, bytes):
                 raise ArtifactCollectionError("Artifact content must be supplied as raw bytes.")
             size = len(candidate.content)

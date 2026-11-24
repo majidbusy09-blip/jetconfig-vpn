@@ -558,3 +558,13 @@ Append-only record of meaningful project work. Each entry should include branch/
 - Explicitly documented that a caller-created `AuthenticatedObserverResult` is not proof of verifier execution.
 - Final-head CI: Task Orchestrator Tests `45390283412`, Non-production PR Validation `45390283324`, Project Memory Audit `45390283473` — all success.
 - No signer/key/service, durable replay DB, filesystem collector, network, VM, provider, probe execution or untrusted execution was introduced.
+
+
+## 2026-11-24 — Project-memory freshness enforcement candidate
+
+- Identified a process gap: Project Memory Audit could pass source-index freshness and semantic-index generation while project-level status and next-step documents remained behind the current merged baseline.
+- Added `tools/project_memory/verify_change_memory.py` to compare the exact PR base/head diff and require memory documents according to implementation scope.
+- Added unit tests for documentation-only, app, orchestrator, project-memory, workflow, package, and native-source change classes.
+- Updated Project Memory Audit to test the gate and run it for pull requests; checkout now fetches full history for deterministic base/head comparison.
+- The gate verifies that required memory files are changed in the PR; it does not verify factual accuracy. Manual source review remains required.
+- Candidate branch: `feat/enforce-project-memory-pr-gate-20261124`, based on main `dcb9d1c01a50974d9ef38bdf5f0e4aaf744b409e`. CI validation pending at this log entry.

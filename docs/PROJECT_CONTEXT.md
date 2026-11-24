@@ -107,3 +107,14 @@ The current execution policy is unchanged: `execution_authorized: false`; `eligi
 - The 20 probes remain specified but not executed. No accepted untrusted-code runtime exists. GitHub-hosted Actions and benign Bubblewrap self-tests are not Sandbox acceptance evidence.
 - The host-controller lifecycle, out-of-band observer trust, external canary channel, artifact collection and independent runtime threat-model review remain future work. No production infrastructure or paid service is authorized.
 - Preserve `execution_authorized: false` and `eligible_for_untrusted_execution: false`.
+
+
+## Host lifecycle update — PR #70 (2026-11-24)
+
+- PR #70 merged as `e699293c1495f3137dd319e37764a2db6c5dfff3`; final head `a4b79467d850663ae10f8ffebb8e544f9ecf199e`.
+- It adds a pure state machine for future host-controller lifecycle events: runtime readiness, observation, evidence accepted/rejected, termination request, runtime termination, and cleanup.
+- Events are bound to attempt/runtime/policy and monotonic deadline. Illegal ordering, stale identity, arbitrary event names, and malformed failure codes are rejected.
+- Both passing and rejected evidence paths require termination and cleanup confirmation; cleanup failure is terminal.
+- It invokes no adapter and has no OS/process/network/VM/provider capabilities. It cannot prove that an external runtime actually stopped or was cleaned up.
+- Final-head checks passed: Task Orchestrator Tests `45377376254`, Non-production PR Validation `45377376173`, Project Memory Audit `45377376300`.
+- Runtime execution remains disabled; no probes, provider, VM, API key, private-source transfer or spend was used.

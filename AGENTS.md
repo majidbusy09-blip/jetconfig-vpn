@@ -255,3 +255,13 @@ PR #49 merged `sandbox_acceptance.py`, a strict verifier for independently signe
 - Exact checkpoint checks passed: Task Orchestrator Tests run `45428730520` (401 tests), Non-production PR Validation `45428731306`, and Project Memory Audit `45428731849`. The latter generated semantic/resolved/critical-path indexes as temporary 30-day artifacts and verified task-intelligence against real indexed source.
 - The green audit did not itself enforce freshness of all project-level memory documents. This PR updates the baseline; a future required check should make such updates enforceable.
 - No production transport, KMS/HSM key, durable Replay Store, isolated signer deployment, external security approval, live probe, VM/provider, source transfer, or untrusted execution exists. All execution flags remain false.
+
+
+## Multi-project architecture and registry update — 2026-11-25
+
+- PR #97 was squash-merged as `914445b758d049ad5b97d670a66635f4cf8aba7b`. It adds the repository-neutral multi-project architecture, project manifest JSON Schema, and read-only onboarding specification.
+- JET VPN is the first compatibility fixture, bound to immutable GitHub repository ID `1349356614`. The proposed project ID `jet-vpn-android` remains a candidate until a separately reviewed registry activation; documentation merge did not register or activate it.
+- Phase 2A is tracked in Issue #98. Its scope is a pure standard-library manifest/schema/identity/uniqueness/lifecycle/runner validator and adversarial tests. Task-envelope, lease, context, workspace, cache, and artifact identity propagation are explicitly later phases.
+- The checked-in schema is a deliberately constrained JSON Schema 2020-12 subset. The implementation must reject remote references and unknown schema keywords; do not describe a partial implementation as a full standards-compliant validator.
+- Do not register «حسابگر من» or any other repository until the owner supplies its exact repository URL and live immutable repository identity is independently checked.
+- Project manifests are declarative data, never executable instructions. Global safety policy remains stronger than project-specific configuration.

@@ -21,7 +21,7 @@ from tools.task_orchestrator.sandbox_acceptance import REQUIRED_PROBES
 _MANIFEST_PATH = Path(__file__).with_name("runtime_probe_manifest.json")
 _OBSERVER_DOMAINS = frozenset({"host_controller", "guest", "external_canary"})
 _ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$")
-_UTC_RE = re.compile(r"^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$")
+_UTC_RE = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
 MAX_OBSERVATION_BYTES = 48 * 1024
 MAX_PROBE_EVIDENCE_BYTES = 128 * 1024
 MAX_TOTAL_EVIDENCE_BYTES = 2 * 1024 * 1024

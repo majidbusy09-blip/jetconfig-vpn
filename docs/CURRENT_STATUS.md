@@ -75,3 +75,14 @@ This section supersedes the earlier PR #53 baseline above.
 - No provider, API key, private-source transfer, VM, untrusted execution, signing key, production release, deployment, or spend was used.
 - `execution_authorized: false` and `eligible_for_untrusted_execution: false` remain mandatory.
 
+
+
+
+## Latest authoritative snapshot — PR #57 merged (2026-11-24)
+
+- Current main includes PR #57 squash merge `e28e16ba9b4021d3974085639df4c461774e8eaf`; PR #57 final head: `d60cf18554f37b0387bc6c5738edefdd2f04f602`.
+- Final-head CI all passed: Task Orchestrator Tests run `45358099449`; Project Memory Audit run `45358099476`; Non-production PR Validation run `45358099550`.
+- PR #57 is design/documentation only. `docs/PROTECTED_TRUST_CONTROL_PLANE_DESIGN.md` specifies an out-of-band root trust anchor, signed configuration envelope, audience/expiry/digest binding, monotonic epoch/version floor, atomic CAS, rotation/revocation, audit, and recovery requirements. Decision D-013 records the choice.
+- No control-plane service, root key, KMS/HSM, transactional monotonic store, provider, VM, or production anti-rollback implementation was created.
+- Next safe coding step: provider-neutral signed-envelope acceptance module plus monotonic-store protocol, using deterministic fake verifier and in-memory CAS only in unit tests. Production persistence and trust must not be claimed.
+- Execution remains disabled: `execution_authorized: false`, `eligible_for_untrusted_execution: false`.

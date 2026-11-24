@@ -75,3 +75,12 @@ This log records decisions that govern future work. New entries should include d
 - **Decision:** The UI may expose a connected state only when the native core reports CONNECTED, a live tunnel verification has succeeded, and no explicit UI-disconnect override is active. Cold restore and app resume must clear stale verification and require a fresh ping check before showing connected.
 - **Rationale:** The native core can report CONNECTED before the data path is usable; retaining a stale verification flag or setting it from native state alone can produce a false-positive connected UI.
 - **Consequence:** Failed silent verification must not stop the core or preserve a green/connected state. In smart mode, it falls back to the slow health watcher; device-level lifecycle and network tests remain necessary.
+
+
+## D-010 — Sandbox signature trust is pinned outside the runtime trust domain
+
+- **Date:** 2026-11-24
+- **Status:** Accepted; policy adapter implemented in PR under review.
+- **Decision:** Trust-store bytes must be canonical and match a SHA-256 digest supplied by protected out-of-band configuration. A protected caller-supplied minimum version must be enforced monotonically. Only unique, active, in-window Ed25519 public keys are eligible; revoked, retired, unknown, expired, not-yet-valid, malformed, or algorithm-mismatched keys fail closed.
+- **Rationale:** A provider or guest must not be able to nominate its own verification key or roll back to an older trust policy.
+- **Consequence:** `sandbox_trust.py` validates the store and delegates Ed25519 verification to an injected audited backend. It does not persist rollback state, provision keys, or authorize execution. Production integration requires protected deployment of the pinned digest/version floor and an approved cryptographic backend.

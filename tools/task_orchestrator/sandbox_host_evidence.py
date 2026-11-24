@@ -16,12 +16,13 @@ from pathlib import Path
 from types import MappingProxyType
 from typing import Mapping
 
-from tools.task_orchestrator.sandbox_acceptance import REQUIRED_PROBES
+from tools.task_orchestrator.sandbox_acceptance import REQUIRED_PROBES, SUITE_ID, SUITE_VERSION
 
 _MANIFEST_PATH = Path(__file__).with_name("runtime_probe_manifest.json")
 _OBSERVER_DOMAINS = frozenset({"host_controller", "guest", "external_canary"})
 _ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$")
 _UTC_RE = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
+_SHA256_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
 MAX_OBSERVATION_BYTES = 48 * 1024
 MAX_PROBE_EVIDENCE_BYTES = 128 * 1024
 MAX_TOTAL_EVIDENCE_BYTES = 2 * 1024 * 1024
@@ -37,6 +38,10 @@ class ProbeObservation:
     observer_domain: str
     observer_id: str
     attempt_id: str
+    runtime_id: str
+    policy_digest: str
+    monotonic_start_ns: int
+    monotonic_end_ns: int
     observed_at: str
     outcome: str
     payload: bytes
@@ -120,6 +125,8 @@ class HostEvidenceCollector:
         self,
         *,
         trusted_observers: Mapping[str, frozenset[str]],
+        runtime_id: str,
+        policy_digest: str,
         now: datetime,
         max_age_seconds: int = 600,
         allowed_clock_skew_seconds: int = 30,
@@ -139,7 +146,13 @@ class HostEvidenceCollector:
             raise HostEvidenceError("Maximum observation age must be a positive integer.")
         if isinstance(allowed_clock_skew_seconds, bool) or not isinstance(allowed_clock_skew_seconds, int) or allowed_clock_skew_seconds < 0:
             raise HostEvidenceError("Allowed clock skew must be a non-negative integer.")
+        if not isinstance(runtime_id, str) or not _ID_RE.fullmatch(runtime_id):
+            raise HostEvidenceError("Pinned runtime identity is invalid.")
+        if not isinstance(policy_digest, str) or not _SHA256_RE.fullmatch(policy_digest):
+            raise HostEvidenceError("Pinned policy digest must be a lowercase SHA-256 digest.")
         self._trusted_observers = normalized
+        self._runtime_id = runtime_id
+        self._policy_digest = policy_digest
         self._now = now.astimezone(timezone.utc)
         self._max_age_seconds = max_age_seconds
         self._allowed_clock_skew_seconds = allowed_clock_skew_seconds
@@ -159,6 +172,16 @@ class HostEvidenceCollector:
                 raise HostEvidenceError("Unknown probe observation.")
             if observation.attempt_id != attempt_id:
                 raise HostEvidenceError("Observation belongs to a different attempt.")
+            if observation.runtime_id != self._runtime_id:
+                raise HostEvidenceError("Observation belongs to a different runtime instance.")
+            if observation.policy_digest != self._policy_digest:
+                raise HostEvidenceError("Observation policy digest does not match the pinned attempt policy.")
+            for field in ("monotonic_start_ns", "monotonic_end_ns"):
+                value = getattr(observation, field)
+                if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+                    raise HostEvidenceError("Monotonic observation offsets must be non-negative integers.")
+            if observation.monotonic_end_ns < observation.monotonic_start_ns:
+                raise HostEvidenceError("Observation monotonic end precedes its start.")
             if not isinstance(observation.observer_domain, str) or observation.observer_domain not in _OBSERVER_DOMAINS:
                 raise HostEvidenceError("Unrecognized observer trust domain.")
             if observation.observer_domain not in required[observation.probe_id]:
@@ -184,6 +207,10 @@ class HostEvidenceCollector:
             grouped[observation.probe_id][observation.observer_domain] = {
                 "observer_domain": observation.observer_domain,
                 "observer_id": observation.observer_id,
+                "runtime_id": observation.runtime_id,
+                "policy_digest": observation.policy_digest,
+                "monotonic_start_ns": observation.monotonic_start_ns,
+                "monotonic_end_ns": observation.monotonic_end_ns,
                 "observed_at": observation.observed_at,
                 "outcome": observation.outcome,
                 "payload_b64": base64.b64encode(observation.payload).decode("ascii"),
@@ -204,7 +231,11 @@ class HostEvidenceCollector:
             raw = json.dumps(
                 {
                     "schema_version": 1,
+                    "suite_id": SUITE_ID,
+                    "suite_version": SUITE_VERSION,
                     "attempt_id": attempt_id,
+                    "runtime_id": self._runtime_id,
+                    "policy_digest": self._policy_digest,
                     "probe_id": probe_id,
                     "observations": ordered,
                 },

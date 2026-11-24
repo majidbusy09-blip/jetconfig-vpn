@@ -558,3 +558,14 @@ Append-only record of meaningful project work. Each entry should include branch/
 - Explicitly documented that a caller-created `AuthenticatedObserverResult` is not proof of verifier execution.
 - Final-head CI: Task Orchestrator Tests `45390283412`, Non-production PR Validation `45390283324`, Project Memory Audit `45390283473` — all success.
 - No signer/key/service, durable replay DB, filesystem collector, network, VM, provider, probe execution or untrusted execution was introduced.
+
+
+## 2026-11-24 — PR #84 replay acceptance receipt read contract
+
+- PR #84 squash-merged as `dcb9d1c01a50974d9ef38bdf5f0e4aaf744b409e`; final head `1588aa5ddcc0c6b68ccf96ac5cd251e87f975085`.
+- Added frozen `ObserverReplayReceipt` with full audit context, ledger revision and fencing epoch.
+- Changed `ObserverReplayStore.consume` to return the committed receipt and added read-only `get_acceptance(observer_id, envelope_sha256)`.
+- Verifier validates all receipt bindings and exact readback equality before returning `AuthenticatedObserverResult`; the result carries challenge expiry, accepted timestamp, ledger revision and fencing epoch.
+- Strengthened fake replay store and tests for successful readback, immutability, missing readback and consume-only store rejection. Initial test run found an error classification mismatch for duplicate replay; fixed before final validation.
+- Final-head CI: Task Orchestrator Tests `45391947042` (358 tests), Non-production PR Validation `45391947037`, Project Memory Audit `45391947062` — all success.
+- No durable DB, real fencing/anti-rollback, credentials, signer/key, network, filesystem collector, VM, provider, probe execution or untrusted execution was used.

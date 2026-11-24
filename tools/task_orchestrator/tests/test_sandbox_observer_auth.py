@@ -183,6 +183,8 @@ class ObserverAuthenticationTests(unittest.TestCase):
         verifier, _ = make_verifier()
         cases = (
             ({"observer_id": "other-observer"}, challenge()),
+            ({"observer_domain": "guest"}, challenge()),
+            ({"key_id": "other-key"}, challenge()),
             ({"attempt_id": "other-attempt"}, challenge()),
             ({"runtime_id": "other-runtime"}, challenge()),
             ({"policy_digest": "sha256:" + "b" * 64}, challenge()),
@@ -291,6 +293,12 @@ class ObserverAuthenticationTests(unittest.TestCase):
         invalid = challenge(probe_id="not_a_real_probe")
         with self.assertRaisesRegex(ObserverAuthenticationError, "not in the pinned"):
             verifier.verify(make_envelope(probe_id="not_a_real_probe"), challenge=invalid)
+
+    def test_naive_challenge_timestamps_are_rejected(self):
+        verifier, _ = make_verifier()
+        invalid = challenge(issued_at=datetime(2026, 11, 24, 11, 59, 30), expires_at=NOW + timedelta(seconds=30))
+        with self.assertRaisesRegex(ObserverAuthenticationError, "timezone-aware"):
+            verifier.verify(make_envelope(), challenge=invalid)
 
     def test_expired_or_overlong_host_challenges_are_rejected(self):
         verifier, _ = make_verifier()

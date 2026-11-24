@@ -65,6 +65,7 @@ class AcceptanceProvenanceError(ValueError):
 @dataclass(frozen=True)
 class AcceptanceProvenanceExpectation:
     acceptance: AcceptanceExpectation
+    runtime_id: str
     observer_registry_sha256: str
     observer_registry_version: int
 
@@ -72,6 +73,7 @@ class AcceptanceProvenanceExpectation:
         if not isinstance(self.acceptance, AcceptanceExpectation):
             raise AcceptanceProvenanceError("Base acceptance expectation is required.")
         self.acceptance.validate()
+        _validate_text(self.runtime_id, "expected runtime_id")
         if not isinstance(self.observer_registry_sha256, str) or not _SHA256_RE.fullmatch(self.observer_registry_sha256):
             raise AcceptanceProvenanceError("An independently pinned observer registry digest is required.")
         if (

@@ -114,7 +114,9 @@ def _check_schema_node(node: Any, root: dict[str, Any], active_refs: set[str]) -
             re.compile(node["pattern"])
         except re.error as exc:
             raise ProjectRegistryError("Schema contains an invalid regular expression.") from exc
-    if "format" in node and node["format"] not in {"uri", "date-time"}:
+    if "format" in node and (
+        not isinstance(node["format"], str) or node["format"] not in {"uri", "date-time"}
+    ):
         raise ProjectRegistryError("Only URI and date-time formats are supported.")
     for key in ("minLength", "maxLength", "minItems", "maxItems"):
         if key in node and (isinstance(node[key], bool) or not isinstance(node[key], int) or node[key] < 0):
@@ -299,7 +301,10 @@ def validate_repository_binding(manifest: dict[str, Any], repository_metadata: d
             raise ProjectRegistryError(f"Trusted GitHub metadata is missing {key}.")
         if repo.get(key) != actual:
             raise ProjectRegistryError(f"Manifest repository {key} does not match trusted GitHub metadata.")
-    parsed = urlsplit(expected["url"])
+    try:
+        parsed = urlsplit(expected["url"])
+    except ValueError as exc:
+        raise ProjectRegistryError("Trusted GitHub repository URL is malformed.") from exc
     if parsed.scheme != "https" or parsed.netloc != "github.com" or parsed.path.rstrip("/") != "/" + expected["full_name"] or parsed.query or parsed.fragment or parsed.username or parsed.password:
         raise ProjectRegistryError("Trusted GitHub repository URL is not canonical.")
 

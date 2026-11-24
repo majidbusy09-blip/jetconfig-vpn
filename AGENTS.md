@@ -264,3 +264,11 @@ The local task orchestrator now includes `docs/DECISIONS.md` and `docs/KNOWN_ISS
 ## Versioned coding-agent memory contract
 
 New task envelopes use contract v1.2 and include eight pinned project-memory documents: agent instructions, project context, current status, next steps, task template, development log, architectural decisions, and known issues. The task orchestrator and envelope builder use one canonical manifest from `agent_contract.py`. The validator accepts legacy v1.1 envelopes/results for compatibility, but v1.2 requires the exact eight paths in canonical order and each result must echo the envelope's version. Never silently downgrade a v1.2 task or drop decision/issue documents.
+
+
+## Verified PR #89 memory capability status — 2026-11-24
+
+- Candidate PR #89 exact head `bcce39bb22bf9305a405cfc1dcc76ead0ffe6cb7` passed all four checks: Task Orchestrator Tests `45440623118` (359 tests), Non-production PR Validation `45440623111`, Project Memory Audit `45440623455`, and Agent PR Lease/Scope Guard `45440622712`.
+- The Project Memory Audit ran the new change-gate unit suite (9 tests) and reported: `Project-memory update gate passed (7 required documents updated).`
+- New task envelopes use v1.2 with eight canonical pinned documents; legacy v1.1 envelope/result pairs remain supported. The current required memory package is 230,628 bytes, leaving 281,372 bytes under the 512,000-byte total cap for selected source context.
+- PR #89 remains Draft/open/unmerged. Do not treat green CI as merge authorization or proof that branch protection has been changed.

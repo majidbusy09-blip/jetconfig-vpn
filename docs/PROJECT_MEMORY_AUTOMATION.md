@@ -99,3 +99,8 @@ The analyzer-resolved index and generated critical-path report are generated and
 ## Mandatory context supplied to coding agents
 
 The task orchestrator's current contract v1.2 supplies eight pinned memory documents in canonical order: `AGENTS.md`, `docs/PROJECT_CONTEXT.md`, `docs/CURRENT_STATUS.md`, `docs/NEXT_STEPS.md`, `docs/TASK_TEMPLATE.md`, `docs/DEVELOPMENT_LOG.md`, `docs/DECISIONS.md`, and `docs/KNOWN_ISSUES.md`. The manifest is centralized in `tools/task_orchestrator/agent_contract.py`. Legacy v1.1 remains accepted for existing envelopes; new envelopes must use v1.2 and may not omit the decision or issue files.
+
+
+## Verified change-gate result — PR #89 (2026-11-24)
+
+The first full enforcement run passed on PR #89 head `bcce39bb22bf9305a405cfc1dcc76ead0ffe6cb7`. The gate's 9 unit tests succeeded and the exact PR diff check reported `Project-memory update gate passed (7 required documents updated).` The same Project Memory Audit also passed app regression tests, semantic indexer tests/generation, deterministic output, real-source task-intelligence smoke, and lexical-index verification. This validates the mechanism on one implementation-sensitive PR; it does not prove factual accuracy of memory prose or replace human review.

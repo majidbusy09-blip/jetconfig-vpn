@@ -242,3 +242,18 @@ This section supersedes the earlier PR #53 baseline above.
 - The validator remains backward-compatible with legacy v1.1 envelopes and results. New v1.2 envelopes require the exact eight-document path list in canonical order; result version must match its envelope.
 - Updated context-builder, orchestrator, envelope-builder, patch-guard, and GitHub handoff tests/fixtures. The combined context ceiling remains 512 KiB.
 - Exact-head CI after the v1.2 changes is pending; prior PR #89 CI failure remains recorded as a real finding, not a passing result.
+
+
+## Exact-head validation result — PR #89 (2026-11-24)
+
+- PR #89: [enforce durable project-memory updates and expand agent context](https://github.com/majidbusy09-blip/jetconfig-vpn/pull/89), Draft/open/unmerged.
+- Exact head `bcce39bb22bf9305a405cfc1dcc76ead0ffe6cb7`; base `main` SHA `dcb9d1c01a50974d9ef38bdf5f0e4aaf744b409e`.
+- All exact-head checks succeeded:
+  - Task Orchestrator Tests `45440623118`: 359 tests passed, including v1.2 envelope generation and eight-document context validation.
+  - Non-production PR Validation `45440623111`: success; Flutter/APK build steps skipped because the change set is tooling/docs-only.
+  - Project Memory Audit `45440623455`: success; app regression tests, AST/resolved/critical-path tests and generation, deterministic output, real-source task-intelligence smoke test, lexical-index verification, and the new memory gate all passed.
+  - Agent PR Lease/Scope Guard `45440622712`: success.
+- The new memory-gate test suite ran 9 tests successfully. The actual PR gate passed with 7 required documents updated.
+- The mandatory v1.2 project context contains 230,628 bytes at this head, leaving 281,372 bytes below the 512,000-byte package ceiling. Source selection remains explicit and bounded.
+- Earlier failure `45439181931` was from a prior intermediate head where the old envelope contract still required six documents. It was fixed by introducing v1.2 and retaining v1.1 compatibility; do not count the earlier failed run as a pass.
+- PR #89 is still Draft/unmerged. No branch protection, merge, release, deployment, production resource, or execution authorization was changed.

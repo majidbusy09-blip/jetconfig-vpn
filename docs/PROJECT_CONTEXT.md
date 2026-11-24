@@ -206,3 +206,8 @@ The orchestrator's required pinned context now includes `docs/DECISIONS.md` and 
 ## Coding-agent context contract v1.2 — candidate PR #89 (2026-11-24)
 
 New task contexts now carry eight required project-memory documents, adding architectural decisions and known issues to the previous six. The manifest is defined once in `agent_contract.py` and consumed by the orchestrator and envelope builder. New envelopes use contract v1.2; the validator preserves legacy v1.1 compatibility and requires the result version to match its input envelope. V1.2 requires the exact eight paths in canonical order. Context remains full-text, SHA-256 fingerprinted, and pinned to the task base commit; the 512 KiB package ceiling remains unchanged.
+
+
+## Verified PR #89 memory system result — 2026-11-24
+
+PR #89's exact head `bcce39bb22bf9305a405cfc1dcc76ead0ffe6cb7` passed Task Orchestrator Tests (359 tests), Non-production PR Validation, Project Memory Audit, and Agent PR Lease/Scope Guard. The Project Memory Audit verified the real PR diff and reported 7 required memory documents updated; its 9 new gate tests passed. It also regenerated semantic AST, analyzer-resolved, and critical-path indexes, passed deterministic generation, and smoke-tested task intelligence against the real indexed source. The v1.2 envelope now supplies eight pinned memory documents while preserving legacy v1.1 support. PR #89 remains Draft/unmerged; CI success does not authorize merge or production deployment.

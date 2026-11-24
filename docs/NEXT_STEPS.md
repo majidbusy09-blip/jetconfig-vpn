@@ -268,3 +268,12 @@ Do not merge PRs, alter branch protection, provision infrastructure, or authoriz
 3. Confirm the GitHub task-handoff fixture includes decisions and known issues at the pinned base and emits an eight-document context package.
 4. If context exceeds the existing 512 KiB cap, fail closed and select a smaller explicit source context; do not silently truncate project memory.
 5. After CI succeeds, update this status with the exact head SHA and check run IDs. Do not merge either draft PR without explicit approval.
+
+
+## After exact-head validation of PR #89 — 2026-11-24
+
+1. Keep PR #89 Draft until a human reviews the complete 22-file diff and confirms the gate's scope and v1.1 compatibility behavior.
+2. Before any merge, verify the repository ruleset still requires the Project Memory Audit check; the connector could not read branch-protection details during this session, and no ruleset was changed.
+3. Once PR #89 is approved and merged by the repository owner, verify the new gate runs on PR #88 and passes because PR #88 updates the required memory documents in the same change.
+4. After that, resume the next JET VPN collaborator capability: automatic retrieval/refresh of task-relevant semantic source context from a source-SHA-matched index, without allowing semantic suggestions to expand scope.
+5. Keep production mTLS, KMS/HSM, isolated signer, durable replay persistence, and live execution behind their existing independent-review and explicit-approval gates.

@@ -292,3 +292,8 @@ The context builder must read these files from the task's pinned Git commit, inc
 Do not silently change the required project-context manifest under contract v1.1. New envelopes use contract v1.2 with eight canonical pinned documents: `AGENTS.md`, `docs/PROJECT_CONTEXT.md`, `docs/CURRENT_STATUS.md`, `docs/NEXT_STEPS.md`, `docs/TASK_TEMPLATE.md`, `docs/DEVELOPMENT_LOG.md`, `docs/DECISIONS.md`, and `docs/KNOWN_ISSUES.md`.
 
 The validator continues to accept legacy v1.1 envelopes and matching v1.1 results. For v1.2, it requires the exact eight-document path sequence and each result must echo the version of its input envelope. The orchestrator, envelope builder, and validator share one canonical manifest. The context package remains pinned to the exact Git base, hashes every document, and fails closed at the existing 512 KiB total limit.
+
+
+## D-024/D-026 validation status — PR #89 exact head (2026-11-24)
+
+Both decisions are implemented on candidate PR #89 and passed exact-head validation at `bcce39bb22bf9305a405cfc1dcc76ead0ffe6cb7`. Task Orchestrator Tests passed 359 tests; Non-production PR Validation, Project Memory Audit, and Agent PR Lease/Scope Guard all succeeded. The Project Memory Audit ran 9 gate tests and confirmed that 7 required memory documents were updated in the same PR. New v1.2 envelopes carry the exact eight-document manifest; legacy v1.1 compatibility remains covered. PR #89 remains Draft/unmerged pending human review and explicit approval.

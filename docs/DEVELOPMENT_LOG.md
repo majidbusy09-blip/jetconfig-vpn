@@ -585,3 +585,15 @@ Append-only record of meaningful project work. Each entry should include branch/
 - Kept legacy v1.1 envelope validation and matching v1.1 results available; result contract version must match the input envelope. V1.2 requires the exact eight paths in canonical order.
 - Updated the v1.2 envelope, handoff, context-builder, orchestrator, and legacy patch-guard fixtures/tests; updated the adapter contract, task handoff guide, and orchestrator README.
 - The first failing CI run was Non-production PR Validation run `45439181931` on an earlier PR #89 head. The failure was not ignored; this entry records the corrective work. Exact-head revalidation is pending.
+
+
+## 2026-11-24 — PR #89 project-memory gate and v1.2 task context validated
+
+- Final exact PR #89 head: `bcce39bb22bf9305a405cfc1dcc76ead0ffe6cb7`, base `dcb9d1c01a50974d9ef38bdf5f0e4aaf744b409e`. PR remains Draft/open/unmerged.
+- Task Orchestrator Tests run `45440623118`: success, 359 tests.
+- Non-production PR Validation run `45440623111`: success; app/APK steps skipped for tooling/docs-only changes.
+- Project Memory Audit run `45440623455`: success. App regression tests, semantic AST/resolved/critical-path indexer tests and generation, deterministic output, real-source task-intelligence smoke, lexical index check, 9 memory-gate tests, and exact PR memory-diff enforcement passed.
+- The gate reported `Project-memory update gate passed (7 required documents updated).`
+- New v1.2 envelopes include eight pinned memory documents. Legacy v1.1 envelopes/results remain accepted as matching pairs. The current full project-memory package is 230,628 bytes, leaving 281,372 bytes for explicit source context under the 512,000-byte ceiling.
+- An earlier intermediate run failed because the old contract enforced six documents; the versioned fix and updated handoff fixtures passed on the final head.
+- No application code, release, deployment, credentials, branch protection, production resources, or execution flags were changed.

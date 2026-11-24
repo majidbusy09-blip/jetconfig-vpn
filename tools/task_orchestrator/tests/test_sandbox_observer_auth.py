@@ -141,11 +141,17 @@ class ObserverAuthenticationTests(unittest.TestCase):
     def test_valid_signed_envelope_returns_typed_probe_observation(self):
         verifier, replay = make_verifier()
         result = verifier.verify(make_envelope(), challenge=challenge())
-        self.assertEqual(result.probe_id, PROBE)
-        self.assertEqual(result.observer_id, OBSERVER)
-        self.assertEqual(result.observer_domain, DOMAIN)
-        self.assertEqual(result.payload, PAYLOAD)
-        self.assertEqual(result.outcome, "pass")
+        self.assertEqual(result.observation.probe_id, PROBE)
+        self.assertEqual(result.observation.observer_id, OBSERVER)
+        self.assertEqual(result.observation.observer_domain, DOMAIN)
+        self.assertEqual(result.observation.payload, PAYLOAD)
+        self.assertEqual(result.observation.outcome, "pass")
+        self.assertEqual(result.observer_registry_version, 3)
+        self.assertEqual(result.observer_registry_sha256, hashlib.sha256(registry_bytes()).hexdigest())
+        self.assertEqual(result.key_id, KEY_ID)
+        self.assertEqual(result.sequence, 1)
+        self.assertEqual(result.nonce_sha256, hashlib.sha256(NONCE).hexdigest())
+        self.assertEqual(result.envelope_sha256, hashlib.sha256(make_envelope()).hexdigest())
         self.assertEqual(replay.last_sequence[OBSERVER], 1)
 
     def test_duplicate_nonce_is_rejected_even_with_new_sequence(self):

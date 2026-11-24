@@ -1,6 +1,6 @@
 # JET VPN — Verified Repository File Map
 
-> Current source snapshot: `main` at `a09cdb0be35e3072be29973f7ae8df66ab44d07f`, 2026-11-23. PRs #16, #17, #18, and #19 are merged. App version `2.4.5+284`; `lib/main.dart` blob `3d28693b7be8bfe309a850923599830e1a65ab59`.
+> Current source snapshot: `main` at `f682c56331bfb7c07bc4c5be26fddc33a3043969`, 2026-11-24. PR #20 and PRs #38–#44 are merged. App version `2.4.5+284`; `lib/main.dart` blob `3d28693b7be8bfe309a850923599830e1a65ab59`.
 
 | Path | Verified purpose |
 |---|---|
@@ -10,13 +10,25 @@
 | `docs/CODING_AGENT_ADAPTER_CONTRACT.md` | Provider-neutral future adapter contract: task/result envelopes, sandbox permissions, patch gates, audit, and phased rollout; design only, no provider connected. |
 | `tools/task_orchestrator/context_selector.py` | Deterministic, local-only source-file ranking from verified analyzer-resolved and critical-path artifacts; advisory only, never widens task scope. |
 | `tools/task_orchestrator/tests/test_context_selector.py` | Tests deterministic ranking, pinned Git blob provenance, scope filtering, malformed/stale artifact rejection, and query-as-data handling. |
-| `tools/task_orchestrator/task_orchestrator.py` | Local fail-closed CLI for task records, context/base pinning, scope validation, fixed verification profiles, and handoff; currently under PR #20 review, not yet on main. |
-| `tools/task_orchestrator/tests/test_task_orchestrator.py` | Temporary-Git-repository integration tests for lifecycle and safety gates; currently under PR #20 review. |
+| `tools/task_orchestrator/task_orchestrator.py` | Merged local fail-closed CLI for task records, context/base pinning, scope validation, fixed verification profiles, impact analysis, and human-reviewed handoff (PR #20). |
+| `tools/task_orchestrator/tests/test_task_orchestrator.py` | Merged temporary-Git-repository integration tests for lifecycle, scope, verification, and handoff safety gates (PR #20). |
 | `tools/task_orchestrator/agent_contract.py` | Strict provider-neutral validation for task envelopes, agent results, paths, budgets, fixed verification profiles, patch references, and context fingerprints; validation only, no provider or patch execution. |
 | `tools/task_orchestrator/readonly_adapter.py` | Read-only provider protocol and validated immutable-envelope boundary; fixture-only, no live provider/network/tools/patch application. |
+| `tools/task_orchestrator/dispatcher.py` | Provider-neutral dispatch registry and validated task routing; fixture-only in current configuration, no provider discovery or live execution. |
+| `tools/task_orchestrator/local_dispatch_runner.py` | Local fixture-only dispatch runner with bounded input/output and exclusive result creation. |
+| `tools/task_orchestrator/provider_result_ingestion.py` | Local ingestion of structured provider-result data and exact patch bytes; verifies contract, scope, digest, byte count, and no-overwrite behavior. |
+| `tools/task_orchestrator/patch_artifacts.py` | Local content-addressed patch artifact store keyed by SHA-256; rejects unsafe, missing, symlinked, oversized, or tampered artifacts. |
+| `tools/task_orchestrator/patch_review_gate.py` | Fail-closed authorization gate binding a patch to current Issue, lease, lock ref, pinned base, branch, and clean workspace; review-only. |
+| `tools/task_orchestrator/patch_review_command.py` | Read-only command that gathers live GitHub/lease and local Git observations before invoking the patch review gate. |
+| `tools/task_orchestrator/tests/test_provider_result_ingestion.py` | Tests provider-result ingestion, digest/size/scope rejection, path safety, and overwrite prevention. |
+| `tools/task_orchestrator/tests/test_patch_artifacts.py` | Tests content-addressed artifact integrity, idempotency, symlink rejection, and size limits. |
+| `tools/task_orchestrator/tests/test_patch_review_gate.py` | Tests fail-closed live review authorization, lease/base/branch/worktree checks, and unapplied success state. |
+| `tools/task_orchestrator/tests/test_patch_review_command.py` | Tests read-only live review command input validation and GitHub observation handling. |
+| `tools/task_orchestrator/tests/test_fixture_to_ingestion_integration.py` | Integration test for fixture dispatch through provider-result ingestion and patch validation. |
+| `tools/task_orchestrator/tests/test_patch_review_command_integration.py` | Integration tests for live review authorization and ingestion-to-review continuity; success remains human-review-only. |
 | `tools/task_orchestrator/tests/test_readonly_adapter.py` | Adapter tests for immutable context, fail-closed validation, provider errors, and caller-data integrity. |
 | `tools/task_orchestrator/tests/test_agent_contract.py` | Fixture/security tests for malformed payloads, path traversal, protected paths, scope, budgets, profile injection, patch references, stale context, and failure states. |
-| `tools/task_orchestrator/README.md` | Local MVP usage, fixed profiles, and explicit non-goals; currently under PR #20 review. |
+| `tools/task_orchestrator/README.md` | Usage, fixed verification profiles, local-only workflows, provider boundaries, and explicit non-goals for the merged orchestrator. |
 | `tools/validation/align_validation_android.py` | Aligns the temporary validation Android scaffold with production SDK/package-visibility settings. |
 | `tools/validation/test_align_validation_android.py` | Unit tests for validation Android parity and idempotency. |
 | `README.md` | Project overview; may describe wider JetConfig ecosystem not included in this repository. |
@@ -58,7 +70,7 @@ The current `main` tree contains a tracked `test/` suite and isolated semantic t
 
 ## Source identity
 
-- Current `main`: `a09cdb0be35e3072be29973f7ae8df66ab44d07f`.
+- Current `main`: `f682c56331bfb7c07bc4c5be26fddc33a3043969`.
 - `lib/main.dart`: blob `3d28693b7be8bfe309a850923599830e1a65ab59`, 9,008 lines, 352,770 UTF-8 bytes, 336,710 Unicode code points.
 - `pubspec.yaml`: blob `adc3b22a4538db4738bec789e3c3badf26e4f710`, version `2.4.5+284`.
 - `.github/workflows/build.yml`: blob `abdb595af8df6b2d02ab0ba1da665ac9de1d6461`; manual release gate.

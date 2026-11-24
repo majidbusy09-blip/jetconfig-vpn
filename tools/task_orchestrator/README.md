@@ -263,3 +263,17 @@ Full suite:
 ```bash
 python -m unittest discover -s tools/task_orchestrator/tests -p 'test_*.py' -v
 ```
+
+
+## Production Ed25519 verification backend
+
+- `ed25519_backend.py` implements the `Ed25519Backend` protocol using PyCA `cryptography` and exposes public-key verification only. It rejects non-byte inputs, public keys not exactly 32 bytes, and signatures not exactly 64 bytes; invalid signatures return `False`.
+- The dependency set is version-pinned in `requirements-sandbox-crypto.txt` and installed as binary wheels in both Python CI workflows. The current pins are `cryptography==50.0.2`, `cffi==2.1.1`, and `pycparser==3.12`. These are exact version pins, not a hash-locked artifact set; add wheel hashes/provenance verification before treating dependency installation as fully reproducible.
+- The tests include RFC 8032 test vector 1 and an end-to-end `PinnedTrustStoreVerifier` check with a test-only RFC seed. No private-key operation is exposed by the production adapter.
+- This provides actual Ed25519 signature verification for a supplied trust store; it does not establish protected external pin delivery, persistent anti-rollback, key rotation/revocation operations, independent VM evidence, or execution authorization.
+- Run `python -m unittest discover -s tools/task_orchestrator/tests -p 'test_*.py' -v`.
+
+
+### CI evidence requirement for cryptographic verifier changes
+
+A pull request that changes the trust-store verifier or its cryptographic backend is not validated by the memory audit or PR-scope guard alone. Require an actual successful run of both `JET VPN - Task Orchestrator Tests` and `JET VPN - Non-production PR Validation` on the exact final PR head. A missing, skipped, or job-less workflow run is not a passing test result. Do not merge until both test workflows have completed successfully for the current head SHA.

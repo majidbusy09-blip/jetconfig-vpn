@@ -1,12 +1,12 @@
 # JET VPN — Project Context
 
-> Current verified repository snapshot: `main` at `a09cdb0be35e3072be29973f7ae8df66ab44d07f` (2026-11-23).  
-> PR #16 merged at `c4f7f4743b3c6ffc64d34a0efb0c19f41b236f1e`; PR #17 at `eae477a89816a5cfd475c596e166d5cb2575884a`; PR #19 at `abdff3a59b89419e869c98d7dbb4ac91512fe950`; PR #18 documentation refresh at `a09cdb0be35e3072be29973f7ae8df66ab44d07f`.  
-> Main source blob: `lib/main.dart` = `3d28693b7be8bfe309a850923599830e1a65ab59`.  
-> App version: `2.4.5+284` (`pubspec.yaml` blob `adc3b22a4538db4738bec789e3c3badf26e4f710`).  
-> PR #19 aligns validation-only Android SDK and package visibility with production; its final-head CI runs #45065541236 and #45065541255 passed.  
-> Active `main-protection` ruleset protects the default branch and requires PR + memory-audit status check.
- 
+> Current verified repository snapshot: `main` at `f682c56331bfb7c07bc4c5be26fddc33a3043969` (2026-11-24).
+> PR #20 merged at `15fea59e4f83704e0a9955363e0f0b237aac09ac`; PRs #38–#44 are also merged, with PR #44 setting the current main HEAD.
+> Main source blob: `lib/main.dart` = `3d28693b7be8bfe309a850923599830e1a65ab59`.
+> App version: `2.4.5+284` (`pubspec.yaml` blob `adc3b22a4538db4738bec789e3c3badf26e4f710`).
+> PR #44 CI passed: Task Orchestrator Tests #45307323849, Non-production PR Validation #45307323773, and Project Memory Audit #45307323780.
+> Active `main-protection` ruleset requires PR + project-memory freshness check; Squash is the only permitted merge method.
+
 ## Product and repository identity
 
 - App: **JET VPN**; related service/brand name: **JetConfig**.

@@ -151,9 +151,6 @@ class HostEvidenceCollector:
             raise HostEvidenceError("Observations must be supplied as a bounded list.")
 
         required = _required_domains()
-        max_observations = sum(len(domains) for domains in required.values())
-        if len(observations) > max_observations:
-            raise HostEvidenceError("Observation count exceeds the exact suite contract.")
         grouped: dict[str, dict[str, dict[str, object]]] = {probe_id: {} for probe_id in REQUIRED_PROBES}
         for observation in observations:
             if not isinstance(observation, ProbeObservation):

@@ -81,9 +81,11 @@ class FakeSandboxProvider:
             runtime_class="linux_vm",
             image_digest=IMAGE,
             egress_state=self.egress,
+            ephemeral_vm=True,
             dedicated_kernel=True,
             resource_limits_enforced=True,
             credentials_present=False,
+            host_sockets_present=False,
             process_tree_termination=True,
         )
 

@@ -118,6 +118,7 @@ class SandboxContractTests(unittest.TestCase):
         ])
         self.assertTrue(result["sandbox_destroyed"])
         self.assertFalse(result["patch_applied"])
+        self.assertFalse(result["eligible_for_untrusted_execution"])
         self.assertEqual(provider.calls[-4:], ["terminate", "inspect", "destroy", "inspect"])
 
     def test_missing_capability_fails_before_sandbox_creation(self):
@@ -144,6 +145,19 @@ class SandboxContractTests(unittest.TestCase):
             run_synthetic_acceptance(provider, request())
         self.assertNotIn("export_artifact", provider.calls)
         self.assertEqual(provider.state, SandboxState.DESTROYED)
+
+
+    def test_keyboard_interrupt_still_triggers_termination_and_destruction(self):
+        class InterruptingProvider(FakeSandboxProvider):
+            def run_synthetic(self, sandbox_id, payload_id):
+                self.calls.append(("run_synthetic", payload_id))
+                raise KeyboardInterrupt()
+
+        provider = InterruptingProvider()
+        with self.assertRaises(KeyboardInterrupt):
+            run_synthetic_acceptance(provider, request())
+        self.assertEqual(provider.state, SandboxState.DESTROYED)
+        self.assertEqual(provider.calls[-4:], ["terminate", "inspect", "destroy", "inspect"])
 
     def test_artifact_digest_mismatch_blocks_and_cleans_up(self):
         provider = FakeSandboxProvider(artifact=SandboxArtifact(

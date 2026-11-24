@@ -55,7 +55,7 @@ An adapter receives one immutable task envelope. Required fields:
 - `repository`: canonical repository identity, branch, pinned base SHA, and workspace root identifier.
 - `scope`: explicit allowed and excluded path patterns plus any approved scope reason.
 - `project_context`: bounded full-text instruction/document content, path, and SHA-256 of the exact UTF-8 content supplied.
-- `source_context`: bounded full-text source files relevant to the task, with path and SHA-256 of the exact UTF-8 content supplied. Context files are capped at 256 KB each and 512 KB combined across each context collection; oversized files must be curated into explicit excerpts by the context builder, never silently truncated.
+- `source_context`: bounded full-text source files relevant to the task, with path and SHA-256 of the exact UTF-8 content supplied. Each context file is capped at 256 KB and the complete project-plus-source context package is capped at 512 KB; oversized files must be curated into explicit excerpts by the context builder, never silently truncated.
 - `semantic_context`: available AST/resolved-index/critical-path summaries with source SHA and explicit precision limitations; unavailable or stale artifacts must be marked as such.
 - `constraints`: invariants, prohibited paths/actions, compatibility requirements, and known risks.
 - `budgets`: maximum wall-clock time, model tokens, tool calls, changed files, and patch bytes.

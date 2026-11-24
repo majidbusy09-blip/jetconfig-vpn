@@ -1,7 +1,7 @@
 # JET VPN — Project Context
 
-> Current verified repository snapshot: `main` at `3e613a8c03a39e4440c3702ac3505acb7b2eae27` (2026-11-24).
-> PR #20, PRs #38–#44, PR #46–#53 are merged.
+> Live main snapshot verified at audit start: `main` at `dcb9d1c01a50974d9ef38bdf5f0e4aaf744b409e` (PR #84 merge, 2026-11-24). Always re-fetch the live ref before work; do not reuse this SHA as a current pointer.
+> PR #89 and PR #91 are Draft/open/unmerged candidate branches; PRs #86–#88 are a separate Draft sandbox stack. Their changes are not present on main until merged.
 > Main source blob: `lib/main.dart` = `3d28693b7be8bfe309a850923599830e1a65ab59`.
 > App version: `2.4.5+284` (`pubspec.yaml` blob `adc3b22a4538db4738bec789e3c3badf26e4f710`).
 > PR #47 Task Orchestrator Tests #45314331567 (247 tests), Project Memory Audit #45314331612, and non-production validation retry #45313415713 passed. PR #48 Task Orchestrator Tests, Project Memory Audit, and Non-production PR Validation #45314885244 all passed.
@@ -27,6 +27,14 @@
 ## Product context versus source truth
 
 Smart routing, direct/domestic app handling, account profiles, purchase/renewal, free tests, server ping, automatic recovery, and APK update are known product areas. Before changing any behavior, verify the implementation in the current source and update the relevant technical documents.
+
+## Approved ChatGPT/Grok collaboration route
+
+- Use only the user's existing ChatGPT and Grok chat sessions through their existing GitHub integrations. No model API keys, paid model API endpoints, or external source-upload adapters.
+- GitHub Issues, verified lease refs, pinned base SHAs, Draft PRs, exact-head checks, and tracked project memory form the workflow record.
+- The ChatGPT docs-only connector pilot is verified in PR #91; Grok remains unverified. The next step is Grok's read-only review of PR #91, followed by a separate Grok write pilot and then one real bounded code task with cross-agent review.
+- Chats are user-activated; GitHub Issues do not wake chats and there is no continuous background polling. A read-only reviewer must not modify the implementation branch.
+- See `AGENTS.md` for the mandatory session continuity and anti-drift procedure.
 
 ## Collaboration contract
 

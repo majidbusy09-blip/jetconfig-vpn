@@ -1,6 +1,6 @@
 # JET VPN — Verified Repository File Map
 
-> Current source snapshot: `main` at `53e00ac2ad5e260a4d214772da4ba9bccd3499f4`, 2026-11-24. PR #20, PRs #38–#44, PR #46, PR #47, and PR #48 are merged. App version `2.4.5+284`; `lib/main.dart` blob `3d28693b7be8bfe309a850923599830e1a65ab59`.
+> Current source snapshot: `main` at `4fc59de5a8d6ef9323de3b48896f78f3c426732d`, 2026-11-24. PR #20, PRs #38–#44, PR #46, PR #47, PR #48, and PR #49 are merged. App version `2.4.5+284`; `lib/main.dart` blob `3d28693b7be8bfe309a850923599830e1a65ab59`.
 
 | Path | Verified purpose |
 |---|---|
@@ -72,7 +72,7 @@ The current `main` tree contains a tracked `test/` suite and isolated semantic t
 
 ## Source identity
 
-- Current `main`: `53e00ac2ad5e260a4d214772da4ba9bccd3499f4`.
+- Current `main`: `4fc59de5a8d6ef9323de3b48896f78f3c426732d`.
 - `lib/main.dart`: blob `3d28693b7be8bfe309a850923599830e1a65ab59`, 9,008 lines, 352,770 UTF-8 bytes, 336,710 Unicode code points.
 - `pubspec.yaml`: blob `adc3b22a4538db4738bec789e3c3badf26e4f710`, version `2.4.5+284`.
 - `.github/workflows/build.yml`: blob `abdb595af8df6b2d02ab0ba1da665ac9de1d6461`; manual release gate.

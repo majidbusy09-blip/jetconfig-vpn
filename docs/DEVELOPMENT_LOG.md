@@ -376,3 +376,15 @@ Append-only record of meaningful project work. Each entry should include branch/
 - **Safety:** Every passing result remains `execution_authorized: false`, `eligible_for_untrusted_execution: false`, and `patch_applied: false`. No account, provider, network probe, key, source transfer, sandbox, or spend is involved.
 - **Verification:** To be run by the Task Orchestrator CI workflow after PR creation; no local/device/runtime test is claimed.
 - **Next:** Build the fixed external probe runner and independently controlled signing trust root, then test an approved real candidate VM.
+
+
+## 2026-11-24 — PR #49 merged: independent signed sandbox evidence verifier
+
+- **Base:** `main` `53e00ac2ad5e260a4d214772da4ba9bccd3499f4`.
+- **PR:** [#49 — Verify independently signed sandbox acceptance evidence](https://github.com/majidbusy09-blip/jetconfig-vpn/pull/49).
+- **Merge commit:** `4fc59de5a8d6ef9323de3b48896f78f3c426732d`.
+- **Added:** `tools/task_orchestrator/sandbox_acceptance.py`, `tools/task_orchestrator/tests/test_sandbox_acceptance.py`, and `docs/SANDBOX_RUNTIME_ACCEPTANCE.md`.
+- **Verification:** Task Orchestrator Tests #45320041554 passed 259 tests total (12 new evidence-verifier tests); Project Memory Audit #45320041561 passed; Agent PR Lease and Scope Guard #45320038880 passed.
+- **Non-production validation:** #45320041553 remained pending at merge; no application source, app version, release, signing, or production behavior was changed.
+- **Security boundary:** The verifier checks a canonical signed report and all 20 probe records. It does not run probes, provision VMs, implement the production signature verifier, or authorize execution. All success results remain `execution_authorized: false`, `eligible_for_untrusted_execution: false`, and `patch_applied: false`.
+- **Next:** Build the actual fixed probe suite and independently controlled signing trust root. No account, payment, source transfer, provider sandbox, or spend without separate approval.

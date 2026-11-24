@@ -1,7 +1,7 @@
 # JET VPN — Task Execution Orchestrator Design
 
-> Status: implemented and merged in PR #20; subsequent patch-ingestion and live-review stages were merged in PRs #38–#44. Current verified main: `53e00ac2ad5e260a4d214772da4ba9bccd3499f4` (2026-11-24).
-> Design baseline: current `main` `53e00ac2ad5e260a4d214772da4ba9bccd3499f4` (2026-11-24).
+> Status: implemented and merged in PR #20; subsequent patch-ingestion and live-review stages were merged in PRs #38–#44. Current verified main: `4fc59de5a8d6ef9323de3b48896f78f3c426732d` (2026-11-24).
+> Design baseline: current `main` `4fc59de5a8d6ef9323de3b48896f78f3c426732d` (2026-11-24).
 
 ## 1. Objective and boundary
 

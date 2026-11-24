@@ -2,17 +2,18 @@
 
 ## Verified baseline — 2026-11-24
 
-- Current `main`: `53e00ac2ad5e260a4d214772da4ba9bccd3499f4` (PR #48 merged).
-- PR #20, PRs #38–#44, and PRs #46–#48 are merged.
-- PR #48 Task Orchestrator Tests, Project Memory Audit, and Non-production PR Validation all passed.
+- Current `main`: `4fc59de5a8d6ef9323de3b48896f78f3c426732d` (PR #49 merged).
+- PR #20, PRs #38–#44, and PRs #46–#49 are merged.
+- PR #49 Task Orchestrator Tests #45320041554 passed 259 tests, Project Memory Audit #45320041561 passed, and Agent PR Lease and Scope Guard #45320038880 passed.
+- Non-production PR Validation #45320041553 remained pending; PR #49 changed developer tooling/docs only.
 - App source/version remain unchanged: `lib/main.dart` blob `3d28693b7be8bfe309a850923599830e1a65ab59`; version `2.4.5+284`.
 - Validated handoff remains: task envelope → fixture dispatch → local result ingestion → content-addressed patch → live Issue/lease review gate → `ready_for_human_review`, `applied: false`.
 
-## P0 — Independent runtime acceptance suite
+## P0 — Build the actual independent runtime probe suite
 
-The verifier in `sandbox_acceptance.py` is now implemented on `feat/trusted-sandbox-evidence-gate-20261124`. It accepts only a fresh canonical report signed by an out-of-band trusted key and containing all 20 required probe outcomes. It does not execute probes or authorize code.
+The signed-evidence verifier is merged in PR #49. It validates a canonical signed report with the exact 20-probe inventory, but it does not execute probes, provision a VM, establish a trust root, or authorize code.
 
-1. Implement the fixed guest-side probe runner and an independent external canary controller. Do not let provider SDK status or provider-generated JSON count as test evidence.
+1. Implement a fixed guest-side probe runner and an independent external canary controller. Provider SDK status and provider-generated JSON must never count as independent test evidence.
 2. Make probe outputs bounded and deterministic; hash exact raw bytes and bind each digest into the signed report.
 3. Cover VM/kernel separation, non-root/capabilities, Seccomp negative tests, enforced cgroup CPU/memory/PID limits, disk quota, read-only source/scratch, secret/socket/device/metadata absence, IPv4/IPv6, DNS, QUIC, external canary, timeout, process-tree kill, artifact integrity, cleanup on success/failure/timeout, and cross-attempt residue.
 4. Establish a separate signing service and audited Ed25519 implementation with pinned public-key ID, rotation, and revocation. Do not place signing private keys in the provider or guest.

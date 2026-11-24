@@ -1,7 +1,7 @@
 # JET VPN — Project Context
 
-> Current verified repository snapshot: `main` at `53e00ac2ad5e260a4d214772da4ba9bccd3499f4` (2026-11-24).
-> PR #20, PRs #38–#44, PR #46, PR #47, and PR #48 are merged.
+> Current verified repository snapshot: `main` at `4fc59de5a8d6ef9323de3b48896f78f3c426732d` (2026-11-24).
+> PR #20, PRs #38–#44, PR #46, PR #47, PR #48, and PR #49 are merged.
 > Main source blob: `lib/main.dart` = `3d28693b7be8bfe309a850923599830e1a65ab59`.
 > App version: `2.4.5+284` (`pubspec.yaml` blob `adc3b22a4538db4738bec789e3c3badf26e4f710`).
 > PR #47 Task Orchestrator Tests #45314331567 (247 tests), Project Memory Audit #45314331612, and non-production validation retry #45313415713 passed. PR #48 Task Orchestrator Tests, Project Memory Audit, and Non-production PR Validation #45314885244 all passed.

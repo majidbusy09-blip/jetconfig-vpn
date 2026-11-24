@@ -1,6 +1,29 @@
 # JET VPN — Current Status
 
-## Latest verified snapshot — 2026-11-24
+## Live execution snapshot — 2026-11-24 (verified from GitHub)
+
+- Repository: `majidbusy09-blip/jetconfig-vpn`; default branch: `main`.
+- Live `main` ref at audit start: `dcb9d1c01a50974d9ef38bdf5f0e4aaf744b409e` (PR #84 merge). This is the baseline for merged code; do not use older PR #53-era SHAs in current status.
+- PR #89, `feat/enforce-project-memory-pr-gate-20261124`, was Draft/open/unmerged at head `cd6d098d2707f888b01d9b2599d37a0ab6ef3a44`. All four exact-head checks passed: `validate-agent-pr` run `45463054475`, Task Orchestrator Tests `45463054008`, Non-production PR Validation `45463053877`, and Project Memory Audit `45463053895`. The v1.2 eight-document context and diff-enforced memory gate are candidate-branch capabilities, not yet on `main`.
+- PR #91, `agent/github-connector-docs-pilot`, was Draft/open/unmerged at `652e3d38a594adfb4b0784971c25010b5a5e3382`. Its three exact-head checks passed: scope guard `45461329913`, Non-production PR Validation `45461334216`, and Project Memory Audit `45461334389`.
+- Issue #90's documentation-only ChatGPT pilot completed. Its lease was released; lock ref `agent-locks/github-connector-docs-pilot` points to release commit `9c0ae0b94e79b75953ae046e385885e6569f15d2`. No active implementation lease remains for that task.
+- ChatGPT's existing GitHub connector has been verified for Issue comments, lock reads, remote branch creation from the pinned base, file commit, and Draft PR creation. This is a documentation-only pilot, not yet proof of a real application-code task.
+- Grok's independent GitHub connector and review capability remain unverified. The next immediate step is a read-only Grok review of PR #91; it requires no implementation lease and must not modify the PR.
+- Sandbox candidate PRs #86, #87, and #88 remain Draft/open/unmerged and form a separate security track. They are not prerequisites for user-activated ChatGPT/Grok connector-based coding because that route does not run arbitrary untrusted code.
+- GitHub reported 18 open PRs at audit time. Only PRs #89 and #91 are on the immediate connector/memory path; older draft PRs require a separate stale-PR triage and must not silently displace the approved roadmap.
+- No model API key, paid model API, external source-upload adapter, provider account, sandbox spend, merge, release, deployment, or untrusted-code execution was used or authorized.
+
+## Current stage and resume point
+
+**Stage:** validate the two existing chat-to-GitHub connections and complete the first safe two-agent workflow.
+
+**Completed:** GitHub task intake/lease/CAS/PR scope guard; ChatGPT documentation-only connector write pilot; PR #89 v1.2 memory contract and memory-diff gate candidate; semantic source suggestions and explicit context acceptance.
+
+**Next action:** Grok performs a read-only, evidence-based review of PR #91 and the connector protocol. Then run a separate low-risk Grok write pilot under its own Issue, lease, branch, and Draft PR. After both connector paths are proven, run one small real source-code task end-to-end and have the other agent review it read-only.
+
+**Not yet achieved:** a real application-code change implemented through a chat connector; independent Grok operation; cross-agent review on a real implementation task; a proven session-resume/checkpoint discipline. Do not report the project as an autonomous or fully independent coding team yet.
+
+## Historical baseline — PR #53-era snapshot (superseded by the live execution snapshot above)
 
 - Repository: `majidbusy09-blip/jetconfig-vpn`.
 - Default branch: `main`.
@@ -34,16 +57,16 @@
 
 ## Security and execution boundaries
 
-- No live model provider is connected. The OpenAI planner remains opt-in and metadata-only; no live request has been made.
+- No separate model API or API key is used in the approved route. ChatGPT/Grok chat sessions use their existing GitHub integrations; the ChatGPT documentation-only write pilot is verified on PR #91, while Grok remains unverified. The OpenAI planner is out of scope and must remain unused.
 - The hosted GitHub runner is not approved for untrusted code execution: the observed runner lacked delegated cgroup controls and visible Seccomp filtering and exposed a Docker socket path.
 - Neither E2B nor Daytona is approved for a pilot under current constraints. E2B requires prior written consent before testing and a payment method for EU workspace verification; Daytona's strict sandbox-level egress policy is tier-gated with a documented $500 Tier 3 top-up.
 - No vendor account, API key, payment method, sandbox, private-source transfer, provider signing key, or provider spend has been created or authorized.
 - No production release, deployment, version bump, signing change, app behavior, bot, payment, backend, or server change is in scope.
 - CI/build success is not proof of physical-device VPN runtime behavior or sandbox isolation.
 
-## Next engineering objective
+## Current engineering objective
 
-Next implement the independent 20-probe host/guest runtime acceptance suite and protected trust-configuration control plane. Review audited Ed25519 dependency options without adding an unapproved dependency. Real VM/provider validation remains blocked pending separate account, consent, data-governance, and cost approval. Keep the runtime synthetic-only and do not run untrusted code.
+Complete the user-activated ChatGPT/Grok GitHub-connector workflow: independent Grok read-only review of PR #91, a separate Grok docs-only write pilot, then one bounded real source-code task with exact-head CI and read-only review by the other agent. The sandbox/security work in PRs #86–#88 is a separate track, not a prerequisite for connector-based coding. Keep arbitrary untrusted-code execution disabled and preserve both execution flags as false.
 
 ## Historical detail
 

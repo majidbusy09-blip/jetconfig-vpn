@@ -8,6 +8,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+from datetime import datetime
 from typing import Any
 from urllib.parse import urlsplit
 
@@ -113,8 +114,8 @@ def _check_schema_node(node: Any, root: dict[str, Any], active_refs: set[str]) -
             re.compile(node["pattern"])
         except re.error as exc:
             raise ProjectRegistryError("Schema contains an invalid regular expression.") from exc
-    if "format" in node and node["format"] != "uri":
-        raise ProjectRegistryError("Only the URI format is supported.")
+    if "format" in node and node["format"] not in {"uri", "date-time"}:
+        raise ProjectRegistryError("Only URI and date-time formats are supported.")
     for key in ("minLength", "maxLength", "minItems", "maxItems"):
         if key in node and (isinstance(node[key], bool) or not isinstance(node[key], int) or node[key] < 0):
             raise ProjectRegistryError(f"Schema {key} must be a non-negative integer.")
@@ -239,6 +240,15 @@ def _validate_instance(value: Any, node: dict[str, Any], root: dict[str, Any],
             parsed = urlsplit(value)
             if not parsed.scheme or not parsed.netloc or any(ch.isspace() for ch in value):
                 raise ProjectRegistryError(f"{path}: value is not a valid absolute URI.")
+        elif node.get("format") == "date-time":
+            if not re.fullmatch(r"\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?(?:Z|[+-]\\d{2}:\\d{2})", value):
+                raise ProjectRegistryError(f"{path}: value is not an RFC 3339 date-time.")
+            try:
+                parsed_time = datetime.fromisoformat(value.replace("Z", "+00:00"))
+            except ValueError as exc:
+                raise ProjectRegistryError(f"{path}: value is not a valid date-time.") from exc
+            if parsed_time.tzinfo is None or parsed_time.utcoffset() is None:
+                raise ProjectRegistryError(f"{path}: date-time must include a timezone.")
 
     if isinstance(value, (int, float)) and not isinstance(value, bool):
         if "minimum" in node and value < node["minimum"]:

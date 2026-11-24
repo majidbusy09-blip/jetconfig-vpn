@@ -24,16 +24,12 @@ from tools.task_orchestrator.sandbox_acceptance import (
     SUITE_ID,
     SUITE_VERSION,
     _parse_utc,
-    _validate_digest,
-    _validate_text,
     canonical_report_bytes,
 )
 from tools.task_orchestrator.sandbox_acceptance_provenance import (
-    AcceptanceProvenanceError,
     AcceptanceProvenanceExpectation,
     _EVIDENCE_KEYS,
     _OBSERVATION_KEYS,
-    _PROBE_KEYS,
     _parse_canonical_object,
 )
 from tools.task_orchestrator.sandbox_host_evidence import ProbeObservation, _required_domains
@@ -47,8 +43,6 @@ from tools.task_orchestrator.sandbox_observer_auth import (
     PinnedObserverRegistry,
 )
 
-_SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
-_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$")
 _UTC_MICRO_RE = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z$")
 _ENVELOPE_FIELDS = frozenset({
     "schema_version", "audience", "observer_id", "observer_domain", "key_id",

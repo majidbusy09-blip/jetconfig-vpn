@@ -45,7 +45,7 @@ Version 1 requires an exact canonical JSON schema containing:
 
 The signature covers canonical UTF-8 JSON containing every field except `signature_b64`. The verifier rejects duplicate JSON keys, unknown/missing fields, noncanonical serialization/base64, invalid timestamps, oversized payloads, payload-digest mismatch, invalid signature, identity/domain/key mismatch, stale/future observations, and challenge-context mismatch. Registry identity validity is checked again at the verifier's trusted acceptance time, not only when the registry object is constructed.
 
-A valid envelope becomes a `ProbeObservation` only after the replay store accepts its nonce and sequence.
+A valid envelope returns an `AuthenticatedObserverResult` only after the replay store accepts its nonce and sequence. The wrapper contains the `ProbeObservation` plus registry digest/version, key ID, sequence, nonce digest, and exact envelope digest. Pass only `result.observation` to `HostEvidenceCollector`, and preserve the wrapper's provenance fields in host-side audit.
 
 ## Anti-replay and durable state
 
@@ -63,7 +63,7 @@ The included tests use an in-memory fake only. It is not suitable for production
 
 The returned `ProbeObservation` retains the original probe ID, observer domain/ID, attempt/runtime/policy bindings, monotonic offsets, UTC timestamp, outcome, and exact raw payload. It can then be passed to `HostEvidenceCollector`, which still checks the manifest-defined observer-domain ownership and complete probe inventory.
 
-The authenticator does not change the evidence collector's allowlist semantics and does not create the final signed acceptance report. A later integration must bind the observer-envelope digest and assembled evidence digest into the signed report without treating a caller assertion as signature proof.
+The authenticator does not change the evidence collector's allowlist semantics and does not create the final signed acceptance report. The current `CollectedEvidenceBundle` does not yet carry the wrapper's registry/envelope/sequence provenance. A later integration must bind those provenance fields and the assembled evidence digest into the signed report without treating a caller assertion as signature proof. Construct the pinned Ed25519 verifier with the same trusted acceptance time used by this envelope verifier so key-validity windows cannot drift.
 
 ## Rotation, revocation, and operational requirements
 

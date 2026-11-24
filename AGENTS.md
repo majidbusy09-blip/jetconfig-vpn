@@ -272,3 +272,15 @@ New task envelopes use contract v1.2 and include eight pinned project-memory doc
 - The Project Memory Audit ran the new change-gate unit suite (9 tests) and reported: `Project-memory update gate passed (7 required documents updated).`
 - New task envelopes use v1.2 with eight canonical pinned documents; legacy v1.1 envelope/result pairs remain supported. The current required memory package is 230,628 bytes, leaving 281,372 bytes under the 512,000-byte total cap for selected source context.
 - PR #89 remains Draft/open/unmerged. Do not treat green CI as merge authorization or proof that branch protection has been changed.
+
+
+## ChatGPT/Grok GitHub-connector operating constraints
+
+- Use only the ChatGPT and Grok chat sessions through their existing GitHub connections for model interaction. Do not add or call model APIs, API keys, paid model endpoints, or external source-upload adapters.
+- GitHub is the task inbox, lease authority, source of truth, and durable project memory. Read the task Issue, current lease, pinned base SHA, and canonical memory before editing.
+- Only one implementation chat may hold an active lease for a task. The other agent may review read-only. Verify the actual lock ref; a comment or owner label alone is not proof.
+- Create a remote implementation branch from the exact pinned base SHA. Do not confuse the ephemeral Actions acceptance branch with a remote branch.
+- Use only the connected GitHub operations actually available. If the integration cannot comment, branch, commit, or open a PR, ask the user to perform that discrete action; do not claim it succeeded.
+- ChatGPT/Grok are user-activated and do not continuously poll or wake from Issue events. Do not describe this as autonomous background execution.
+- Handoff/input artifacts are not automatically attached to chats. Read pinned memory and in-scope source directly through the GitHub integration. Do not upload source to a separate model API.
+- Keep the sandbox track separate. No arbitrary untrusted-code execution, provider provisioning, API key, paid service, external source upload, merge, release, or deployment without separate explicit approval.

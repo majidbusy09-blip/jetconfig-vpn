@@ -64,6 +64,12 @@ class ObserverReplayReceiptReader(Protocol):
     ) -> ObserverReplayReceipt | None: ...
 
 
+class AcceptanceReportSigner(Protocol):
+    """Narrow injected signing boundary; never exposes key material or key creation."""
+
+    def sign(self, key_id: str, canonical_report_bytes: bytes) -> bytes: ...
+
+
 @dataclass(frozen=True)
 class SchemaV3ReportDraft:
     """Deterministic unsigned report and pre-acceptance envelope manifest."""

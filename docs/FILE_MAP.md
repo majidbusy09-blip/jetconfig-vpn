@@ -116,3 +116,9 @@ Never add paths to this map unless verified from the current tree or a separatel
 - `docs/PROTECTED_TRUST_CONTROL_PLANE_DESIGN.md`: architecture/design for out-of-band root trust, signed configuration envelope, monotonic epoch/version, atomic CAS, key lifecycle, audit and recovery. Design only; no production service or durable store exists.
 - `docs/DECISIONS.md`: D-013 records the accepted design direction.
 - PR #57 merged as `e28e16ba9b4021d3974085639df4c461774e8eaf`; final-head CI runs `45358099449`, `45358099476`, and `45358099550` all succeeded.
+
+
+## Trust configuration acceptance (PR #59)
+
+- `tools/task_orchestrator/trust_config_acceptance.py` — strict provider-neutral signed-envelope validation, audience/time/digest checks, injected root verifier, pinned trust-store validation, and monotonic-store Protocol. Reference/test architecture only; not production persistence or a provisioned trust service.
+- `tools/task_orchestrator/tests/test_trust_config_acceptance.py` — deterministic tests using fake root/backend and in-memory CAS implementations; these fixtures are non-production.

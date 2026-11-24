@@ -78,3 +78,21 @@ The task orchestrator includes a strict signed-evidence verifier for independent
 - This is architecture documentation, not an operational control plane. There is no provisioned root key, KMS/HSM, durable monotonic store, service, provider, or VM.
 - Next safe implementation is a provider-neutral validator and monotonic-store protocol with fake-only deterministic unit tests. Production trust and durable anti-rollback remain unimplemented.
 - Untrusted execution remains disabled: `execution_authorized: false`, `eligible_for_untrusted_execution: false`.
+
+
+## Authoritative trust acceptance update — PR #59 (2026-11-24)
+
+PR #59 merged as `1e332fcd8f13c5ccebb352c31b72bbf09a27a1bb`. It adds a reference implementation for provider-neutral trust configuration acceptance:
+
+- Strict canonical schema-v1 signed envelope parsing with bounded input, duplicate-key/non-finite/nesting rejection.
+- Explicit environment/deployment/provider/region audience, trusted UTC validity checks, maximum one-hour envelope lifetime, root key ID and Ed25519 signature shape.
+- Injected root signature verifier; no production root key or verifier provisioning.
+- Exact SHA-256 binding to trust-store bytes and validation through `PinnedTrustStoreVerifier`.
+- Monotonic-store Protocol requiring atomic durable CAS and append-only audit in the same transaction; acceptance is returned only after successful commit.
+- Deterministic fake root/backend and in-memory CAS tests only.
+
+This is **not production-ready**: no durable monotonic-store implementation, transactional audit backend, root key ceremony, KMS/HSM, provider service, or runtime infrastructure exists. The protocol states the required contract; it does not prove a concrete backend meets it. Test doubles are not production trust.
+
+PR #59 final head `177a4090effd838add36188578a5d7e8a7c671f5` passed Task Orchestrator Tests run `45361973408`, Project Memory Audit run `45361973336`, Non-production PR Validation run `45361973411`, and `validate-agent-pr` check `138334033651`.
+
+The current execution policy is unchanged: `execution_authorized: false`; `eligible_for_untrusted_execution: false`. A passing acceptance test or signed evidence report is not execution authorization.

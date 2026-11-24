@@ -120,3 +120,17 @@ This log records decisions that govern future work. New entries should include d
 - The detailed contract is `docs/PROTECTED_TRUST_CONTROL_PLANE_DESIGN.md`: offline/out-of-band root trust; signed envelope with audience, schema, expiry, digest and monotonic epoch/version; atomic transactional compare-and-swap; fail-closed behavior; key rotation/revocation; append-only audit and recovery.
 - This decision approves the architecture direction, not provisioning or operation. No root key, KMS/HSM, control-plane service, durable monotonic database, provider, VM, or untrusted execution is authorized.
 - Implementation may begin with a provider-neutral validator and abstract monotonic-store interface. Fake signature verification and in-memory CAS are test fixtures only and must never be represented as production security.
+
+
+## D-014 — Trust configuration acceptance remains reference-only (2026-11-24)
+
+**Status:** Accepted; implementation boundary.
+
+PR #59 adds a provider-neutral trust configuration acceptance module with strict envelope validation, injected root-signature verification, trust-store digest binding, and a monotonic-store Protocol. The Protocol contract requires durable atomic CAS and append-only audit in the same transaction.
+
+This module is not production-ready and must not be described as an operational protected trust control plane. No production root key/verifier, durable monotonic persistence, transactional audit implementation, KMS/HSM, or service is provisioned. In-memory CAS and fake verifiers/backends exist only in tests.
+
+**Consequences**
+- The acceptance API may be used for deterministic reference behavior and tests only until real root trust and durable storage are separately implemented, reviewed, and provisioned.
+- Any production adapter must prove atomic CAS plus append-only audit, crash consistency, rollback resistance, key lifecycle, and recovery behavior.
+- `execution_authorized: false` and `eligible_for_untrusted_execution: false` remain mandatory. Passing module tests cannot enable untrusted execution.

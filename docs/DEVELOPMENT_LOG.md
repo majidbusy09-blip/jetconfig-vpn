@@ -455,3 +455,13 @@ Append-only record of meaningful project work. Each entry should include branch/
 - The design specifies offline root trust, a signed audience-bound configuration envelope, monotonic epoch/version floors, atomic CAS, fail-closed semantics, rotation/revocation, append-only audit, and recovery.
 - No service, KMS/HSM, root key, durable monotonic store, provider, VM, API key, external spend, or runtime execution was provisioned or used. This merge does not establish a production control plane or safe sandbox.
 - Execution gates remain false: `execution_authorized: false`; `eligible_for_untrusted_execution: false`.
+
+
+## 2026-11-24 — PR #59 trust configuration acceptance
+
+- Added by PR #59, merged as `1e332fcd8f13c5ccebb352c31b72bbf09a27a1bb`; final PR head: `177a4090effd838add36188578a5d7e8a7c671f5`.
+- Added `trust_config_acceptance.py` and its focused tests. It validates canonical schema-v1 envelopes, audience and UTC validity, bounded lifetime, root signature via an injected verifier, exact trust-store digest, and trust-store policy via `PinnedTrustStoreVerifier`.
+- The monotonic-store interface requires a durable atomic compare-and-swap with append-only audit in one transaction. Acceptance is returned only after successful commit.
+- Tests cover happy path/idempotency, rollback and conflict, malformed/oversized values, expiry/digest mismatch, CAS races, invalid prior state, and storage/audit failures. Fakes are test-only.
+- Final-head CI: Task Orchestrator Tests `45361973408` success; Project Memory Audit `45361973336` success; Non-production PR Validation `45361973411` success; `validate-agent-pr` check `138334033651` success.
+- Explicit non-deliverables: no production root key/verifier, persistent monotonic store, atomic audit backend, KMS/HSM, provider, network client, VM, or untrusted execution. Runtime flags remain false.

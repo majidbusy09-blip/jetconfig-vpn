@@ -115,3 +115,13 @@ The detailed trust configuration contract is `docs/PROTECTED_TRUST_CONTROL_PLANE
 5. **Separate approval gates:** KMS/HSM, workload identity, transactional store, VM/provider, private-source transfer, API keys, external spend and any untrusted execution require explicit separate approval.
 
 Keep `execution_authorized: false` and `eligible_for_untrusted_execution: false`.
+
+
+## Next steps after PR #59 — trust acceptance and sandbox evidence
+
+1. **Refresh project memory after PR #59** (this PR): synchronize the authoritative snapshot and explicitly preserve the non-production boundary.
+2. **Independent runtime acceptance suite:** design and test a harmless 20-probe host/guest evidence collection architecture. Keep the runner and host controller independently controlled; include an external egress canary. Do not execute untrusted source.
+3. **Runtime probe coverage:** VM/kernel boundary; Seccomp; cgroup CPU/memory/PID caps; disk quotas; read-only source; secrets/socket/device isolation; cloud metadata blocking; IPv4/IPv6; DNS/QUIC/egress; timeout and process-tree kill; artifact integrity; cleanup and cross-attempt residue.
+4. **Supply-chain hardening:** add hash-locked wheel requirements and provenance verification for `cryptography`, `cffi`, and `pycparser`; verify binary-wheel installation reproducibility and document any provenance gaps.
+5. **Production trust control plane remains blocked:** separately design/provision an offline root trust ceremony, audited root verifier, durable transactional monotonic CAS plus append-only audit, key rotation/revocation, recovery, and independent security review.
+6. Keep `execution_authorized: false` and `eligible_for_untrusted_execution: false`. No paid provider, VM, KMS/HSM, API key, private-source transfer, or untrusted execution without separate explicit approval.

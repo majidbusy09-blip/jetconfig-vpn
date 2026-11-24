@@ -86,3 +86,21 @@ This section supersedes the earlier PR #53 baseline above.
 - No control-plane service, root key, KMS/HSM, transactional monotonic store, provider, VM, or production anti-rollback implementation was created.
 - Next safe coding step: provider-neutral signed-envelope acceptance module plus monotonic-store protocol, using deterministic fake verifier and in-memory CAS only in unit tests. Production persistence and trust must not be claimed.
 - Execution remains disabled: `execution_authorized: false`, `eligible_for_untrusted_execution: false`.
+
+
+## Latest authoritative snapshot — PR #59 merged (2026-11-24)
+
+- Current `main` includes PR #59, squash merge commit `1e332fcd8f13c5ccebb352c31b72bbf09a27a1bb`. This supersedes earlier main HEAD values in this document.
+- PR #59 adds:
+  - `tools/task_orchestrator/trust_config_acceptance.py`
+  - `tools/task_orchestrator/tests/test_trust_config_acceptance.py`
+- The module validates a canonical schema-v1 signed trust-configuration envelope against an explicit audience, trusted UTC time, expiry/lifetime, root-signature verifier interface, trust-store SHA-256 digest, and the existing pinned trust-store verifier.
+- Its monotonic-store Protocol requires atomic compare-and-swap and append-only audit to commit in one durable transaction. The acceptance result is returned only after that commit succeeds.
+- Test coverage includes success/idempotency, rollback and same-epoch conflict, malformed and oversized input, expiry/digest failures, CAS races, invalid monotonic state, and store/audit failure paths. Test fakes are in-memory only.
+- Final PR head `177a4090effd838add36188578a5d7e8a7c671f5` passed:
+  - Task Orchestrator Tests run `45361973408`
+  - Project Memory Audit run `45361973336`
+  - Non-production PR Validation run `45361973411`
+  - `validate-agent-pr` check `138334033651`
+- Important limitations: root verifier is injected and no production root key is provisioned; no production durable monotonic store or atomic audit implementation exists; no live provider/network client/KMS/HSM/VM was introduced.
+- `execution_authorized: false` and `eligible_for_untrusted_execution: false` remain unchanged. PR #59 does not authorize untrusted code execution.

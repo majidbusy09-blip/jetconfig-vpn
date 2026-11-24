@@ -94,7 +94,8 @@ A successful build is not a runtime/device test. A CI workflow definition is not
 - PR #20 merged at `15fea59e4f83704e0a9955363e0f0b237aac09ac`; PRs #38–#44 merged through PR #44; PRs #46–#53 are merged.
 - PR #46 memory refresh merged at `4dbe01eda4078342c17f16a4111919bebaa616ae`.
 - PR #47 synthetic-only sandbox lifecycle contract merged at `f360d50b13064c7136eb7ce4a3b38e3413e5b333`.
-- PR #48 project-memory refresh merged at `53e00ac2ad5e260a4d214772da4ba9bccd3499f4`.\n- PR #49 independent sandbox evidence verifier merged at `4fc59de5a8d6ef9323de3b48896f78f3c426732d`.
+- PR #48 project-memory refresh merged at `53e00ac2ad5e260a4d214772da4ba9bccd3499f4`.
+- PR #49 independent sandbox evidence verifier merged at `4fc59de5a8d6ef9323de3b48896f78f3c426732d`.
 - PR #52 memory refresh merged at `440569f769fd0d6871ac370d7923417637f90dc8`.
 - PR #53 head `b0b5f72c1d8c7f0940b1c1cfb8cb5dacdb1cb11b` passed Task Orchestrator Tests #45334662136 (271 tests), Project Memory Audit #45334662120, Non-production PR Validation #45334662100, and Agent PR Lease and Scope Guard #45334659579; squash-merged as `3e613a8c03a39e4440c3702ac3505acb7b2eae27`.
 - `sandbox_trust.py` delegates Ed25519 signature mathematics to an injected backend and does not persist rollback state or authorize execution.

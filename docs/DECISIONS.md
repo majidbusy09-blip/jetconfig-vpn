@@ -283,3 +283,12 @@ The purpose is to prevent an implementation PR from passing CI while leaving the
 Every task context package must include the pinned contents of `docs/DECISIONS.md` and `docs/KNOWN_ISSUES.md` alongside the existing core project-memory documents. Decisions explain why architectural constraints exist; known issues prevent an agent from reintroducing already observed failures or presenting unresolved behavior as verified.
 
 The context builder must read these files from the task's pinned Git commit, include their SHA-256 fingerprints in the canonical package, reject missing/unsafe/oversized content, and fail rather than truncate if the 512 KiB combined limit is exceeded. This adds durable rationale and blocker awareness without treating the documents as permission to bypass scope or safety gates.
+
+
+## D-026 — Version the expanded coding-agent project-memory envelope (2026-11-24)
+
+**Status:** Implemented on candidate branch; exact-head CI pending.
+
+Do not silently change the required project-context manifest under contract v1.1. New envelopes use contract v1.2 with eight canonical pinned documents: `AGENTS.md`, `docs/PROJECT_CONTEXT.md`, `docs/CURRENT_STATUS.md`, `docs/NEXT_STEPS.md`, `docs/TASK_TEMPLATE.md`, `docs/DEVELOPMENT_LOG.md`, `docs/DECISIONS.md`, and `docs/KNOWN_ISSUES.md`.
+
+The validator continues to accept legacy v1.1 envelopes and matching v1.1 results. For v1.2, it requires the exact eight-document path sequence and each result must echo the version of its input envelope. The orchestrator, envelope builder, and validator share one canonical manifest. The context package remains pinned to the exact Git base, hashes every document, and fails closed at the existing 512 KiB total limit.

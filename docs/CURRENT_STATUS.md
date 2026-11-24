@@ -125,3 +125,18 @@ This section supersedes the earlier PR #53 baseline above.
 - `tools/task_orchestrator/sandbox_host_lifecycle.py` adds a pure lifecycle state-transition validator. It pins attempt/runtime/policy identity and monotonic deadline, restricts event names and transitions, distinguishes accepted/rejected evidence, and requires explicit termination plus cleanup confirmation. Cleanup failure is terminal.
 - The module performs no I/O and invokes no adapter; it is not a process supervisor, timeout killer, VM controller, or proof of cleanup. The state machine only validates reported events.
 - No runtime probes have been executed and no untrusted-code execution is enabled. Both execution flags remain false.
+
+
+## Latest authoritative snapshot — PR #72 merged (2026-11-24)
+
+- Current `main` HEAD: `a199b82ef70f492c2b8df42087992a917d293c7c` (PR #72 squash merge).
+- PR #72 final head `26edb96019e3816e4e23cff24b957f2d0187ca12` passed:
+  - Task Orchestrator Tests run `45379646169`
+  - Non-production PR Validation run `45379646094`
+  - Project Memory Audit run `45379646100`
+- Added `tools/task_orchestrator/sandbox_artifacts.py`, `tools/task_orchestrator/tests/test_sandbox_artifacts.py`, and `docs/SANDBOX_ARTIFACT_COLLECTOR.md`; orchestrator README documents the contract.
+- The validator enforces relative path allowlisting (`artifacts/`, `reports/`), traversal and unsupported component rejection, regular-file candidate declarations, symlink metadata rejection, single-link candidate declarations, duplicate and empty-file rejection, 64-file / 256 KiB-per-file / 2 MiB-total limits, bounded retention metadata (1 second to 30 days), SHA-256 recomputation from supplied bytes, and deterministic canonical manifest serialization.
+- The manifest binds attempt ID, runtime ID, policy digest, evidence digest, signed acceptance-report digest, retention metadata, and each artifact's path/size/digest.
+- Critical limitation: candidate bytes and metadata are supplied to a pure validator. It does not open or stat filesystem objects, prove that file-kind/link-count claims are true, verify report signatures, authenticate artifact provenance, store/delete files, or enforce retention. A trusted host-side collector remains unimplemented.
+- No application source, native source, app version, payment/backend/server behavior, release workflow, or deployment was changed. No runtime probes or untrusted code were executed.
+- Preserve `execution_authorized: false` and `eligible_for_untrusted_execution: false`.

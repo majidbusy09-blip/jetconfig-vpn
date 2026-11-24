@@ -339,7 +339,7 @@ class AcceptanceProvenanceV2Tests(unittest.TestCase):
         probe_id = sorted(REQUIRED_PROBES)[0]
         evidence[probe_id] = json.dumps(json.loads(evidence[probe_id]), indent=2).encode("ascii")
         next(item for item in report["probes"] if item["probe_id"] == probe_id)["evidence_sha256"] = hashlib.sha256(evidence[probe_id]).hexdigest()
-        with self.assertRaisesRegex(AcceptanceProvenanceError, "canonical JSON"):
+        with self.assertRaisesRegex(AcceptanceProvenanceError, "canonical signed form"):
             self.verify(report, evidence)
 
     def test_duplicate_json_keys_and_invalid_expectation_fail_closed(self):

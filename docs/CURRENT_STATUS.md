@@ -214,3 +214,17 @@ This section supersedes the earlier PR #53 baseline above.
 - Schema v3 should bind `observer_envelope_manifest_sha256`; schema v1/v2 remain unchanged. The design specifies immutable attempt snapshots, fencing/ledger revision, fail-closed behavior, independent post-sign verification, and adversarial tests.
 - PR #82 is documentation only. No signer, private key, key generation, production signing service, replay DB, filesystem collector, network, VM, provider, probe execution, or untrusted code was added or used.
 - Preserve `execution_authorized: false` and `eligible_for_untrusted_execution: false`.
+
+
+## Latest authoritative snapshot — PR #84 merged (2026-11-24)
+
+- Current main HEAD: `dcb9d1c01a50974d9ef38bdf5f0e4aaf744b409e` (PR #84 squash merge).
+- PR #84 final head `1588aa5ddcc0c6b68ccf96ac5cd251e87f975085` passed:
+  - Task Orchestrator Tests run `45391947042` — 358 tests
+  - Non-production PR Validation run `45391947037`
+  - Project Memory Audit run `45391947062`
+- `sandbox_observer_auth.py` now defines frozen `ObserverReplayReceipt` with full observer/attempt/runtime/policy/probe/registry/key/nonce/sequence/envelope/challenge-expiry/accepted-time context plus ledger revision and fencing epoch.
+- `ObserverReplayStore.consume` returns the committed receipt; read-only `get_acceptance(observer_id, envelope_sha256)` must return the exact same receipt. The verifier checks every field and readback equality before returning authenticated observer results.
+- `AuthenticatedObserverResult` now carries challenge expiry, accepted timestamp, ledger revision and fencing epoch for future signed-report binding.
+- Tests use an in-memory fake only. Its ledger revision/fencing epoch do not prove durability, multi-process consistency, authenticated storage, or anti-rollback. No production replay DB exists.
+- No signer/key/service, filesystem collector, network, VM/provider, probe execution, release/deployment, or untrusted execution was created or used. Preserve both execution flags as false.

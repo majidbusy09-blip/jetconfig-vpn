@@ -138,3 +138,13 @@ PR #49 merged `sandbox_acceptance.py`, a strict verifier for independently signe
 - Next safe implementation: strict provider-neutral signed-envelope validator + monotonic-store protocol with fake-only tests and explicit non-production status. Follow with the independent 20-probe runner/host-controller work.
 - Execution remains disabled: `execution_authorized: false`, `eligible_for_untrusted_execution: false`.
 
+
+
+
+## Authoritative snapshot — PR #57 merged (2026-11-24)
+
+- PR #57, "docs: design protected trust control plane and anti-rollback", was squash-merged as `e28e16ba9b4021d3974085639df4c461774e8eaf`. Its final head was `d60cf18554f37b0387bc6c5738edefdd2f04f602`.
+- On that exact final head, Task Orchestrator Tests run `45358099449`, Project Memory Audit run `45358099476`, and Non-production PR Validation run `45358099550` all completed successfully.
+- PR #57 adds the design in `docs/PROTECTED_TRUST_CONTROL_PLANE_DESIGN.md` and records decision D-013. It is design documentation only; it does not provision a root key, KMS/HSM, transactional store, service, provider, VM, or production anti-rollback mechanism.
+- Next safe implementation is a provider-neutral signed-envelope acceptance module with injected root-signature verification and a monotonic-store interface. Tests may use deterministic fake verification and an in-memory CAS store only; these are not production trust or durable anti-rollback.
+- Keep `execution_authorized: false` and `eligible_for_untrusted_execution: false`. Do not execute untrusted code or provision external infrastructure without the separate approvals described above.

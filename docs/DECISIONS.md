@@ -109,3 +109,14 @@ This log records decisions that govern future work. New entries should include d
 - **Decision:** Deliver trust-store bytes, their independent digest, a monotonic version floor, and a monotonic configuration epoch through a root-authenticated host control plane outside the provider and guest. Persist epoch/version with atomic compare-and-swap and an append-only audit record. Reject rollback, same-epoch content conflicts, audience mismatch, expired configuration, transaction failure, and unavailable/corrupt monotonic state.
 - **Rationale:** `PinnedTrustStoreVerifier` validates supplied bytes and a caller-supplied floor, but it does not deliver the trust root or persist anti-rollback state. A local file, CI cache, guest variable, provider response, or repository artifact is not an independent durable trust anchor.
 - **Consequences:** The contract is specified in `docs/PROTECTED_TRUST_CONTROL_PLANE_DESIGN.md`. A provider-neutral validator may be implemented and tested with fake interfaces, but it must not be labelled production anti-rollback until a real transactional store, root-key custody, workload identity, audit, recovery, and independent review are in place. No KMS/HSM account, key, provider, VM, spend, or untrusted execution is authorized.
+
+
+
+## D-013 — Protected trust control plane design accepted (2026-11-24)
+
+- Status: **design accepted; implementation pending**.
+- PR #57 was squash-merged as `e28e16ba9b4021d3974085639df4c461774e8eaf` from final head `d60cf18554f37b0387bc6c5738edefdd2f04f602`.
+- Final-head Task Orchestrator Tests `45358099449`, Project Memory Audit `45358099476`, and Non-production PR Validation `45358099550` all passed.
+- The detailed contract is `docs/PROTECTED_TRUST_CONTROL_PLANE_DESIGN.md`: offline/out-of-band root trust; signed envelope with audience, schema, expiry, digest and monotonic epoch/version; atomic transactional compare-and-swap; fail-closed behavior; key rotation/revocation; append-only audit and recovery.
+- This decision approves the architecture direction, not provisioning or operation. No root key, KMS/HSM, control-plane service, durable monotonic database, provider, VM, or untrusted execution is authorized.
+- Implementation may begin with a provider-neutral validator and abstract monotonic-store interface. Fake signature verification and in-memory CAS are test fixtures only and must never be represented as production security.

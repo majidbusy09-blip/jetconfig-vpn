@@ -67,3 +67,14 @@ The task orchestrator includes a strict signed-evidence verifier for independent
 - This backend does not solve protected out-of-band trust-store pin/minimum-version delivery, persistent anti-rollback, key lifecycle automation, independent host/guest probe execution, or real VM isolation. No provider, API key, private-source transfer, sandbox spend, or untrusted execution was used.
 - Execution remains disabled: `execution_authorized: false`, `eligible_for_untrusted_execution: false`.
 
+
+
+
+## PR #57 — protected trust control-plane design merged (2026-11-24)
+
+- PR #57 final head `d60cf18554f37b0387bc6c5738edefdd2f04f602` passed Task Orchestrator Tests `45358099449`, Project Memory Audit `45358099476`, and Non-production PR Validation `45358099550`.
+- Squash merge: `e28e16ba9b4021d3974085639df4c461774e8eaf`.
+- `docs/PROTECTED_TRUST_CONTROL_PLANE_DESIGN.md` defines the intended protected host-side trust configuration boundary; D-013 records the design decision.
+- This is architecture documentation, not an operational control plane. There is no provisioned root key, KMS/HSM, durable monotonic store, service, provider, or VM.
+- Next safe implementation is a provider-neutral validator and monotonic-store protocol with fake-only deterministic unit tests. Production trust and durable anti-rollback remain unimplemented.
+- Untrusted execution remains disabled: `execution_authorized: false`, `eligible_for_untrusted_execution: false`.

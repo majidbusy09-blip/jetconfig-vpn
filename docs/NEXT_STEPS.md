@@ -97,3 +97,21 @@ Do not connect live model providers or execute untrusted code at this stage. Kee
 
 The detailed trust configuration contract is `docs/PROTECTED_TRUST_CONTROL_PLANE_DESIGN.md`. No provider, KMS/HSM, signing key, API key, VM, private-source transfer, spend, or untrusted execution is authorized. Keep `execution_authorized: false` and `eligible_for_untrusted_execution: false`.
 
+
+
+
+## Current authoritative baseline — PR #57 merged (2026-11-24)
+
+- PR #57 final head `d60cf18554f37b0387bc6c5738edefdd2f04f602` passed Task Orchestrator Tests `45358099449`, Project Memory Audit `45358099476`, and Non-production PR Validation `45358099550`; all three runs concluded success.
+- PR #57 squash merge commit: `e28e16ba9b4021d3974085639df4c461774e8eaf`.
+- The protected trust-control-plane contract is now documented in `docs/PROTECTED_TRUST_CONTROL_PLANE_DESIGN.md` and decision D-013. It is not an implementation and creates no production trust root or durable anti-rollback store.
+
+## Next implementation sequence
+
+1. **Provider-neutral trust-config acceptance module:** strict canonical signed-envelope parsing; duplicate-key rejection; schema/audience/time/epoch/version/digest validation; injected root-signature verifier; `PinnedTrustStoreVerifier` integration; abstract monotonic store with atomic CAS; append-only audit contract; return accepted config only after durable commit. Fail closed on invalid signatures, rollback, conflicts, unavailable/corrupt store, CAS races, or audit failure.
+2. **Tests only with explicit fakes:** deterministic fake root verifier and in-memory CAS store for unit tests. Label them test-only; never call them production persistence or anti-rollback. Cover idempotency, same-epoch conflict, concurrency, malformed/canonical JSON, expiry, audience, digest, rollback, rotation/revocation, store/audit failures, and no provider/guest access.
+3. **Independent 20-probe runtime acceptance suite:** fixed guest runner plus independent host controller and external canary. Do not run untrusted code on GitHub-hosted runners or treat Bubblewrap self-test as proof.
+4. **Supply-chain hardening:** review PyCA wheel hashes/provenance and reproducibility.
+5. **Separate approval gates:** KMS/HSM, workload identity, transactional store, VM/provider, private-source transfer, API keys, external spend and any untrusted execution require explicit separate approval.
+
+Keep `execution_authorized: false` and `eligible_for_untrusted_execution: false`.

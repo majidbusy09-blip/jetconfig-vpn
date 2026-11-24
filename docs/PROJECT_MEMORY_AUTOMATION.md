@@ -78,3 +78,19 @@ The application regression suite, static semantic tooling, and local task-execut
 ## Sandbox acceptance evidence verifier
 
 The independent report verifier and adversarial tests are part of the orchestrator tooling. This is not a source-index input and does not alter the application source fingerprint. The test suite runs through the existing Task Orchestrator workflow.
+
+
+## Pull-request project-memory freshness gate
+
+The lexical source-index audit alone is not a complete project-memory audit: it can pass while architecture, decisions, status, and next steps are stale. The PR gate in `tools/project_memory/verify_change_memory.py` checks the exact base-to-head changed-path set and requires durable memory files to be updated in the same implementation-sensitive PR.
+
+Required updates:
+- All implementation-sensitive changes: `docs/CURRENT_STATUS.md`, `docs/NEXT_STEPS.md`, `docs/DEVELOPMENT_LOG.md`, and `docs/PROJECT_CONTEXT.md`.
+- Task orchestrator, project-memory, validation, or workflow changes: additionally `AGENTS.md` and `docs/DECISIONS.md`.
+- Project-memory tooling or workflow changes: additionally this document.
+
+The gate is deliberately narrow: it verifies that the required files are part of the PR diff, not that their prose is true. Source/commit verification and human review remain mandatory. The audit workflow fetches full Git history so the PR base and head commits can be compared deterministically. Unit tests cover app, orchestrator, workflow, project-memory, and documentation-only changes.
+
+### Artifact retention boundary
+
+The analyzer-resolved index and generated critical-path report are generated and uploaded by CI with 30-day retention. They are reproducible analysis artifacts, not durable project memory. Durable decisions, project status, known limitations, and next actions must remain in Git-tracked documents. Do not imply that a prior workflow artifact is permanently available.

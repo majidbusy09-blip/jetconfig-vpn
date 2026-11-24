@@ -537,3 +537,14 @@ Append-only record of meaningful project work. Each entry should include branch/
 - Added `docs/SANDBOX_REPLAY_STORE_DESIGN.md` covering atomic serializable transactions, compare-and-swap sequence updates, uniqueness, audit, stable identity through key rotation, fencing, anti-rollback checkpoint, retention, failover, restore, and failure test matrix.
 - Final-head CI: Task Orchestrator Tests `45385761279`, Non-production PR Validation `45385761459`, Project Memory Audit `45385761392` — all success.
 - No durable DB/service, credentials, network, VM, provider, or untrusted execution was implemented or used.
+
+
+## 2026-11-24 — PR #80 protected observer-envelope retention design
+
+- PR #80 squash-merged as `6666266f59877e9a066188d418938661075ae38e`; final head `f41cee3685c3315ae3373f5c21f9fbaab9fa03dc`.
+- Added `docs/SANDBOX_OBSERVER_ENVELOPE_RETENTION.md`; updated schema-v2 documentation and orchestrator README.
+- Defined two-phase retention: exact-byte pre-acceptance staging with content-addressed paths and deterministic manifest; next report schema binds staging-manifest digest; post-acceptance artifact manifest binds retained envelopes to verified report digest.
+- Specified no-follow descriptor-relative access, same-descriptor hashing, trusted path derivation, bounded size/count, quarantine, retention, cleanup, and independent offline re-verification.
+- Clarified schema v2 does not include raw envelopes or a staging-manifest digest; it remains unchanged.
+- Final-head CI: Task Orchestrator Tests `45386943800`, Non-production PR Validation `45386943924`, Project Memory Audit `45386943682` — all success.
+- No filesystem collector, storage service, database, credentials, network, report signer, private key, VM, provider, or untrusted code was used.

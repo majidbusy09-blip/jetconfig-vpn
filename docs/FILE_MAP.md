@@ -188,3 +188,11 @@ Never add paths to this map unless verified from the current tree or a separatel
 - `docs/SANDBOX_TRUSTED_REPORT_SIGNER.md` — trusted host signer boundary, exact-envelope/Ed25519 revalidation, replay acceptance receipts, schema-v3 manifest binding, atomic snapshot/fencing, fail-closed behavior and adversarial test plan.
 - `docs/SANDBOX_ACCEPTANCE_PROVENANCE_V2.md` and `tools/task_orchestrator/sandbox_acceptance_provenance.py` remain the existing v2 verification path; schema v1/v2 are unchanged.
 - PR #82 merged as `d7ef7ed4266ea2606acd76f6e36fb4822af7d179`; final-head checks `45390283412`, `45390283324`, and `45390283473` all succeeded.
+
+
+## Replay acceptance receipt readback — PR #84
+
+- `tools/task_orchestrator/sandbox_observer_auth.py` — frozen `ObserverReplayReceipt`; consume returns committed receipt; read-only lookup verifies exact read-after-commit equality; result carries expiry/acceptance/revision/fencing context.
+- `tools/task_orchestrator/tests/test_sandbox_observer_auth.py` — deterministic fake receipts and tests for immutability, successful readback, missing readback and consume-only store rejection.
+- `docs/SANDBOX_REPLAY_STORE_DESIGN.md` and `docs/SANDBOX_OBSERVER_AUTHENTICITY.md` — receipt/readback contract and production limitations.
+- PR #84 merged as `dcb9d1c01a50974d9ef38bdf5f0e4aaf744b409e`; final-head checks `45391947042`, `45391947037`, and `45391947062` all succeeded.

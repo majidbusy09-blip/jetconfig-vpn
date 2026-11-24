@@ -9,7 +9,7 @@ The handoff artifact binds a validated GitHub task Issue to the exact, remotely 
 - A successful `/jet-agent claim` creates a handoff artifact.
 - A successful `/jet-agent renew` creates a replacement handoff artifact with the new claim ID and expiry.
 - A `/jet-agent release` does not create a handoff.
-- The workflow uploads the JSON handoff artifact to the same GitHub Actions run for 14 days, then automatically accepts it in a clean local runner workspace and uploads a second `jet-agent-input` artifact containing the prepared contract v1.2 agent envelope. Both artifacts are linked from the Issue comment.
+- The workflow uploads the JSON handoff artifact to the same GitHub Actions run for 14 days, then automatically accepts it in a clean local runner workspace and uploads a second `jet-agent-input` artifact containing the prepared contract v1.2 agent envelope. The Issue comment reports the workflow run URL and artifact names; open the run to retrieve each artifact.
 
 ## Contents and integrity
 

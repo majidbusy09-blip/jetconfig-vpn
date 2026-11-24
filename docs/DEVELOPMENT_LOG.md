@@ -430,3 +430,4 @@ Append-only record of meaningful project work. Each entry should include branch/
 - **Verified PR:** head b0b5f72c1d8c7f0940b1c1cfb8cb5dacdb1cb11b; Task Orchestrator Tests #45334662136 passed 271 tests; Project Memory Audit #45334662120 passed; Non-production PR Validation #45334662100 passed; Agent PR Lease and Scope Guard #45334659579 passed.
 - **Safety:** Documentation only. No app source/version/release, provider, API key, VM, private-source transfer, signing key, untrusted execution, or spend.
 - **Verification:** Pending docs PR checks and Project Memory Audit; do not claim this refresh merged until checks pass and merge is observed.
+- **Final review cleanup:** Corrected stale PR/main snapshot labels and literal escaped line breaks in agent instructions before final CI.

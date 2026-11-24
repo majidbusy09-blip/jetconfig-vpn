@@ -104,6 +104,7 @@ class AgentContractTests(unittest.TestCase):
                 "sha256": hashlib.sha256(content.encode("utf-8")).hexdigest(),
             })
         self.assertIs(validate_envelope(env), env)
+        self.assertEqual(validate_result(result_for(env), env)["status"], "completed")
         missing = copy.deepcopy(env)
         missing["project_context"].pop()
         with self.assertRaises(ContractValidationError):

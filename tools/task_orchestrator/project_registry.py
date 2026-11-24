@@ -98,13 +98,33 @@ def _check_schema_node(node: Any, root: dict[str, Any], active_refs: set[str]) -
         value = node["type"]
         if not isinstance(value, str) or value not in _SUPPORTED_TYPES:
             raise ProjectRegistryError("Schema declares an unsupported type.")
+    if "required" in node:
+        required = node["required"]
+        if not isinstance(required, list) or any(not isinstance(item, str) for item in required) or len(required) != len(set(required)):
+            raise ProjectRegistryError("Schema required must be a unique array of strings.")
+    if "additionalProperties" in node and not isinstance(node["additionalProperties"], (bool, dict)):
+        raise ProjectRegistryError("Schema additionalProperties must be a boolean or schema object.")
+    if "enum" in node and (not isinstance(node["enum"], list) or not node["enum"]):
+        raise ProjectRegistryError("Schema enum must be a non-empty array.")
     if "pattern" in node:
+        if not isinstance(node["pattern"], str):
+            raise ProjectRegistryError("Schema pattern must be text.")
         try:
             re.compile(node["pattern"])
-        except (TypeError, re.error) as exc:
+        except re.error as exc:
             raise ProjectRegistryError("Schema contains an invalid regular expression.") from exc
     if "format" in node and node["format"] != "uri":
         raise ProjectRegistryError("Only the URI format is supported.")
+    for key in ("minLength", "maxLength", "minItems", "maxItems"):
+        if key in node and (isinstance(node[key], bool) or not isinstance(node[key], int) or node[key] < 0):
+            raise ProjectRegistryError(f"Schema {key} must be a non-negative integer.")
+    for key in ("minimum", "maximum"):
+        if key in node and (isinstance(node[key], bool) or not isinstance(node[key], (int, float))):
+            raise ProjectRegistryError(f"Schema {key} must be numeric.")
+    if "uniqueItems" in node and not isinstance(node["uniqueItems"], bool):
+        raise ProjectRegistryError("Schema uniqueItems must be boolean.")
+    if "items" in node and not isinstance(node["items"], dict):
+        raise ProjectRegistryError("Only object-valued items schemas are supported.")
     for key in ("properties", "$defs"):
         value = node.get(key)
         if value is not None:
@@ -289,9 +309,15 @@ def validate_registry_uniqueness(manifest: dict[str, Any],
     for existing in existing_manifests:
         if not isinstance(existing, dict) or not isinstance(existing.get("repository"), dict):
             raise ProjectRegistryError("Existing registry contains a malformed record; refusing registration.")
-        if existing.get("project_id") == project_id:
+        existing_project_id = existing.get("project_id")
+        existing_repository_id = existing["repository"].get("repository_id")
+        if not isinstance(existing_project_id, str) or not _PROJECT_ID_RE.fullmatch(existing_project_id):
+            raise ProjectRegistryError("Existing registry contains an invalid project_id; refusing registration.")
+        if not isinstance(existing_repository_id, str) or not _REPOSITORY_ID_RE.fullmatch(existing_repository_id):
+            raise ProjectRegistryError("Existing registry contains an invalid repository_id; refusing registration.")
+        if existing_project_id == project_id:
             raise ProjectRegistryError("project_id is already reserved in the registry.")
-        if existing["repository"].get("repository_id") == repository_id:
+        if existing_repository_id == repository_id:
             raise ProjectRegistryError("repository_id is already bound in the registry.")
 
 

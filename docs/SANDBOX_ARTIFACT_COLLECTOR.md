@@ -4,7 +4,7 @@
 
 `tools/task_orchestrator/sandbox_artifacts.py` defines a pure, in-memory validation contract for bounded artifacts associated with one sandbox attempt. It accepts typed candidate records and already-supplied byte strings. It does **not** open or enumerate filesystem paths, inspect inode types, resolve symlinks, retain or delete files, authenticate observers, verify report signatures, or execute code.
 
-The module is a deterministic validator, not a trusted host collector. A caller-controlled `kind="regular_file"` field is only an assertion; it is not proof that a filesystem object is a regular file.
+The module is a deterministic validator, not a trusted host collector. Caller-controlled `kind="regular_file"` and `link_count=1` fields are assertions only; they are not proof that a filesystem object is regular or has a single link.
 
 ## Required bindings
 
@@ -57,6 +57,6 @@ A later integration must also decide whether artifact content is retained in the
 
 ## Tests and safety flags
 
-Unit tests use in-memory byte strings only. They cover traversal and allowlist rejection, symlink/directory/device rejection, duplicate paths, per-file and aggregate size limits, count limits, digest recomputation, deterministic ordering, metadata binding, and bounded retention.
+Unit tests use in-memory byte strings only. They cover traversal and allowlist rejection, symlink/directory/device/hard-link rejection, duplicate paths, per-file and aggregate size limits, count limits, digest recomputation, deterministic ordering, metadata binding, and bounded retention.
 
 This contract is not a filesystem collector and provides no proof of VM isolation, artifact provenance, observer authenticity, signature validity, or cleanup. Both `execution_authorized` and `eligible_for_untrusted_execution` remain `false`.

@@ -189,3 +189,16 @@ PR #74 authenticates candidate observer envelopes only when supplied with extern
 7. **Threat-model review and operational gates:** cancellation races, deadlines, kill escalation, cleanup recovery, external-canary independence, IPv4/IPv6/DNS/QUIC egress, resource caps, and cross-attempt residue. VM/provider, API key, private-source transfer, KMS/HSM, paid service, or spend still require separate explicit approval.
 
 PR #76 verifies a signed schema-v2 report and cross-binds observer provenance to raw probe evidence, but does not sign reports, persist replay state, retain raw envelopes, or execute probes. V1 remains unchanged and must not be treated as observer-authenticated. Keep `execution_authorized: false` and `eligible_for_untrusted_execution: false`.
+
+
+## Current next steps after PR #78 (2026-11-24)
+
+1. **Protected raw observer-envelope retention:** define exact-byte storage for signed envelopes referenced by v2 digests; bind artifact paths, size limits, registry version, attempt/runtime/policy, access controls, retention, and independent re-verification.
+2. **Trusted report-signer contract:** specify how the acceptance-suite signer consumes only successful `AuthenticatedObserverResult` values and emits schema v2. No private signing key or signing service until separately approved.
+3. **Host challenge and transport design:** specify CSPRNG nonce generation, challenge issuance/expiry, authenticated host-to-observer transport, mutual TLS/workload identity, canary separation, and retry behavior after crash/lost response. No live network code yet.
+4. **Protected identity lifecycle:** define registry signing/pinning, key rotation overlap, emergency revocation, cache TTL, audit, and recovery through the protected trust control plane.
+5. **Durable replay-store implementation readiness:** design is documented in `SANDBOX_REPLAY_STORE_DESIGN.md`; actual DB/service remains gated on separate trust-boundary review, anti-rollback checkpoint design, credentials, and explicit approval.
+6. **Trusted filesystem collector:** design descriptor-relative no-follow traversal, `fstat`, same-descriptor hashing/copying, TOCTOU defenses, file identity checks, quotas, retention, and crash-safe cleanup. Current artifact collector remains an in-memory validator only.
+7. **Threat-model review and operational gates:** cancellation races, deadlines, kill escalation, cleanup recovery, external-canary independence, IPv4/IPv6/DNS/QUIC egress, resource caps, and cross-attempt residue. VM/provider, API key, private-source transfer, KMS/HSM, paid service, or spend still require separate explicit approval.
+
+PR #78 completes the replay-store transaction design and expands the protocol/test fake; it does not create durable storage. Keep `execution_authorized: false` and `eligible_for_untrusted_execution: false`.

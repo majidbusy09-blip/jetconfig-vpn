@@ -9,7 +9,7 @@ The handoff artifact binds a validated GitHub task Issue to the exact, remotely 
 - A successful `/jet-agent claim` creates a handoff artifact.
 - A successful `/jet-agent renew` creates a replacement handoff artifact with the new claim ID and expiry.
 - A `/jet-agent release` does not create a handoff.
-- The workflow uploads the JSON handoff artifact to the same GitHub Actions run for 14 days, then automatically accepts it in a clean local runner workspace and uploads a second `jet-agent-input` artifact containing the prepared contract v1.1 agent envelope. Both artifacts are linked from the Issue comment.
+- The workflow uploads the JSON handoff artifact to the same GitHub Actions run for 14 days, then automatically accepts it in a clean local runner workspace and uploads a second `jet-agent-input` artifact containing the prepared contract v1.2 agent envelope. Both artifacts are linked from the Issue comment.
 
 ## Contents and integrity
 
@@ -47,7 +47,7 @@ python -m tools.task_orchestrator.github_task_handoff_accept \
   --create-branch
 ```
 
-Use a read-only token with `contents:read` and `issues:read`. The command reads the ZIP in memory without extracting paths, verifies the Issue-body digest, task payload, current claim ID, lock commit, expiry, repository identity, local origin, clean worktree, and exact pinned base SHA. It then initializes the existing local Task Orchestrator, builds the six required project-memory documents, and writes a contract v1.1 `agent_input.json` under the ignored local `.agent/tasks/<task-id>/` directory.
+Use a read-only token with `contents:read` and `issues:read`. The command reads the ZIP in memory without extracting paths, verifies the Issue-body digest, task payload, current claim ID, lock commit, expiry, repository identity, local origin, clean worktree, and exact pinned base SHA. It then initializes the existing local Task Orchestrator, builds the eight required project-memory documents, and writes a contract v1.2 `agent_input.json` under the ignored local `.agent/tasks/<task-id>/` directory.
 
 The command does not push the branch, modify the remote lease, invoke a model, upload source, or apply a patch. Source files are not automatically added to context; use the existing advisory `suggest-context` and explicit `accept-context --path` commands when relevant.
 

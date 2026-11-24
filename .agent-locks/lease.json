@@ -1,1 +1,1 @@
-{"base_sha":"dcb9d1c01a50974d9ef38bdf5f0e4aaf744b409e","claim_id":"9020261124183330","claimed_at":"2026-11-24T18:34:00.875514Z","expires_at":"2026-11-24T19:34:00.875514Z","owner":"chatgpt","schema_version":1,"status":"active","task_id":"github-connector-docs-pilot"}
+{"base_sha":"dcb9d1c01a50974d9ef38bdf5f0e4aaf744b409e","claim_id":"9020261124183330","claimed_at":"2026-11-24T18:34:00.875514Z","expires_at":"2026-11-24T19:34:00.875514Z","owner":"chatgpt","schema_version":1,"status":"released","task_id":"github-connector-docs-pilot"}

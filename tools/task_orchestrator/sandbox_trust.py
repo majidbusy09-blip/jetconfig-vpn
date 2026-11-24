@@ -19,7 +19,7 @@ from typing import Any, Protocol
 
 _SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 _KEY_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$")
-_UTC_RE = re.compile(r"^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$")
+_UTC_RE = re.compile(r"^\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$")
 _MAX_TRUST_STORE_BYTES = 64 * 1024
 _MAX_KEYS = 64
 _TRUST_SCHEMA_VERSION = 1

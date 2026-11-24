@@ -328,3 +328,12 @@ Keep `execution_authorized: false` and `eligible_for_untrusted_execution: false`
 - This is not a filesystem collector: it does not open paths, inspect inode types, authenticate evidence/report signatures, store/delete artifacts, or prove that a candidate is a regular file. The retention value is metadata only.
 - A real host collector must use descriptor-relative no-follow traversal, `fstat`, same-descriptor hashing/copying, TOCTOU defenses, trusted retention enforcement, and independently verified report/evidence bindings. See [the artifact collector contract](../../docs/SANDBOX_ARTIFACT_COLLECTOR.md).
 - Tests use in-memory fixtures only. Both execution authorization flags remain false.
+
+
+## Sandbox artifact inventory contract
+
+- `sandbox_artifacts.py` validates bounded in-memory artifact candidates and produces a deterministic SHA-256 manifest bound to attempt, runtime, policy, evidence, and signed-report digests.
+- It rejects non-normalized/out-of-root paths, symlink/directory/device declarations, hard-linked records, duplicates, empty files, and count/per-file/aggregate/retention limit violations.
+- This is not a filesystem collector: caller-supplied file-kind/link-count metadata is not independently verified. A future host adapter must use descriptor-relative no-follow traversal and `fstat` on the same descriptor used to hash/copy bytes.
+- The manifest does not authenticate the signed report or artifact provenance, enforce retention, apply patches, or authorize execution. Unit tests use in-memory fixtures only.
+- Run focused tests with `python -m unittest discover -s tools/task_orchestrator/tests -p 'test_sandbox_artifacts.py' -v`. Keep both execution authorization flags false.

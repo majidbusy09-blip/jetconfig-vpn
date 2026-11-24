@@ -1,0 +1,209 @@
+{
+  "schema_version": 1,
+  "suite_id": "jetvpn-sandbox-runtime-acceptance",
+  "suite_version": "1.0.0",
+  "status": "specification_only_not_executable",
+  "execution_enabled": false,
+  "probes": [
+    {
+      "probe_id": "runtime_vm_boundary",
+      "evidence_owner": "host_controller",
+      "evidence_type": "host_kernel_and_vm_metadata",
+      "pass_criteria": "Host-observed guest kernel identity and VM boundary differ from host; provider claim alone is insufficient.",
+      "fail_closed": "Host can observe same kernel boundary or evidence is guest-only.",
+      "independent_evidence_required": true,
+      "provider_assertion_accepted_as_evidence": false,
+      "guest_self_report_sufficient": false
+    },
+    {
+      "probe_id": "dedicated_kernel",
+      "evidence_owner": "host_controller",
+      "evidence_type": "host_kernel_and_guest_kernel_identity",
+      "pass_criteria": "Guest kernel identity and boot-scoped evidence map to a dedicated VM kernel distinct from host.",
+      "fail_closed": "Kernel identity is shared, ambiguous, or not independently observed.",
+      "independent_evidence_required": true,
+      "provider_assertion_accepted_as_evidence": false,
+      "guest_self_report_sufficient": false
+    },
+    {
+      "probe_id": "guest_non_root_no_capabilities",
+      "evidence_owner": "guest_plus_host",
+      "evidence_type": "uid_gid_capability_snapshot",
+      "pass_criteria": "Guest process is non-root and has no effective, permitted, inheritable, ambient, or bounding capabilities.",
+      "fail_closed": "UID is privileged or any disallowed capability remains.",
+      "independent_evidence_required": true,
+      "provider_assertion_accepted_as_evidence": false,
+      "guest_self_report_sufficient": false
+    },
+    {
+      "probe_id": "seccomp_enforced",
+      "evidence_owner": "guest_plus_host",
+      "evidence_type": "seccomp_status_and_negative_syscall_results",
+      "pass_criteria": "Seccomp filter is active and a harmless explicitly selected denied syscall returns the expected policy denial.",
+      "fail_closed": "Filter is absent, permissive, or denial is not attributable to policy.",
+      "independent_evidence_required": true,
+      "provider_assertion_accepted_as_evidence": false,
+      "guest_self_report_sufficient": false
+    },
+    {
+      "probe_id": "cgroup_cpu_memory_pid_enforced",
+      "evidence_owner": "host_controller",
+      "evidence_type": "cgroup_v2_limits_and_bounded_pressure_results",
+      "pass_criteria": "Host independently reads finite CPU, memory, and PID limits and observes bounded harmless workload behavior.",
+      "fail_closed": "Any limit is unlimited, writable by guest, unenforced, or not host-observable.",
+      "independent_evidence_required": true,
+      "provider_assertion_accepted_as_evidence": false,
+      "guest_self_report_sufficient": false
+    },
+    {
+      "probe_id": "disk_quota_enforced",
+      "evidence_owner": "host_controller",
+      "evidence_type": "filesystem_quota_configuration_and_boundary_results",
+      "pass_criteria": "Host observes a finite enforced writable-layer quota and bounded test writes stop at policy boundary.",
+      "fail_closed": "Quota is absent, unlimited, bypassable, or evidence is guest-only.",
+      "independent_evidence_required": true,
+      "provider_assertion_accepted_as_evidence": false,
+      "guest_self_report_sufficient": false
+    },
+    {
+      "probe_id": "source_readonly_scratch_writable",
+      "evidence_owner": "host_controller_plus_guest",
+      "evidence_type": "mount_table_and_write_attempt_results",
+      "pass_criteria": "Source mount rejects writes while designated scratch mount accepts bounded writes.",
+      "fail_closed": "Source is writable or scratch is unavailable/unbounded.",
+      "independent_evidence_required": true,
+      "provider_assertion_accepted_as_evidence": false,
+      "guest_self_report_sufficient": false
+    },
+    {
+      "probe_id": "host_home_secrets_absent",
+      "evidence_owner": "host_controller",
+      "evidence_type": "guest_mount_and_environment_inventory",
+      "pass_criteria": "Host verifies host home directories and secret mounts are not exposed; guest inventory contains no injected host credentials.",
+      "fail_closed": "Any host home, credential file, token, or secret mount is reachable.",
+      "independent_evidence_required": true,
+      "provider_assertion_accepted_as_evidence": false,
+      "guest_self_report_sufficient": false
+    },
+    {
+      "probe_id": "host_sockets_devices_absent",
+      "evidence_owner": "host_controller",
+      "evidence_type": "mount_namespace_device_and_socket_inventory",
+      "pass_criteria": "Host verifies Docker/container-runtime sockets, host control sockets, and unapproved devices are not passed through.",
+      "fail_closed": "Any host control socket or unapproved device is exposed.",
+      "independent_evidence_required": true,
+      "provider_assertion_accepted_as_evidence": false,
+      "guest_self_report_sufficient": false
+    },
+    {
+      "probe_id": "metadata_endpoint_blocked",
+      "evidence_owner": "external_canary_plus_host",
+      "evidence_type": "controlled_metadata_route_probe_and_network_policy",
+      "pass_criteria": "A harmless request to the provider metadata test endpoint is blocked and independently observed by host/canary.",
+      "fail_closed": "Metadata endpoint returns data or request path cannot be independently observed.",
+      "independent_evidence_required": true,
+      "provider_assertion_accepted_as_evidence": false,
+      "guest_self_report_sufficient": false
+    },
+    {
+      "probe_id": "ipv4_egress_blocked",
+      "evidence_owner": "external_canary_plus_host",
+      "evidence_type": "ipv4_canary_observation",
+      "pass_criteria": "Controlled IPv4 canary receives no guest-originated connection during the bounded probe window.",
+      "fail_closed": "Canary observes a guest-originated connection.",
+      "independent_evidence_required": true,
+      "provider_assertion_accepted_as_evidence": false,
+      "guest_self_report_sufficient": false
+    },
+    {
+      "probe_id": "ipv6_egress_blocked",
+      "evidence_owner": "external_canary_plus_host",
+      "evidence_type": "ipv6_canary_observation",
+      "pass_criteria": "Controlled IPv6 canary receives no guest-originated connection during the bounded probe window.",
+      "fail_closed": "Canary observes a guest-originated connection or IPv6 is untested.",
+      "independent_evidence_required": true,
+      "provider_assertion_accepted_as_evidence": false,
+      "guest_self_report_sufficient": false
+    },
+    {
+      "probe_id": "dns_udp_tcp_blocked",
+      "evidence_owner": "external_canary_plus_host",
+      "evidence_type": "authoritative_dns_canary_logs",
+      "pass_criteria": "Controlled UDP and TCP DNS queries cannot reach the external authoritative canary.",
+      "fail_closed": "Either transport reaches the canary or DNS is not independently measured.",
+      "independent_evidence_required": true,
+      "provider_assertion_accepted_as_evidence": false,
+      "guest_self_report_sufficient": false
+    },
+    {
+      "probe_id": "quic_udp443_blocked",
+      "evidence_owner": "external_canary_plus_host",
+      "evidence_type": "udp443_canary_observation",
+      "pass_criteria": "A harmless UDP/443 canary packet flow is blocked and no external canary sees it.",
+      "fail_closed": "External UDP/443 traffic is observed or not independently measured.",
+      "independent_evidence_required": true,
+      "provider_assertion_accepted_as_evidence": false,
+      "guest_self_report_sufficient": false
+    },
+    {
+      "probe_id": "external_canary_unreachable",
+      "evidence_owner": "external_canary",
+      "evidence_type": "per_attempt_nonce_and_timestamped_canary_log",
+      "pass_criteria": "A fresh per-attempt nonce is never observed by the canary across supported egress paths.",
+      "fail_closed": "Nonce is observed, canary identity is not independent, or logs are incomplete.",
+      "independent_evidence_required": true,
+      "provider_assertion_accepted_as_evidence": false,
+      "guest_self_report_sufficient": false
+    },
+    {
+      "probe_id": "wall_clock_timeout_enforced",
+      "evidence_owner": "host_controller",
+      "evidence_type": "host_monotonic_deadline_and_runtime_termination_record",
+      "pass_criteria": "Host monotonic deadline terminates the entire runtime within the configured bounded grace period.",
+      "fail_closed": "Guest controls deadline, execution outlives host deadline, or only guest timestamp is used.",
+      "independent_evidence_required": true,
+      "provider_assertion_accepted_as_evidence": false,
+      "guest_self_report_sufficient": false
+    },
+    {
+      "probe_id": "process_tree_kill_verified",
+      "evidence_owner": "host_controller",
+      "evidence_type": "host_pid_namespace_and_process_inventory",
+      "pass_criteria": "Host confirms all guest descendants are terminated after cancellation/timeout.",
+      "fail_closed": "Any descendant survives or host cannot independently enumerate descendants.",
+      "independent_evidence_required": true,
+      "provider_assertion_accepted_as_evidence": false,
+      "guest_self_report_sufficient": false
+    },
+    {
+      "probe_id": "artifact_path_size_digest_verified",
+      "evidence_owner": "host_controller",
+      "evidence_type": "host_collected_artifact_metadata_and_sha256",
+      "pass_criteria": "Host validates allowlisted artifact path, size ceiling, regular-file type, and recomputed SHA-256.",
+      "fail_closed": "Path traversal, symlink/device, size overrun, digest mismatch, or guest-only digest.",
+      "independent_evidence_required": true,
+      "provider_assertion_accepted_as_evidence": false,
+      "guest_self_report_sufficient": false
+    },
+    {
+      "probe_id": "cleanup_success_failure_timeout",
+      "evidence_owner": "host_controller",
+      "evidence_type": "host_resource_inventory_before_after_each_outcome",
+      "pass_criteria": "Host confirms runtime, mounts, network handles, temporary storage, and credentials are removed after success, failure, and timeout.",
+      "fail_closed": "Any resource or credential remains or one outcome path is untested.",
+      "independent_evidence_required": true,
+      "provider_assertion_accepted_as_evidence": false,
+      "guest_self_report_sufficient": false
+    },
+    {
+      "probe_id": "fresh_vm_no_prior_attempt_residue",
+      "evidence_owner": "host_controller",
+      "evidence_type": "new_instance_identity_and_cross_attempt_canary",
+      "pass_criteria": "Each attempt receives a fresh instance identity and cannot read a unique harmless marker from the prior attempt.",
+      "fail_closed": "Instance is reused without proven reset or prior marker is observable.",
+      "independent_evidence_required": true,
+      "provider_assertion_accepted_as_evidence": false,
+      "guest_self_report_sufficient": false
+    }
+  ]
+}

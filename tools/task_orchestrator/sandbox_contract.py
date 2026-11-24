@@ -270,7 +270,7 @@ def run_synthetic_acceptance(provider: SandboxProvider, request: SandboxRequest)
         if execution.timed_out or execution.exit_code != 0:
             raise SandboxContractError("Synthetic acceptance payload did not pass.")
         artifact_record = _validate_artifact(provider.export_artifact(sandbox_id))
-    except Exception as exc:  # provider exceptions are deliberately sanitized
+    except BaseException as exc:  # cleanup must also run for interrupts
         primary_error = exc
         if lifecycle.state not in {SandboxState.FAILED, SandboxState.DESTROYED}:
             lifecycle.transition(SandboxState.FAILED)
@@ -289,7 +289,7 @@ def run_synthetic_acceptance(provider: SandboxProvider, request: SandboxRequest)
             if not isinstance(destroyed, SandboxSnapshot) or destroyed.state is not SandboxState.DESTROYED:
                 raise SandboxContractError("Provider did not confirm sandbox destruction.")
             lifecycle.transition(SandboxState.DESTROYED)
-        except Exception as exc:
+        except BaseException as exc:
             cleanup_error = exc
             if lifecycle.state not in {SandboxState.FAILED, SandboxState.DESTROYED}:
                 lifecycle.transition(SandboxState.FAILED)
@@ -300,6 +300,8 @@ def run_synthetic_acceptance(provider: SandboxProvider, request: SandboxRequest)
         raise SandboxContractError(
             "Sandbox cleanup could not be confirmed; the attempt is blocked."
         ) from cleanup_error
+    if isinstance(primary_error, (KeyboardInterrupt, SystemExit, GeneratorExit)):
+        raise primary_error
     if primary_error is not None:
         raise SandboxContractError(
             "Sandbox acceptance failed; no artifact is eligible for review."
@@ -317,6 +319,7 @@ def run_synthetic_acceptance(provider: SandboxProvider, request: SandboxRequest)
         "policy_digest": request.policy_digest,
         "lifecycle": list(lifecycle.history),
         "sandbox_destroyed": True,
+        "eligible_for_untrusted_execution": False,
         "artifact": artifact_record,
         "patch_applied": False,
     }

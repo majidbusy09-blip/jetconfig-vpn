@@ -259,3 +259,8 @@ The Project Memory Audit runs this gate against the exact PR base/head diff. A d
 ## Mandatory project-memory context for coding tasks
 
 The local task orchestrator now includes `docs/DECISIONS.md` and `docs/KNOWN_ISSUES.md` in every pinned task context package, in addition to the existing agent instructions, project context, current status, next steps, task template, and development log. Read the recorded decisions and evidence-backed blockers before changing architecture or touching a known issue. The context builder reads all required documents from the exact pinned Git commit and fails closed on missing files or size overflow.
+
+
+## Versioned coding-agent memory contract
+
+New task envelopes use contract v1.2 and include eight pinned project-memory documents: agent instructions, project context, current status, next steps, task template, development log, architectural decisions, and known issues. The task orchestrator and envelope builder use one canonical manifest from `agent_contract.py`. The validator accepts legacy v1.1 envelopes/results for compatibility, but v1.2 requires the exact eight paths in canonical order and each result must echo the envelope's version. Never silently downgrade a v1.2 task or drop decision/issue documents.

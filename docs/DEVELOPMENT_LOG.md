@@ -442,3 +442,16 @@ Append-only record of meaningful project work. Each entry should include branch/
 - PR #55 squash-merged as `3cc2e200dd02416d7b2fba02725b6734dffede39`.
 - Limits retained: dependencies are not hash-locked; protected trust-root delivery, persistent anti-rollback, key lifecycle automation, independent runtime probes, and real VM acceptance remain open. No provider, VM, API key, private source transfer, untrusted execution, production action, or spend occurred.
 
+
+
+
+## 2026-11-24 — PR #57 protected trust control plane design merged
+
+- PR: https://github.com/majidbusy09-blip/jetconfig-vpn/pull/57
+- Final PR head: `d60cf18554f37b0387bc6c5738edefdd2f04f602`.
+- Squash merge commit: `e28e16ba9b4021d3974085639df4c461774e8eaf`.
+- Scope: documentation/design only; added `docs/PROTECTED_TRUST_CONTROL_PLANE_DESIGN.md`, recorded D-013, and refreshed next-step/status references.
+- Verification on the exact final head: Task Orchestrator Tests run `45358099449` — success; Project Memory Audit run `45358099476` — success; Non-production PR Validation run `45358099550` — success.
+- The design specifies offline root trust, a signed audience-bound configuration envelope, monotonic epoch/version floors, atomic CAS, fail-closed semantics, rotation/revocation, append-only audit, and recovery.
+- No service, KMS/HSM, root key, durable monotonic store, provider, VM, API key, external spend, or runtime execution was provisioned or used. This merge does not establish a production control plane or safe sandbox.
+- Execution gates remain false: `execution_authorized: false`; `eligible_for_untrusted_execution: false`.

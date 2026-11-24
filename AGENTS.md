@@ -244,3 +244,13 @@ PR #49 merged `sandbox_acceptance.py`, a strict verifier for independently signe
 - A caller-created `AuthenticatedObserverResult` is not a trust root. A future signer must match every result and exact raw envelope to the committed replay ledger receipt, including ledger revision/fencing epoch.
 - Schema v1/v2 remain unchanged. Schema v3 is only a design target; no report builder, signer, verifier, key, signing service, replay database, or filesystem collector was added.
 - No probe execution, VM/provider, network, credentials, production signing, release, deployment, or spend occurred. Keep `execution_authorized: false` and `eligible_for_untrusted_execution: false`.
+
+
+## Authoritative snapshot — PR #84 merged (2026-11-24)
+
+- Current `main` includes PR #84 squash merge `dcb9d1c01a50974d9ef38bdf5f0e4aaf744b409e`; final PR head: `1588aa5ddcc0c6b68ccf96ac5cd251e87f975085`.
+- Final-head CI passed: Task Orchestrator Tests `45391947042` (358 tests), Non-production PR Validation `45391947037`, and Project Memory Audit `45391947062`.
+- PR #84 adds immutable `ObserverReplayReceipt`, a replay-store `consume` return contract, and read-only `get_acceptance(observer_id, envelope_sha256)` lookup.
+- The observer verifier now checks full receipt context, positive ledger revision/fencing epoch, and exact read-after-commit equality before returning `AuthenticatedObserverResult`. The result carries challenge expiry, accepted time, ledger revision and fencing epoch for later report binding.
+- The in-memory fake provides deterministic receipt lookup only. Its revision/fencing epoch are not durable, anti-rollback, authenticated, or production controls. No production replay store exists.
+- No private key/signer, durable database, network, filesystem collector, VM/provider, probe execution, or untrusted execution was added. Keep both execution flags false.

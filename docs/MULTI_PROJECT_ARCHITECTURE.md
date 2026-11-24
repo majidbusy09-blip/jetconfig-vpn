@@ -78,7 +78,7 @@ Adapters are selected by declared capabilities and validated project type, not b
 | Web frontend | TypeScript/JavaScript module index | Node test/type/lint/build profiles |
 | Documentation-only repository | No source index or a Markdown index | Link/schema/documentation checks |
 
-A profile is eligible only when the project manifest declares the capability and the runner supports it. A Python-only project must not run Flutter commands. Missing toolchains or profiles produce a clear blocked result; they must not be silently replaced with unrelated checks.
+A profile is eligible only when the project manifest declares the capability and the runner supports it. A Python-only project must not run Flutter commands. Missing toolchains or profiles produce a clear blocked result; they must not be silently replaced with unrelated checks. Profile identifiers shown in the manifest examples (such as proposed Python-specific profiles) are design examples, not claims that those runners already exist. The registry must reject an unimplemented required profile or classify it as an explicit onboarding blocker until its adapter is delivered and tested.
 
 ## 5. Identity propagation and strict isolation
 

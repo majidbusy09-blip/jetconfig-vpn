@@ -4,8 +4,6 @@ from __future__ import annotations
 
 import os
 import sys
-from pathlib import PurePosixPath
-
 APP_BUILD_PREFIXES = (
     "lib/",
     "test/",
@@ -40,12 +38,12 @@ def requires_app_build(paths: list[str]) -> bool:
 
 
 def main() -> int:
-    paths = [line.rstrip("\\n") for line in sys.stdin]
+    paths = [line.rstrip("\n") for line in sys.stdin]
     app_build = requires_app_build(paths)
     output = os.environ.get("GITHUB_OUTPUT")
     if output:
         with open(output, "a", encoding="utf-8") as handle:
-            handle.write(f"app_build={'true' if app_build else 'false'}\\n")
+            handle.write(f"app_build={'true' if app_build else 'false'}\n")
     print(
         "Application/build-affecting changes detected."
         if app_build

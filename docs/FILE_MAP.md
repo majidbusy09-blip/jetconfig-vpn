@@ -122,3 +122,15 @@ Never add paths to this map unless verified from the current tree or a separatel
 
 - `tools/task_orchestrator/trust_config_acceptance.py` — strict provider-neutral signed-envelope validation, audience/time/digest checks, injected root verifier, pinned trust-store validation, and monotonic-store Protocol. Reference/test architecture only; not production persistence or a provisioned trust service.
 - `tools/task_orchestrator/tests/test_trust_config_acceptance.py` — deterministic tests using fake root/backend and in-memory CAS implementations; these fixtures are non-production.
+
+
+## Runtime probe contract and host evidence collector — PRs #67/#68
+
+- `tools/task_orchestrator/runtime_probe_manifest.json` — machine-readable 20-probe inventory; explicitly non-executable.
+- `tools/task_orchestrator/tests/test_runtime_probe_manifest.py` — exact inventory and trust-boundary tests.
+- `docs/SANDBOX_RUNTIME_PROBE_SPEC.md` — independent evidence ownership, acceptance properties, and runtime sequencing.
+- `tools/task_orchestrator/sandbox_host_evidence.py` — bounded, fail-closed evidence assembler; no runtime execution or provider integration.
+- `tools/task_orchestrator/tests/test_sandbox_host_evidence.py` — deterministic positive/adversarial observer-contract tests.
+- `docs/SANDBOX_HOST_EVIDENCE_COLLECTOR.md` — collector trust boundary, evidence format, limitations and next steps.
+- `tools/validation/classify_ci_scope.py` and `tools/validation/test_classify_ci_scope.py` — unit-tested decision for skipping Flutter/APK builds on tooling-only changes while preserving full validation for app/build paths.
+- PR #67 merge `b0b0b80515f17c01836f558ff5700189c9a7bf32`; PR #68 merge `90dd9f848998ebb0c18b6c584938fee148d6fced`.

@@ -597,3 +597,13 @@ Append-only record of meaningful project work. Each entry should include branch/
 - New v1.2 envelopes include eight pinned memory documents. Legacy v1.1 envelopes/results remain accepted as matching pairs. The current full project-memory package is 230,628 bytes, leaving 281,372 bytes for explicit source context under the 512,000-byte ceiling.
 - An earlier intermediate run failed because the old contract enforced six documents; the versioned fix and updated handoff fixtures passed on the final head.
 - No application code, release, deployment, credentials, branch protection, production resources, or execution flags were changed.
+
+
+## 2026-11-24 — Reprioritize multi-agent implementation around existing GitHub connections
+
+- Audited the Issue intake, comment lease command, Git CAS lease transport, handoff builder/acceptance, PR scope guard, and current runbooks on main and the PR #89 candidate branch.
+- Confirmed the existing pipeline validates task Issues, atomically claims/renews/releases a lease, creates a lease-bound handoff artifact, and has a PR guard. It does not wake ChatGPT/Grok, continuously poll, create the remote implementation branch, or dispatch implementation.
+- Diagnosed the historical Issue #36 smoke failure: the claim and handoff upload succeeded; local acceptance failed because earlier Python imports left untracked bytecode files. The fix to suppress/ignore bytecode was subsequently merged in PR #64 (97ba8dce2e2750b9b9cb71342fb2a477103752d2). The historical lease has expired.
+- Found stale next-step/runbook language requiring a model API adapter, provider runtime, source upload, and isolated execution before agent work. These are not prerequisites for the selected chat + GitHub connector route and are now explicitly superseded.
+- Recorded the user-approved no-API decision and clarified that ChatGPT/Grok are user-activated; each connector's actual write permissions must be verified. Handoff artifacts do not automatically enter a chat, and the ephemeral Actions branch is not the remote implementation branch.
+- No code execution, API key, paid API, external source upload, provider account, production sandbox, merge, release, or deployment was performed.

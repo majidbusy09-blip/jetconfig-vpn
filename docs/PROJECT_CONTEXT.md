@@ -211,3 +211,12 @@ New task contexts now carry eight required project-memory documents, adding arch
 ## Verified PR #89 memory system result — 2026-11-24
 
 PR #89's exact head `bcce39bb22bf9305a405cfc1dcc76ead0ffe6cb7` passed Task Orchestrator Tests (359 tests), Non-production PR Validation, Project Memory Audit, and Agent PR Lease/Scope Guard. The Project Memory Audit verified the real PR diff and reported 7 required memory documents updated; its 9 new gate tests passed. It also regenerated semantic AST, analyzer-resolved, and critical-path indexes, passed deterministic generation, and smoke-tested task intelligence against the real indexed source. The v1.2 envelope now supplies eight pinned memory documents while preserving legacy v1.1 support. PR #89 remains Draft/unmerged; CI success does not authorize merge or production deployment.
+
+
+## Approved JET AI collaboration model — ChatGPT + Grok via GitHub
+
+The current collaboration design uses the ChatGPT and Grok chat sessions with their existing GitHub connections. Do not introduce model API keys, paid model API calls, or external source-upload adapters. GitHub is the shared command center and durable memory. A human activates one implementation chat at a time; the chat reads an Issue, verifies the active Git CAS lease, reads pinned memory and in-scope source, creates a remote branch from the exact base SHA, commits through the GitHub integration, and opens a Draft PR. A second agent may perform read-only review. If a connector cannot post an Issue comment or perform a write, the user performs that discrete operation. The chats are not background daemons and Issues do not wake them automatically.
+
+The lease owner (chatgpt or grok) is a protocol label selected by the user, not cryptographic proof of model identity. The Actions handoff artifact is an audit snapshot; the local agent_input.json is created in a temporary runner workspace and is not automatically injected into either chat. Agents should read repository content directly through their authorized GitHub integration and must not claim that GitHub data never passes through the provider integration.
+
+This connector-based development route does not require arbitrary untrusted-code execution or a production sandbox. GitHub Actions runs fixed verification workflows and human review remains mandatory. Sandbox/runtime isolation stays a separate gated track; preserve execution_authorized: false and eligible_for_untrusted_execution: false.

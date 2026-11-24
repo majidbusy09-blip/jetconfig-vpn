@@ -148,3 +148,17 @@ PR #68 adds `tools/task_orchestrator/sandbox_host_evidence.py` and its tests. Th
 - A successful unit test or assembled evidence bundle is not proof of isolation and cannot authorize untrusted execution.
 - Next work may implement a fixed host-controller adapter/lifecycle contract with fake observers only, plus a separately designed external-canary trust boundary. Real runtime/provider provisioning and spend require separate approval.
 - `execution_authorized: false` and `eligible_for_untrusted_execution: false` remain mandatory.
+
+
+## D-016 — Host lifecycle state machine remains a pure contract (2026-11-24)
+
+**Status:** Accepted as deterministic event-order validation only.
+
+PR #70 adds `tools/task_orchestrator/sandbox_host_lifecycle.py`. The state machine binds events to a pinned attempt/runtime/policy tuple and monotonic start/deadline, enforces allowlisted transitions, and requires explicit termination and cleanup confirmation after both passing and rejected evidence outcomes. Cancellation, timeout, adapter failure, and cleanup failure are represented as distinct bounded failure states.
+
+It does not invoke a runtime adapter or independently observe host state. It cannot prove process termination, resource cleanup, timeout enforcement, or VM isolation. Those remain responsibilities of a future independently reviewed host implementation.
+
+**Consequences**
+- Tests may exercise the transition contract with deterministic events only.
+- No task-supplied commands, dynamic probe code, process execution, VM/provider integration, or external service is authorized.
+- `execution_authorized: false` and `eligible_for_untrusted_execution: false` remain mandatory.

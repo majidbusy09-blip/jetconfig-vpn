@@ -233,3 +233,12 @@ This section supersedes the earlier PR #53 baseline above.
 - Context packages continue to read tracked files from the exact pinned Git revision and include per-document hashes plus a canonical package hash. No mutable working-tree text is substituted.
 - The combined context limit remains 512 KiB; adding these two memory documents reduces the remaining source-context budget. The builder fails closed rather than silently truncating.
 - This change is part of the project-memory enforcement candidate PR #89 and requires exact-head Task Orchestrator and Project Memory Audit validation.
+
+
+## Versioned agent context contract — candidate PR #89 (2026-11-24)
+
+- The first attempt to add `docs/DECISIONS.md` and `docs/KNOWN_ISSUES.md` only to the orchestrator's required context failed CI because the provider-neutral envelope builder/validator and handoff fixtures still required the old six-document manifest.
+- Corrected the design by introducing contract v1.2 with one canonical eight-document manifest in `agent_contract.py`, shared by the orchestrator and envelope builder.
+- The validator remains backward-compatible with legacy v1.1 envelopes and results. New v1.2 envelopes require the exact eight-document path list in canonical order; result version must match its envelope.
+- Updated context-builder, orchestrator, envelope-builder, patch-guard, and GitHub handoff tests/fixtures. The combined context ceiling remains 512 KiB.
+- Exact-head CI after the v1.2 changes is pending; prior PR #89 CI failure remains recorded as a real finding, not a passing result.

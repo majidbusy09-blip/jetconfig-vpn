@@ -77,7 +77,9 @@ class CryptographyEd25519BackendTests(unittest.TestCase):
             "9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60"
         )
         private_key = Ed25519PrivateKey.from_private_bytes(seed)
-        public_key = private_key.public_key().public_bytes_raw()
+        from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
+
+        public_key = private_key.public_key().public_bytes(Encoding.Raw, PublicFormat.Raw)
         value = document()
         value["keys"][0]["public_key_b64"] = base64.b64encode(public_key).decode("ascii")
         raw = canonical(value)

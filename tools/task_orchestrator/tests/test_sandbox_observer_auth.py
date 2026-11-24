@@ -307,6 +307,31 @@ class ObserverAuthenticationTests(unittest.TestCase):
                 with self.assertRaises(ObserverAuthenticationError):
                     verifier.verify(make_envelope(**fields), challenge=challenge())
 
+    def test_verification_time_policy_has_hard_bounds(self):
+        raw = registry_bytes()
+        registry = PinnedObserverRegistry(
+            raw,
+            expected_sha256=hashlib.sha256(raw).hexdigest(),
+            minimum_version=1,
+            expected_audience=AUDIENCE,
+            now=NOW,
+        )
+        for kwargs in (
+            {"max_age_seconds": 3601},
+            {"max_age_seconds": True},
+            {"allowed_clock_skew_seconds": 121},
+            {"allowed_clock_skew_seconds": -1},
+        ):
+            with self.subTest(kwargs=kwargs):
+                with self.assertRaises(ObserverAuthenticationError):
+                    ObserverEnvelopeVerifier(
+                        registry=registry,
+                        signature_verifier=FakeSignatureVerifier(),
+                        replay_store=MemoryReplayStore(),
+                        now=NOW,
+                        **kwargs,
+                    )
+
     def test_replay_store_failure_fails_closed(self):
         verifier, _ = make_verifier(store=FailingReplayStore())
         with self.assertRaisesRegex(ObserverAuthenticationError, "Replay store unavailable"):

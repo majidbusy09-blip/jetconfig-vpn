@@ -20,7 +20,7 @@ Each accepted envelope must commit these fields together:
 - challenge expiry timestamp;
 - trusted host acceptance timestamp.
 
-The store must never receive raw private keys or credentials. Raw signed envelopes remain in the separately protected artifact-retention path; this replay ledger stores their digest and context.
+The store must never receive raw private keys or credentials. Challenge expiry uses exact UTC-second precision; host acceptance time preserves microseconds. Raw signed envelopes remain in the separately protected artifact-retention path; this replay ledger stores their digest and context.
 
 ## Logical state model
 
@@ -83,7 +83,7 @@ The production implementation must additionally verify that the supplied fencing
 - Keep sequence high-water state for the full lifetime of the observer identity and preserve it after key rotation/revocation.
 - Keep audit records under a separate bounded retention policy. Deleting audit payloads must not delete sequence high-water state.
 - Expiry cleanup must be transactional and must not remove records needed for restore/recovery or an active investigation.
-- Use a trusted UTC clock for `accepted_at`; never accept a caller-provided timestamp as the authoritative commit time.
+- Use a trusted UTC clock for `accepted_at` (UTC ISO-8601 with microseconds); never accept a caller-provided timestamp as the authoritative commit time. The verifier rejects challenge issue/expiry values with fractional seconds so nonce tombstone expiry cannot be shortened by truncation.
 
 ## Retry and idempotency
 

@@ -202,3 +202,15 @@ PR #76 verifies a signed schema-v2 report and cross-binds observer provenance to
 7. **Threat-model review and operational gates:** cancellation races, deadlines, kill escalation, cleanup recovery, external-canary independence, IPv4/IPv6/DNS/QUIC egress, resource caps, and cross-attempt residue. VM/provider, API key, private-source transfer, KMS/HSM, paid service, or spend still require separate explicit approval.
 
 PR #78 completes the replay-store transaction design and expands the protocol/test fake; it does not create durable storage. Keep `execution_authorized: false` and `eligible_for_untrusted_execution: false`.
+
+
+## Current next steps after PR #80 (2026-11-24)
+
+1. **Trusted report-signer contract:** specify how the acceptance-suite signer consumes only successful `AuthenticatedObserverResult` values plus the exact retained envelope bytes and staging manifest, verifies all digest bindings, and emits the next report schema with `observer_envelope_manifest_sha256`. No private key or signing service until separately approved.
+2. **Host challenge and transport design:** specify CSPRNG nonce generation, challenge issuance/expiry, authenticated host-to-observer transport, mutual TLS/workload identity, canary separation, and retry behavior after crash/lost response. No live network code yet.
+3. **Protected identity lifecycle:** define registry signing/pinning, key rotation overlap, emergency revocation, cache TTL, audit, and recovery through the protected trust control plane.
+4. **Trusted filesystem staging/collector:** implement only after a separate host trust-boundary review; use descriptor-relative no-follow traversal, `fstat`, same-descriptor hashing/copying, TOCTOU defenses, exclusive create, quotas, retention, quarantine, and crash-safe cleanup.
+5. **Durable replay-store implementation readiness:** design is documented in `SANDBOX_REPLAY_STORE_DESIGN.md`; actual DB/service remains gated on separate trust-boundary review, anti-rollback checkpoint design, credentials, and explicit approval.
+6. **Threat-model review and operational gates:** cancellation races, deadlines, kill escalation, cleanup recovery, external-canary independence, IPv4/IPv6/DNS/QUIC egress, resource caps, and cross-attempt residue. VM/provider, API key, private-source transfer, KMS/HSM, paid service, or spend still require separate explicit approval.
+
+PR #80 is design-only. Schema v2 does not bind a staging-manifest digest; no raw envelope storage exists. Keep `execution_authorized: false` and `eligible_for_untrusted_execution: false`.

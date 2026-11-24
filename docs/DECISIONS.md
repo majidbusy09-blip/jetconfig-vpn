@@ -225,3 +225,19 @@ PR #78 expands the replay-store protocol to receive all security/audit context a
 - Keep raw signed envelopes in a separate protected artifact store; the replay ledger stores digests and audit context only.
 - Current implementation remains an interface plus in-memory test fake. Production database/service requires separate trust-boundary review and explicit approval.
 - `execution_authorized: false` and `eligible_for_untrusted_execution: false` remain mandatory.
+
+
+## D-021 — Retain exact observer envelopes in a two-phase protected artifact chain (2026-11-24)
+
+**Status:** Design accepted; no storage implementation.
+
+PR #80 adds `docs/SANDBOX_OBSERVER_ENVELOPE_RETENTION.md`. Exact original signed envelope bytes must be staged before report signing in a host-only content-addressed store. A deterministic staging manifest records path, size, envelope digest, observer/domain/key, attempt/runtime/policy/probe, registry digest/version, sequence, nonce digest, challenge expiry, and trusted acceptance time.
+
+The next acceptance-report schema should bind the staging-manifest digest. After the report is signed and verified, the final post-acceptance artifact manifest binds retained envelope artifacts to the report digest. This avoids circular dependencies.
+
+**Limits**
+- Schema v2 remains unchanged and does not bind a staging-manifest digest or carry raw envelope bytes.
+- Raw envelopes must be preserved exactly; do not reserialize before hashing or signature re-verification.
+- Storage requires a trusted host implementation with descriptor-relative no-follow traversal, same-descriptor hashing, path derivation, size/count limits, quarantine, retention, and crash-safe cleanup.
+- No filesystem collector or storage backend exists. The artifact collector remains a pure in-memory validator.
+- `execution_authorized: false` and `eligible_for_untrusted_execution: false` remain mandatory.

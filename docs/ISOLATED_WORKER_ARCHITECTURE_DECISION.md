@@ -70,3 +70,10 @@ A candidate that cannot expose evidence for any gate is rejected. A preflight pa
 This ADR does not provision cloud infrastructure, create accounts, incur spend, install a runner, connect a provider, enable network access, execute agent-generated code, apply patches, grant GitHub write permissions, or authorize merge/release/deployment. Those are separate decisions requiring explicit approval.
 
 PR #20 merged at `15fea59e4f83704e0a9955363e0f0b237aac09ac`; PRs #38–#44 are also merged through main `f682c56331bfb7c07bc4c5be26fddc33a3043969`. The worker architecture remains a proposal only: no sandbox is provisioned, no untrusted code is executed, and no provider is connected. Production app, bot, payment, backend, server, signing, and release behavior remain out of scope.
+
+
+## Implementation status — 2026-11-24
+
+PR #46 refreshed the project memory and confirmed that no real worker or provider is enabled. Branch `feat/sandbox-lifecycle-contract-20261124-v2` adds a synthetic-only provider-neutral lifecycle contract and fake-provider tests. It defines a Linux-VM-only capability gate, pinned image/policy digests, deny-all network request, explicit resource limits, guest snapshot checks, bounded artifact integrity, and mandatory termination/destruction confirmation.
+
+This is a control-plane contract test only. Provider declarations and snapshots are not independent attestation; the fake provider is not a security boundary. The code never executes model output, uploads source, creates a real sandbox, or marks the runtime eligible for untrusted code. Independent acceptance tests against an actual candidate VM remain mandatory.

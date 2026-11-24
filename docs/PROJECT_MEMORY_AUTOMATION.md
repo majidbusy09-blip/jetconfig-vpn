@@ -1,6 +1,6 @@
 # JET VPN — Project Memory Automation
 
-> Current main snapshot: `f682c56331bfb7c07bc4c5be26fddc33a3043969` (PR #44 merged, verified 2026-11-24). The application source fingerprint remains unchanged by PR #20 and PRs #38–#44.
+> Current main snapshot: `4dbe01eda4078342c17f16a4111919bebaa616ae` (PR #46 merged, verified 2026-11-24). The application source fingerprint remains unchanged by PR #20, PRs #38–#44, and PR #46.
 
 ## Purpose
 

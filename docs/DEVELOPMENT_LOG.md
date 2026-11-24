@@ -339,3 +339,15 @@ Append-only record of meaningful project work. Each entry should include branch/
 - **Sandbox decision corrected:** E2B prior-written-consent and EU payment-method requirements, and Daytona's Tier 3 $500 top-up requirement for strict sandbox-level egress, mean neither candidate is eligible under current constraints. No account, key, sandbox, source upload, or spend was created.
 - **Refresh branch:** `docs/refresh-collaborator-memory-20261124`. Documentation-only; no Dart/Java/Kotlin app source, version, signing, release workflow, bot, payment, backend, or server behavior changed.
 - **Verification scope:** GitHub branch/ref, file/blob, PR, workflow-run, and ruleset APIs were checked. This documentation refresh itself requires its own Project Memory Audit on the PR head; no Flutter build, application test, or device test is claimed for this docs-only change.
+
+
+## 2026-11-24 — PR #46 memory refresh merged; synthetic sandbox contract started
+
+- **PR #46:** merged at `4dbe01eda4078342c17f16a4111919bebaa616ae`. It refreshed 11 project/architecture documents after PR #20 and PRs #38–#44, corrected stale PR states, and superseded the outdated E2B-first pilot recommendation.
+- **PR #46 checks:** Project Memory Audit #45313415951, Task Orchestrator Tests #45313415720, and `validate-agent-pr` #45313412813 passed. Non-production validation attempt 1 hit Maven Central HTTP 429 during debug APK dependency resolution; attempt 2 was still in progress at this log snapshot. The PR changed documentation only and did not change application source.
+- **New branch:** `feat/sandbox-lifecycle-contract-20261124-v2`, based on main `4dbe01eda4078342c17f16a4111919bebaa616ae`.
+- **Added:** `tools/task_orchestrator/sandbox_contract.py` with a provider-neutral synthetic-only protocol, strict resource/request validation, Linux VM capability gate, provider-reported runtime checks, lifecycle state machine, bounded artifact SHA-256 validation, interruption cleanup, and mandatory destruction confirmation.
+- **Added:** `tools/task_orchestrator/tests/test_sandbox_contract.py` with fake-provider tests for success, capability rejection, open egress, guest credentials/host sockets, timeout, artifact tampering/size, destroy failure, sanitized provider errors, interruption cleanup, and invalid transitions.
+- **Updated:** `tools/task_orchestrator/README.md` with synthetic-only boundaries and focused test command.
+- **Security boundary:** no real provider, process execution, source upload, model-generated code, credentials, network call, account, payment, sandbox, or spend is involved. Every success record states `eligible_for_untrusted_execution: false` and `patch_applied: false`.
+- **Verification:** GitHub file/ref operations only; the new sandbox tests have not yet run in CI. PR creation and CI are the next step. No local or device test is claimed.

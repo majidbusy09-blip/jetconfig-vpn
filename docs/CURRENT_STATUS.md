@@ -4,41 +4,35 @@
 
 - Repository: `majidbusy09-blip/jetconfig-vpn`.
 - Default branch: `main`.
-- Current main HEAD: `f682c56331bfb7c07bc4c5be26fddc33a3043969` (PR #44 squash merge).
-- PR #20 merged at `15fea59e4f83704e0a9955363e0f0b237aac09ac`; the local task orchestrator MVP, coding-agent contract validator, context/impact tooling, and fixture-only read-only adapter are now part of main.
-- PR #38 merged at `75f6601a8b516d3bec0cd641e57292d0615a4aed`: local content-addressed patch artifact store and integrity checks.
-- PR #39 merged at `834a627d1d9df81f11a462c760ce17acb08c788f`: fail-closed live Patch review authorization gate.
-- PR #40 merged at `e50a8c871f0105cb185fdf70ae72967cb63a6d9a`: read-only live Patch review command.
-- PR #41 merged at `27d9bcf8a71585ed9dcc3d1997f33c1f468ec7ea`: local provider-result ingestion with digest, scope, and overwrite checks.
-- PR #42 merged at `f603d4f7190459be0f4bd56db67851f12e01c3c9`: fixture dispatch-to-ingestion integration test.
-- PR #43 merged at `fa5915d746ad339840f181aee5e9b26b93f8002b`: live review command integration test with mocked GitHub/lease observations.
-- PR #44 merged at `f682c56331bfb7c07bc4c5be26fddc33a3043969`: ingestion-to-live-review integration test; the exact content-addressed patch reaches `ready_for_human_review` and remains unapplied.
-- PR #44 head `af5fc704f61fd8a656966b35ddbe9450630d8c1f` passed three workflows: Task Orchestrator Tests [#45307323849], Non-production PR Validation [#45307323773], and Project Memory Audit [#45307323780].
-- `lib/main.dart` blob remains `3d28693b7be8bfe309a850923599830e1a65ab59`; `pubspec.yaml` blob remains `adc3b22a4538db4738bec789e3c3badf26e4f710`; app version remains `2.4.5+284`.
-- `lib/main.dart` source metrics: 9,008 lines / 352,770 UTF-8 bytes / 336,710 Unicode code points (verified by the memory audit).
-- Active `main-protection` ruleset requires PRs and the `Verify generated code index and memory freshness` status check, blocks deletion/force pushes, allows Squash only, and has no bypass actors.
+- Current main HEAD: `4dbe01eda4078342c17f16a4111919bebaa616ae` (PR #46 squash merge).
+- PR #20 and PRs #38–#44 are merged. PR #46 refreshed the authoritative memory and corrected the stale sandbox-vendor recommendation.
+- PR #44 integration test confirms fixture result ingestion → content-addressed artifact → live Issue/lease review gate, with `ready_for_human_review` and `applied: false`.
+- PR #46 head `be9a280aa9c1c7f00479b4a01aff0c724f0d51c1`: Project Memory Audit #45313415951, Task Orchestrator Tests #45313415720, and `validate-agent-pr` #45313412813 passed. Non-production app-build attempt 1 failed because Maven Central returned HTTP 429 for dependencies; attempt 2 was in progress at this snapshot. No app source changed in PR #46.
+- `lib/main.dart` blob: `3d28693b7be8bfe309a850923599830e1a65ab59`; source metrics: 9,008 lines / 352,770 UTF-8 bytes / 336,710 Unicode code points.
+- `pubspec.yaml` blob: `adc3b22a4538db4738bec789e3c3badf26e4f710`; app version remains `2.4.5+284`.
+- Active `main-protection` ruleset requires PR + `Verify generated code index and memory freshness`, blocks deletion/force pushes, allows Squash only, and has no bypass actors.
 
 ## Current collaborator capabilities
 
 - Durable project memory includes mandatory agent instructions, source navigation, analyzer-resolved Dart indexes, curated critical paths, freshness auditing, and task-scoped context packages pinned to a Git commit.
-- Local orchestrator supports task lifecycle, explicit source context selection, impact analysis, fixed verification profiles, scope checks, and human-reviewed handoff.
-- Shared GitHub Issue intake and lease workflows support provider-neutral task assignment and claim/renew/release. The local orchestrator does not itself wake a model provider.
+- Local orchestrator supports task lifecycle, context/impact analysis, fixed verification profiles, scope checks, and human-reviewed handoff.
+- Shared GitHub Issue intake and lease workflows support provider-neutral task assignment and claim/renew/release. No automatic model wake-up or live provider dispatch exists.
 - Provider-neutral task/result contracts validate scope, context fingerprints, structured results, and opaque content-addressed patch references.
-- Fixture-only dispatch and local result ingestion are tested. The live review command reads GitHub Issue/lease state and validates the exact patch artifact before declaring it ready for human review.
-- Success states are review-only: `ready_for_human_review`, `applied: false`. No patch is automatically applied, committed, pushed, merged, or deployed.
+- Fixture-only dispatch, local result ingestion, SHA-256 patch storage, and fail-closed live review authorization are implemented and integration-tested. Success remains review-only; patches are never auto-applied.
+- Branch `feat/sandbox-lifecycle-contract-20261124-v2` adds a synthetic-only sandbox lifecycle state machine, capability checks, runtime snapshot validation, bounded artifact integrity checks, interruption cleanup, and fake-provider tests. It is not merged or CI-verified yet and does not enable untrusted code execution.
 
 ## Security and execution boundaries
 
-- No live model provider is connected. The OpenAI planner is opt-in, metadata-only, requires separately configured credentials, and has not been invoked.
-- The hosted GitHub runner is not approved for untrusted code execution: the observed runner lacked delegated cgroup controls and visible Seccomp filtering and exposed a Docker socket path. Do not bypass these restrictions.
-- No E2B/Daytona account, API key, sandbox, payment method, or paid infrastructure has been created. E2B's prior-written-consent requirement and EU workspace payment-method requirement block the current pilot; Daytona's strict sandbox-level egress policy requires a higher tier with a substantial top-up. See `docs/MANAGED_SANDBOX_CANDIDATE_EVALUATION.md`.
-- No private repository source has been transferred to an external provider. No model API usage or provider spend has been authorized.
-- No production release, deployment, version bump, signing change, or change to app behavior, bot, payment, backend, or server occurred in PRs #20 and #38–#44.
+- No live model provider is connected. The OpenAI planner remains opt-in and metadata-only; no live request has been made.
+- The hosted GitHub runner is not approved for untrusted code execution: the observed runner lacked delegated cgroup controls and visible Seccomp filtering and exposed a Docker socket path.
+- Neither E2B nor Daytona is approved for a pilot under current constraints. E2B requires prior written consent before testing and a payment method for EU workspace verification; Daytona's strict sandbox-level egress policy is tier-gated with a documented $500 Tier 3 top-up.
+- No vendor account, API key, payment method, sandbox, private-source transfer, or provider spend has been created or authorized.
+- No production release, deployment, version bump, signing change, app behavior, bot, payment, backend, or server change is included in PR #46 or the current sandbox branch.
 - CI/build success is not proof of physical-device VPN runtime behavior.
 
 ## Next engineering objective
 
-Design and test a provider-neutral, fail-closed sandbox lifecycle contract with a fake adapter and no external execution. Only after its state machine and failure cases are tested should we revisit a real sandbox provider. The provider must demonstrate a dedicated VM boundary, deny-all egress, enforced resource/time limits, process-tree termination, bounded artifact return, and verified destruction before any untrusted code is considered.
+Complete CI validation and review of the synthetic-only sandbox lifecycle contract. After it merges, build a separate trusted runtime-acceptance harness that can independently verify a real candidate VM's network denial, resource limits, process-tree termination, artifact bounds, and destruction. Do not connect a live provider or execute untrusted code until all acceptance evidence exists and separate approval is granted.
 
 ## Historical detail
 

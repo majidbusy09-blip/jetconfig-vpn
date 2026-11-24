@@ -112,6 +112,7 @@ class SandboxRequest:
 
 @dataclass(frozen=True)
 class SandboxCapabilities:
+    """Provider-declared features; declarations alone never authorize execution."""
     runtime_class: str
     ephemeral_vm: bool
     dedicated_kernel: bool
@@ -140,6 +141,7 @@ def validate_capabilities(capabilities: SandboxCapabilities) -> None:
 
 @dataclass(frozen=True)
 class SandboxSnapshot:
+    """Provider-reported state snapshot, not an independent security attestation."""
     state: SandboxState
     runtime_class: str
     image_digest: str
@@ -233,9 +235,9 @@ def _validate_artifact(artifact: SandboxArtifact) -> dict:
 def run_synthetic_acceptance(provider: SandboxProvider, request: SandboxRequest) -> dict:
     """Run one fixed benign acceptance payload and require confirmed destruction.
 
-    Provider declarations alone are insufficient: the ready-state observation
-    is checked independently by the caller. Only a trusted control plane should
-    call this function after reviewing actual runtime acceptance evidence.
+    Provider declarations and snapshots are provider-reported metadata, not
+    proof. A trusted control plane must call this only after an external runtime
+    acceptance suite independently verifies the required isolation properties.
     """
     request.validate()
     try:

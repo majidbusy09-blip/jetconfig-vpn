@@ -56,3 +56,14 @@ The task orchestrator includes a strict signed-evidence verifier for independent
 - The caller-supplied digest and minimum version must come from protected out-of-band configuration. The module does not persist anti-rollback state.
 - Signature mathematics remains an injected `Ed25519Backend`; the test backend is not cryptography. No production Ed25519 implementation, key generation, signing service, or private key is present.
 - The trust-store policy adapter does not authorize execution. Independent runtime probes, protected deployment of trust configuration, audited crypto implementation, and real VM acceptance remain open.
+
+## PR #55 — real Ed25519 verification backend merged (2026-11-24)
+
+- Main includes PR #55 squash merge `3cc2e200dd02416d7b2fba02725b6734dffede39`; this supersedes the older PR #53 snapshot at the top of this document.
+- PR #55 final head `56e48fac7e5cfdf25c07492daef9ed3cdd3c0805` passed Task Orchestrator Tests run `45354914545`, Project Memory Audit run `45354914553`, and Non-production PR Validation run `45354914620`.
+- `tools/task_orchestrator/ed25519_backend.py` uses PyCA `cryptography` to verify Ed25519 signatures with a raw 32-byte public key and 64-byte signature. It is verification-only; no private-key loading, signing, or key generation is exposed.
+- `tools/task_orchestrator/requirements-sandbox-crypto.txt` pins `cryptography==50.0.2`, `cffi==2.1.1`, and `pycparser==3.12`; both Python CI workflows install binary wheels. The pins are not hash-locked, so reproducible wheel hashes/provenance remain a follow-up.
+- Tests include RFC 8032 vector 1, tampered/invalid signature cases, and trust-store verifier integration.
+- This backend does not solve protected out-of-band trust-store pin/minimum-version delivery, persistent anti-rollback, key lifecycle automation, independent host/guest probe execution, or real VM isolation. No provider, API key, private-source transfer, sandbox spend, or untrusted execution was used.
+- Execution remains disabled: `execution_authorized: false`, `eligible_for_untrusted_execution: false`.
+

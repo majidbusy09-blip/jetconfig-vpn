@@ -431,3 +431,14 @@ Append-only record of meaningful project work. Each entry should include branch/
 - **Safety:** Documentation only. No app source/version/release, provider, API key, VM, private-source transfer, signing key, untrusted execution, or spend.
 - **Verification:** Pending docs PR checks and Project Memory Audit; do not claim this refresh merged until checks pass and merge is observed.
 - **Final review cleanup:** Corrected stale PR/main snapshot labels and literal escaped line breaks in agent instructions before final CI.
+
+## 2026-11-24 — PR #55: real Ed25519 verification backend
+
+- Added `tools/task_orchestrator/ed25519_backend.py` using PyCA `cryptography` for public-key verification only.
+- Added `tools/task_orchestrator/requirements-sandbox-crypto.txt` with exact version pins for cryptography, cffi, and pycparser; both Python CI workflows install binary wheels.
+- Added RFC 8032 test vector 1, invalid/tampered signature coverage, and integration coverage through `PinnedTrustStoreVerifier`.
+- Fixed invalid YAML block-scalar syntax in both `.github/workflows/task-orchestrator.yml` and `.github/workflows/pr-validation.yml` so the dependency-install step parses and executes.
+- Final PR head: `56e48fac7e5cfdf25c07492daef9ed3cdd3c0805`. Successful runs: Task Orchestrator Tests `45354914545`; Project Memory Audit `45354914553`; Non-production PR Validation `45354914620`.
+- PR #55 squash-merged as `3cc2e200dd02416d7b2fba02725b6734dffede39`.
+- Limits retained: dependencies are not hash-locked; protected trust-root delivery, persistent anti-rollback, key lifecycle automation, independent runtime probes, and real VM acceptance remain open. No provider, VM, API key, private source transfer, untrusted execution, production action, or spend occurred.
+

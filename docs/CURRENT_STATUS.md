@@ -48,3 +48,18 @@ Next implement the independent 20-probe host/guest runtime acceptance suite and 
 ## Historical detail
 
 Older snapshots and superseded planning are preserved in `docs/archive/`. Do not treat older SHAs, PR states, or vendor selections as current.
+
+## Latest verified snapshot — PR #55 merged (2026-11-24)
+
+This section supersedes the earlier PR #53 baseline above.
+
+- Current main merge commit: `3cc2e200dd02416d7b2fba02725b6734dffede39` (PR #55 squash merge).
+- PR #55: [real Ed25519 sandbox evidence verifier](https://github.com/majidbusy09-blip/jetconfig-vpn/pull/55), final head `56e48fac7e5cfdf25c07492daef9ed3cdd3c0805`.
+- Final-head checks all passed: Task Orchestrator Tests run `45354914545`; Project Memory Audit run `45354914553`; Non-production PR Validation run `45354914620`.
+- Added `tools/task_orchestrator/ed25519_backend.py`, implementing public-key Ed25519 verification with PyCA `cryptography`. Invalid signatures return false; malformed key/signature lengths and non-byte inputs are rejected. The implementation exposes no private-key, signing, or key-generation API.
+- Added `tools/task_orchestrator/requirements-sandbox-crypto.txt` with exact pins: `cryptography==50.0.2`, `cffi==2.1.1`, `pycparser==3.12`. Both Python CI workflows install binary wheels. Pins are not hash-locked; provenance/hash verification remains open.
+- Tests include RFC 8032 test vector 1, tampered message/signature rejection, and integration with `PinnedTrustStoreVerifier`.
+- This closes the missing cryptographic-math backend only. Protected out-of-band trust-store digest/minimum-version delivery, persistent anti-rollback, key rotation/revocation operations, independent 20-probe host/guest suite, external canary, and real VM acceptance remain incomplete.
+- No provider, API key, private-source transfer, VM, untrusted execution, production signing, release, deployment, or spend was used.
+- `execution_authorized: false` and `eligible_for_untrusted_execution: false` remain mandatory.
+

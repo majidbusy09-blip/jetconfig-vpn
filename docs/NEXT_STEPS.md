@@ -60,3 +60,22 @@ PR #53 implements policy validation, not production cryptography. Next safe work
 
 - Live model calls, API keys, paid services, vendor accounts, sandbox provisioning, private-source transfer, signing keys, and provider spend: separate approval required.
 - Production release, deployment, signing, app version changes, bot/payment/backend/server changes: separate explicit approval required.
+
+## Verified baseline update — PR #55 merged (2026-11-24)
+
+This update supersedes the PR #53 baseline above.
+
+- Main includes PR #55 squash merge `3cc2e200dd02416d7b2fba02725b6734dffede39`.
+- PR #55 final head `56e48fac7e5cfdf25c07492daef9ed3cdd3c0805` passed Task Orchestrator Tests (`45354914545`), Project Memory Audit (`45354914553`), and Non-production PR Validation (`45354914620`).
+- A real PyCA Ed25519 public-key verification backend now exists and is integrated with the pinned trust-store verifier. It does not provide trust-root deployment or execution authorization.
+- Dependency pins are exact versions but not hash-locked. Review wheel hashes/provenance and supply-chain reproducibility before treating installation as fully reproducible.
+
+## Reprioritized next work
+
+1. **Protected trust-configuration control plane:** define how trust-store bytes, independently pinned digest, and monotonic minimum version are delivered from protected out-of-band configuration; implement atomic updates, persistent rollback prevention, revocation/rotation, audit, and recovery. Keep this outside the guest/provider.
+2. **Independent 20-probe runtime acceptance suite:** implement a fixed guest probe runner plus independent host controller and external canary. Validate the exact VM/kernel, Seccomp, cgroup CPU/memory/PID, disk, read-only source, secrets/sockets/devices/metadata, IPv4/IPv6, DNS/QUIC/egress, timeout/kill, artifact integrity, cleanup, and cross-attempt residue requirements.
+3. **Dependency supply-chain hardening:** review PyPI wheel hashes/provenance and add a reproducible hash-locked dependency set where supported; document any transitive package for which provenance cannot be verified.
+4. **Only after independent evidence and separate approval:** assess a real VM/provider pilot. No account, payment method, provider, private-source transfer, API key, VM provisioning, or spend without separate approval.
+
+Do not connect live model providers or execute untrusted code at this stage. Keep `execution_authorized: false` and `eligible_for_untrusted_execution: false`. GitHub-hosted runners and the benign Bubblewrap self-test are not an accepted untrusted-code sandbox.
+

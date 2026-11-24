@@ -8,9 +8,9 @@
     {
       "probe_id": "runtime_vm_boundary",
       "evidence_owner": "host_controller",
-      "evidence_type": "host_kernel_and_vm_metadata",
-      "pass_criteria": "Host-observed guest kernel identity and VM boundary differ from host; provider claim alone is insufficient.",
-      "fail_closed": "Host can observe same kernel boundary or evidence is guest-only.",
+      "evidence_type": "hardware_or_hypervisor_attestation_plus_host_observation",
+      "pass_criteria": "A hardware-backed or hypervisor-signed attestation, verified by the host controller against a separately pinned platform trust root, binds the guest instance and measured isolation boundary; provider API claims alone are insufficient.",
+      "fail_closed": "Attestation is absent, unverifiable, stale, not bound to this instance, or supplied only as an unverified provider claim.",
       "independent_evidence_required": true,
       "provider_assertion_accepted_as_evidence": false,
       "guest_self_report_sufficient": false
@@ -18,9 +18,9 @@
     {
       "probe_id": "dedicated_kernel",
       "evidence_owner": "host_controller",
-      "evidence_type": "host_kernel_and_guest_kernel_identity",
-      "pass_criteria": "Guest kernel identity and boot-scoped evidence map to a dedicated VM kernel distinct from host.",
-      "fail_closed": "Kernel identity is shared, ambiguous, or not independently observed.",
+      "evidence_type": "attested_guest_kernel_measurement_and_host_kernel_identity",
+      "pass_criteria": "The attested guest boot measurement and host-observed kernel identity prove a dedicated guest kernel distinct from the host; guest uname output or provider metadata alone is insufficient.",
+      "fail_closed": "Guest kernel identity is shared, unmeasured, stale, ambiguous, or supported only by guest/provider self-report.",
       "independent_evidence_required": true,
       "provider_assertion_accepted_as_evidence": false,
       "guest_self_report_sufficient": false

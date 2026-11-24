@@ -11,6 +11,7 @@ import binascii
 import hashlib
 import json
 import re
+import secrets
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from types import MappingProxyType
@@ -316,6 +317,70 @@ class ObserverChallenge:
         if (trusted_now - issued).total_seconds() > MAX_CHALLENGE_SECONDS:
             raise ObserverAuthenticationError("Challenge is stale.")
 
+
+
+def issue_observer_challenge(
+    *,
+    registry: PinnedObserverRegistry,
+    observer_id: str,
+    observer_domain: str,
+    key_id: str,
+    attempt_id: str,
+    runtime_id: str,
+    policy_digest: str,
+    probe_id: str,
+    now: datetime,
+    lifetime_seconds: int = MAX_CHALLENGE_SECONDS,
+) -> ObserverChallenge:
+    """Issue a host-local challenge using the operating system CSPRNG.
+
+    This factory creates a bounded challenge value only. It does not provide
+    authenticated transport, durable challenge registration, or a production
+    observer control plane. Those remain separate security boundaries.
+    """
+    if not isinstance(registry, PinnedObserverRegistry):
+        raise ObserverAuthenticationError("A pinned observer registry is required to issue a challenge.")
+    if not isinstance(now, datetime) or now.tzinfo is None or now.utcoffset() != timedelta(0):
+        raise ObserverAuthenticationError("Challenge issuance requires trusted UTC time.")
+    if (
+        isinstance(lifetime_seconds, bool)
+        or not isinstance(lifetime_seconds, int)
+        or not 1 <= lifetime_seconds <= MAX_CHALLENGE_SECONDS
+    ):
+        raise ObserverAuthenticationError("Challenge lifetime must be between 1 and 120 seconds.")
+
+    issued_at = now.astimezone(timezone.utc).replace(microsecond=0)
+    expires_at = issued_at + timedelta(seconds=lifetime_seconds)
+    try:
+        identity = registry.resolve(
+            observer_id, observer_domain, key_id, now=issued_at
+        )
+    except Exception as exc:
+        raise ObserverAuthenticationError("Challenge target is not an active pinned observer identity.") from exc
+    if expires_at > identity.not_after:
+        raise ObserverAuthenticationError("Challenge would outlive the pinned observer key validity window.")
+
+    try:
+        nonce = secrets.token_bytes(32)
+    except Exception as exc:
+        raise ObserverAuthenticationError("Operating-system challenge randomness is unavailable.") from exc
+    if not isinstance(nonce, bytes) or len(nonce) != 32:
+        raise ObserverAuthenticationError("Operating-system CSPRNG did not return exactly 32 bytes.")
+
+    challenge = ObserverChallenge(
+        nonce=nonce,
+        audience=registry.audience,
+        observer_id=observer_id,
+        observer_domain=observer_domain,
+        attempt_id=attempt_id,
+        runtime_id=runtime_id,
+        policy_digest=policy_digest,
+        probe_id=probe_id,
+        issued_at=issued_at,
+        expires_at=expires_at,
+    )
+    challenge.validate(issued_at)
+    return challenge
 
 
 @dataclass(frozen=True)

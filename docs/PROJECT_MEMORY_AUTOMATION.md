@@ -94,3 +94,8 @@ The gate is deliberately narrow: it verifies that the required files are part of
 ### Artifact retention boundary
 
 The analyzer-resolved index and generated critical-path report are generated and uploaded by CI with 30-day retention. They are reproducible analysis artifacts, not durable project memory. Durable decisions, project status, known limitations, and next actions must remain in Git-tracked documents. Do not imply that a prior workflow artifact is permanently available.
+
+
+## Mandatory context supplied to coding agents
+
+The task orchestrator's current contract v1.2 supplies eight pinned memory documents in canonical order: `AGENTS.md`, `docs/PROJECT_CONTEXT.md`, `docs/CURRENT_STATUS.md`, `docs/NEXT_STEPS.md`, `docs/TASK_TEMPLATE.md`, `docs/DEVELOPMENT_LOG.md`, `docs/DECISIONS.md`, and `docs/KNOWN_ISSUES.md`. The manifest is centralized in `tools/task_orchestrator/agent_contract.py`. Legacy v1.1 remains accepted for existing envelopes; new envelopes must use v1.2 and may not omit the decision or issue files.

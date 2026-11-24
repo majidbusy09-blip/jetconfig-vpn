@@ -351,3 +351,14 @@ Append-only record of meaningful project work. Each entry should include branch/
 - **Updated:** `tools/task_orchestrator/README.md` with synthetic-only boundaries and focused test command.
 - **Security boundary:** no real provider, process execution, source upload, model-generated code, credentials, network call, account, payment, sandbox, or spend is involved. Every success record states `eligible_for_untrusted_execution: false` and `patch_applied: false`.
 - **Verification:** GitHub file/ref operations only; the new sandbox tests have not yet run in CI. PR creation and CI are the next step. No local or device test is claimed.
+
+
+## 2026-11-24 — PR #47 merged: synthetic-only sandbox lifecycle contract
+
+- **PR:** #47 merged at `f360d50b13064c7136eb7ce4a3b38e3413e5b333`; base was `4dbe01eda4078342c17f16a4111919bebaa616ae`.
+- **Added:** `tools/task_orchestrator/sandbox_contract.py` and `tools/task_orchestrator/tests/test_sandbox_contract.py`.
+- **Updated:** `tools/task_orchestrator/README.md`, `AGENTS.md`, and project/architecture memory documents.
+- **Behavior:** strict Linux-VM capability gate, pinned image/policy digests, deny-all network request, explicit CPU/RAM/PID/disk/wall-time limits, provider-reported runtime snapshot checks, fail-closed lifecycle, bounded SHA-256 artifact validation, and mandatory termination/destruction confirmation.
+- **Test evidence:** Task Orchestrator Tests #45314331567 passed 247 Python tests, including all 13 new sandbox tests. Project Memory Audit #45314331612 passed; `validate-agent-pr` passed. Non-production PR Validation #45314331545 was still running at this log snapshot.
+- **Security boundary:** fixed synthetic payload only; no arbitrary shell, source upload, credentials, model-generated code, real provider, real sandbox, or external spend. The result always records `eligible_for_untrusted_execution: false` and `patch_applied: false`.
+- **Next:** independently test a real candidate runtime only after a separate account/consent/cost decision. Do not treat provider-reported snapshots or fake-provider tests as isolation proof.

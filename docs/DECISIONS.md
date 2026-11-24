@@ -259,3 +259,14 @@ Tests may use fake signers and in-memory replay receipts only. No private key, s
 - The trusted report signer design is recorded in `docs/SANDBOX_TRUSTED_REPORT_SIGNER.md`.
 - Current implementation remains verifier-only for v1/v2. There is no report builder/signer, schema-v3 verifier, private key, signing service, replay receipt reader, or production ledger.
 - Next code work is the read-only replay acceptance receipt protocol and in-memory fake, followed by a pure schema-v3 builder and injected fake signer/verifier. Any real signing backend or durable replay store requires separate trust-boundary review and explicit approval.
+
+
+## D-023 — Observer acceptance must return and read back an immutable replay receipt (2026-11-24)
+
+**Status:** API contract implemented; production replay persistence not implemented.
+
+PR #84 adds frozen `ObserverReplayReceipt` and requires the replay store to return the committed receipt from atomic nonce/sequence consumption. The verifier then performs a read-only lookup by observer ID and exact envelope digest and requires exact equality with the returned receipt before exposing an `AuthenticatedObserverResult`.
+
+The receipt includes full acceptance context, challenge expiry, trusted acceptance time, ledger revision and fencing epoch. The result carries the receipt's time/revision fields for schema-v3 report binding.
+
+The in-memory fake is test-only. A production implementation still requires authenticated host-only access, durable serializable transactions, active fencing, an external protected anti-rollback checkpoint, and independent trust-boundary review. The Python receipt object is not a trust root.

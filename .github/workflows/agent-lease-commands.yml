@@ -10,6 +10,8 @@ permissions:
 
 jobs:
   lease-command:
+    env:
+      PYTHONDONTWRITEBYTECODE: "1"
     if: >-
       github.event.issue.pull_request == null &&
       github.event.issue.state == 'open' &&

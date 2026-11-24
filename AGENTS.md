@@ -90,16 +90,15 @@ A successful build is not a runtime/device test. A CI workflow definition is not
 
 - Repository: `majidbusy09-blip/jetconfig-vpn`
 - Branch: `main`
-- Current main commit (verified 2026-11-23): `a09cdb0be35e3072be29973f7ae8df66ab44d07f`
-- PR #16 merged at `c4f7f4743b3c6ffc64d34a0efb0c19f41b236f1e`; PR #17 merged at `eae477a89816a5cfd475c596e166d5cb2575884a`; PR #19 merged at `abdff3a59b89419e869c98d7dbb4ac91512fe950`; PR #18 documentation refresh merged at `a09cdb0be35e3072be29973f7ae8df66ab44d07f`.
-- `lib/main.dart` blob: `3d28693b7be8bfe309a850923599830e1a65ab59` (9,008 lines / 352,770 UTF-8 bytes / 336,710 Unicode code points).
-- `pubspec.yaml` blob: `adc3b22a4538db4738bec789e3c3badf26e4f710`.
-- App version: `2.4.5+284`.
-- PR #19 added validation-only Android parity tooling: `tools/validation/align_validation_android.py` and `tools/validation/test_align_validation_android.py`; production app source and release workflow were not changed.
-- Active branch ruleset: `main-protection`, targets the default branch, requires PR + the project-memory status check, blocks deletion and force pushes, allows Squash only, and has no bypass actors.
-- PR #19 final-head CI: Project Memory Audit [#45065541236](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45065541236) and Non-production PR Validation [#45065541255](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45065541255) both succeeded.
-- Production release workflow remains manual-only and must never be dispatched without explicit user approval.
+- Current main commit (verified 2026-11-24): `f682c56331bfb7c07bc4c5be26fddc33a3043969`.
+- PR #20 merged at `15fea59e4f83704e0a9955363e0f0b237aac09ac`; it delivered the local task orchestrator MVP, provider-neutral agent contract, context/impact tooling, and fixture-only read-only adapter.
+- PRs #38–#44 are merged. They add content-addressed patch artifacts, fail-closed live review authorization, the read-only live review command, provider-result ingestion, and integration coverage through human review.
+- PR #44 merge commit and current main HEAD: `f682c56331bfb7c07bc4c5be26fddc33a3043969`.
+- `lib/main.dart` blob: `3d28693b7be8bfe309a850923599830e1a65ab59`; application source is unchanged by PRs #20 and #38–#44.
+- `pubspec.yaml` blob: `adc3b22a4538db4738bec789e3c3badf26e4f710`; app version remains `2.4.5+284`.
+- PR #44 head `af5fc704f61fd8a656966b35ddbe9450630d8c1f` passed Task Orchestrator Tests [#45307323849], Non-production PR Validation [#45307323773], and Project Memory Audit [#45307323780].
+- Active `main-protection` ruleset protects the default branch, requires a PR and the `Verify generated code index and memory freshness` check, blocks deletion/force pushes, permits Squash only, and has no bypass actors.
+- The local orchestrator and provider interfaces remain non-autonomous: no live model provider, untrusted-code sandbox, patch application, or production deployment is enabled. A validated patch remains for human review only.
+- No vendor account, API key, payment method, sandbox, private-source transfer, or provider execution has been authorized or created.
 
-- PR #18 post-merge Project Memory Audit [#45069210457](https://github.com/majidbusy09-blip/jetconfig-vpn/actions/runs/45069210457) completed successfully on `a09cdb0be35e3072be29973f7ae8df66ab44d07f`.
-
-Snapshot verification source: GitHub branch, commit, file, ruleset, PR, and Actions APIs checked on 2026-11-23.
+Snapshot verification source: GitHub branch/ref, file/blob, PR, workflow-run, and ruleset APIs checked on 2026-11-24.

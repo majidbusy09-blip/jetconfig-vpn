@@ -1,7 +1,7 @@
 # JET VPN — Task Execution Orchestrator Design
 
-> Status: design plus local MVP implementation; still under PR #20 review and not merged.
-> Design baseline: `main` `a09cdb0be35e3072be29973f7ae8df66ab44d07f` (2026-11-23).
+> Status: implemented and merged in PR #20; subsequent patch-ingestion and live-review stages were merged in PRs #38–#44. Current verified main: `f682c56331bfb7c07bc4c5be26fddc33a3043969` (2026-11-24).
+> Design baseline: current `main` `f682c56331bfb7c07bc4c5be26fddc33a3043969` (2026-11-24).
 
 ## 1. Objective and boundary
 
@@ -99,9 +99,9 @@ CI should run the orchestrator's Python unit tests in the existing non-productio
 ## 8. Rollout plan
 
 - **Phase A — design:** documented in this PR.
-- **Phase B — local MVP:** implemented in this PR; latest implementation-head CI is being used to validate the added stable-source verification gate.
+- **Phase B — local MVP:** implemented and merged in PR #20; CI validated the orchestrator lifecycle and stable-source verification gates.
 - **Phase C — CI integration:** the Python suite is wired into existing non-production PR validation. Publishing task evidence as a CI artifact is deferred.
-- **Phase D — optional GitHub handoff:** only after the local MVP is stable, consider opening PRs through a narrowly scoped integration. Merge/release/deploy remain outside the orchestrator and require explicit user approval.
+- **Phase D — GitHub handoff:** provider-neutral Issue intake, lease controls, and read-only live patch review are implemented across PR #20 and PRs #38–#44. The local CLI still does not itself create or merge PRs. Merge/release/deploy remain human-controlled and require explicit user approval.
 
 ## 9. Acceptance criteria for implementation
 
@@ -120,7 +120,7 @@ The MVP is ready for broader use only when:
 
 - The current `impact` command records availability and hashes of semantic/critical-path artifacts but does not independently verify their freshness or calculate path-specific impact; output is explicitly labeled unverified.
 - The initial fixed profiles are Python tooling tests, Flutter tests, Flutter analysis, and lexical memory audit. The validation APK build is not yet an orchestrator profile.
-- The first integration suite is being exercised in non-production PR CI; its latest implementation-head result must be checked before this MVP is considered validated.
+- The orchestrator implementation and its integration suite were merged in PR #20; subsequent patch-artifact, ingestion, and live-review integration tests were merged in PRs #38–#44. PR #44 CI passed Task Orchestrator Tests, Non-production PR Validation, and Project Memory Audit.
 - The CLI does not create commits or interact with GitHub. PR creation remains a later, separately reviewed phase.
 
 ## 11. Open design decisions
@@ -156,3 +156,19 @@ The command writes a local suggestion artifact. It never modifies `context_paths
 ### Explicit suggestion acceptance
 
 A prepared task may accept a subset of suggestions through `accept-context`. The command requires the suggestion artifact to reside in that task's local metadata directory, match the task ID and pinned base SHA, and contain every explicitly selected path. It rechecks each selected Git blob ID and rebuilds the full-text context package through the existing context builder, which enforces path safety, allowlists, exclusions, UTF-8, and size bounds. It refuses to run after implementation begins or if an agent envelope already exists. It does not change task allowlists or accept unselected suggestions.
+
+
+## 12. Verified post-MVP state — 2026-11-24
+
+The following stages are merged on `main`:
+
+- PR #20: local task lifecycle, context/impact tooling, contract validation, fixture-only read-only provider boundary, and task handoff.
+- PR #38: local content-addressed patch artifact store; integrity is tied to exact bytes and SHA-256.
+- PR #39: fail-closed live review authorization gate bound to Issue, lease, lock ref, pinned base, branch, and clean workspace.
+- PR #40: read-only command that gathers live GitHub/lease observations and invokes the review gate.
+- PR #41: local provider-result ingestion with schema, digest, byte-count, scope, and no-overwrite checks.
+- PRs #42–#44: integration tests from fixture dispatch through ingestion and live review; successful result remains `ready_for_human_review`, `applied: false`.
+
+PR #44 head `af5fc704f61fd8a656966b35ddbe9450630d8c1f` passed Task Orchestrator Tests run #45307323849, Non-production PR Validation run #45307323773, and Project Memory Audit run #45307323780.
+
+The next missing boundary is a real OS-isolated execution environment. The hosted runner is blocked by its observed cgroup/Seccomp/Docker-socket posture. Managed sandbox candidates are not approved under current account, consent, and cost constraints. Implement the provider-neutral lifecycle contract and fake-adapter tests before any real sandbox or live model connection.

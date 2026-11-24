@@ -1,13 +1,13 @@
 # ADR-002 — Managed sandbox candidate evaluation
 
-- **Status:** E2B selected as first candidate for a non-production, no-agent pilot; not approved or activated
-- **Date:** 2026-11-23
-- **Scope:** PR #20 worker-runtime selection
+- **Status:** No managed sandbox candidate is currently eligible for the intended pilot under the owner's present no-payment/no-account/no-test constraints
+- **Date:** 2026-11-24 (reassessment)
+- **Scope:** Reassessment of the PR #20 worker-runtime candidate decision
 - **Evidence type:** public vendor documentation reviewed; no tenant, API key, sandbox, or workload has been created
 
-## Decision
+## Initial evaluation (superseded by the 2026-11-24 reassessment)
 
-Evaluate **E2B managed sandboxes first** using a fixed harmless acceptance payload, with network egress disabled, no credentials, no model provider, no GitHub write access, and a strict short TTL. Keep **Daytona Linux VM sandboxes** as the alternative candidate. This is a candidate selection for a controlled pilot, not a claim that either vendor has passed our acceptance suite.
+The original evaluation selected E2B as the first candidate for a harmless pilot and kept Daytona as an alternative. That recommendation is historical only and must not be used as current authorization. See the reassessment block below for the current decision.
 
 Why E2B first:
 - E2B documents one Firecracker microVM per sandbox, with a dedicated guest kernel and hypervisor-enforced isolation.
@@ -51,4 +51,14 @@ Why E2B first:
 
 No account, key, subscription, payment method, sandbox, runner, provider integration, private source upload, model execution, or spend has been created or authorized by this decision record. A separate explicit approval is required before creating an account/project, entering credentials, accepting paid terms, or incurring charges.
 
-PR #20 remains Draft and unmerged. No production app, bot, payment, backend, server, signing, release, or deployment behavior is in scope.
+PR #20 is merged. No production app, bot, payment, backend, server, signing, release, or deployment behavior is in scope.
+
+## Reassessment evidence and current block — 2026-11-24
+
+- E2B's official security guidance states that customers should contact E2B before running tests and obtain prior written consent. The EU region is Google Cloud `europe-west1`; workspace verification requires adding a payment method. These are hard blockers for the currently authorized no-account/no-payment pilot.
+- E2B outbound internet is open by default. The documented `allowInternetAccess=false` setting is the appropriate initial deny-all control; hostname allowlists have HTTP Host/TLS SNI limitations and DNS resolver exceptions. Do not rely on domain allowlists for the first acceptance run.
+- Daytona distinguishes Linux containers (shared host kernel) from Linux VM sandboxes (dedicated guest kernel). The strict sandbox-level `networkBlockAll` control is restricted to Tier 3/4. The documented Tier 3 route requires a $500 top-up, which is outside the current authorization.
+- No account, key, payment method, sandbox, workload, private-source transfer, provider connection, or spend has been created or approved.
+- These findings do not prove any account-specific runtime configuration. If constraints change, repeat vendor-documentation and contract review before any pilot.
+
+PR #20 is merged; PRs #38–#44 are merged through main `f682c56331bfb7c07bc4c5be26fddc33a3043969`. The provider decision remains blocked and no production behavior changed.

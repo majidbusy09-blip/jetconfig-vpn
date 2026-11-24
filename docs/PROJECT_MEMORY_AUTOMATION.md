@@ -1,6 +1,6 @@
 # JET VPN — Project Memory Automation
 
-> Current main snapshot: `abdff3a59b89419e869c98d7dbb4ac91512fe950` (PR #19 merged, verified 2026-11-23). The application source fingerprint remains unchanged by PR #19.
+> Current main snapshot: `f682c56331bfb7c07bc4c5be26fddc33a3043969` (PR #44 merged, verified 2026-11-24). The application source fingerprint remains unchanged by PR #20 and PRs #38–#44.
 
 ## Purpose
 
@@ -71,5 +71,5 @@ An analyzer Element is a statically resolved symbol, not proof of runtime execut
 - It does not validate application behavior, VPN connectivity, payment correctness, Android lifecycle behavior, or test coverage.
 - It does not inspect backend code outside this repository.
 
-The application regression suite and static semantic tooling are now present. The next maturity step is a task-execution orchestrator that consumes these artifacts, records impact/risk/test evidence, and still distinguishes static reachability from exercised runtime behavior. Cross-language/runtime evidence for the native VPN boundary remains a separate future improvement.
+The application regression suite, static semantic tooling, and local task-execution orchestrator are now present. PR #20 merged the orchestrator, contract validation, context selection, and fixture-only read-only adapter. PRs #38–#44 added the content-addressed patch, ingestion, live review gate, and end-to-end review-only tests. The next maturity step is a provider-neutral sandbox lifecycle contract and fake-adapter failure tests; no untrusted code execution is enabled. Cross-language/runtime evidence for the native VPN boundary remains a separate future improvement.
 

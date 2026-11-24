@@ -84,6 +84,14 @@ class ArtifactCollectorTests(unittest.TestCase):
                         ArtifactCandidate("artifacts/item", kind, b"x", symlink_target=target)
                     ])
 
+    def test_hardlinked_or_invalid_link_count_records_are_rejected(self):
+        for link_count in (0, 2, -1, True, "1"):
+            with self.subTest(link_count=link_count):
+                with self.assertRaisesRegex(ArtifactCollectionError, "Hard-linked"):
+                    collector().collect([
+                        ArtifactCandidate("artifacts/linked", "regular_file", b"x", link_count=link_count)
+                    ])
+
     def test_duplicate_paths_and_empty_content_are_rejected(self):
         with self.assertRaisesRegex(ArtifactCollectionError, "Duplicate"):
             collector().collect([

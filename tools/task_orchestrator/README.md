@@ -366,3 +366,11 @@ Keep `execution_authorized: false` and `eligible_for_untrusted_execution: false`
 - Schema v3 should bind the pre-acceptance raw-envelope staging-manifest digest. Existing v1/v2 verifiers remain unchanged.
 - The signer API must be narrow and injected. Unit tests may use deterministic fake signing and replay-receipt implementations only; no private key or production signing service.
 - The report must be independently verified after signing. Neither execution authorization flag may be enabled.
+
+
+## Replay acceptance receipt readback
+
+- `sandbox_observer_auth.py` now requires `ObserverReplayStore.consume` to return an immutable committed `ObserverReplayReceipt` and requires a read-only `get_acceptance(observer_id, envelope_sha256)` lookup.
+- The verifier checks the returned receipt's full context, positive ledger revision/fencing epoch, and exact readback equality before returning an authenticated result.
+- The result carries challenge expiry, trusted acceptance timestamp, ledger revision and fencing epoch for the future schema-v3 report signer.
+- The implementation and fake remain non-production: no durable replay database, authenticated store transport, protected high-water checkpoint or real fencing authority exists.

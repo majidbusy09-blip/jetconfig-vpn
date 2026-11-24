@@ -44,7 +44,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 1
+          fetch-depth: 0
 
       - name: Set up Flutter and Dart
         uses: subosito/flutter-action@v2
@@ -166,6 +166,16 @@ jobs:
             tools/project_memory/semantic/pubspec.lock
           if-no-files-found: warn
           retention-days: 30
+
+      - name: Test project-memory change gate
+        run: python -m unittest discover -s tools/project_memory/tests -p 'test_*.py'
+
+      - name: Require project-memory updates for implementation changes
+        if: ${{ github.event_name == 'pull_request' }}
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: python tools/project_memory/verify_change_memory.py --base-sha "$BASE_SHA" --head-sha "$HEAD_SHA"
 
       - name: Verify lexical code index
         run: |

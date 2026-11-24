@@ -318,3 +318,13 @@ Keep `execution_authorized: false` and `eligible_for_untrusted_execution: false`
 - Both successful and rejected evidence paths require explicit termination and cleanup confirmation. Cleanup failure is terminal.
 - It is a pure state-transition validator, not a process supervisor or VM controller. It invokes no adapter and has no subprocess, shell, filesystem, socket, network, provider, or guest capability.
 - All execution authorization flags remain false. See [the lifecycle contract](../../docs/SANDBOX_HOST_LIFECYCLE.md).
+
+
+## Bounded Sandbox artifact collector contract
+
+- `sandbox_artifacts.py` validates typed in-memory artifact candidates and emits a deterministic manifest bound to attempt, runtime, policy, evidence digest, and signed acceptance-report digest.
+- It restricts logical paths to normalized relative `artifacts/` and `reports/` roots; rejects traversal, absolute/Windows paths, symlink/directory/device declarations, hard-linked records, duplicate paths, empty files, and unsupported components.
+- Limits are 64 artifacts, 256 KiB per file, 2 MiB aggregate, 240 path bytes, and 30 days maximum retention. Host-side SHA-256 is recomputed from supplied bytes.
+- This is not a filesystem collector: it does not open paths, inspect inode types, authenticate evidence/report signatures, store/delete artifacts, or prove that a candidate is a regular file. The retention value is metadata only.
+- A real host collector must use descriptor-relative no-follow traversal, `fstat`, same-descriptor hashing/copying, TOCTOU defenses, trusted retention enforcement, and independently verified report/evidence bindings. See [the artifact collector contract](../../docs/SANDBOX_ARTIFACT_COLLECTOR.md).
+- Tests use in-memory fixtures only. Both execution authorization flags remain false.

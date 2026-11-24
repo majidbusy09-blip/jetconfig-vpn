@@ -122,7 +122,7 @@ def _parse_envelope(raw):
         value = json.loads(raw.decode("utf-8", errors="strict"), object_pairs_hook=_pairs_no_duplicates, parse_constant=_reject_constant)
         _check_depth(value)
     except TrustConfigError: raise
-    except (UnicodeDecodeError, json.JSONDecodeError, RecursionError) as exc:
+    except (UnicodeDecodeError, ValueError, RecursionError) as exc:
         raise TrustConfigError("Envelope is not bounded valid UTF-8 JSON.") from exc
     if not isinstance(value, dict) or frozenset(value) != ENVELOPE_FIELDS:
         raise TrustConfigError("Envelope fields do not match schema version 1.")
@@ -192,7 +192,8 @@ def accept_trust_config(envelope_bytes: bytes, *, expected_audience: TrustAudien
     try:
         pinned = PinnedTrustStoreVerifier(trust_store_bytes=trust_raw, expected_sha256=digest,
             minimum_version=floor, now=now, backend=trust_store_backend)
-        pinned._parse_store()
+        # PinnedTrustStoreVerifier validates the complete schema in __post_init__.
+        # Read the version only after that public constructor has accepted the bytes.
         trust_version = json.loads(trust_raw.decode("utf-8"))["version"]
     except (TrustStoreError, KeyError, TypeError, ValueError, UnicodeDecodeError) as exc:
         raise TrustConfigError("Embedded trust store failed pinned schema validation.") from exc
@@ -203,6 +204,8 @@ def accept_trust_config(envelope_bytes: bytes, *, expected_audience: TrustAudien
     except Exception as exc: raise TrustConfigError("Monotonic store unavailable; acceptance rejected.") from exc
 
     if previous is not None:
+        if not isinstance(previous, MonotonicState):
+            raise TrustConfigError("Monotonic state has an unexpected type; acceptance rejected.")
         if (type(previous.revision) is not int or previous.revision < 1
             or type(previous.config_epoch) is not int or previous.config_epoch < 1
             or type(previous.trust_store_version) is not int or previous.trust_store_version < 1

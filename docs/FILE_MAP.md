@@ -142,3 +142,11 @@ Never add paths to this map unless verified from the current tree or a separatel
 - `tools/task_orchestrator/tests/test_sandbox_host_lifecycle.py` — deterministic transition, identity, timeout, cancellation, termination and cleanup tests.
 - `docs/SANDBOX_HOST_LIFECYCLE.md` — lifecycle graph, pinned context, failure semantics and implementation limits.
 - PR #70 merged as `e699293c1495f3137dd319e37764a2db6c5dfff3`; final-head checks `45377376254`, `45377376173`, `45377376300` all succeeded.
+
+
+## Bounded artifact inventory validator — PR #72
+
+- `tools/task_orchestrator/sandbox_artifacts.py` — pure in-memory artifact candidate validator; bounded relative paths, declared object metadata, size/count/retention ceilings, SHA-256 recomputation, and deterministic manifest binding. Not a filesystem collector.
+- `tools/task_orchestrator/tests/test_sandbox_artifacts.py` — deterministic positive/adversarial tests including traversal, symlink/device/directory, hard-link metadata, limits, digest recomputation, canonical ordering, and retention.
+- `docs/SANDBOX_ARTIFACT_COLLECTOR.md` — contract, limitations, and requirements for a future trusted host filesystem collector.
+- PR #72 merged as `a199b82ef70f492c2b8df42087992a917d293c7c`; final-head CI runs `45379646169`, `45379646094`, and `45379646100` all succeeded.

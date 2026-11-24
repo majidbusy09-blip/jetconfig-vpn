@@ -162,3 +162,18 @@ It does not invoke a runtime adapter or independently observe host state. It can
 - Tests may exercise the transition contract with deterministic events only.
 - No task-supplied commands, dynamic probe code, process execution, VM/provider integration, or external service is authorized.
 - `execution_authorized: false` and `eligible_for_untrusted_execution: false` remain mandatory.
+
+
+## D-017 — Artifact collection starts as a pure in-memory validator (2026-11-24)
+
+**Status:** Accepted for deterministic candidate validation only.
+
+PR #72 adds `tools/task_orchestrator/sandbox_artifacts.py`. It validates caller-supplied candidate bytes and metadata, restricts logical paths to normalized relative `artifacts/` and `reports/` roots, rejects unsafe path forms and declared non-regular/symlink/hard-link candidates, bounds inventory count and bytes, recomputes SHA-256, binds a deterministic manifest to attempt/runtime/policy/evidence/report digests, and records bounded retention metadata.
+
+**Limits and consequences**
+- Candidate `kind`, `symlink_target`, and `link_count` values are caller assertions; the module does not open or inspect filesystem objects and cannot prove those claims.
+- Report digest binding is not signature verification. The signed-report verifier and protected trust configuration remain separate.
+- Retention is metadata only; there is no storage backend, deletion, quota enforcement, or crash recovery.
+- A future trusted host collector must use descriptor-relative no-follow traversal, `fstat`, same-descriptor reads/hashing, TOCTOU defenses, and independently verified acceptance-report/evidence bindings.
+- Artifacts remain quarantined and non-executable; this contract does not apply patches or change execution authorization.
+- `execution_authorized: false` and `eligible_for_untrusted_execution: false` remain mandatory.

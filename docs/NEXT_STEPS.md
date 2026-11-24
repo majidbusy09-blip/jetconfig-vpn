@@ -150,3 +150,16 @@ The host evidence collector is not a runner and no runtime probes have been exec
 6. **Operational gates:** real VM/provider, API keys, private-source transfer, KMS/HSM, paid services and spend require separate explicit approval and independent security review.
 
 PR #70 is a state-machine contract only; it does not implement any of the host adapter operations. No runtime probes have been executed. Keep `execution_authorized: false` and `eligible_for_untrusted_execution: false`.
+
+
+## Current next steps after PR #72 (2026-11-24)
+
+1. **External observer authenticity:** design out-of-band host/guest/canary identity provisioning and rotation, authenticated transport, anti-replay, and trust-root binding. The existing evidence collector only checks IDs against caller-supplied allowlists.
+2. **Signed report integration:** define a strict manifest/evidence/report relationship. Decide how artifact manifest digest and artifact bytes are cryptographically bound into a signed acceptance report; use fake signature backends and deterministic fixtures only.
+3. **Host adapter interface:** specify fixed typed operations for runtime preparation, observation start, termination request, process-tree exit confirmation, and cleanup confirmation. Keep adapters fake-only; no dynamic shell commands or live runtime.
+4. **Trusted filesystem collector design:** translate the pure artifact candidate contract into a separately reviewed host implementation using descriptor-relative no-follow traversal, `fstat`, same-descriptor read/hash, TOCTOU defenses, file identity checks, quotas, retention, and crash-safe cleanup. Do not implement actual filesystem collection until its host trust boundary is independently reviewed.
+5. **Threat-model review:** cancellation races, monotonic deadline enforcement, kill escalation, cleanup retry/crash recovery, external-canary separation, IPv4/IPv6/DNS/QUIC egress, resource caps, and cross-attempt residue.
+6. **Supply-chain hardening:** review provenance and reproducibility for pinned cryptography/cffi/pycparser wheels; add hash-locks where supported without introducing unapproved dependencies.
+7. **Operational gates remain closed:** any VM/provider, account, API key, private-source transfer, KMS/HSM, paid service, or spend requires separate explicit approval and independent security review.
+
+PR #72 completes only the in-memory artifact validation contract. It does not collect filesystem objects, verify report signatures, enforce retention, run probes, or prove sandbox isolation. No runtime probes have been executed. Keep `execution_authorized: false` and `eligible_for_untrusted_execution: false`.

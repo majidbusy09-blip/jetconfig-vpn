@@ -177,3 +177,20 @@ PR #72 adds `tools/task_orchestrator/sandbox_artifacts.py`. It validates caller-
 - A future trusted host collector must use descriptor-relative no-follow traversal, `fstat`, same-descriptor reads/hashing, TOCTOU defenses, and independently verified acceptance-report/evidence bindings.
 - Artifacts remain quarantined and non-executable; this contract does not apply patches or change execution authorization.
 - `execution_authorized: false` and `eligible_for_untrusted_execution: false` remain mandatory.
+
+
+## D-018 — Authenticate observer envelopes before evidence assembly (2026-11-24)
+
+**Status:** Accepted as a verification contract only; protected provisioning, transport, durable replay state, and report integration remain pending.
+
+PR #74 adds `tools/task_orchestrator/sandbox_observer_auth.py`. It validates a canonical signed observer envelope against an externally pinned observer registry, maps observer ID to exactly one trust domain and key ID, binds the envelope to a short-lived host challenge (audience, observer, attempt, runtime, policy digest, and acceptance-suite probe), verifies payload digest and Ed25519 signature through an injected verifier, and asks an injected replay store to atomically consume the nonce and advance the per-observer sequence.
+
+Successful verification returns `AuthenticatedObserverResult` with a `ProbeObservation` and audit bindings (registry digest/version, key ID, sequence, nonce digest, envelope digest).
+
+**Limits and consequences**
+- The registry digest/version/audience must be delivered by the protected root-signed trust configuration process; this module only checks the supplied pin.
+- Production must use the existing pinned Ed25519 trust-store verifier with aligned trusted time. Fake verifiers are test fixtures.
+- The replay-store interface requires durable atomic nonce/sequence state, but only an in-memory fake exists. No production replay persistence or recovery is implemented.
+- No host challenge generator, authenticated transport, identity provisioning/rotation service, probe execution, or VM adapter is implemented.
+- The current evidence bundle does not carry the authenticated envelope provenance. Signed-report integration must bind it explicitly with the assembled evidence digest.
+- `execution_authorized: false` and `eligible_for_untrusted_execution: false` remain mandatory.

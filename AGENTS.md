@@ -191,3 +191,14 @@ PR #49 merged `sandbox_acceptance.py`, a strict verifier for independently signe
 - The artifact module is a pure in-memory validator, not a trusted filesystem collector. Its `kind`, `symlink_target`, and `link_count` fields are caller-supplied assertions, not proof of actual inode properties. It does not open/stat files, authenticate signed reports, enforce retention, or authorize execution.
 - A future trusted host collector must use descriptor-relative no-follow traversal, `fstat`, same-descriptor hashing/copying, TOCTOU defenses, trusted retention, and independently verified report/evidence bindings.
 - No VM, provider, network, credentials, filesystem collector, private-source transfer, KMS/HSM, spend, or untrusted code execution was used. Keep `execution_authorized: false` and `eligible_for_untrusted_execution: false`.
+
+
+## Authoritative snapshot — PR #74 merged (2026-11-24)
+
+- Current `main` includes PR #74 squash merge `b40642e9cb58446b60cc356f349656c31818d898`; final PR head: `f633295b6c5ceb64eef183340d1fe5162b5edf59`.
+- Final-head CI passed: Task Orchestrator Tests `45382515116`, Non-production PR Validation `45382515212`, and Project Memory Audit `45382515188`.
+- PR #74 adds `tools/task_orchestrator/sandbox_observer_auth.py` and deterministic tests. It validates canonical signed observer envelopes, an externally pinned registry digest/version/audience, observer-to-domain/key mapping, a one-time host challenge bound to audience/observer/attempt/runtime/policy/probe, UTC validity, payload digest/size, monotonic offsets, Ed25519 signature through an injected verifier, and an atomic replay-store protocol for nonce consumption plus strictly increasing per-observer sequence.
+- Successful verification returns `AuthenticatedObserverResult`: the existing `ProbeObservation` plus registry digest/version, key ID, sequence, nonce digest, and envelope digest. Only `result.observation` is passed to the current evidence collector; preserve the wrapper provenance separately.
+- No host challenge generator, TLS transport, identity provisioning, durable replay-store implementation, or signed-report integration exists. Registry pins must come from protected out-of-band configuration; production signature verification must use the existing pinned Ed25519 trust-store verifier.
+- The current `CollectedEvidenceBundle` does not retain the authenticated envelope/registry/sequence provenance. The next phase must bind those fields and the evidence digest into the signed acceptance report.
+- Tests use a fake signature verifier and in-memory replay store only. No VM, provider, network, credentials, probes, filesystem collector, or untrusted code was used. Keep `execution_authorized: false` and `eligible_for_untrusted_execution: false`.

@@ -502,3 +502,15 @@ Append-only record of meaningful project work. Each entry should include branch/
 - Added adversarial coverage for hard-link metadata and malformed link-count values.
 - Final-head CI passed: Task Orchestrator Tests `45379646169`, Non-production PR Validation `45379646094`, Project Memory Audit `45379646100`.
 - The module does not open/stat files, authenticate metadata or signed reports, retain/delete files, or enforce actual retention. No filesystem collection, VM, provider, network, credentials, or untrusted code was used.
+
+
+## 2026-11-24 — PR #74 signed observer authenticity contract
+
+- PR #74 squash-merged as `b40642e9cb58446b60cc356f349656c31818d898`; final head `f633295b6c5ceb64eef183340d1fe5162b5edf59`.
+- Added `tools/task_orchestrator/sandbox_observer_auth.py`, `tools/task_orchestrator/tests/test_sandbox_observer_auth.py`, and `docs/SANDBOX_OBSERVER_AUTHENTICITY.md`; updated orchestrator README.
+- Added strict canonical JSON parsing and pinned observer registry validation (out-of-band digest, minimum version, exact audience, unique identities, domain/key/status/validity checks).
+- Added host-challenge binding with a 32-byte nonce and 120-second maximum lifetime; envelope checks include observer identity/domain/key, attempt/runtime/policy/probe, sequence, UTC timestamp, monotonic offsets, outcome, payload digest/size, and Ed25519 signature through an injected verifier.
+- Added an atomic replay-store protocol requiring one-time nonce consumption and strictly increasing per-observer sequence across attempts. Tests use a deterministic fake verifier and in-memory replay store.
+- Successful results preserve `ProbeObservation` plus registry digest/version, key ID, sequence, nonce digest, and envelope digest in `AuthenticatedObserverResult`.
+- Final-head CI: Task Orchestrator Tests `45382515116`, Non-production PR Validation `45382515212`, Project Memory Audit `45382515188` — all success.
+- No durable replay store, challenge generator, TLS transport, identity provisioning, report signing, VM, provider, network, or untrusted code was used. Existing evidence bundle does not yet bind observer provenance.

@@ -140,3 +140,18 @@ This section supersedes the earlier PR #53 baseline above.
 - Critical limitation: candidate bytes and metadata are supplied to a pure validator. It does not open or stat filesystem objects, prove that file-kind/link-count claims are true, verify report signatures, authenticate artifact provenance, store/delete files, or enforce retention. A trusted host-side collector remains unimplemented.
 - No application source, native source, app version, payment/backend/server behavior, release workflow, or deployment was changed. No runtime probes or untrusted code were executed.
 - Preserve `execution_authorized: false` and `eligible_for_untrusted_execution: false`.
+
+
+## Latest authoritative snapshot — PR #74 merged (2026-11-24)
+
+- Current `main` HEAD: `b40642e9cb58446b60cc356f349656c31818d898` (PR #74 squash merge).
+- PR #74 final head `f633295b6c5ceb64eef183340d1fe5162b5edf59` passed:
+  - Task Orchestrator Tests run `45382515116`
+  - Non-production PR Validation run `45382515212`
+  - Project Memory Audit run `45382515188`
+- Added `tools/task_orchestrator/sandbox_observer_auth.py`, `tools/task_orchestrator/tests/test_sandbox_observer_auth.py`, and `docs/SANDBOX_OBSERVER_AUTHENTICITY.md`; orchestrator README documents the contract.
+- The verifier checks a canonical observer registry against an independently supplied SHA-256 pin, minimum version and audience; binds observer IDs to trust domains and signing key IDs; validates one-time 32-byte host challenges (maximum 120 seconds); verifies canonical signed envelopes through an injected signature verifier; checks payload SHA-256, size, timestamps, monotonic offsets, and exact attempt/runtime/policy/probe bindings; and requires an injected atomic replay-store protocol to consume nonces and enforce increasing per-observer sequence numbers.
+- Successful verification returns an `AuthenticatedObserverResult` containing a `ProbeObservation` plus registry/key/sequence/nonce/envelope provenance fields.
+- Critical gaps: no protected registry provisioning, host nonce generation, authenticated TLS/workload-identity transport, durable replay-store implementation, or report-signature integration. The current evidence bundle does not yet retain authenticated envelope provenance. Production must use `PinnedTrustStoreVerifier` with time aligned to the observer verifier.
+- CI used deterministic fake signatures and an in-memory replay store. No production keys, real canary, network, VM, runtime probe, filesystem collector, or untrusted code was used.
+- Preserve `execution_authorized: false` and `eligible_for_untrusted_execution: false`.

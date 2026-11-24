@@ -60,6 +60,8 @@ REQUIRED_CONTEXT = (
     "docs/NEXT_STEPS.md",
     "docs/TASK_TEMPLATE.md",
     "docs/DEVELOPMENT_LOG.md",
+    "docs/DECISIONS.md",
+    "docs/KNOWN_ISSUES.md",
 )
 PROTECTED_BRANCHES = {"main", "master"}
 TASK_DIR = Path(".agent/tasks")

@@ -74,6 +74,8 @@ class EnvelopeBuilderTests(unittest.TestCase):
         second = build_agent_envelope(record)
         self.assertEqual(first, second)
         self.assertEqual(validate_envelope(first), first)
+        self.assertEqual(first["contract_version"], "1.2")
+        self.assertEqual(len(first["project_context"]), 8)
         self.assertEqual(first["repository"]["name"], "owner/repo")
         self.assertEqual(first["repository"]["base_sha"], record["repository"]["base_sha"])
         self.assertEqual(first["source_context"][0]["content"], "def route(): return True\n")

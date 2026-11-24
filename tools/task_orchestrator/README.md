@@ -138,7 +138,7 @@ Context-selection integration tests verify explicit acceptance, rejection of pat
 - It deliberately excludes repository identity, branch/base identifiers, project-memory documents, source files, context packages, semantic indexes, Git history, credentials, and prior conversation content. No source code is uploaded.
 - No tools are declared or enabled. The model cannot access the filesystem, shell, Git, GitHub, secrets, or patch application through this adapter. Its output is a bounded JSON plan, not an implementation patch or verification evidence.
 - It requires `OPENAI_API_KEY` and `OPENAI_MODEL` in the environment. Set `OPENAI_MODEL` to a model enabled for the API project; the adapter intentionally does not guess a model entitlement. Neither setting is stored in the repository or task record. The API endpoint is fixed to OpenAI over HTTPS; the adapter does not accept a custom base URL. Standard Python HTTPS proxy environment settings may still affect network routing. A missing setting fails before any request.
-- This command is explicitly opt-in and may incur API usage charges when invoked: `python -m tools.task_orchestrator.openai_planner --task-id <task-id>`. Do not run it until the owner has separately configured an API key and approved the intended request. No key is present in CI and CI tests use a fake transport only.
+- The optional openai_planner module is retained for historical/experimental planning-only tests, but it is disabled and out of scope for the current approved architecture. Do not invoke it, request an API key, or configure a paid model endpoint. The user has selected ChatGPT and Grok chat sessions through their existing GitHub connections instead. No key is present in CI and tests use a fake transport only.
 - Responses are size-bounded, schema-validated (including requiring at least one planning step), and errors are sanitized. There are no automatic retries. This does not yet connect the planner to the orchestrator lifecycle or authorize sending source context.
 
 
@@ -156,13 +156,13 @@ python -m tools.task_orchestrator.github_task_protocol --body-file issue-body.md
 
 The validator is local-only: it performs no GitHub API call, model request, shell execution, or patch application. It enforces a strict schema, supported agent/capability/risk values, fixed verification profiles, bounded text, and protected-path rules. See `docs/MULTI_AGENT_GITHUB_PROTOCOL.md`.
 
-Important: Issue comments are not an atomic lock. Acquire a lease with `github_lease_git.py` before editing; until provider runtimes and automatic dispatch are connected, keep one active implementation agent per task. Other agents may perform read-only review. This protocol does not imply that each GitHub App has the same write, shell, or Actions permissions.
+Important: Issue comments are not an atomic lock. Acquire and verify a lease with the trusted Issue-comment command workflow before editing. In the current user-activated ChatGPT/Grok GitHub-connector route, keep one active implementation agent per task; the other agent may perform read-only review. This route does not depend on provider runtimes or automatic model dispatch. Each GitHub integration's write, shell, and Actions permissions must be checked independently.
 
 ## GitHub Issue intake bridge
 
 Add the `agent-task` label to an open Issue containing the v1 marker and JSON payload. The `.github/workflows/agent-task-intake.yml` workflow validates the GitHub event with `github_issue_intake.py` and uploads a bounded JSON artifact for retrieval. The artifact binds the parsed task to the Issue URL, repository, issue number, and body digest.
 
-This is an intake/validation bridge only. It does not create a local task branch, claim a lease, invoke ChatGPT/Grok, call a model API, run implementation commands, apply patches, or upload source files. A validated artifact is marked `validated-awaiting-claim`; an agent must separately verify assignment, acquire a proven lease through a trusted CAS adapter, and prepare its isolated task workspace. Invalid or closed Issues fail closed.
+This is an intake/validation bridge only. It does not create a remote implementation branch, claim a lease, invoke ChatGPT/Grok, call a model API, run implementation commands, apply patches, or upload source files. A validated artifact is marked `validated-awaiting-claim`; the user activates one chat, and that agent separately verifies assignment and acquires a proven lease through the trusted CAS workflow before creating its remote task branch from the pinned base SHA. Invalid or closed Issues fail closed.
 
 
 ### Atomic GitHub task leases
@@ -190,7 +190,7 @@ On an open Issue with the \`agent-task\` label and a valid v1 task payload, a re
 
 Use \`grok\` instead of \`chatgpt\` for the other agent. Claim IDs are 16-64 lowercase hexadecimal characters; lease duration defaults to 60 minutes and is capped at 240. The workflow verifies the task assignment, uses the trusted default-branch code and short-lived GitHub token, and posts the verified lock ref/base SHA back to the Issue. A claim pins the current \`main\` commit; renewal reads and preserves that original base. Issue text is parsed as data and never run as shell input.
 
-This is a manual lease-control bridge, not an agent wake-up mechanism. It does not invoke ChatGPT/Grok or start implementation. The provider runtime must still be active and independently verify the returned lease before editing.
+This is a manual lease-control bridge, not an agent wake-up mechanism. It does not invoke ChatGPT/Grok or start implementation. The user must activate the intended chat, and that chat must independently verify the returned lease before editing through its GitHub integration.
 
 
 The live Issue command workflow was end-to-end tested on temporary Issue #24: claim, renew, and release succeeded, the final lease record was verified as released, and the test Issue was closed. Evidence: Actions runs 45178623063, 45178678823, 45178732222.

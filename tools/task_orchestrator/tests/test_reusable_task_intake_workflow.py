@@ -11,6 +11,8 @@ class ReusableTaskIntakeWorkflowTests(unittest.TestCase):
         self.assertIn("workflow_call:", workflow)
         self.assertIn("actions/checkout@v4", workflow)
         self.assertIn("repository: majidbusy09-blip/jetconfig-vpn", workflow)
+        self.assertIn("ref: ${{ github.workflow_sha }}", workflow)
+        self.assertNotIn("ref: main", workflow)
         self.assertIn("path: .jet-ai/central", workflow)
         self.assertIn("PYTHONPATH: ${{ github.workspace }}/.jet-ai/central", workflow)
         self.assertIn('python -m tools.task_orchestrator.github_issue_intake', workflow)

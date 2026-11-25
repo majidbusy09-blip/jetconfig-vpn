@@ -541,6 +541,25 @@ class OrchestratorIntegrationTests(unittest.TestCase):
         with self.assertRaisesRegex(orchestrator.TaskError, "symlink"):
             orchestrator.task_path(self.root, self.task_id, binding)
 
+    def test_implicit_task_lookup_rejects_symlinked_project_namespace(self) -> None:
+        tasks = self.root / ".agent" / "tasks"
+        tasks.mkdir(parents=True)
+        outside = self.root / "outside"
+        outside.mkdir()
+        (tasks / "linked-project").symlink_to(outside, target_is_directory=True)
+        with self.assertRaisesRegex(orchestrator.TaskError, "symlink"):
+            orchestrator.load_record(self.root, self.task_id)
+
+    def test_implicit_task_lookup_rejects_symlinked_repository_namespace(self) -> None:
+        tasks = self.root / ".agent" / "tasks"
+        project = tasks / "regular-project"
+        project.mkdir(parents=True)
+        outside = self.root / "outside"
+        outside.mkdir()
+        (project / "123456789").symlink_to(outside, target_is_directory=True)
+        with self.assertRaisesRegex(orchestrator.TaskError, "symlink"):
+            orchestrator.load_record(self.root, self.task_id)
+
 
 if __name__ == "__main__":
     unittest.main()

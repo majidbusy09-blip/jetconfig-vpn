@@ -8,7 +8,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: jet-ai-central-task-inbox
+  group: jet-ai-central-task-inbox-${{ github.event.client_payload.target_repository_id }}-${{ github.event.client_payload.issue_number }}
   cancel-in-progress: false
 
 jobs:
@@ -148,4 +148,13 @@ jobs:
             exit 0
           fi
           git commit -m "inbox: ingest $REPO Issue $(python -c 'import json;print(json.load(open("/tmp/validated-dispatch.json"))["issue_number"])')"
-          git push origin HEAD:refs/heads/task-inbox
+          for attempt in 1 2 3; do
+            if git push origin HEAD:refs/heads/task-inbox; then
+              exit 0
+            fi
+            echo "Inbox branch changed concurrently; rebasing and retrying push (attempt $attempt)."
+            git fetch origin task-inbox:refs/remotes/origin/task-inbox
+            git rebase origin/task-inbox
+          done
+          echo "Unable to persist inbox record after three safe push attempts." >&2
+          exit 1

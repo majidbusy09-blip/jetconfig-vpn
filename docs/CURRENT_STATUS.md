@@ -308,3 +308,15 @@ Phase 2C is merged. Phase 2D-1 is active on branch `agent/project-scoped-lease-w
 ## Phase 2D-1 update — PR guard included
 
 The project-scoped lease resolver is now also wired into the trusted PR guard and patch-review authorization. V2 PR validation reads the project-specific lock ref and lease record and rejects a lease record whose full project binding differs from the current trusted Issue binding. Legacy v1 PR validation continues to read the original lock branch and file. Exact-head CI is pending on the latest branch revision.
+
+
+## Phase 2D-2A and حسابگر من onboarding — 2026-11-25
+
+- PR #109 is still Draft/open/unmerged. Its exact head `31044135440c4d6ca9bb942f0d7b55c735ffd8a1` passed 450 Task Orchestrator tests without ResourceWarning, Non-production PR Validation, and Project Memory Audit. The Agent PR Lease and Scope Guard passed on that exact head (run `45558902923`). Independent human review is still required before merge.
+- Issue #105 is active under claim `20261125a105cafe`, pinned to main `dcf754ac5b22691687ebe0d9ec0f88623e4265b5`. The claim is time-limited; renew it before expiry if work continues.
+- The target repository identity is verified: `majidbusy09-blip/hesabgar_man`, repository ID `1423683236`, default branch `main`.
+- Target PR #2 (`jet-ai/onboarding-memory-and-ci`) adds the required project memory documents and a dedicated Flutter 3.27.4 analysis/test workflow. It preserves app version `1.0.9+10` and does not change app source or release configuration.
+- First target CI run: static analysis passed; tests failed because the Vazirmatn font assets are downloaded by the release workflow but absent from the repository tree. The validation workflow now downloads the same pinned font release before tests. The rerun is pending; do not report Flutter tests as passed yet.
+- Central manifest `docs/projects/hesabgar-man/manifest.json` declares lifecycle `registered`, required profiles `flutter-analysis` and `flutter-tests`, and no source index until a project-neutral Dart adapter exists.
+- The target baseline has no committed `pubspec.lock`; dependency reproducibility remains an explicit limitation.
+- No project activation, release, signing change, app version increment, or production operation has occurred.

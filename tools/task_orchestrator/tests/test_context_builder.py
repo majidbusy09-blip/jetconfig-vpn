@@ -166,5 +166,42 @@ class ContextBuilderTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
 
+    def test_v2_context_binds_project_identity_and_manifest_paths(self):
+        binding = {
+            "project_id": "sample-flutter-app",
+            "repository_id": "123456789",
+            "repository_full_name": "owner/repo",
+            "default_branch": "main",
+            "manifest_schema_version": 1,
+            "manifest_sha256": "a" * 64,
+            "base_sha": self.revision,
+        }
+        paths = ["AGENTS.md", "docs/PROJECT_CONTEXT.md"]
+        package = build_context(
+            root=self.root, task_id="context-test", source_revision=self.revision,
+            required_paths=paths, source_paths=["lib/main.dart"],
+            allowed_patterns=["lib/**"], excluded_patterns=[],
+            project_binding=binding, memory_manifest_version=2,
+        )
+        self.assertEqual(package["schema_version"], 2)
+        self.assertEqual(package["project_binding"], binding)
+        self.assertEqual(package["memory_manifest"], {
+            "version": 2, "required_documents": paths,
+        })
+        with self.assertRaises(ContextBuildError):
+            build_context(
+                root=self.root, task_id="context-test", source_revision=self.revision,
+                required_paths=paths, source_paths=[], allowed_patterns=["lib/**"],
+                excluded_patterns=[], project_binding=dict(binding, base_sha="f" * 40),
+                memory_manifest_version=2,
+            )
+        with self.assertRaises(ContextBuildError):
+            build_context(
+                root=self.root, task_id="context-test", source_revision=self.revision,
+                required_paths=paths, source_paths=[], allowed_patterns=["lib/**"],
+                excluded_patterns=[], project_binding=binding,
+            )
+
+
 if __name__ == "__main__":
     unittest.main()

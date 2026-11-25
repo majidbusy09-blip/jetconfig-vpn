@@ -170,5 +170,71 @@ class EnvelopeBuilderTests(unittest.TestCase):
         self.assertFalse(never.called)
 
 
+    def test_project_manifest_context_uses_variable_document_set_and_binds_identity(self):
+        record = task_record()
+        required = ["AGENTS.md", "docs/PROJECT_CONTEXT.md", "docs/CURRENT_STATUS.md",
+                    "docs/NEXT_STEPS.md", "docs/DEVELOPMENT_LOG.md"]
+        binding = {
+            "project_id": "jet-vpn-android", "repository_id": "1349356614",
+            "repository_full_name": "owner/repo", "default_branch": "main",
+            "manifest_schema_version": 1, "manifest_sha256": "a" * 64,
+            "base_sha": record["repository"]["base_sha"],
+        }
+        package_value = record["context_package"]
+        package_value["project_context"] = [
+            item for item in package_value["project_context"] if item["path"] in required
+        ]
+        package_value["schema_version"] = 2
+        package_value["project_binding"] = binding
+        package_value["memory_manifest"] = {"version": 1, "required_documents": required}
+        record["required_context"] = required
+        record["github_project_binding"] = binding
+        record["project_memory_manifest"] = {"version": 1, "required_documents": required}
+        package_value["total_bytes"] = sum(
+            len(item["content"].encode())
+            for item in package_value["project_context"] + package_value["source_context"]
+        )
+        unsigned = {key: value for key, value in package_value.items() if key != "context_sha256"}
+        package_value["context_sha256"] = hashlib.sha256(json.dumps(
+            unsigned, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+        ).encode()).hexdigest()
+        envelope = build_agent_envelope(record)
+        self.assertEqual(envelope["project_binding"], binding)
+        self.assertEqual(envelope["memory_manifest"]["required_documents"], required)
+        self.assertEqual([item["path"] for item in envelope["project_context"]], required)
+        self.assertEqual(validate_envelope(envelope), envelope)
+
+    def test_rejects_project_memory_manifest_or_binding_drift(self):
+        record = task_record()
+        required = ["AGENTS.md", "docs/PROJECT_CONTEXT.md"]
+        binding = {
+            "project_id": "jet-vpn-android", "repository_id": "1349356614",
+            "repository_full_name": "owner/repo", "default_branch": "main",
+            "manifest_schema_version": 1, "manifest_sha256": "a" * 64,
+            "base_sha": record["repository"]["base_sha"],
+        }
+        package_value = record["context_package"]
+        package_value["project_context"] = [
+            item for item in package_value["project_context"] if item["path"] in required
+        ]
+        package_value["schema_version"] = 2
+        package_value["project_binding"] = binding
+        package_value["memory_manifest"] = {"version": 1, "required_documents": required}
+        record["required_context"] = required
+        record["github_project_binding"] = binding
+        record["project_memory_manifest"] = {"version": 1, "required_documents": required}
+        package_value["total_bytes"] = sum(
+            len(item["content"].encode())
+            for item in package_value["project_context"] + package_value["source_context"]
+        )
+        unsigned = {key: value for key, value in package_value.items() if key != "context_sha256"}
+        package_value["context_sha256"] = hashlib.sha256(json.dumps(
+            unsigned, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+        ).encode()).hexdigest()
+        record["project_memory_manifest"]["version"] = 2
+        with self.assertRaises(EnvelopeBuildError):
+            build_agent_envelope(record)
+
+
 if __name__ == "__main__":
     unittest.main()

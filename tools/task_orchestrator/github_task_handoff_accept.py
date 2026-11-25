@@ -335,11 +335,21 @@ def _refresh_existing_task(
         }
         if record.get("github_project_binding") != expected_binding:
             raise HandoffAcceptanceError("Project identity changed; explicit project migration is required.")
-        memory = manifest.get("project_binding", {})
-        # The manifest digest in the binding pins the memory policy; the stored path/version
-        # snapshot must still match the trusted manifest loaded for this handoff.
-        if not isinstance(record.get("project_memory_manifest"), dict):
-            raise HandoffAcceptanceError("Existing task has no persisted project memory manifest.")
+        try:
+            schema, manifests = load_project_configuration(root)
+        except IntakeError as exc:
+            raise HandoffAcceptanceError("Trusted project memory manifest is unavailable.") from exc
+        matches = [item for item in manifests if item.get("project_id") == expected_binding["project_id"]]
+        if len(matches) != 1 or not isinstance(matches[0].get("memory"), dict):
+            raise HandoffAcceptanceError("Trusted project memory manifest is missing or ambiguous.")
+        memory = matches[0]["memory"]
+        expected_memory = {
+            "version": memory.get("manifest_version"),
+            "required_documents": memory.get("required_documents"),
+        }
+        if (record.get("project_memory_manifest") != expected_memory
+                or record.get("required_context") != expected_memory["required_documents"]):
+            raise HandoffAcceptanceError("Project memory manifest changed; explicit task migration is required.")
     elif record.get("github_project_binding") is not None:
         raise HandoffAcceptanceError("A project-aware task cannot be refreshed through a legacy handoff.")
     if new_metadata["operation"] != "renew" or old_handoff.get("claim_id") != new_metadata["previous_claim_id"]:

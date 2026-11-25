@@ -271,7 +271,7 @@ class HandoffAcceptanceTests(unittest.TestCase):
                     "tools.task_orchestrator.github_task_handoff_accept._read_current_lease",
                     return_value=(lease_record, LOCK_COMMIT),
                 ):
-                    accept_handoff(
+                    output = accept_handoff(
                         artifact, token="read-token", repository=REPOSITORY, create_branch=True,
                     )
             finally:
@@ -279,6 +279,17 @@ class HandoffAcceptanceTests(unittest.TestCase):
             record = json.loads((root / ".agent" / "tasks" / TASK_ID / "task.json").read_text(encoding="utf-8"))
             expected = dict(handoff["project_binding"], base_sha=base_sha)
             self.assertEqual(record["github_project_binding"], expected)
+            required = ACTIVE_MANIFEST["memory"]["required_documents"]
+            self.assertEqual(record["required_context"], required)
+            self.assertEqual(record["project_memory_manifest"], {
+                "version": ACTIVE_MANIFEST["memory"]["manifest_version"],
+                "required_documents": required,
+            })
+            envelope = json.loads(output.read_text(encoding="utf-8"))
+            self.assertEqual(envelope["project_binding"], expected)
+            self.assertEqual(envelope["memory_manifest"]["required_documents"], required)
+            self.assertEqual([item["path"] for item in envelope["project_context"]], required)
+            self.assertNotIn("docs/TASK_TEMPLATE.md", required)
             self.assertEqual(record["github_handoff"]["base_sha"], base_sha)
 
 

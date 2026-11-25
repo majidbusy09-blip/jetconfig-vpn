@@ -341,5 +341,30 @@ class AgentContractTests(unittest.TestCase):
         self.assertEqual(validate_result(bad, env)["status"], "needs_clarification")
 
 
+    def test_project_binding_and_memory_manifest_are_optional_but_atomic(self):
+        env = envelope()
+        env["project_binding"] = {
+            "project_id": "jet-vpn-android",
+            "repository_id": "1349356614",
+            "repository_full_name": "majidbusy09-blip/jetconfig-vpn",
+            "default_branch": "main",
+            "manifest_schema_version": 1,
+            "manifest_sha256": "a" * 64,
+            "base_sha": SHA_A,
+        }
+        env["memory_manifest"] = {"version": 1, "required_documents": ["AGENTS.md"]}
+        self.assertIs(validate_envelope(env), env)
+        for mutate in (
+            lambda item: item.pop("memory_manifest"),
+            lambda item: item["project_binding"].update(base_sha=SHA_B),
+            lambda item: item["memory_manifest"].update(required_documents=["docs/OTHER.md"]),
+            lambda item: item["project_binding"].update(repository_id="not-numeric"),
+        ):
+            bad = copy.deepcopy(env)
+            mutate(bad)
+            with self.assertRaises(ContractValidationError):
+                validate_envelope(bad)
+
+
 if __name__ == "__main__":
     unittest.main()

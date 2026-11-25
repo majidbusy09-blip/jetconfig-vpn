@@ -211,3 +211,16 @@ JET VPN is the first compatibility fixture (repository ID `1349356614`, canonica
 Phase 2A (Issue #98) is implementing only a pure, standard-library validator for the checked-in schema subset, trusted repository metadata matching, duplicate identity rejection, lifecycle eligibility, fixed runner availability, and canonical manifest hashing. It has no network, filesystem persistence, GitHub mutation, subprocess, model/provider, or project-code execution. Task/envelope/lease identity propagation is a subsequent separately scoped phase.
 
 «حسابگر من» and all other future projects remain unregistered until the exact repository URL is supplied and independently inspected. No external repository has been modified.
+
+
+## Explicit project identity in task intake — Phase 2B (2026-11-25)
+
+PR #99 is merged into main at `9b54a7158a1fbba7405f04ad503bcb8126c457bc`. Phase 2B is tracked by Issue #100 and Draft PR #101 on branch `agent/project-identity-intake-v2-20261125`.
+
+The v2 task contract carries exactly: stable `project_id`, immutable numeric `repository_id`, canonical `repository_full_name`, configured `default_branch`, `manifest_schema_version`, and canonical `manifest_sha256`. Intake compares this tuple against a trusted checked-in declarative manifest and the live GitHub repository object before emitting an intake artifact. The PR guard repeats the repository identity check for both base and head repositories. The accepted handoff uses schema v3 for v2 tasks and persists the validated binding plus the lease-pinned `base_sha` in the local task record.
+
+The v1 migration path is intentionally narrow: it is accepted only when trusted GitHub metadata exactly matches repository ID `1349356614`, canonical name `majidbusy09-blip/jetconfig-vpn`, HTTPS URL, and default branch `main`. It is not a generic fallback and is never selected from task text. The patch-review gate must apply the same rule.
+
+The checked-in manifest at `docs/projects/jet-vpn-android/manifest.json` is declarative and remains lifecycle `registered`. Phase 2B does not activate JET VPN, persist a registry, change lease namespaces, change the context/envelope schema, namespace workspaces/caches/artifacts, or onboard external projects. New v2 implementation intake requires an active manifest and implemented verification profiles; the registered JET VPN fixture therefore continues only through the explicit legacy path until a later activation decision.
+
+No paid API, provider account, credential, source upload, release, deployment, production change, or untrusted-code execution is part of this phase.

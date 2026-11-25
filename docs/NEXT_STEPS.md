@@ -267,3 +267,16 @@ PR #88 is a tested non-production implementation contract, not a production sign
 7. Onboard «حسابگر من» only after its exact GitHub repository URL is provided and its repository ID, default branch, source layout, memory, protected paths, and verification capabilities are independently inspected.
 
 Do not activate Python profiles until their fixed runners exist. Do not run Flutter checks for Python-only projects. Do not use task text to infer a project. No paid API, new provider spend, credentials, production change, release/deploy, or untrusted-code execution is authorized.
+
+
+## Phase 2B execution plan — explicit project identity (2026-11-25)
+
+1. Finish the v2 project-binding contract and ensure every consequential path validates it against the trusted manifest and live repository metadata: issue intake, lease request, handoff construction/acceptance, Issue revalidation, PR base/head guard, and patch-review authorization.
+2. Keep v1 compatibility bounded to the exact JET VPN repository identity; add negative tests proving v1 cannot be accepted for another repository and v2 cannot silently fall back to v1.
+3. Ensure schema-v3 handoffs persist the project identity tuple and pinned `base_sha` in local task records. A repository rename or manifest digest change must fail closed and require explicit migration.
+4. Run all exact-head CI on PR #101: orchestrator suite, non-production PR validation, project-memory audit, and lease/scope guard. Fix failures and repeat on the final head.
+5. Review the complete diff and tests. Keep PR #101 Draft until checks are green and the user has separately approved any merge decision.
+6. After Phase 2B is reviewed and merged, proceed to Phase 2C (project-specific memory/context selection) and then Phase 2D (lease/workspace/cache/artifact namespaces). Registry persistence and activation remain later, separately gated phases.
+7. Do not activate the JET VPN manifest or register «حسابگر من» in this phase. Obtain and verify the exact حسابگر من repository URL before any onboarding task.
+
+The current task lease is time-limited. Renew it before expiry; do not run two agents on the same task/branch. No paid API, credentials, provider spend, release/deploy, production change, or untrusted-code execution.

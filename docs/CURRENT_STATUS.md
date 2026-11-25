@@ -260,3 +260,15 @@ This section supersedes the earlier PR #53 baseline above.
 - Agent PR Lease and Scope Guard run `45486062154` passed while the task lease was active.
 - Project Memory Audit run `45486062165` was still running when this checkpoint was recorded; it must be checked on the final PR head after the memory-only follow-up commit.
 - The first test attempt on earlier checkpoint `18ec9ae311e2057c50b75a4538a912b3d36dc3c7` exposed that the manifest schema also uses `date-time` format. The validator was corrected to support the schema's URI and RFC3339 date-time formats, and the later 414-test run passed.
+
+
+## Phase 2B — explicit task project identity (2026-11-25; in progress)
+
+- PR #99 merged successfully by Squash as `9b54a7158a1fbba7405f04ad503bcb8126c457bc`; Issue #98 closed as completed.
+- Issue #100 is active under a verified ChatGPT lease. Current claim ID: `202611250550de39`; pinned base SHA: `9b54a7158a1fbba7405f04ad503bcb8126c457bc`. The lease is time-limited and must be renewed before expiry if work continues.
+- PR #101 is Draft/open/unmerged: `https://github.com/majidbusy09-blip/jetconfig-vpn/pull/101`; branch `agent/project-identity-intake-v2-20261125`.
+- Implemented on the branch: v2 task payload identity schema; explicit v1-only JET VPN compatibility identity; checked-in JET VPN manifest with lifecycle `registered`; manifest/live-repository validation in intake and lease/handoff paths; handoff schema v3; local task-record persistence of project identity plus pinned base SHA; base/head repository identity checks in PR guard; issue revalidation and patch-review gate identity checks.
+- Scope intentionally excludes registry persistence, activation, context/envelope changes, lease namespace changes, workspace/cache/artifact namespacing, application source, external repositories, and production execution.
+- First CI pass on an earlier PR #101 head found unconverted legacy consumers in patch review and test fixture mismatches. The PR guard passed. The affected patch-review gate/command and tests were updated; fresh exact-head checks are required. Do not treat the earlier failed runs as passing.
+- The current JET VPN manifest remains `registered`; no project is activated. «حسابگر من» remains unregistered pending its exact GitHub repository URL.
+- No merge, release, deployment, paid API, new provider spend, credentials, source transfer, or untrusted-code execution has been performed for Phase 2B.

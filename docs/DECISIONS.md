@@ -284,3 +284,16 @@ Every managed project is identified by a stable JET AI `project_id` bound to Git
 Project manifests are declarative data and cannot weaken global safety policy. A project may be eligible for implementation only when its lifecycle is explicitly `active`. Required verification profiles must both be declared by the project and have an implemented fixed runner. An unknown profile blocks readiness; it is never silently replaced by an unrelated check.
 
 The first implementation phase is a pure validator with no network, filesystem persistence, subprocess, GitHub mutation, model/provider call, or project-code execution. Task/envelope/lease/context/workspace/cache/artifact identity propagation is separate follow-up work. «حسابگر من» is not registered until its exact repository URL and immutable repository identity are independently verified.
+
+
+## D-025 — Versioned task project binding and bounded legacy migration (2026-11-25)
+
+**Status:** Implemented on Draft PR #101; not yet merged.
+
+New project-aware task payloads use schema v2 and carry exactly six identity fields: stable `project_id`, immutable numeric `repository_id`, canonical `repository_full_name`, configured `default_branch`, `manifest_schema_version`, and canonical `manifest_sha256`. The binding must match a trusted checked-in manifest and live GitHub repository metadata before intake artifacts or handoffs are accepted. PR guards must compare the same repository identity tuple for both base and head repositories.
+
+Legacy v1 is a migration exception for the original JET VPN repository only: repository ID `1349356614`, canonical name `majidbusy09-blip/jetconfig-vpn`, HTTPS URL `https://github.com/majidbusy09-blip/jetconfig-vpn`, and default branch `main`. All v1 acceptance paths must validate trusted repository metadata; a missing identity must fail closed. No project may be inferred from task text, title, branch, or display name.
+
+V2 handoffs use handoff schema 3. The validated project binding is persisted in the local task record together with the lease-pinned `base_sha`. A later repository rename or manifest digest change cannot silently rebind an existing task; the old handoff must be rejected and an explicit migration/new task used.
+
+The JET VPN manifest remains lifecycle `registered`. This phase does not activate it or persist a multi-project registry. V2 implementation intake requires an active manifest and implemented fixed verification profiles; v1 compatibility remains the temporary path for current JET VPN work. Context/envelope schema, lease namespace, workspace/cache/artifact namespacing, and external-project onboarding are explicitly deferred.

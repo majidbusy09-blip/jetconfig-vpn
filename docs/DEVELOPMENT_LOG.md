@@ -594,3 +594,16 @@ Append-only record of meaningful project work. Each entry should include branch/
 - The first attempt failed because the checked-in schema also declares the optional `metadata.registered_at` field with JSON Schema `date-time` format. The validator was corrected to support URI and RFC3339 date-time formats, and malformed schema format declarations are now rejected with the registry error type.
 - Project Memory Audit run `45486062165` was still in progress at this checkpoint. The final memory-only update in this PR requires fresh exact-head CI before the task is complete.
 - No source/app changes outside the two validator files, no dependency changes, no network or persistence, no external project, no API spend, and no untrusted execution.
+
+
+## 2026-11-25 — Phase 2B explicit project identity implementation
+
+- PR #99 Phase 2A merged into main as `9b54a7158a1fbba7405f04ad503bcb8126c457bc`; Issue #98 closed as completed.
+- Created Issue #100 for Phase 2B. Its task payload is bootstrapped through the existing v1 protocol only because the current lease bridge is v1; the v1 exception is bound to the exact JET VPN repository identity. Lease claim and renewal were verified; latest claim `202611250550de39`, pinned base `9b54a7158a1fbba7405f04ad503bcb8126c457bc`.
+- Created Draft PR #101 on `agent/project-identity-intake-v2-20261125`.
+- Added a declarative JET VPN manifest at `docs/projects/jet-vpn-android/manifest.json`; lifecycle is deliberately `registered`, not active.
+- Added strict v1/v2 task payload parsing, v1 compatibility restriction, v2 binding validation against the trusted manifest and live GitHub metadata, and a v2 intake path.
+- Added v2 handoff schema 3 with project identity, persisted the identity tuple and pinned base SHA into the local task record, and added identity comparisons for PR base/head repositories.
+- Extended Issue revalidation and patch-review authorization to verify repository identity and prevent project-aware records from being downgraded to legacy v1.
+- Initial PR #101 CI: Agent PR Lease and Scope Guard passed; Task Orchestrator Tests and Non-production PR Validation exposed remaining old patch-review consumers and test fixture mismatches. Those call sites and fixtures were updated. New exact-head CI is required; no passing result is claimed yet.
+- No registry persistence, activation, context/envelope schema change, lease namespace change, workspace/cache/artifact namespacing, app-source change, external repo change, API spend, credentials, provider source upload, release, deployment, or untrusted execution.

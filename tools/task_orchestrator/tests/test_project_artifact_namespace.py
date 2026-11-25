@@ -4,6 +4,8 @@ from pathlib import Path
 
 from tools.task_orchestrator.project_artifact_namespace import (
     ProjectArtifactNamespaceError,
+    audit_record_path,
+    cache_relative_path,
     cache_key,
     ensure_namespace_directory,
     index_output_paths,
@@ -62,6 +64,8 @@ class ProjectArtifactNamespaceTests(unittest.TestCase):
             namespaced_relative_path("patches", "same.patch", project_binding=PROJECT_A, source_revision=REVISION_A),
             namespaced_relative_path("patches", "same.patch", project_binding=PROJECT_A, source_revision=REVISION_B),
         )
+        self.assertIn("/cache/flutter-pub-cache", cache_relative_path("flutter-pub-cache", project_binding=PROJECT_A, source_revision=REVISION_A))
+        self.assertIn("/audit/run.json", audit_record_path("run.json", project_binding=PROJECT_A, source_revision=REVISION_A))
 
     def test_cache_key_and_workflow_name_include_full_identity(self):
         key_a = cache_key("dart-pub", project_binding=PROJECT_A, source_revision=REVISION_A)

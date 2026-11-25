@@ -63,7 +63,7 @@ def _text(value: Any, name: str, limit: int) -> str:
     return value.strip()
 
 
-def _paths(value: Any, name: str, *, required: bool) -> list[str]:
+def _paths(value: Any, name: str, *, required: bool, task_id: str) -> list[str]:
     if not isinstance(value, list) or len(value) > MAX_ITEMS or (required and not value):
         raise GitHubTaskError(
             f"{name} must be {'a non-empty ' if required else 'an '}array of at most {MAX_ITEMS} paths."
@@ -76,8 +76,12 @@ def _paths(value: Any, name: str, *, required: bool) -> list[str]:
         parts = path.split("/")
         if any(part in {"", ".", ".."} for part in parts):
             raise GitHubTaskError(f"{name} contains an unsafe path segment.")
-        if any(part.lower() in PROTECTED_PARTS for part in parts) or path.startswith(".github/workflows/"):
-            raise GitHubTaskError(f"{name} targets a protected path.")
+        if any(part.lower() in PROTECTED_PARTS for part in parts):
+            raise GitHubTaskError(f"{name} targets a protected path")
+        if path.startswith(".github/workflows/") and not (
+            path == WORKFLOW_POLICY_PATH and task_id == WORKFLOW_POLICY_TASK_ID
+        ):
+            raise GitHubTaskError(f"{name} targets a protected workflow path")
         if path in result:
             raise GitHubTaskError(f"{name} contains duplicate entries.")
         result.append(path)
@@ -203,8 +207,8 @@ def validate_task_payload(
         "capability": value["capability"],
         "risk": value["risk"],
         "assigned_agent": value["assigned_agent"],
-        "allow": _paths(value["allow"], "allow", required=True),
-        "exclude": _paths(value["exclude"], "exclude", required=False),
+        "allow": _paths(value["allow"], "allow", required=True, task_id=task_id),
+        "exclude": _paths(value["exclude"], "exclude", required=False, task_id=task_id),
         "scope_reason": _text(value["scope_reason"], "scope_reason", 2_000),
         "verification_profiles": profiles,
     }

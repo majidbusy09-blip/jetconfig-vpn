@@ -155,6 +155,40 @@ def read_bytes(
             os.close(parent)
 
 
+def stat_entry(
+    root: str | os.PathLike[str], relative_path: str
+) -> os.stat_result | None:
+    """Stat a directory entry without following its final symlink."""
+    parent = None
+    try:
+        parent, leaf = _open_parent(root, relative_path, create=False)
+        try:
+            return os.stat(leaf, dir_fd=parent, follow_symlinks=False)
+        except FileNotFoundError:
+            return None
+        except OSError as exc:
+            raise SafeLocalFileError("File entry metadata could not be read safely.") from exc
+    finally:
+        if parent is not None:
+            os.close(parent)
+
+
+def readlink(
+    root: str | os.PathLike[str], relative_path: str
+) -> str:
+    """Read a symlink target relative to a safely opened parent directory."""
+    parent = None
+    try:
+        parent, leaf = _open_parent(root, relative_path, create=False)
+        try:
+            return os.readlink(leaf, dir_fd=parent)
+        except OSError as exc:
+            raise SafeLocalFileError("Symlink target could not be read safely.") from exc
+    finally:
+        if parent is not None:
+            os.close(parent)
+
+
 def atomic_write_bytes(
     root: str | os.PathLike[str], relative_path: str, data: bytes, *,
     replace: bool, create_parents: bool = False,

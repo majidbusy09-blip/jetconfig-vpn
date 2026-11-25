@@ -317,3 +317,13 @@ Phase 2D-1 must also verify that the trusted PR guard and patch-review gate use 
 
 
 - After the Scandir iterator cleanup, rerun the Task Orchestrator suite and all required PR validation/audit/scope-guard checks on the new exact head. Confirm the symlink regression tests pass without ResourceWarning.
+
+
+## Next execution order — updated 2026-11-25
+
+1. Complete Phase 2D-2B / Issue #108: namespace patch/result artifacts, source-index outputs, caches, generated reports, and audits by validated project identity, manifest digest, and pinned source revision; preserve exact v1 JET VPN behavior.
+2. Add adversarial tests for cross-project artifact substitution, cache collisions, stale index reads, and path traversal; update every reader/writer/cleanup path and run full orchestrator, memory-audit, validation, and scope-guard checks.
+3. Finish حسابگر من onboarding dry-run against target merge commit `177eb1a1f0ae8ae5a77a2c1c136804dff042d5db`. Keep lifecycle `registered`; the lockfile is still untracked and generic Dart source indexing is deferred.
+4. Add and review `pubspec.lock` through a dedicated target-repository PR before declaring dependency reproducibility complete.
+5. Keep Issue #110 separate: do not edit `.github/workflows/agent-lease-commands.yml` until the exact protected workflow-policy change is explicitly approved.
+6. No activation, release, signing, deployment, paid API, credentials, or untrusted-code execution without their separate gates.

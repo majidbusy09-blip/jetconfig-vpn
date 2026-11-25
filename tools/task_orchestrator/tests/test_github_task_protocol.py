@@ -60,6 +60,12 @@ class GitHubTaskProtocolTests(unittest.TestCase):
         self.assertEqual(result["schema_version"], 2)
         self.assertEqual(result["project_binding"]["repository_id"], "1349356614")
 
+    def test_rejects_non_integer_schema_version_without_type_error(self):
+        bad = copy.deepcopy(V1_PAYLOAD)
+        bad["schema_version"] = []
+        with self.assertRaises(GitHubTaskError):
+            validate_task_payload(bad, repository_metadata=JET_REPOSITORY, allow_legacy_jet_vpn=True)
+
     def test_rejects_malformed_v2_identity_fields(self):
         for key, value in (
             ("project_id", "Not a project"),

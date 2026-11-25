@@ -1,9 +1,10 @@
 import copy
 import json
+import tempfile
 import unittest
 from pathlib import Path
 
-from tools.task_orchestrator.github_issue_intake import IntakeError, build_intake
+from tools.task_orchestrator.github_issue_intake import IntakeError, build_intake, load_project_configuration
 from tools.task_orchestrator.project_registry import manifest_digest
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -118,6 +119,17 @@ class GitHubIssueIntakeTests(unittest.TestCase):
         self.assertEqual(edited["task"]["task_id"], "sample-task")
         with self.assertRaises(IntakeError):
             build_intake({"action": "opened", "issue": {}, "repository": {}})
+
+    def test_rejects_malformed_manifest_identity_as_intake_error(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            (root / "docs/projects/bad-project").mkdir(parents=True)
+            (root / "docs/PROJECT_MANIFEST_SCHEMA.json").write_text(json.dumps(SCHEMA), encoding="utf-8")
+            bad = copy.deepcopy(JET_MANIFEST)
+            bad["project_id"] = []
+            (root / "docs/projects/bad-project/manifest.json").write_text(json.dumps(bad), encoding="utf-8")
+            with self.assertRaises(IntakeError):
+                load_project_configuration(root)
 
     def test_rejects_invalid_task_payload(self):
         bad = event(body="plain text")

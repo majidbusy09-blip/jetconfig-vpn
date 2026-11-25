@@ -167,7 +167,7 @@ def validate_task_payload(
     if not isinstance(value, dict):
         raise GitHubTaskError("Task payload must be a JSON object.")
     version = value.get("schema_version")
-    if isinstance(version, bool) or version not in {1, 2}:
+    if isinstance(version, bool) or not isinstance(version, int) or version not in {1, 2}:
         raise GitHubTaskError("Unsupported GitHub task schema_version.")
     required = common | {"schema_version"}
     if version == 2:

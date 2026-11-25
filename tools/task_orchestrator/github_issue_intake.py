@@ -82,6 +82,11 @@ def load_project_configuration(root: Path) -> tuple[dict[str, Any], list[dict[st
         if isinstance(item.get("repository"), dict) else None
         for item in manifests
     ]
+    if (
+        not all(isinstance(value, str) and value.strip() for value in project_ids)
+        or not all(isinstance(value, str) and value.strip() for value in repository_ids)
+    ):
+        raise IntakeError("Trusted project manifests contain missing or malformed project/repository identities.")
     if len(project_ids) != len(set(project_ids)) or len(repository_ids) != len(set(repository_ids)):
         raise IntakeError("Trusted project manifests contain duplicate project or repository identities.")
     return schema, manifests

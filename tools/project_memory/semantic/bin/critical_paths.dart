@@ -107,9 +107,12 @@ Future<void> main(List<String> args) async {
     final outputPath = identity?.criticalPathsPath ??
         'docs/generated/jet_vpn_critical_paths.json';
     final output = File('${root.path}/$outputPath');
+    if (identity != null) {
+      await identity.ensureOutputParent(root, outputPath, createMissing: options['mode'] == 'write');
+    }
 
     if (options['mode'] == 'write') {
-      await output.parent.create(recursive: true);
+      if (identity == null) await output.parent.create(recursive: true);
       await output.writeAsString(rendered);
       stdout.writeln('Wrote $outputPath');
     } else if (!await output.exists() || await output.readAsString() != rendered) {

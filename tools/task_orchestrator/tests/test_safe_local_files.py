@@ -9,6 +9,8 @@ from tools.task_orchestrator.safe_local_files import (
     atomic_write_bytes,
     ensure_directory,
     read_bytes,
+    readlink,
+    stat_entry,
 )
 
 
@@ -70,6 +72,21 @@ class SafeLocalFileTests(unittest.TestCase):
                 self.skipTest("symlink creation unavailable")
             with self.assertRaises(SafeLocalFileError):
                 ensure_directory(root, ".agent/tasks")
+
+    def test_stat_and_readlink_are_relative_and_do_not_follow_leaf(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            target = root / "target.txt"
+            target.write_text("payload", encoding="utf-8")
+            link = root / "link.txt"
+            try:
+                link.symlink_to(target)
+            except OSError:
+                self.skipTest("symlink creation unavailable")
+            metadata = stat_entry(root, "link.txt")
+            self.assertTrue(metadata is not None and metadata.st_mode & 0o170000 == 0o120000)
+            self.assertEqual(readlink(root, "link.txt"), str(target))
+            self.assertIsNone(stat_entry(root, "missing.txt"))
 
     def test_read_size_limit(self):
         with tempfile.TemporaryDirectory() as temp:

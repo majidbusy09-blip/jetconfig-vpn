@@ -693,3 +693,5 @@ PR #101 remains Draft and unmerged for human review. No review submissions or re
 - Extended the analyzer-resolved index and critical-path report metadata; updated their CLIs for explicit project manifest/revision inputs while preserving default v1 output paths.
 - Workflow YAML was deliberately left unchanged because workflow paths are protected; workflow artifact naming remains a separate reviewed integration step.
 - Draft PR #113 created for early CI feedback. No target app source, signing, release, activation, provider invocation, or patch application.
+
+- Wired the local fixture-only dispatch audit writer to derive its v2 output path from the envelope's trusted project binding and pinned source revision; explicit v2 path overrides fail closed.

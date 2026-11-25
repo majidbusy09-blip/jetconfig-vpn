@@ -96,7 +96,7 @@ def v2_event(operation="claim", previous_claim=None):
             "manifest_sha256": manifest_digest(ACTIVE_MANIFEST),
         },
     }
-    body = "<!-- jet-agent-task:v2 -->\\n\\n" + "```json\\n" + json.dumps(task) + "\\n```"
+    body = "<!-- jet-agent-task:v2 -->\n\n" + "```json\n" + json.dumps(task) + "\n```"
     command = f"/jet-agent {operation} chatgpt {CLAIM}"
     if operation == "renew":
         command = f"/jet-agent renew chatgpt {previous_claim or ('d' * 16)} {CLAIM}"

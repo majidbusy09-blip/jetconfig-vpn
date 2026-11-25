@@ -1,4 +1,5 @@
 import base64
+import copy
 import io
 import json
 import os
@@ -11,6 +12,7 @@ from unittest.mock import patch
 
 from tools.task_orchestrator.github_lease import make_lease
 from tools.task_orchestrator.github_task_handoff import build_task_handoff
+from tools.task_orchestrator.project_registry import manifest_digest
 from tools.task_orchestrator.github_task_handoff_accept import (
     HandoffAcceptanceError, validate_handoff_for_acceptance, _read_json,
     accept_handoff,
@@ -25,6 +27,10 @@ BASE = "b" * 40
 LOCK_COMMIT = "c" * 40
 NOW = "2029-12-31T23:00:00Z"
 EXPIRES = "2030-01-01T01:00:00Z"
+ROOT = Path(__file__).resolve().parents[3]
+PROJECT_SCHEMA = json.loads((ROOT / "docs/PROJECT_MANIFEST_SCHEMA.json").read_text(encoding="utf-8"))
+ACTIVE_MANIFEST = copy.deepcopy(PROJECT_SCHEMA["examples"][0])
+ACTIVE_MANIFEST["lifecycle"] = "active"
 
 
 def issue_event(operation="claim", claim_id=CLAIM, previous_claim_id=CLAIM):
@@ -80,6 +86,64 @@ def current_lease():
         task_id=TASK_ID, owner="chatgpt", claim_id=CLAIM,
         base_sha=BASE, now="2029-12-31T23:00:00Z", duration_minutes=120,
     )
+
+
+def v2_issue_event(operation="claim", claim_id=CLAIM, previous_claim_id=CLAIM):
+    task = {
+        "schema_version": 2, "task_id": TASK_ID,
+        "goal": "A bounded task for the handoff acceptance test.",
+        "capability": "documentation", "risk": "low",
+        "assigned_agent": "any", "allow": ["docs/**"], "exclude": [],
+        "scope_reason": "Documentation-only.", "verification_profiles": ["python-tooling-tests"],
+        "project_binding": {
+            "project_id": ACTIVE_MANIFEST["project_id"],
+            "repository_id": ACTIVE_MANIFEST["repository"]["repository_id"],
+            "repository_full_name": ACTIVE_MANIFEST["repository"]["full_name"],
+            "default_branch": ACTIVE_MANIFEST["repository"]["default_branch"],
+            "manifest_schema_version": ACTIVE_MANIFEST["schema_version"],
+            "manifest_sha256": manifest_digest(ACTIVE_MANIFEST),
+        },
+    }
+    body = "<!-- jet-agent-task:v2 -->\\n\\n" + "```json\\n" + json.dumps(task) + "\\n```"
+    ev = issue_event(operation, claim_id, previous_claim_id)
+    ev["issue"]["body"] = body
+    return ev
+
+
+def v2_current_issue():
+    ev = v2_issue_event()
+    return {
+        "number": 42, "state": "open", "body": ev["issue"]["body"],
+        "html_url": ev["issue"]["html_url"],
+        "labels": [{"name": "agent-task"}],
+    }
+
+
+def v2_handoff(operation="claim", claim_id=CLAIM, previous_claim_id=CLAIM, base_sha=BASE, lock_commit=LOCK_COMMIT, run_id=321):
+    ev = v2_issue_event(operation, claim_id, previous_claim_id)
+    lease_record = make_lease(
+        task_id=TASK_ID, owner="chatgpt", claim_id=claim_id,
+        base_sha=base_sha, now=NOW, duration_minutes=120,
+    )
+    lease_result = {
+        "operation": operation, "task_id": TASK_ID, "issue_number": 42,
+        "issue_url": ev["issue"]["html_url"],
+        "result": {
+            "task_id": TASK_ID, "owner": "chatgpt", "claim_id": claim_id,
+            "status": "active", "base_sha": base_sha,
+            "expires_at": lease_record["expires_at"],
+            "lock_branch": "agent-locks/" + TASK_ID,
+            "lock_commit": lock_commit, "verified": True,
+        },
+    }
+    with patch(
+        "tools.task_orchestrator.github_issue_lease_command.load_project_configuration",
+        return_value=(PROJECT_SCHEMA, [ACTIVE_MANIFEST]),
+    ), patch(
+        "tools.task_orchestrator.github_task_handoff.load_project_configuration",
+        return_value=(PROJECT_SCHEMA, [ACTIVE_MANIFEST]),
+    ):
+        return build_task_handoff(ev, lease_result, run_id=run_id, run_attempt=1, now=NOW), lease_record
 
 
 class HandoffAcceptanceTests(unittest.TestCase):
@@ -153,6 +217,69 @@ class HandoffAcceptanceTests(unittest.TestCase):
                     payload, current_issue(), current_lease(), LOCK_COMMIT,
                     repository=REPOSITORY, repository_metadata=REPOSITORY_METADATA, now=NOW,
                 )
+
+
+    def test_accepts_v2_project_binding_and_persists_it_with_pinned_base_sha(self):
+        handoff, lease_record = v2_handoff()
+        accepted = validate_handoff_for_acceptance(
+            handoff, v2_current_issue(), lease_record, LOCK_COMMIT,
+            repository=REPOSITORY, repository_metadata=REPOSITORY_METADATA,
+            project_schema=PROJECT_SCHEMA, project_manifests=[ACTIVE_MANIFEST], now=NOW,
+        )
+        self.assertEqual(accepted["schema_version"], 2)
+        self.assertEqual(handoff["handoff_schema"], 3)
+
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder) / "repository"
+            root.mkdir()
+            def git(*args):
+                return subprocess.run(
+                    ["git", *args], cwd=root, check=True, capture_output=True, text=True
+                ).stdout.strip()
+            git("init", "-q")
+            git("config", "user.name", "Handoff Acceptance Test")
+            git("config", "user.email", "handoff-test@example.invalid")
+            git("remote", "add", "origin", "https://github.com/majidbusy09-blip/jetconfig-vpn.git")
+            docs = {
+                "AGENTS.md": "Project agent instructions.\\n",
+                "docs/PROJECT_CONTEXT.md": "Project context.\\n",
+                "docs/CURRENT_STATUS.md": "Current status.\\n",
+                "docs/NEXT_STEPS.md": "Next steps.\\n",
+                "docs/TASK_TEMPLATE.md": "Task template.\\n",
+                "docs/DEVELOPMENT_LOG.md": "Development log.\\n",
+            }
+            for name, content in docs.items():
+                target = root / name
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_text(content, encoding="utf-8")
+            git("add", ".")
+            git("commit", "-m", "fixture base")
+            base_sha = git("rev-parse", "HEAD")
+            handoff, lease_record = v2_handoff(base_sha=base_sha, run_id=322)
+            artifact = Path(folder) / "task-handoff.json"
+            artifact.write_text(json.dumps(handoff), encoding="utf-8")
+            previous = Path.cwd()
+            try:
+                os.chdir(root)
+                with patch(
+                    "tools.task_orchestrator.github_task_handoff_accept.api_get",
+                    side_effect=[v2_current_issue(), REPOSITORY_METADATA],
+                ), patch(
+                    "tools.task_orchestrator.github_task_handoff_accept.load_project_configuration",
+                    return_value=(PROJECT_SCHEMA, [ACTIVE_MANIFEST]),
+                ), patch(
+                    "tools.task_orchestrator.github_task_handoff_accept._read_current_lease",
+                    return_value=(lease_record, LOCK_COMMIT),
+                ):
+                    accept_handoff(
+                        artifact, token="read-token", repository=REPOSITORY, create_branch=True,
+                    )
+            finally:
+                os.chdir(previous)
+            record = json.loads((root / ".agent" / "tasks" / TASK_ID / "task.json").read_text(encoding="utf-8"))
+            expected = dict(handoff["project_binding"], base_sha=base_sha)
+            self.assertEqual(record["github_project_binding"], expected)
+            self.assertEqual(record["github_handoff"]["base_sha"], base_sha)
 
 
     def test_reads_single_file_github_artifact_zip_without_extracting_paths(self):

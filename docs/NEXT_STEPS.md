@@ -344,3 +344,11 @@ Phase 2D-1 must also verify that the trusted PR guard and patch-review gate use 
 2. Validate the generic Dart index CLI against a real target checkout with matching GitHub origin, trusted manifest digest, and pinned HEAD. Keep source indexing disabled and lifecycle `registered` until this smoke test and namespace isolation review pass.
 3. Issue #114: wire workflow artifact upload names only after explicit approval for the exact protected-path policy change. Do not modify `.github/workflows/**` before approval; preserve v1 artifact names.
 4. Continue any new project onboarding only through the manifest, memory-pack, verification, namespace, and independent-review gates. No project activation, release, signing, deployment, paid API, credentials, or untrusted-code execution without separate authorization.
+
+
+## Project-scoped workflow artifact integration
+
+1. Merge the policy-only change that binds the exact path `.github/workflows/project-memory-audit.yml` to task ID `project-memory-artifact-workflow-v1`.
+2. In a separate task/PR, wire the workflow to use only a trusted manifest matching the live immutable repository ID and exact checked-out `GITHUB_SHA`; otherwise retain the existing v1 artifact names.
+3. Preserve `.github/workflows/agent-lease-commands.yml`, all build/release/deploy workflows, signing files, and secrets paths as protected. Do not broaden the exception to `.github/workflows/**`.
+4. Verify workflow behavior for missing/invalid manifests, wrong repository IDs, stale source revisions, deterministic names, and v1 compatibility.

@@ -656,3 +656,13 @@ PR #101 remains Draft and unmerged for human review. No review submissions or re
 - Expanded Issue #104 allowlist to include `github_task_pr_guard.py` and its tests after a repository-wide reference audit found the trusted PR guard still read the legacy `.agent-locks/lease.json` path directly.
 - The PR guard now resolves project-scoped refs and lease-record paths using the shared namespace helper, validates the full lease project binding against the current trusted Issue manifest, and retains the v1 legacy path.
 - Added cross-project lease-substitution coverage for the PR guard. The task was released and reclaimed under a fresh claim after its allowlist was expanded.
+
+
+## 2026-11-25 — حسابگر من onboarding started
+
+- Added Issue #105 structured task payload and verified lease claim `20261125a105cafe`, pinned to main `dcf754ac5b22691687ebe0d9ec0f88623e4265b5`.
+- Created a dedicated onboarding branch in `hesabgar_man` and PR #2 for project memory plus a read-only Flutter PR validation workflow.
+- Target repository identity and baseline version `1.0.9+10` were verified; no app source or version changes were made.
+- First CI run: Flutter static analysis passed; Flutter tests exposed missing Vazirmatn font assets. Updated validation workflow to stage the exact font release used by the existing build workflow. Awaiting rerun.
+- Added central `hesabgar-man` manifest in `registered` lifecycle and a pure read-only readiness assessment with adversarial tests.
+- Determined current Dart semantic index CLI/output are JET VPN-specific even though the underlying resolved-index library supports multiple Dart source files. حسابگر manifest uses `source_index.strategy=none` pending a generic adapter.

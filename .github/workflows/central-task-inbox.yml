@@ -28,26 +28,11 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Validate dispatch against registered project manifests
-        id: dispatch
+      - name: Validate dispatch payload against trusted project manifests
         run: |
           set -euo pipefail
-          python -m tools.task_orchestrator.github_task_artifact_dispatch \
-            --event-file "$GITHUB_EVENT_PATH" \
-            --artifact-metadata-file /tmp/artifact-metadata.json \
-            --repository-metadata-file /tmp/repository-metadata.json \
-            --output-file /tmp/validated-dispatch.json
-        # The metadata files are fetched and validated in the following step.
-        continue-on-error: true
-
-      - name: Validate payload and fetch trusted GitHub metadata
-        env:
-          CROSS_REPO_TOKEN: ${{ secrets.JET_AI_CROSS_REPO_READ_TOKEN }}
-        run: |
-          set -euo pipefail
-          test -n "$CROSS_REPO_TOKEN" || { echo "Missing JET_AI_CROSS_REPO_READ_TOKEN (Actions: read on registered target repositories)." >&2; exit 1; }
           python - <<'PY'
-          import json, os, re
+          import json, os
           from pathlib import Path
           from tools.task_orchestrator.github_issue_intake import load_project_configuration
           from tools.task_orchestrator.github_task_artifact_dispatch import validate_dispatch_event
@@ -56,6 +41,13 @@ jobs:
           value = validate_dispatch_event(event, manifests)
           Path("/tmp/dispatch.json").write_text(json.dumps(value), encoding="utf-8")
           PY
+
+      - name: Validate payload and fetch trusted GitHub metadata
+        env:
+          CROSS_REPO_TOKEN: ${{ secrets.JET_AI_CROSS_REPO_READ_TOKEN }}
+        run: |
+          set -euo pipefail
+          test -n "$CROSS_REPO_TOKEN" || { echo "Missing JET_AI_CROSS_REPO_READ_TOKEN (Actions: read on registered target repositories)." >&2; exit 1; }
           REPO="$(python -c 'import json;print(json.load(open("/tmp/dispatch.json"))["target_repository"])')"
           ARTIFACT_ID="$(python -c 'import json;print(json.load(open("/tmp/dispatch.json"))["artifact_id"])')"
           curl --fail --silent --show-error --location \
@@ -103,11 +95,13 @@ jobs:
       - name: Checkout durable inbox branch
         run: |
           set -euo pipefail
+          git fetch origin main:refs/remotes/origin/main
           if git ls-remote --exit-code --heads origin task-inbox >/dev/null 2>&1; then
-            git fetch origin task-inbox
+            git fetch origin task-inbox:refs/remotes/origin/task-inbox
             git checkout -B task-inbox origin/task-inbox
+            git merge --no-edit origin/main
           else
-            git checkout -b task-inbox
+            git checkout -b task-inbox origin/main
           fi
 
       - name: Persist validated task in central inbox

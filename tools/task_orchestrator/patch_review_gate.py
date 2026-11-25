@@ -98,6 +98,7 @@ def validate_patch_for_human_review(record: Any, envelope: Any, result: Any,
         )
     except GitHubTaskError as exc:
         raise PatchReviewGateError("Current Issue task payload is invalid.") from exc
+    project_binding = None
     if task["schema_version"] == 2:
         if not isinstance(project_schema, dict) or not isinstance(project_manifests, list):
             raise PatchReviewGateError("Trusted project manifest configuration is unavailable.")

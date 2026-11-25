@@ -150,14 +150,14 @@ class IssueLeaseCommandTests(unittest.TestCase):
         event = issue_event(f"/jet-agent claim chatgpt {CLAIM_A}")
         ticks = chr(96) * 3
         event["issue"]["body"] = (
-            "<!-- jet-agent-task:v2 -->\\n\\n" + ticks + "json\\n" +
+            "<!-- jet-agent-task:v2 -->\n\n" + ticks + "json\n" +
             json.dumps({
                 "schema_version": 2, "task_id": "sample-task",
                 "goal": "A bounded test task.", "capability": "documentation", "risk": "low",
                 "assigned_agent": "any", "allow": ["docs/**"], "exclude": [],
                 "scope_reason": "Documentation-only validation.",
                 "verification_profiles": ["python-tooling-tests"], "project_binding": binding,
-            }) + "\\n" + ticks
+            }) + "\n" + ticks
         )
         with patch(
             "tools.task_orchestrator.github_issue_lease_command.load_project_configuration",

@@ -184,6 +184,30 @@ class AgentContractTests(unittest.TestCase):
             with self.subTest(path=path), self.assertRaises(ContractValidationError):
                 validate_result(bad, envelope())
 
+    def test_project_memory_workflow_exception_is_bound_to_exact_task_id_and_path(self):
+        env = envelope()
+        env["task_id"] = "project-memory-artifact-workflow-v1"
+        env["scope"]["allowed_paths"] = [".github/workflows/project-memory-audit.yml"]
+        self.assertIs(validate_envelope(env), env)
+
+        for task_id in ("other-task", "project-memory-workflow-policy-v1"):
+            bad = envelope()
+            bad["task_id"] = task_id
+            bad["scope"]["allowed_paths"] = [".github/workflows/project-memory-audit.yml"]
+            with self.subTest(task_id=task_id), self.assertRaises(ContractValidationError):
+                validate_envelope(bad)
+
+        for path in (
+            ".github/workflows/agent-lease-commands.yml",
+            ".github/workflows/build.yml",
+            ".github/workflows/other.yml",
+        ):
+            bad = envelope()
+            bad["task_id"] = "project-memory-artifact-workflow-v1"
+            bad["scope"]["allowed_paths"] = [path]
+            with self.subTest(path=path), self.assertRaises(ContractValidationError):
+                validate_envelope(bad)
+
     def test_reject_protected_paths_and_excluded_scope(self):
         for path in (".github/workflows/build.yml", ".env", "android/app/key.properties",
                      "lib/generated/output.dart", "secrets/token.txt"):

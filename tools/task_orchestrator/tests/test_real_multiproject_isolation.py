@@ -20,6 +20,7 @@ from tools.task_orchestrator.project_namespace import (
     task_record_path,
     workspace_id,
 )
+from tools.task_orchestrator.github_issue_intake import build_intake
 from tools.task_orchestrator.project_registry import (
     ProjectRegistryError,
     ensure_implementation_eligible,
@@ -128,6 +129,58 @@ class RealMultiProjectIsolationIntegrationTests(unittest.TestCase):
                     source_revision=REVISION, input_sha256=input_digest,
                 )
             )
+
+    def test_real_hesabgar_manifest_accepts_read_only_intake_but_not_execution(self):
+        schema = json.loads((ROOT / "docs" / "PROJECT_MANIFEST_SCHEMA.json").read_text(encoding="utf-8"))
+        payload = {
+            "schema_version": 2,
+            "task_id": "hesabgar-readonly-intake",
+            "goal": "Validate the read-only cross-repository task intake path.",
+            "capability": "documentation",
+            "risk": "low",
+            "assigned_agent": "any",
+            "allow": ["docs/**"],
+            "exclude": [],
+            "scope_reason": "Read-only intake integration test.",
+            "verification_profiles": ["flutter-analysis"],
+            "project_binding": HESABGAR_BINDING,
+        }
+        ticks = chr(96) * 3
+        body = chr(10).join([
+            "<!-- jet-agent-task:v2 -->", "", ticks + "json",
+            json.dumps(payload), ticks,
+        ])
+        event = {
+            "action": "opened",
+            "repository": {
+                "id": int(HESABGAR_BINDING["repository_id"]),
+                "full_name": HESABGAR_BINDING["repository_full_name"],
+                "html_url": "https://github.com/" + HESABGAR_BINDING["repository_full_name"],
+                "default_branch": HESABGAR_BINDING["default_branch"],
+            },
+            "issue": {
+                "number": 9001,
+                "title": "Read-only Hesabgar intake integration test",
+                "body": body,
+                "state": "open",
+                "html_url": "https://github.com/" + HESABGAR_BINDING["repository_full_name"] + "/issues/9001",
+                "labels": [{"name": "agent-task"}],
+            },
+        }
+        result = build_intake(
+            event,
+            project_schema=schema,
+            project_manifests=[JET_MANIFEST, HESABGAR_MANIFEST],
+        )
+        self.assertEqual(result["project_binding"], HESABGAR_BINDING)
+        self.assertEqual(result["project_lifecycle"], "registered")
+        self.assertFalse(result["implementation_eligible"])
+        self.assertEqual(result["execution"]["status"], "validated-awaiting-activation")
+        self.assertFalse(result["execution"]["lease_claimed"])
+        self.assertFalse(result["execution"]["agent_dispatched"])
+        self.assertFalse(result["execution"]["model_called"])
+        self.assertFalse(result["execution"]["source_uploaded"])
+        self.assertIn(".github/workflows/agent-task-intake.yml", HESABGAR_MANIFEST["protected_paths"])
 
     def test_registered_projects_remain_blocked_from_implementation(self):
         for manifest in (JET_MANIFEST, HESABGAR_MANIFEST):

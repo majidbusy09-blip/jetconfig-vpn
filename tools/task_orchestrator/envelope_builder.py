@@ -148,7 +148,7 @@ def build_agent_envelope(record: dict, *, repository_name: str | None = None) ->
     if project_binding is not None:
         if not isinstance(project_binding, dict) or project_binding.get("base_sha") != base_sha:
             raise EnvelopeBuildError("Task project identity is missing or differs from the pinned base SHA.")
-        if not isinstance(memory_manifest, dict) or set(memory_manifest) != {"version", "required_documents"}:
+        if not isinstance(memory_manifest, dict) or set(memory_manifest) != {"version", "required_documents", "max_total_bytes"}:
             raise EnvelopeBuildError("Task project memory manifest is missing or malformed.")
         if (memory_manifest.get("required_documents") != required_context
                 or isinstance(memory_manifest.get("max_total_bytes"), bool)

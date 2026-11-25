@@ -1,6 +1,8 @@
+import os
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from tools.task_orchestrator.project_artifact_namespace import (
     ProjectArtifactNamespaceError,
@@ -97,6 +99,28 @@ class ProjectArtifactNamespaceTests(unittest.TestCase):
             (root / "projects").symlink_to(outside, target_is_directory=True)
             with self.assertRaises(ProjectArtifactNamespaceError):
                 ensure_namespace_directory(root, "patches", project_binding=PROJECT_A, source_revision=REVISION_A)
+
+    def test_rejects_symlink_swap_between_mkdir_and_open(self):
+        if not hasattr(os, "O_NOFOLLOW") or not hasattr(os, "O_DIRECTORY") or os.open not in getattr(os, "supports_dir_fd", set()):
+            self.skipTest("POSIX descriptor-relative no-follow operations are unavailable")
+        with tempfile.TemporaryDirectory() as temp, tempfile.TemporaryDirectory() as outside:
+            root = Path(temp)
+            original_mkdir = os.mkdir
+            swapped = False
+
+            def racing_mkdir(path, mode=0o777, *, dir_fd=None):
+                nonlocal swapped
+                original_mkdir(path, mode=mode, dir_fd=dir_fd)
+                if path == "projects" and dir_fd is not None and not swapped:
+                    swapped = True
+                    (root / "projects").rename(root / "projects-original")
+                    (root / "projects").symlink_to(outside, target_is_directory=True)
+
+            with patch("tools.task_orchestrator.project_artifact_namespace.os.mkdir", side_effect=racing_mkdir):
+                with self.assertRaises(ProjectArtifactNamespaceError):
+                    ensure_namespace_directory(root, "patches", project_binding=PROJECT_A, source_revision=REVISION_A)
+            self.assertTrue(swapped)
+            self.assertEqual(list(Path(outside).iterdir()), [])
 
     def test_rejects_manifest_or_revision_drift(self):
         bad = dict(PROJECT_A, manifest_sha256="not-a-digest")

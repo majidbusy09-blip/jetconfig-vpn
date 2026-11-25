@@ -2,7 +2,9 @@ name: JET VPN - GitHub Agent Task Intake
 
 on:
   issues:
-    types: [opened, labeled, edited]
+    # Adding the agent-task label is the single admission event. An issue
+    # created with that label also emits "labeled", so "opened" would enqueue twice.
+    types: [labeled, edited]
 
 permissions:
   contents: read

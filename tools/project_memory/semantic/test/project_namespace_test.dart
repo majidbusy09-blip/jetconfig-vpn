@@ -131,4 +131,18 @@ void main() {
       throwsFormatException,
     );
   });
+  test('rejects workflow artifact names beyond the platform limit', () {
+    final large = manifest();
+    large['project_id'] = 'a' + List.filled(62, 'b').join() + 'c';
+    final repository = Map<String, Object?>.from(large['repository']! as Map);
+    repository['repository_id'] = List.filled(20, '1').join();
+    large['repository'] = repository;
+    final identity = ProjectArtifactIdentity.fromManifest(
+      large,
+      sourceRevision: List.filled(64, 'a').join(),
+      actualRepositoryFullName: 'majidbusy09-blip/jetconfig-vpn',
+    );
+    expect(() => identity.artifactName(List.filled(64, 'p').join()), throwsFormatException);
+  });
+
 }

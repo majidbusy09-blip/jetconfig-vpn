@@ -223,9 +223,13 @@ def status_paths(root: Path) -> list[str]:
     return sorted(set(paths))
 
 
-def is_task_metadata(path: str, task_id: str) -> bool:
-    # Only the two orchestrator-owned files are exempt from user source scope.
-    base = (TASK_DIR / task_id).as_posix()
+def is_task_metadata(path: str, task_id: str,
+                     project_binding: dict[str, Any] | None = None) -> bool:
+    # Only files inside this exact task namespace are exempt from user source scope.
+    try:
+        base = Path(project_task_record_dir(task_id, project_binding)).as_posix()
+    except ProjectNamespaceError as exc:
+        raise TaskError("Task metadata namespace is invalid.") from exc
     if path in {f"{base}/task.json", f"{base}/HANDOFF.md", f"{base}/agent_input.json", f"{base}/impact_report.json"}:
         return True
     return path.startswith(f"{base}/context_suggestions_") and path.endswith(".json")
@@ -301,10 +305,11 @@ def file_fingerprints(root: Path, patterns: list[str]) -> dict[str, str]:
     return result
 
 
-def path_fingerprints(root: Path, paths: list[str], task_id: str) -> dict[str, str]:
+def path_fingerprints(root: Path, paths: list[str], task_id: str,
+                      project_binding: dict[str, Any] | None = None) -> dict[str, str]:
     result = {}
     for relative in paths:
-        if is_task_metadata(relative, task_id):
+        if is_task_metadata(relative, task_id, project_binding):
             continue
         target = root / relative
         if target.is_symlink():

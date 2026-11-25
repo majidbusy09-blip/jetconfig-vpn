@@ -710,3 +710,10 @@ PR #101 remains Draft and unmerged for human review. No review submissions or re
 - Repository owner explicitly authorized a narrowly scoped exception for `.github/workflows/project-memory-audit.yml` only.
 - Split the work into two independently reviewable phases: (1) policy validators and adversarial tests, with no workflow YAML changes; (2) actual workflow wiring in a separate task after the policy merge.
 - The exception is bound to exact task ID `project-memory-artifact-workflow-v1`; the lease-command workflow and all other workflow/build/release/deploy paths remain protected.
+
+
+## 2026-11-25 — Project-bound workflow artifact integration
+
+- Added `workflow_artifact_names.py`, which validates the checked-out SHA against `GITHUB_SHA`, resolves a matching trusted checked-in manifest using immutable repository identity, and derives project/source-bound names through the shared namespace helper.
+- Missing matching manifests preserve the two historical JET VPN artifact names exactly. Invalid, duplicate, stale, or identity-mismatched matching manifests fail closed.
+- Wired only `.github/workflows/project-memory-audit.yml`; the lease-command workflow and all build/release/deploy workflows remain unchanged.

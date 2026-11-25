@@ -19,7 +19,7 @@ from .github_issue_lease_command import (
     IssueLeaseCommandError,
     build_issue_lease_request,
 )
-from .github_issue_intake import load_project_configuration, validate_task_project_binding
+from .github_issue_intake import IntakeError, load_project_configuration, validate_task_project_binding
 from .github_lease import LeaseError, lock_branch
 from .github_task_protocol import GitHubTaskError, validate_issue_body
 
@@ -123,10 +123,13 @@ def build_task_handoff(
 
     project_binding = None
     if task["schema_version"] == 2:
-        schema, manifests = load_project_configuration(Path(__file__).resolve().parents[2])
-        project_binding = validate_task_project_binding(
-            task, event["repository"], schema=schema, project_manifests=manifests
-        )
+        try:
+            schema, manifests = load_project_configuration(Path(__file__).resolve().parents[2])
+            project_binding = validate_task_project_binding(
+                task, event["repository"], schema=schema, project_manifests=manifests
+            )
+        except IntakeError as exc:
+            raise TaskHandoffError("Task project binding failed trusted validation.") from exc
 
     handoff = {
         "handoff_schema": 2,

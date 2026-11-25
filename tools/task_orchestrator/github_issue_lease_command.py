@@ -107,8 +107,11 @@ def build_issue_lease_request(event: Any) -> dict[str, Any]:
     try:
         task = validate_issue_body(issue.get("body"), repository_metadata=repository, allow_legacy_jet_vpn=True)
         if task["schema_version"] == 2:
-            schema, manifests = load_project_configuration(Path(__file__).resolve().parents[2])
-            validate_task_project_binding(task, repository, schema=schema, project_manifests=manifests)
+            try:
+                schema, manifests = load_project_configuration(Path(__file__).resolve().parents[2])
+                validate_task_project_binding(task, repository, schema=schema, project_manifests=manifests)
+            except IntakeError as exc:
+                raise IssueLeaseCommandError("Task project binding failed trusted validation.") from exc
     except GitHubTaskError as exc:
         raise IssueLeaseCommandError("Issue task payload is invalid.") from exc
     command = parse_lease_comment(comment.get("body"))

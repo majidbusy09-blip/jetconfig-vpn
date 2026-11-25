@@ -196,8 +196,8 @@ def validate_agent_pr(event, *, token, repository, now=None):
         raise GuardError("Linked Issue task payload is invalid.") from exc
     project_binding = None
     if task["schema_version"] == 2:
-        schema, manifests = load_project_configuration(Path(__file__).resolve().parents[2])
         try:
+            schema, manifests = load_project_configuration(Path(__file__).resolve().parents[2])
             project_binding = validate_task_project_binding(
                 task, live_repository, schema=schema, project_manifests=manifests
             )

@@ -59,3 +59,5 @@ The namespace builder validates the complete binding and full Git SHA, creates d
 The same pure helper exposes project/revision-bound cache keys and paths, audit-record paths, generated index paths, and future workflow artifact names. When no project binding is supplied, the v1 JET VPN patch directory, cache names, index filenames, and artifact-name prefixes remain unchanged.
 
 The trusted workflow YAML is not modified in this phase: current task intake treats every .github/workflows/** path as protected. The naming helper is ready for a separately reviewed workflow-policy change; existing workflow artifact names are intentionally not silently renamed.
+
+The local fixture-only dispatch runner also derives its v2 audit destination from the envelope's trusted project binding and pinned base SHA. A caller-supplied v2 output override is rejected unless it is exactly the derived namespace path. V1 callers still provide their historical explicit output path.

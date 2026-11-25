@@ -94,6 +94,33 @@ jobs:
           Path("/tmp/task.json").write_bytes(data)
           PY
 
+      - name: Revalidate current Issue state and exact task body
+        env:
+          CROSS_REPO_TOKEN: ${{ secrets.JET_AI_CROSS_REPO_READ_TOKEN }}
+        run: |
+          set -euo pipefail
+          REPO="$(python -c 'import json;print(json.load(open("/tmp/validated-dispatch.json"))["target_repository"])')"
+          ISSUE="$(python -c 'import json;print(json.load(open("/tmp/validated-dispatch.json"))["issue_number"])')"
+          curl --fail --silent --show-error --location \
+            -H "Authorization: Bearer $CROSS_REPO_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            https://api.github.com/repos/"$REPO"/issues/"$ISSUE" \
+            --output /tmp/issue-metadata.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from tools.task_orchestrator.github_task_artifact_dispatch import validate_issue_snapshot
+          dispatch = json.loads(Path("/tmp/validated-dispatch.json").read_text())
+          artifact = json.loads(Path("/tmp/task.json").read_text())
+          issue = json.loads(Path("/tmp/issue-metadata.json").read_text())
+          repository = json.loads(Path("/tmp/repository-metadata.json").read_text())
+          validate_issue_snapshot(
+              dispatch, intake_artifact=artifact,
+              issue_metadata=issue, repository_metadata=repository,
+          )
+          print("Live Issue is open, still labeled agent-task, and byte-for-byte body fingerprint matches.")
+          PY
+
       - name: Checkout durable inbox branch
         run: |
           set -euo pipefail

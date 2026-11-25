@@ -79,10 +79,13 @@ def build_task_handoff(
         raise TaskHandoffError("Lease result does not match the requested task and operation.")
 
     result = lease_result["result"]
+    project_binding = request.get("project_binding")
     expected_result_fields = {
         "task_id", "owner", "claim_id", "status", "base_sha", "expires_at",
         "lock_branch", "lock_commit", "verified",
     }
+    if project_binding is not None:
+        expected_result_fields.add("project_binding")
     if not isinstance(result, dict) or set(result) != expected_result_fields:
         raise TaskHandoffError("Verified lease record has unexpected or missing fields.")
     if result["verified"] is not True or result["status"] != "active":
@@ -93,12 +96,14 @@ def build_task_handoff(
         or result["claim_id"] != command["claim_id"]
     ):
         raise TaskHandoffError("Lease owner, task ID, or claim ID does not match the Issue command.")
+    if result.get("project_binding") != project_binding:
+        raise TaskHandoffError("Lease project identity does not match the validated Issue binding.")
     try:
-        expected_branch = lock_branch(request["task_id"])
+        expected_branch = lock_branch(request["task_id"], project_binding)
     except LeaseError as exc:
         raise TaskHandoffError("Task ID cannot be used for a lease branch.") from exc
     if result["lock_branch"] != expected_branch:
-        raise TaskHandoffError("Lease branch does not match the task ID.")
+        raise TaskHandoffError("Lease branch does not match the validated task/project namespace.")
     if not isinstance(result["base_sha"], str) or not SHA_RE.fullmatch(result["base_sha"]):
         raise TaskHandoffError("Lease pinned base SHA is invalid.")
     if not isinstance(result["lock_commit"], str) or not SHA_RE.fullmatch(result["lock_commit"]):

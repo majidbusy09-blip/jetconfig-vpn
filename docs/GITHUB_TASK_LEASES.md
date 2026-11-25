@@ -64,7 +64,8 @@ The timestamp defaults to current UTC; \`--now\` is available for deterministic 
 - CI exercises Git commit construction and stale compare-and-swap rejection against a local bare Git remote. The trusted-main live probe passed on 2026-11-23 (Actions run `45176916962`): two concurrent writers used the same expected old SHA, exactly one push succeeded, the resulting ref matched that winner, and the disposable probe ref was deleted.
 - The adapter is exposed through the trusted Issue-comment claim/renew/release workflow. Claim and renew also produce a lease-verified handoff artifact; neither action wakes a model or dispatches an implementation runtime.
 - No automatic ChatGPT/Grok wake-up or provider runtime dispatch exists. Keep one active implementation agent per task; read-only review by another agent is permitted.
-- The Issue intake workflow remains read-only (\`contents: read\`, \`issues: read\`) and only validates task payloads and uploads a task artifact. That artifact is not a lease or execution grant.
+- The reusable Issue intake workflow is read-only (contents: read, issues: read) and can be called by a target repository while loading trusted project manifests and tooling from the central control-plane repository. It validates task payloads and uploads a task artifact; that artifact is not a lease or execution grant.
+- A project in registered lifecycle may enter this read-only intake with status validated-awaiting-activation. The lease-command path retains the active-lifecycle gate, so registered/paused/retired projects cannot claim a lease or prepare an implementation handoff.
 - No paid model API, provider credential, private-source upload, or external sandbox is configured.
 
 See also [MULTI_AGENT_GITHUB_PROTOCOL.md](MULTI_AGENT_GITHUB_PROTOCOL.md).
@@ -93,6 +94,15 @@ The trusted-main Issue command workflow passed a full live claim/renew/release c
 ## Agent PR submission guard
 
 Agent implementation PRs include the v1 PR envelope marker, task Issue number, owner label, and current claim ID. The trusted-main pull_request_target guard uses read-only GitHub permissions to verify the open task Issue, assignment, active/unexpired lease, pinned base SHA, and changed paths. It skips ordinary PRs and never checks out or executes PR code. It is a validation check only; it does not approve or merge PRs.
+
+
+## Reusable cross-repository read-only intake
+
+- `.github/workflows/agent-task-intake-reusable.yml` is a `workflow_call` workflow. It checks out the calling repository at the event revision, checks out the trusted central control-plane repository separately under `.jet-ai/central`, and runs the intake module from that trusted checkout with the caller's original GitHub event payload.
+- The local `.github/workflows/agent-task-intake.yml` is a thin caller of the reusable workflow. A registered target repository can add a similarly thin wrapper that calls `majidbusy09-blip/jetconfig-vpn/.github/workflows/agent-task-intake-reusable.yml@main`; repository metadata in the event is therefore the target repository, not the control-plane repository.
+- V2 intake validates the exact target repository ID, full name, default branch, project ID, and manifest digest against the central checked-in registry. It does not execute target code, claim a lease, invoke a model, upload source, or grant implementation eligibility.
+- Registered projects are explicitly marked `validated-awaiting-activation`. Lease claims continue to require `lifecycle=active`; intake acceptance must never be interpreted as permission to implement.
+- The reusable lease/handoff workflow and automatic source-index artifact provisioning are separate remaining milestones. Do not install or invoke cross-repository lease execution until its target checkout, trusted tooling checkout, permissions, and handoff acceptance have their own exact-head integration tests.
 
 
 ## Project-scoped lease schema v2

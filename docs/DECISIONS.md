@@ -333,3 +333,12 @@ The protected GitHub Actions workflow path is not part of Issue #106. The curren
 ## 2026-11-25 — Close directory iterators on fail-closed scans
 
 Task namespace enumeration uses context-managed `os.scandir` iterators so early rejection (for example, a symlinked project or repository entry) closes the iterator deterministically. This avoids ResourceWarning/file-handle leakage while preserving fail-closed behavior.
+
+
+## D-029 — حسابگر من onboarding boundaries (2026-11-25)
+
+- Bind project ID `hesabgar-man` to immutable repository ID `1423683236` and canonical repository `majidbusy09-blip/hesabgar_man`.
+- Keep lifecycle `registered`; successful CI and a merged memory pack do not imply activation.
+- Preserve app version `1.0.9+10`; no app source, signing, or release workflow changes are included in onboarding.
+- Keep semantic source indexing disabled (`strategy=none`) until a project-neutral Dart CLI and artifact namespace exist.
+- Treat the resolved `pubspec.lock` as uncommitted until it is added and reviewed on the target default branch.

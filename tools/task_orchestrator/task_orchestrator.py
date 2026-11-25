@@ -52,6 +52,14 @@ except ImportError:
     except ImportError:
         from impact_analyzer import ImpactAnalysisError, analyze_impact
 
+try:
+    from .project_namespace import ProjectNamespaceError, task_record_dir as project_task_record_dir, validate_project_binding
+except ImportError:
+    try:
+        from tools.task_orchestrator.project_namespace import ProjectNamespaceError, task_record_dir as project_task_record_dir, validate_project_binding
+    except ImportError:
+        from project_namespace import ProjectNamespaceError, task_record_dir as project_task_record_dir, validate_project_binding
+
 SCHEMA_VERSION = 1
 REQUIRED_CONTEXT = (
     "AGENTS.md",
@@ -114,16 +122,52 @@ def sha256_bytes(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
-def task_path(root: Path, task_id: str) -> Path:
+def _project_binding_identity(project_binding: dict[str, Any] | None) -> dict[str, Any] | None:
+    if project_binding is None:
+        return None
+    if not isinstance(project_binding, dict):
+        raise TaskError("Project binding must be an object.")
+    identity = {key: value for key, value in project_binding.items() if key != "base_sha"}
+    try:
+        return validate_project_binding(identity)
+    except ProjectNamespaceError as exc:
+        raise TaskError("Project binding is invalid for local task storage.") from exc
+
+
+def task_path(root: Path, task_id: str,
+              project_binding: dict[str, Any] | None = None) -> Path:
+    try:
+        relative = project_task_record_dir(task_id, project_binding)
+    except ProjectNamespaceError as exc:
+        raise TaskError(str(exc)) from exc
+    return root / Path(relative) / "task.json"
+
+
+def load_record(root: Path, task_id: str,
+                project_binding: dict[str, Any] | None = None) -> tuple[dict[str, Any], Path]:
     if not TASK_ID_RE.fullmatch(task_id):
         raise TaskError("Invalid task ID; use 3-64 lowercase letters, digits, and hyphens.")
-    return root / TASK_DIR / task_id / "task.json"
-
-
-def load_record(root: Path, task_id: str) -> tuple[dict[str, Any], Path]:
-    path = task_path(root, task_id)
-    if not path.is_file():
-        raise TaskError(f"Task record not found: {path.relative_to(root)}")
+    if project_binding is not None:
+        candidates = [task_path(root, task_id, project_binding)]
+    else:
+        legacy = task_path(root, task_id)
+        candidates = []
+        if legacy.exists() or legacy.is_symlink():
+            candidates.append(legacy)
+        task_root = root / TASK_DIR
+        if task_root.exists() and not task_root.is_symlink():
+            candidates.extend(sorted(task_root.glob(f"*/*/{task_id}/task.json")))
+        candidates = list(dict.fromkeys(candidates))
+    if not candidates:
+        raise TaskError(f"Task record not found for task ID: {task_id}")
+    if len(candidates) != 1:
+        raise TaskError("Task ID is ambiguous across project namespaces; provide the project binding.")
+    path = candidates[0]
+    for directory in (root / TASK_DIR, path.parent.parent.parent, path.parent.parent, path.parent):
+        if directory.exists() and directory.is_symlink():
+            raise TaskError("Task record directory must not traverse a symlink.")
+    if path.is_symlink() or not path.is_file():
+        raise TaskError(f"Task record is missing or is not a regular file: {path.relative_to(root)}")
     try:
         record = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
@@ -132,6 +176,19 @@ def load_record(root: Path, task_id: str) -> tuple[dict[str, Any], Path]:
         raise TaskError("Task record must be a JSON object.")
     if record.get("schema_version") != SCHEMA_VERSION or record.get("task_id") != task_id:
         raise TaskError("Unsupported or inconsistent task record schema.")
+    expected_binding = _project_binding_identity(project_binding)
+    actual_binding = _project_binding_identity(record.get("github_project_binding"))
+    relative_parts = path.parent.relative_to(root / TASK_DIR).parts
+    namespaced_path = len(relative_parts) == 3
+    if namespaced_path != (actual_binding is not None):
+        raise TaskError("Task record project identity does not match its storage namespace.")
+    if expected_binding is not None and actual_binding != expected_binding:
+        raise TaskError("Task record belongs to a different project namespace.")
+    pinned = record.get("github_project_binding")
+    repo = record.get("repository")
+    repo_base = repo.get("base_sha") if isinstance(repo, dict) else None
+    if isinstance(pinned, dict) and pinned.get("base_sha") and repo_base and pinned["base_sha"] != repo_base:
+        raise TaskError("Task record project binding differs from its pinned repository base.")
     return record, path
 
 

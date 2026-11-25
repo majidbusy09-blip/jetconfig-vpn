@@ -261,7 +261,11 @@ def validate_envelope(data: Any) -> dict:
     _text(scope["scope_reason"], "scope.scope_reason", 2_000, empty=True)
 
     project_documents = _context_documents(obj["project_context"], "project_context")
-    _context_documents(obj["source_context"], "source_context")
+    source_documents = _context_documents(obj["source_context"], "source_context")
+    combined_context_bytes = sum(len(item["content"].encode("utf-8"))
+                                 for item in project_documents + source_documents)
+    if combined_context_bytes > MAX_CONTEXT_TOTAL_BYTES:
+        _fail("combined project and source context exceeds the total context byte limit")
     has_binding = "project_binding" in obj
     has_memory = "memory_manifest" in obj
     if has_binding != has_memory:

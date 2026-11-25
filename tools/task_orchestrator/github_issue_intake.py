@@ -216,8 +216,18 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     try:
         event = json.loads(Path(args.event_file).read_text(encoding="utf-8"))
-        root = Path(__file__).resolve().parents[2]
-        schema, manifests = load_project_configuration(root)
+        try:
+            task = validate_issue_body(
+                event.get("issue", {}).get("body"),
+                repository_metadata=event.get("repository"),
+                allow_legacy_jet_vpn=True,
+            )
+        except GitHubTaskError as exc:
+            raise IntakeError("Task payload rejected: " + str(exc)) from exc
+        schema = manifests = None
+        if task["schema_version"] == 2:
+            root = Path(__file__).resolve().parents[2]
+            schema, manifests = load_project_configuration(root)
         result = build_intake(event, project_schema=schema, project_manifests=manifests)
         target = Path(args.output)
         target.parent.mkdir(parents=True, exist_ok=True)

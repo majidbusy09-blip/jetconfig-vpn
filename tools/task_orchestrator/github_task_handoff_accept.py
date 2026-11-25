@@ -371,10 +371,12 @@ def accept_handoff(
 
     issue_data = api_get(repository, "/issues/" + str(issue_number), token)
     repository_metadata = api_get(repository, "", token)
-    try:
-        project_schema, project_manifests = load_project_configuration(Path(__file__).resolve().parents[2])
-    except IntakeError as exc:
-        raise HandoffAcceptanceError("Trusted project manifest configuration is unavailable.") from exc
+    project_schema = project_manifests = None
+    if manifest.get("handoff_schema") == 3:
+        try:
+            project_schema, project_manifests = load_project_configuration(Path(__file__).resolve().parents[2])
+        except IntakeError as exc:
+            raise HandoffAcceptanceError("Trusted project manifest configuration is unavailable.") from exc
     lease_record, lock_commit = _read_current_lease(repository, task_id, token)
     task = validate_handoff_for_acceptance(
         manifest, issue_data, lease_record, lock_commit, repository=repository,

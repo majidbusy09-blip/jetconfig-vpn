@@ -29,6 +29,8 @@ RISKS = {"low", "medium", "high"}
 AGENTS = {"any", "chatgpt", "grok"}
 PROFILES = {"python-tooling-tests", "flutter-tests", "flutter-analysis", "lexical-memory-audit"}
 MAX_BODY, MAX_GOAL, MAX_ITEMS = 32_000, 8_000, 50
+WORKFLOW_POLICY_TASK_ID = "project-memory-artifact-workflow-v1"
+WORKFLOW_POLICY_PATH = ".github/workflows/project-memory-audit.yml"
 PROTECTED_PARTS = {
     ".git", ".agent", ".secrets", "secrets", "credentials",
     "keystore", "signing", "release-assets",

@@ -274,3 +274,11 @@ PR #49 merged `sandbox_acceptance.py`, a strict verifier for independently signe
 - Phase 2C is tracked by Issue #102 on branch `agent/project-memory-manifest-context-20261125`; it is implementing manifest-selected project context and identity-bound context packages/envelopes. Keep legacy v1 limited to the fixed JET VPN six-document context.
 - حسابگر من repository was supplied as `majidbusy09-blip/hesabgar_man`; GitHub repository ID `1423683236`, default branch `main`, primary language Dart. It has been inspected read-only only; no manifest registration, target-repository write, activation, or app-source change has occurred.
 - No paid model API, provider spend, credentials, release/deployment, production changes, or untrusted-code execution is authorized.
+
+
+## Phase 2D-1 active work — 2026-11-25
+
+- Phase 2C PR #103 is merged as `c145412206f62be0f08349d1530646dfb5a776da`.
+- Phase 2D-1 Issue #104 / branch `agent/project-scoped-lease-workspace-namespace-20261125` introduces a pure project namespace helper and project-bound lease schema v2. V2 lease refs and record paths derive from validated `project_id` + immutable numeric `repository_id`; the lease record binds the full project identity tuple. V2 workspace IDs include the project namespace, task ID, manifest digest, and pinned base SHA.
+- Legacy v1 lease refs and `.agent-locks/lease.json` remain unchanged. Local task-record and artifact paths are deliberately deferred to Issue #106 (Phase 2D-2).
+- حسابگر من remains read-only and inactive; onboarding plan is Issue #105.

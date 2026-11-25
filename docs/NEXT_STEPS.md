@@ -336,3 +336,11 @@ Phase 2D-1 must also verify that the trusted PR guard and patch-review gate use 
 3. Add/verify cache and audit consumer integration where a concrete cache/audit writer exists; no standalone cache subsystem is currently present, so the pure namespace key/path API must not be mistaken for a wired cache backend.
 4. Keep workflow YAML artifact upload wiring deferred until a separate workflow-policy task is approved; do not modify .github/workflows/agent-lease-commands.yml or any other workflow in this task.
 5. After Phase 2D-2B is merged, refresh the حسابگر من readiness report, commit/review its resolved pubspec.lock, and keep its lifecycle registered until the generic Dart adapter and all onboarding gates are satisfied.
+
+
+## Current execution order after Phase 2D-2B merge — 2026-11-25
+
+1. حسابگر من onboarding: commit/review the resolved `pubspec.lock` in a dedicated target-repository PR, then refresh the read-only readiness report against target `main`.
+2. Validate the generic Dart index CLI against a real target checkout with matching GitHub origin, trusted manifest digest, and pinned HEAD. Keep source indexing disabled and lifecycle `registered` until this smoke test and namespace isolation review pass.
+3. Issue #114: wire workflow artifact upload names only after explicit approval for the exact protected-path policy change. Do not modify `.github/workflows/**` before approval; preserve v1 artifact names.
+4. Continue any new project onboarding only through the manifest, memory-pack, verification, namespace, and independent-review gates. No project activation, release, signing, deployment, paid API, credentials, or untrusted-code execution without separate authorization.

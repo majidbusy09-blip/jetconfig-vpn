@@ -282,3 +282,8 @@ PR #49 merged `sandbox_acceptance.py`, a strict verifier for independently signe
 - Phase 2D-1 Issue #104 / branch `agent/project-scoped-lease-workspace-namespace-20261125` introduces a pure project namespace helper and project-bound lease schema v2. V2 lease refs and record paths derive from validated `project_id` + immutable numeric `repository_id`; the lease record binds the full project identity tuple. V2 workspace IDs include the project namespace, task ID, manifest digest, and pinned base SHA.
 - Legacy v1 lease refs and `.agent-locks/lease.json` remain unchanged. Local task-record and artifact paths are deliberately deferred to Issue #106 (Phase 2D-2).
 - حسابگر من remains read-only and inactive; onboarding plan is Issue #105.
+
+
+### Phase 2D-1 lease consumer audit — 2026-11-25
+
+The shared project namespace resolver must be used by every lease consumer, including the trusted PR guard and patch-review gate, not only by claim/renew/release and handoff code. V2 lease consumers must compare the complete project binding; v1 remains on its exact legacy ref and file path.

@@ -241,3 +241,6 @@ The separate repository `majidbusy09-blip/hesabgar_man` was inspected read-only.
 ## Phase 2D-1 namespace isolation
 
 Phase 2C is merged. Issue #104 implements project-scoped lease refs/records and workspace identifiers. The namespace is derived from immutable `project_id` and numeric `repository_id`; lease records carry the full identity tuple and pinned base SHA. Legacy v1 JET VPN lease paths are preserved. Issue #106 separately tracks local task-record, context package, agent-input, patch artifact, cache, source-index, and audit artifact namespacing. حسابگر من remains unmodified and inactive under onboarding plan #105.
+
+
+Phase 2D-1 now includes the trusted PR guard and patch-review authorization in the shared project lease namespace. These consumers must not fall back to the legacy lease file for v2 tasks; they validate the full project identity tuple and pinned base. Issue #106 remains queued for local task-record and artifact path namespacing.

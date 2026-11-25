@@ -352,3 +352,11 @@ Phase 2D-1 must also verify that the trusted PR guard and patch-review gate use 
 2. In a separate task/PR, wire the workflow to use only a trusted manifest matching the live immutable repository ID and exact checked-out `GITHUB_SHA`; otherwise retain the existing v1 artifact names.
 3. Preserve `.github/workflows/agent-lease-commands.yml`, all build/release/deploy workflows, signing files, and secrets paths as protected. Do not broaden the exception to `.github/workflows/**`.
 4. Verify workflow behavior for missing/invalid manifests, wrong repository IDs, stale source revisions, deterministic names, and v1 compatibility.
+
+
+## After project-bound artifact naming
+
+1. Verify exact-head CI for the workflow helper, adversarial tests, full project-memory audit, and path guard.
+2. Merge only after all checks pass; verify the current JET VPN repository has no matching checked-in manifest and therefore still emits the exact legacy v1 names.
+3. Keep the helper ready for future registered projects: v2 names must bind project ID, immutable repository ID, manifest digest, and checked-out source revision. Invalid matching manifests must never silently fall back to v1.
+4. Resume the حسابگر من onboarding gates: review/commit `pubspec.lock`, run the generic Dart indexer against the actual target checkout, and keep lifecycle registered until independent review.

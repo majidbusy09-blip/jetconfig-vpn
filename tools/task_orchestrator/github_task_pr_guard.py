@@ -4,7 +4,9 @@ import argparse, base64, json, os, re, urllib.error, urllib.parse, urllib.reques
 from datetime import datetime, timezone
 from pathlib import Path
 from .agent_contract import ContractValidationError, _path, _path_matches
-from .github_issue_intake import TASK_LABEL
+from .github_issue_intake import (
+    TASK_LABEL, IntakeError, load_project_configuration, validate_task_project_binding,
+)
 from .github_lease import LeaseError, validate_lease
 from .github_task_protocol import GitHubTaskError, validate_issue_body
 
@@ -158,13 +160,20 @@ def validate_agent_pr(event, *, token, repository, now=None):
         raise GuardError("GITHUB_REPOSITORY is invalid.")
     if not isinstance(event.get("repository"), dict) or event["repository"].get("full_name") != repository:
         raise GuardError("Event repository mismatch.")
+    event_repository = event["repository"]
+    live_repository = api_get(repository, "", token)
+    for key in ("id", "full_name", "html_url", "default_branch"):
+        if event_repository.get(key) != live_repository.get(key):
+            raise GuardError("Event repository identity differs from live GitHub metadata.")
     base, head = pr.get("base"), pr.get("head")
     if not isinstance(base, dict) or not isinstance(head, dict) or base.get("ref") != "main" or pr.get("state") != "open":
         raise GuardError("Agent PR must be open and target main.")
-    if not isinstance(base.get("repo"), dict) or base["repo"].get("full_name") != repository:
-        raise GuardError("PR base repository mismatch.")
-    if not isinstance(head.get("repo"), dict) or head["repo"].get("full_name") != repository:
-        raise GuardError("Agent PR head must be in this repository.")
+    if not isinstance(base.get("repo"), dict) or not isinstance(head.get("repo"), dict):
+        raise GuardError("PR base/head repository metadata is missing.")
+    for role, repo_data in (("base", base["repo"]), ("head", head["repo"])):
+        for key in ("id", "full_name", "html_url", "default_branch"):
+            if repo_data.get(key) != live_repository.get(key):
+                raise GuardError("PR " + role + " repository identity mismatch: " + key + ".")
     base_sha, head_sha = base.get("sha"), head.get("sha")
     if not isinstance(base_sha, str) or not SHA_RE.fullmatch(base_sha) or not isinstance(head_sha, str) or not SHA_RE.fullmatch(head_sha):
         raise GuardError("PR base/head SHA is invalid.")
@@ -179,9 +188,21 @@ def validate_agent_pr(event, *, token, repository, now=None):
     if not isinstance(labels, list) or not any(isinstance(x, dict) and x.get("name") == TASK_LABEL for x in labels):
         raise GuardError("Linked Issue is missing agent-task label.")
     try:
-        task = validate_issue_body(issue.get("body"))
+        task = validate_issue_body(
+            issue.get("body"), repository_metadata=live_repository,
+            allow_legacy_jet_vpn=True,
+        )
     except GitHubTaskError as exc:
         raise GuardError("Linked Issue task payload is invalid.") from exc
+    project_binding = None
+    if task["schema_version"] == 2:
+        schema, manifests = load_project_configuration(Path(__file__).resolve().parents[2])
+        try:
+            project_binding = validate_task_project_binding(
+                task, live_repository, schema=schema, project_manifests=manifests
+            )
+        except IntakeError as exc:
+            raise GuardError("Linked Issue project binding is invalid or inactive.") from exc
     if task["assigned_agent"] not in {"any", envelope["owner"]}:
         raise GuardError("PR owner does not match task assignment.")
 
@@ -198,11 +219,14 @@ def validate_agent_pr(event, *, token, repository, now=None):
         raise GuardError("PR branch is not based on the pinned task SHA.")
     files = changed_files(repository, number, token)
     paths = validate_paths(files, task["allow"], task["exclude"])
-    return {"status": "validated-agent-pr", "pr_number": number,
-            "task_issue": envelope["task_issue"], "task_id": task["task_id"],
-            "owner": lease["owner"], "claim_id": lease["claim_id"],
-            "base_sha": lease["base_sha"], "changed_paths": paths,
-            "file_count": len(paths), "lease_status": lease["status"]}
+    result = {"status": "validated-agent-pr", "pr_number": number,
+              "task_issue": envelope["task_issue"], "task_id": task["task_id"],
+              "owner": lease["owner"], "claim_id": lease["claim_id"],
+              "base_sha": lease["base_sha"], "changed_paths": paths,
+              "file_count": len(paths), "lease_status": lease["status"]}
+    if project_binding is not None:
+        result["project_binding"] = project_binding
+    return result
 
 
 def write_summary(result):

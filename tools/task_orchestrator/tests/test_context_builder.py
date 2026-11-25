@@ -181,7 +181,7 @@ class ContextBuilderTests(unittest.TestCase):
             root=self.root, task_id="context-test", source_revision=self.revision,
             required_paths=paths, source_paths=["lib/main.dart"],
             allowed_patterns=["lib/**"], excluded_patterns=[],
-            project_binding=binding, memory_manifest_version=2,
+            project_binding=binding, memory_manifest_version=2, memory_manifest_max_total_bytes=4096,
         )
         self.assertEqual(package["schema_version"], 2)
         self.assertEqual(package["project_binding"], binding)
@@ -193,13 +193,14 @@ class ContextBuilderTests(unittest.TestCase):
                 root=self.root, task_id="context-test", source_revision=self.revision,
                 required_paths=paths, source_paths=[], allowed_patterns=["lib/**"],
                 excluded_patterns=[], project_binding=dict(binding, base_sha="f" * 40),
-                memory_manifest_version=2,
+                memory_manifest_version=2, memory_manifest_max_total_bytes=4096,
             )
         with self.assertRaises(ContextBuildError):
             build_context(
                 root=self.root, task_id="context-test", source_revision=self.revision,
                 required_paths=paths, source_paths=[], allowed_patterns=["lib/**"],
                 excluded_patterns=[], project_binding=binding,
+                memory_manifest_version=2, memory_manifest_max_total_bytes=1,
             )
 
 

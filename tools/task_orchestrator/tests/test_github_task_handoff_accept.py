@@ -284,6 +284,7 @@ class HandoffAcceptanceTests(unittest.TestCase):
             self.assertEqual(record["project_memory_manifest"], {
                 "version": ACTIVE_MANIFEST["memory"]["manifest_version"],
                 "required_documents": required,
+                "max_total_bytes": ACTIVE_MANIFEST["memory"]["max_total_bytes"],
             })
             envelope = json.loads(output.read_text(encoding="utf-8"))
             self.assertEqual(envelope["project_binding"], expected)

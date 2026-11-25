@@ -352,7 +352,7 @@ class AgentContractTests(unittest.TestCase):
             "manifest_sha256": "a" * 64,
             "base_sha": SHA_A,
         }
-        env["memory_manifest"] = {"version": 1, "required_documents": ["AGENTS.md"]}
+        env["memory_manifest"] = {"version": 1, "required_documents": ["AGENTS.md"], "max_total_bytes": 512000}
         self.assertIs(validate_envelope(env), env)
         for mutate in (
             lambda item: item.pop("memory_manifest"),

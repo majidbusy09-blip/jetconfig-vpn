@@ -186,7 +186,7 @@ class EnvelopeBuilderTests(unittest.TestCase):
         ]
         package_value["schema_version"] = 2
         package_value["project_binding"] = binding
-        package_value["memory_manifest"] = {"version": 1, "required_documents": required}
+        package_value["memory_manifest"] = {"version": 1, "required_documents": required, "max_total_bytes": 512000}
         record["required_context"] = required
         record["github_project_binding"] = binding
         record["project_memory_manifest"] = {"version": 1, "required_documents": required}

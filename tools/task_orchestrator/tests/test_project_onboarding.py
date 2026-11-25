@@ -98,7 +98,7 @@ class ProjectOnboardingTests(unittest.TestCase):
     def test_pending_ci_and_unmerged_target_pr_require_review(self):
         report = self.report(
             runner_results={"flutter-analysis": "pending", "flutter-tests": "success"},
-            target_memory_pr_merged=True,
+            target_memory_pr_merged=False,
         )
         self.assertEqual(report["overall_readiness"], "NEEDS_REVIEW")
         self.assertTrue(any("successful run" in item for item in report["human_decisions"]))

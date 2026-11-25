@@ -10,6 +10,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import re
 import sys
 from pathlib import Path
@@ -46,8 +47,15 @@ def _canonical(value: Any) -> bytes:
 def _validate_artifact(artifact: Any, *, repository_metadata: dict[str, Any],
                        project_schema: dict[str, Any],
                        project_manifests: list[dict[str, Any]]) -> tuple[dict[str, Any], dict[str, Any], str]:
-    if not isinstance(artifact, dict) or artifact.get("intake_schema") != 2:
-        raise InboxError("Only intake schema v2 artifacts are accepted.")
+    required_fields = {
+        "intake_schema", "source", "repository", "issue_number", "issue_url",
+        "issue_title", "issue_body_sha256", "task", "execution",
+        "project_binding", "project_lifecycle", "implementation_eligible",
+    }
+    if not isinstance(artifact, dict) or set(artifact) != required_fields or artifact.get("intake_schema") != 2:
+        raise InboxError("Only complete, exact-schema v2 GitHub Issue intake artifacts are accepted.")
+    if artifact.get("source") != "github-issue":
+        raise InboxError("Artifact source must be a validated GitHub Issue.");
     repository, number = artifact.get("repository"), artifact.get("issue_number")
     title, issue_url, body_digest = artifact.get("issue_title"), artifact.get("issue_url"), artifact.get("issue_body_sha256")
     if repository != repository_metadata.get("full_name"):
@@ -133,6 +141,21 @@ def ingest_artifact_bytes(raw: bytes, *, root: Path, repository_metadata: dict[s
             existing = read_bytes(root, relative_path, max_bytes=MAX_ARTIFACT_BYTES * 2)
         except SafeLocalFileError:
             existing = None
+        # A task ID is unique within an immutable repository identity, even if
+        # someone attempts to submit it through a second Issue number.
+        inbox_dir = root / relative_directory
+        for entry in os.scandir(inbox_dir):
+            if entry.name == f"{issue_number}.json" or not entry.name.endswith(".json"):
+                continue
+            if entry.is_symlink() or not entry.is_file(follow_symlinks=False):
+                raise InboxError("Central inbox contains an unsafe non-regular entry.")
+            other_path = f"{relative_directory}/{entry.name}"
+            try:
+                other = loads_unique_json(read_bytes(root, other_path, max_bytes=MAX_ARTIFACT_BYTES * 2).decode("utf-8"))
+            except (SafeLocalFileError, UnicodeDecodeError, ProjectRegistryError) as exc:
+                raise InboxError("A neighboring inbox record is unreadable; refusing duplicate checks.") from exc
+            if other.get("task_id") == task_id:
+                raise InboxError("This task_id is already registered for another Issue in the same repository.")
         if existing is not None:
             try:
                 old = loads_unique_json(existing.decode("utf-8", errors="strict"))

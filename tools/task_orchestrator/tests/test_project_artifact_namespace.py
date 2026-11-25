@@ -140,6 +140,18 @@ class ProjectArtifactNamespaceTests(unittest.TestCase):
                     source_revision=REVISION_A, relative_directory="../escape",
                 )
 
+    def test_rejects_workflow_artifact_names_over_platform_limit(self):
+        long_binding = dict(
+            PROJECT_A,
+            project_id="a" + "b" * 62 + "c",
+            repository_id="1" * 20,
+        )
+        with self.assertRaises(ProjectArtifactNamespaceError):
+            workflow_artifact_name(
+                "p" * 64, project_binding=long_binding,
+                source_revision="1" * 64,
+            )
+
 
 if __name__ == "__main__":
     unittest.main()

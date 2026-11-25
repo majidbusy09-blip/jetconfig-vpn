@@ -668,3 +668,9 @@ PR #101 remains Draft and unmerged for human review. No review submissions or re
 - Draft PR #109 opened. Exact-head CI passed on final head `7acce911e1fe5e61077bc77749d401cad9492f2d`: 448 Task Orchestrator tests (run `45551100959`), Non-production PR Validation (`45551100865`), Project Memory Audit (`45551100829`), and Agent PR Lease and Scope Guard (`45551097893`). PR #109 remains Draft/open for human review.
 - Protected workflow upload step remains unchanged; its broad glob is explicitly deferred to a separate reviewed task because `.github/workflows/**` is protected.
 - No external repository writes, app-source changes, activation, paid API, provider spend, release/deploy, or untrusted-code execution.
+
+
+### PR #109 — deterministic Scandir cleanup
+
+- The latest 450-test run passed, including the new project- and repository-level symlink tests, but emitted ResourceWarning because fail-closed exceptions interrupted bare `os.scandir` iteration.
+- Wrapped both namespace scans in context managers so iterators close on normal completion and early exceptions. Fresh exact-head validation is pending.

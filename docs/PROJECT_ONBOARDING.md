@@ -349,3 +349,11 @@ The central manifest SHA-256 is `ec6ad4643acfc0d141e0820a2cbfeff671625edad6a94d6
 - The five required memory documents are on the target default branch. Their blob identities are unchanged from the validated PR head; the refreshed report pins target merge commit above.
 - The resolved `pubspec.lock` remains a reviewed CI artifact and is not yet tracked on target `main`; dependency reproducibility remains a review item.
 - Project lifecycle remains `registered`, not active. Dart source indexing remains deferred until the project-neutral adapter is implemented.
+
+
+## Control-plane reconciliation after Phase 2D-2B — 2026-11-25
+
+- Central manifest/readiness PR #112 is merged; target memory/CI PR #2 is merged into `hesabgar_man` as `177eb1a1f0ae8ae5a77a2c1c136804dff042d5db`.
+- Phase 2D-2B project-scoped artifact and Dart index tooling is merged in control-plane PR #113. This provides the generic CLI, but it has not yet been run against the target checkout; therefore the manifest remains `source_index.strategy=none` and lifecycle `registered`.
+- `pubspec.lock` was reviewed from CI artifact `14998203164` but remains untracked on target `main`; dependency reproducibility is still an open readiness item.
+- Do not activate the project until the lockfile is committed/reviewed, target source-index smoke test passes, and namespace isolation receives independent review.

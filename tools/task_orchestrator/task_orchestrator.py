@@ -527,7 +527,7 @@ def command_prepare(args: argparse.Namespace) -> None:
 
 def command_build_envelope(args: argparse.Namespace) -> None:
     root = repository_root()
-    record, task_record_path = load_record(root, args.task_id)
+    record, task_record_path = load_record(root, args.task_id, getattr(args, "project_binding", None))
     require_state(record, "prepared", "implementation", "verification")
     require_task_branch(root, record)
     try:
@@ -577,7 +577,7 @@ def command_build_envelope(args: argparse.Namespace) -> None:
 
 def command_accept_context(args: argparse.Namespace) -> None:
     root = repository_root()
-    record, task_record_path = load_record(root, args.task_id)
+    record, task_record_path = load_record(root, args.task_id, getattr(args, "project_binding", None))
     require_state(record, "prepared")
     require_task_branch(root, record)
     base_sha = record.get("repository", {}).get("base_sha")
@@ -674,7 +674,7 @@ def command_accept_context(args: argparse.Namespace) -> None:
 
 def command_suggest_context(args: argparse.Namespace) -> None:
     root = repository_root()
-    record, task_record_path = load_record(root, args.task_id)
+    record, task_record_path = load_record(root, args.task_id, getattr(args, "project_binding", None))
     require_state(record, "prepared", "implementation", "verification")
     require_task_branch(root, record)
     try:
@@ -711,7 +711,7 @@ def command_suggest_context(args: argparse.Namespace) -> None:
 
 def command_impact(args: argparse.Namespace) -> None:
     root = repository_root()
-    record, task_record_path = load_record(root, args.task_id)
+    record, task_record_path = load_record(root, args.task_id, getattr(args, "project_binding", None))
     require_state(record, "prepared", "implementation", "verification")
     require_task_branch(root, record)
     base_sha = record.get("repository", {}).get("base_sha")
@@ -767,7 +767,7 @@ def command_impact(args: argparse.Namespace) -> None:
 
 def command_begin(args: argparse.Namespace) -> None:
     root = repository_root()
-    record, path = load_record(root, args.task_id)
+    record, path = load_record(root, args.task_id, getattr(args, "project_binding", None))
     require_state(record, "prepared")
     require_task_branch(root, record)
     current = run_git(root, "rev-parse", "HEAD")
@@ -783,7 +783,7 @@ def command_begin(args: argparse.Namespace) -> None:
 
 def command_validate_scope(args: argparse.Namespace) -> None:
     root = repository_root()
-    record, path = load_record(root, args.task_id)
+    record, path = load_record(root, args.task_id, getattr(args, "project_binding", None))
     require_state(record, "prepared", "implementation", "verification")
     require_task_branch(root, record)
     base = record.get("repository", {}).get("base_sha")
@@ -792,7 +792,7 @@ def command_validate_scope(args: argparse.Namespace) -> None:
     paths = changed_paths(root, base)
     violations = []
     for item in paths:
-        if is_task_metadata(item, args.task_id):
+        if is_task_metadata(item, args.task_id, record.get("github_project_binding")):
             continue
         if matches_any(item, record["scope"]["excluded"]):
             violations.append(f"excluded: {item}")
@@ -814,7 +814,7 @@ def command_validate_scope(args: argparse.Namespace) -> None:
 
 def command_verify(args: argparse.Namespace) -> None:
     root = repository_root()
-    record, path = load_record(root, args.task_id)
+    record, path = load_record(root, args.task_id, getattr(args, "project_binding", None))
     require_state(record, "implementation", "verification")
     require_task_branch(root, record)
     profile = args.profile
@@ -826,7 +826,7 @@ def command_verify(args: argparse.Namespace) -> None:
     base_sha = record.get("repository", {}).get("base_sha")
     verification_paths_before = changed_paths(root, base_sha) if base_sha else []
     verification_fingerprints_before = path_fingerprints(
-        root, verification_paths_before, args.task_id
+        root, verification_paths_before, args.task_id, record.get("github_project_binding")
     )
     allowed_env = {
         "PATH", "HOME", "TMPDIR", "TEMP", "TMP", "LANG", "LC_ALL", "CI",
@@ -893,7 +893,7 @@ def command_verify(args: argparse.Namespace) -> None:
 
 def command_finalize(args: argparse.Namespace) -> None:
     root = repository_root()
-    record, path = load_record(root, args.task_id)
+    record, path = load_record(root, args.task_id, getattr(args, "project_binding", None))
     require_state(record, "verification", "implementation")
     require_task_branch(root, record)
     if not args.reviewed_diff:
@@ -912,14 +912,14 @@ def command_finalize(args: argparse.Namespace) -> None:
     handoff_path.touch(exist_ok=True)
     paths = changed_paths(root, base)
     violations = [
-        item for item in paths if not is_task_metadata(item, args.task_id) and (
+        item for item in paths if not is_task_metadata(item, args.task_id, record.get("github_project_binding")) and (
             matches_any(item, record["scope"]["excluded"])
             or not matches_any(item, record["scope"]["allowed"])
         )
     ]
     if violations:
         raise TaskError("Final diff contains out-of-scope paths: " + ", ".join(violations))
-    current_fingerprints = path_fingerprints(root, paths, args.task_id)
+    current_fingerprints = path_fingerprints(root, paths, args.task_id, record.get("github_project_binding"))
     if current_fingerprints != record["scope_validation"].get("path_fingerprints", {}):
         raise TaskError("Files changed after scope validation; rerun validate-scope and review the complete diff.")
     stale_checks = []

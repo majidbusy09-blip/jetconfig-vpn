@@ -328,3 +328,8 @@ The project-scoped lease namespace is not complete if only the writer uses it. C
 For project-aware v2 tasks, task records and orchestrator-owned local artifacts must reside under `.agent/tasks/<project_id>/<repository_id>/<task_id>/`. The same task ID may exist in multiple projects. Explicit project binding selects the exact directory; implicit lookup is permitted only when one candidate exists and must fail closed on ambiguity. Persisted project identity must match the directory, and symlinked path components are rejected. Local task branches are also project-scoped. Legacy v1 JET VPN task paths and branch names remain unchanged.
 
 The protected GitHub Actions workflow path is not part of Issue #106. The current broad artifact upload glob must be replaced only through a separate reviewed workflow-policy task; protected-path validation must not be weakened.
+
+
+## 2026-11-25 — Close directory iterators on fail-closed scans
+
+Task namespace enumeration uses context-managed `os.scandir` iterators so early rejection (for example, a symlinked project or repository entry) closes the iterator deterministically. This avoids ResourceWarning/file-handle leakage while preserving fail-closed behavior.

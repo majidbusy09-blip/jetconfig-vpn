@@ -166,7 +166,7 @@ void invoke(dynamic callback) {
       'repository_full_name': 'owner/fixture-app',
       'default_branch': 'main',
       'manifest_schema_version': 1,
-      'manifest_sha256': 'b' * 64,
+      'manifest_sha256': 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
       'base_sha': revision,
     };
     final index = await buildResolvedIndex(

@@ -297,3 +297,8 @@ Legacy v1 is a migration exception for the original JET VPN repository only: rep
 V2 handoffs use handoff schema 3. The validated project binding is persisted in the local task record together with the lease-pinned `base_sha`. A later repository rename or manifest digest change cannot silently rebind an existing task; the old handoff must be rejected and an explicit migration/new task used.
 
 The JET VPN manifest remains lifecycle `registered`. This phase does not activate it or persist a multi-project registry. V2 implementation intake requires an active manifest and implemented fixed verification profiles; v1 compatibility remains the temporary path for current JET VPN work. Context/envelope schema, lease namespace, workspace/cache/artifact namespacing, and external-project onboarding are explicitly deferred.
+
+
+### D-025 clarification — separate PR authorization envelope v2
+
+The PR authorization envelope is a distinct control-plane record, not the agent context/input envelope. V2 tasks must use PR envelope v2 with the exact current Issue-body SHA-256, validated project binding, and lease-pinned base SHA. Legacy v1 tasks must use PR envelope v1. The guard rejects version downgrade and any digest/binding/base mismatch. The agent context/input envelope remains unchanged in Phase 2B.

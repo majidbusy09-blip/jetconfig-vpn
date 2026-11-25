@@ -607,3 +607,11 @@ Append-only record of meaningful project work. Each entry should include branch/
 - Extended Issue revalidation and patch-review authorization to verify repository identity and prevent project-aware records from being downgraded to legacy v1.
 - Initial PR #101 CI: Agent PR Lease and Scope Guard passed; Task Orchestrator Tests and Non-production PR Validation exposed remaining old patch-review consumers and test fixture mismatches. Those call sites and fixtures were updated. New exact-head CI is required; no passing result is claimed yet.
 - No registry persistence, activation, context/envelope schema change, lease namespace change, workspace/cache/artifact namespacing, app-source change, external repo change, API spend, credentials, provider source upload, release, deployment, or untrusted execution.
+
+
+## 2026-11-25 — PR authorization envelope v2 added to close downgrade path
+
+- A control-plane review found that validating the current v2 Issue body and base/head repository identity was not sufficient by itself: an Issue could be changed to a legacy v1 body while an existing PR authorization envelope and lease remained.
+- Extended the separate PR authorization envelope with schema v2. It binds the exact Issue-body SHA-256, validated project-binding tuple, and lease-pinned base SHA. V2 tasks require PR envelope v2; legacy v1 tasks require PR envelope v1.
+- The agent context/input envelope contract remains unchanged. This is a PR control-plane envelope, not a context/envelope migration.
+- Added tests for v2 PR authorization, base/head identity mismatch, PR envelope downgrade, project binding mismatch, and pinned base mismatch. Fresh exact-head CI is required.

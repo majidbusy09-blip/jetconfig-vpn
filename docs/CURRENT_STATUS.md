@@ -272,3 +272,8 @@ This section supersedes the earlier PR #53 baseline above.
 - First CI pass on an earlier PR #101 head found unconverted legacy consumers in patch review and test fixture mismatches. The PR guard passed. The affected patch-review gate/command and tests were updated; fresh exact-head checks are required. Do not treat the earlier failed runs as passing.
 - The current JET VPN manifest remains `registered`; no project is activated. «حسابگر من» remains unregistered pending its exact GitHub repository URL.
 - No merge, release, deployment, paid API, new provider spend, credentials, source transfer, or untrusted-code execution has been performed for Phase 2B.
+
+
+### PR identity downgrade guard — Phase 2B extension
+
+A review of the first v2 PR guard test exposed a downgrade gap: a project-bound v2 Issue could otherwise be edited to a legacy v1 body while an existing PR envelope and active lease remained. PR #101 now adds a separate PR authorization envelope v2 binding the exact Issue-body SHA-256, project identity tuple, and lease-pinned base SHA. V2 tasks require this envelope; legacy v1 tasks require PR envelope v1. The agent context/input envelope remains unchanged. Exact-head CI must be re-run after this addition.

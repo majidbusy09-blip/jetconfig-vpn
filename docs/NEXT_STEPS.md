@@ -280,3 +280,8 @@ Do not activate Python profiles until their fixed runners exist. Do not run Flut
 7. Do not activate the JET VPN manifest or register «حسابگر من» in this phase. Obtain and verify the exact حسابگر من repository URL before any onboarding task.
 
 The current task lease is time-limited. Renew it before expiry; do not run two agents on the same task/branch. No paid API, credentials, provider spend, release/deploy, production change, or untrusted-code execution.
+
+
+### Additional Phase 2B control-plane check
+
+- Verify PR authorization envelope v2 is mandatory for v2 tasks and binds the current Issue-body SHA-256, project-binding tuple, and lease-pinned base SHA. Verify legacy v1 tasks require the v1 PR envelope. Test downgrade, body-hash drift, project-binding drift, and base-SHA drift. Keep the agent context/input envelope unchanged.

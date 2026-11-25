@@ -224,3 +224,8 @@ The v1 migration path is intentionally narrow: it is accepted only when trusted 
 The checked-in manifest at `docs/projects/jet-vpn-android/manifest.json` is declarative and remains lifecycle `registered`. Phase 2B does not activate JET VPN, persist a registry, change lease namespaces, change the context/envelope schema, namespace workspaces/caches/artifacts, or onboard external projects. New v2 implementation intake requires an active manifest and implemented verification profiles; the registered JET VPN fixture therefore continues only through the explicit legacy path until a later activation decision.
 
 No paid API, provider account, credential, source upload, release, deployment, production change, or untrusted-code execution is part of this phase.
+
+
+### PR authorization envelope boundary
+
+A v2 Issue body alone is not enough to preserve identity after PR creation: otherwise an Issue could be downgraded to a legacy v1 body while an existing PR and lease remain. Therefore v2 tasks also require a separate PR authorization envelope v2 containing the exact Issue-body SHA-256, the same validated project-binding tuple, and the lease-pinned base SHA. The PR guard rejects a v2 task with a v1 PR envelope, a stale Issue-body digest, a different project binding, or a different base SHA. Legacy v1 tasks continue to require the v1 PR envelope. This is a PR control-plane record only; the agent context/input envelope schema remains unchanged.

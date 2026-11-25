@@ -110,6 +110,8 @@ def ingest_provider_result(
     patch_path: str | Path = "provider_patch.diff",
     result_path: str | Path = "agent_result.json",
     artifact_dir: str | Path = "patch-artifacts",
+    project_binding: dict[str, Any] | None = None,
+    source_revision: str | None = None,
 ) -> dict[str, Any]:
     """Validate, content-address, and persist one result without overwriting."""
     root = task_dir.resolve(strict=True)
@@ -151,7 +153,11 @@ def ingest_provider_result(
         raise ProviderResultIngestionError("Artifact directory must be a regular non-symlink directory.")
 
     try:
-        store = LocalPatchArtifactStore(artifact_root)
+        store = LocalPatchArtifactStore(
+            artifact_root,
+            project_binding=project_binding,
+            source_revision=source_revision,
+        )
         stored_ref = store.store_patch(patch_text)
         if stored_ref != expected_ref:
             raise ProviderResultIngestionError("Stored patch reference differs from the validated digest.")
@@ -166,7 +172,7 @@ def ingest_provider_result(
         "patch_ref": stored_ref,
         "patch_validation": validation,
         "result_file": final_result.relative_to(root).as_posix(),
-        "artifact_directory": artifact_root.relative_to(root).as_posix(),
+        "artifact_directory": store.root.relative_to(root).as_posix(),
         "status": "validated_for_human_review",
         "applied": False,
     }
@@ -198,6 +204,9 @@ def main(argv: list[str] | None = None) -> int:
             patch_path=args.patch_file,
             result_path=args.result_file,
             artifact_dir=args.artifact_dir,
+            project_binding=record.get("github_project_binding"),
+            source_revision=(record.get("repository", {}).get("base_sha")
+                             if record.get("github_project_binding") is not None else None),
         )
     except (ProviderResultIngestionError, ContractValidationError, OSError, ValueError) as exc:
         print("BLOCKED: " + str(exc), file=sys.stderr)

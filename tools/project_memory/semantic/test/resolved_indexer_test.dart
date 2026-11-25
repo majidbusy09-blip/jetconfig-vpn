@@ -156,4 +156,38 @@ void invoke(dynamic callback) {
     expect(call['resolution_status'], 'unresolved');
     expect(call['target_element_id'], isNull);
   });
+  test('pins resolved index output to project manifest and source revision', () async {
+    final file = File('${temp.path}/fixture.dart');
+    await file.writeAsString('void main() {}');
+    const revision = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+    final binding = <String, Object?>{
+      'project_id': 'fixture-app',
+      'repository_id': '123456',
+      'repository_full_name': 'owner/fixture-app',
+      'default_branch': 'main',
+      'manifest_schema_version': 1,
+      'manifest_sha256': 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+      'base_sha': revision,
+    };
+    final index = await buildResolvedIndex(
+      sourcePaths: [file.path],
+      repositoryRoot: temp.path,
+      sourceGitBlobShas: {'fixture.dart': 'fixture-blob'},
+      projectBinding: binding,
+      sourceRevision: revision,
+    );
+    expect(index['project_binding'], binding);
+    expect(index['source_revision'], revision);
+    await expectLater(
+      buildResolvedIndex(
+        sourcePaths: [file.path],
+        repositoryRoot: temp.path,
+        sourceGitBlobShas: {'fixture.dart': 'fixture-blob'},
+        projectBinding: binding,
+        sourceRevision: 'cccccccccccccccccccccccccccccccccccccccc',
+      ),
+      throwsArgumentError,
+    );
+  });
+
 }

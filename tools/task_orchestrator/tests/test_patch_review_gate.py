@@ -61,36 +61,70 @@ class PatchReviewGateTests(unittest.TestCase):
                       dict(self.issue,labels=[])):
             with self.assertRaises(PatchReviewGateError): self.gate(issue_data=issue)
     def test_v2_review_requires_persisted_binding_and_pinned_base(self):
-        binding={
-          "project_id":ACTIVE_MANIFEST["project_id"],
-          "repository_id":ACTIVE_MANIFEST["repository"]["repository_id"],
-          "repository_full_name":ACTIVE_MANIFEST["repository"]["full_name"],
-          "default_branch":ACTIVE_MANIFEST["repository"]["default_branch"],
-          "manifest_schema_version":ACTIVE_MANIFEST["schema_version"],
-          "manifest_sha256":manifest_digest(ACTIVE_MANIFEST),
+        binding = {
+            "project_id": ACTIVE_MANIFEST["project_id"],
+            "repository_id": ACTIVE_MANIFEST["repository"]["repository_id"],
+            "repository_full_name": ACTIVE_MANIFEST["repository"]["full_name"],
+            "default_branch": ACTIVE_MANIFEST["repository"]["default_branch"],
+            "manifest_schema_version": ACTIVE_MANIFEST["schema_version"],
+            "manifest_sha256": manifest_digest(ACTIVE_MANIFEST),
         }
-        task={"schema_version":2,"task_id":TASK,"goal":"Fix the scoped Smart Routing regression safely.",
-          "capability":"bug_fix","risk":"medium","assigned_agent":"chatgpt",
-          "allow":["lib/**","test/**"],"exclude":["lib/generated/**"],
-          "scope_reason":"Bounded routing fix.",
-          "verification_profiles":["python-tooling-tests","flutter-tests","flutter-analysis"],
-          "project_binding":binding}
-        ticks=chr(96)*3
-        issue=dict(self.issue,body="<!-- jet-agent-task:v2 -->\n"+ticks+"json\n"+json.dumps(task)+"\n"+ticks)
-        record=dict(self.record)
-        record["github_handoff"]=dict(self.record["github_handoff"],issue_body_sha256=hashlib.sha256(issue["body"].encode()).hexdigest())
-        record["github_project_binding"]=dict(binding,base_sha=BASE)
-        record["github_handoff"]["lock_branch"]=lock_branch(TASK,binding)
-        project_lease=make_lease(task_id=TASK,owner="chatgpt",claim_id=CLAIM,
-            base_sha=BASE,now=NOW,duration_minutes=120,project_binding=binding)
-        with patch("tools.task_orchestrator.patch_review_gate.validate_task_project_binding",return_value=binding):
-            result=self.gate(record=record,issue_data=issue,lease_record=project_lease,
-                project_schema={},project_manifests=[])
-        self.assertEqual(result["status"],"ready_for_human_review")
-        stale=dict(record); stale["github_project_binding"]=dict(binding,base_sha="f"*40)
-        with patch("tools.task_orchestrator.patch_review_gate.validate_task_project_binding",return_value=binding), self.assertRaises(PatchReviewGateError):
-            self.gate(record=stale,issue_data=issue,project_schema={},project_manifests=[])
-
+        task = {
+            "schema_version": 2, "task_id": TASK,
+            "goal": "Fix the scoped Smart Routing regression safely.",
+            "capability": "bug_fix", "risk": "medium", "assigned_agent": "chatgpt",
+            "allow": ["lib/**", "test/**"], "exclude": ["lib/generated/**"],
+            "scope_reason": "Bounded routing fix.",
+            "verification_profiles": ["python-tooling-tests", "flutter-tests", "flutter-analysis"],
+            "project_binding": binding,
+        }
+        ticks = chr(96) * 3
+        issue = dict(self.issue, body="<!-- jet-agent-task:v2 -->\n" + ticks + "json\n" + json.dumps(task) + "\n" + ticks)
+        record = dict(self.record)
+        record["github_handoff"] = dict(
+            self.record["github_handoff"],
+            issue_body_sha256=hashlib.sha256(issue["body"].encode()).hexdigest(),
+        )
+        record["github_project_binding"] = dict(binding, base_sha=BASE)
+        record["github_handoff"]["lock_branch"] = lock_branch(TASK, binding)
+        project_lease = make_lease(
+            task_id=TASK, owner="chatgpt", claim_id=CLAIM, base_sha=BASE,
+            now=NOW, duration_minutes=120, project_binding=binding,
+        )
+        env = dict(self.env)
+        env["repository"] = dict(self.env["repository"])
+        env["project_binding"] = dict(binding, base_sha=BASE)
+        env["memory_manifest"] = {
+            "version": 1,
+            "required_documents": [item["path"] for item in env["project_context"]],
+            "max_total_bytes": 512000,
+        }
+        result = completed_result(env, self.patch)
+        store = LocalPatchArtifactStore(
+            Path(self.tmp.name), project_binding=env["project_binding"], source_revision=BASE
+        )
+        store.store_patch(self.patch)
+        with patch("tools.task_orchestrator.patch_review_gate.validate_task_project_binding", return_value=binding):
+            accepted = self.gate(
+                record=record, envelope=env, result=result, store=store,
+                issue_data=issue, lease_record=project_lease,
+                project_schema={}, project_manifests=[],
+            )
+        self.assertEqual(accepted["status"], "ready_for_human_review")
+        stale = dict(record)
+        stale["github_project_binding"] = dict(binding, base_sha="f" * 40)
+        with patch("tools.task_orchestrator.patch_review_gate.validate_task_project_binding", return_value=binding), self.assertRaises(PatchReviewGateError):
+            self.gate(
+                record=stale, envelope=env, result=result, store=store,
+                issue_data=issue, lease_record=project_lease,
+                project_schema={}, project_manifests=[],
+            )
+        with self.assertRaises(PatchReviewGateError):
+            self.gate(
+                record=record, envelope=env, result=result,
+                store=self.store, issue_data=issue, lease_record=project_lease,
+                project_schema={}, project_manifests=[],
+            )
 
     def test_rejects_stale_released_or_expired_lease(self):
         with self.assertRaises(PatchReviewGateError): self.gate(lock_commit="e"*40)

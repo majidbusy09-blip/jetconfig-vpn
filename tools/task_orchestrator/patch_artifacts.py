@@ -13,6 +13,11 @@ from pathlib import Path
 from typing import Any
 
 from .patch_pipeline import PatchPipelineError, validate_completed_patch
+from .project_artifact_namespace import (
+    ProjectArtifactNamespaceError,
+    ensure_namespace_directory,
+    verify_store_namespace,
+)
 
 _ARTIFACT_RE = re.compile(r"^artifact:sha256:([0-9a-f]{64})$")
 _MAX_ARTIFACT_BYTES = 2_000_000
@@ -25,14 +30,46 @@ class PatchArtifactError(ValueError):
 class LocalPatchArtifactStore:
     """Store immutable UTF-8 patches by SHA-256 in a caller-owned directory."""
 
-    def __init__(self, root: str | os.PathLike[str], *, max_bytes: int = _MAX_ARTIFACT_BYTES):
+    def __init__(
+        self,
+        root: str | os.PathLike[str],
+        *,
+        max_bytes: int = _MAX_ARTIFACT_BYTES,
+        project_binding: dict | None = None,
+        source_revision: str | None = None,
+    ):
         supplied = Path(root)
         if supplied.is_symlink() or not supplied.is_dir():
             raise PatchArtifactError("Artifact root must be an existing regular directory, not a symlink.")
         if isinstance(max_bytes, bool) or not isinstance(max_bytes, int) or not 1 <= max_bytes <= _MAX_ARTIFACT_BYTES:
             raise PatchArtifactError("Artifact size limit must be between 1 byte and 2 MB.")
-        self.root = supplied.resolve(strict=True)
+        self.project_binding = dict(project_binding) if project_binding is not None else None
+        self.source_revision = source_revision
+        self.base_root = supplied.resolve(strict=True)
+        if project_binding is None:
+            if source_revision is not None:
+                raise PatchArtifactError("A source revision cannot be supplied without a project binding.")
+            self.root = self.base_root
+        else:
+            if source_revision is None:
+                raise PatchArtifactError("A project-scoped artifact store requires a pinned source revision.")
+            try:
+                self.root = ensure_namespace_directory(
+                    self.base_root, "patches", project_binding=project_binding,
+                    source_revision=source_revision,
+                )
+            except ProjectArtifactNamespaceError as exc:
+                raise PatchArtifactError("Project artifact namespace is invalid or unsafe.") from exc
         self.max_bytes = max_bytes
+
+    def assert_namespace(self, project_binding: dict | None, source_revision: str) -> None:
+        """Verify this store belongs to the exact task project and pinned source."""
+        try:
+            verify_store_namespace(
+                self.project_binding, self.source_revision, project_binding, source_revision
+            )
+        except ProjectArtifactNamespaceError as exc:
+            raise PatchArtifactError("Artifact store belongs to a different project or source revision.") from exc
 
     def _path_for_ref(self, artifact_ref: str) -> tuple[str, Path]:
         if not isinstance(artifact_ref, str):
@@ -128,6 +165,12 @@ class LocalPatchArtifactStore:
         """Load the result's exact artifact and validate digest, scope, and diff."""
         if not isinstance(result, dict):
             raise PatchArtifactError("Agent result must be an object.")
+        envelope_binding = envelope.get("project_binding")
+        repository = envelope.get("repository")
+        source_revision = repository.get("base_sha") if isinstance(repository, dict) else None
+        if not isinstance(source_revision, str):
+            raise PatchArtifactError("Agent envelope has no pinned source revision.")
+        self.assert_namespace(envelope_binding, source_revision)
         artifact_ref = result.get("patch_ref")
         patch_text = self.load_patch(artifact_ref)
         try:

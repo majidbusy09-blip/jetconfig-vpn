@@ -11,7 +11,15 @@ Future<Map<String, Object?>> buildResolvedIndex({
   required List<String> sourcePaths,
   required String repositoryRoot,
   required Map<String, String> sourceGitBlobShas,
+  Map<String, Object?>? projectBinding,
+  String? sourceRevision,
 }) async {
+  if ((projectBinding == null) != (sourceRevision == null)) {
+    throw ArgumentError('Project binding and source revision must be supplied together.');
+  }
+  if (projectBinding != null && projectBinding['base_sha'] != sourceRevision) {
+    throw ArgumentError('Project binding must match the pinned source revision.');
+  }
   final absoluteRoot = Directory(repositoryRoot).absolute.path;
   final normalizedPaths = sourcePaths.map((path) => File(path).absolute.path).toSet().toList()
     ..sort((a, b) => _relativePath(absoluteRoot, a).compareTo(_relativePath(absoluteRoot, b)));
@@ -74,6 +82,8 @@ Future<Map<String, Object?>> buildResolvedIndex({
     final internalEdges = callerEdges.where((call) => call['target_is_in_repository'] == true).toList();
     return {
       'schema_version': 2,
+      if (projectBinding != null) 'project_binding': projectBinding,
+      if (sourceRevision != null) 'source_revision': sourceRevision,
       'generator': 'tools/project_memory/semantic/resolved_indexer.dart',
       'analysis_mode': 'dart_analyzer_resolved_elements_multi_file',
       'source': {'root': 'lib/', 'file_count': files.length, 'files': files},

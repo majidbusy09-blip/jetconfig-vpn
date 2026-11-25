@@ -46,3 +46,18 @@ scope, changed-path declaration, and unified-diff safety rules.
 A production artifact transport still needs a separately reviewed identity,
 authorization, retention, and integrity boundary. Until then, use only the
 local content-addressed store inside a trusted host-controlled workspace.
+
+
+## Project-scoped v2 artifact namespaces
+
+For a project-aware task, LocalPatchArtifactStore now accepts the trusted project_binding and exact source_revision. Its physical directory is created below the caller-owned artifact root as:
+
+    projects/<project_id>/<repository_id>/<manifest_sha256>/<source_revision>/patches/
+
+The namespace builder validates the complete binding and full Git SHA, creates directories with restrictive permissions, rejects symlink/non-directory components, and verifies that the resolved path remains beneath the supplied root. Provider-result ingestion obtains the binding and base SHA from the persisted task record; callers cannot select a namespace from free-form task text. The patch-review gate checks the same project/revision tuple before it loads the digest reference.
+
+The same pure helper exposes project/revision-bound cache keys and paths, audit-record paths, generated index paths, and future workflow artifact names. When no project binding is supplied, the v1 JET VPN patch directory, cache names, index filenames, and artifact-name prefixes remain unchanged.
+
+The trusted workflow YAML is not modified in this phase: current task intake treats every .github/workflows/** path as protected. The naming helper is ready for a separately reviewed workflow-policy change; existing workflow artifact names are intentionally not silently renamed.
+
+The local fixture-only dispatch runner also derives its v2 audit destination from the envelope's trusted project binding and pinned base SHA. A caller-supplied v2 output override is rejected unless it is exactly the derived namespace path. V1 callers still provide their historical explicit output path.

@@ -135,4 +135,44 @@ void main() {
     expect(summary['missing_or_ambiguous_entrypoints'], 1);
     expect((path['unresolved_entrypoints'] as List).single['status'], 'ambiguous');
   });
+  test('pins critical-path report to project identity and source revision', () {
+    const revision = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+    final binding = <String, Object?>{
+      'project_id': 'fixture-app',
+      'repository_id': '123456',
+      'repository_full_name': 'owner/fixture-app',
+      'default_branch': 'main',
+      'manifest_schema_version': 1,
+      'manifest_sha256': 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+      'base_sha': revision,
+    };
+    final report = buildCriticalPathReport(
+      resolvedIndex: {
+        'summary': {'source_file_count': 0},
+        'source': {'files': []},
+        'declarations': [],
+        'call_sites': [],
+      },
+      manifest: {'paths': []},
+      projectBinding: binding,
+      sourceRevision: revision,
+    );
+    expect(report['project_binding'], binding);
+    expect(report['source_revision'], revision);
+    expect(
+      () => buildCriticalPathReport(
+        resolvedIndex: {
+          'summary': {'source_file_count': 0},
+          'source': {'files': []},
+          'declarations': [],
+          'call_sites': [],
+        },
+        manifest: {'paths': []},
+        projectBinding: binding,
+        sourceRevision: 'cccccccccccccccccccccccccccccccccccccccc',
+      ),
+      throwsArgumentError,
+    );
+  });
+
 }

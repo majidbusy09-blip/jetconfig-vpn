@@ -334,3 +334,15 @@ The project/repository task namespace scan now owns both `os.scandir` iterators 
 - The resolved `pubspec.lock` was reviewed from CI artifact `14998203164` (101 packages, 23,577 bytes) but is not tracked on target `main`; reproducible dependency resolution remains open.
 - حسابگر من remains `registered`, not active. Generic Dart source-index adapter is still required before source indexing can be enabled.
 - Issue #108 is now unblocked by merged #109 and is the next implementation phase. Issue #110 remains separately gated on explicit approval for its protected workflow policy change.
+
+
+## Phase 2D-2B — project artifact namespace implementation (2026-11-25)
+
+- Issue #108 is claimed under the current lease and PR #113 contains the first implementation slice.
+- Added a pure project artifact namespace helper bound to project ID, immutable repository ID, manifest digest, and pinned source revision. It preserves legacy v1 names and output paths.
+- Patch artifact storage, provider-result ingestion, and patch-review authorization now accept/verify the same project namespace. Cross-project and stale-revision store reuse fails closed.
+- Dart resolved-index and critical-path tooling now accept a trusted project manifest and exact source revision, validate the canonical manifest digest and checked-out GitHub origin, and write project/revision-scoped outputs.
+- Workflow artifact-name helper and cache/audit path helpers are implemented. Actual workflow YAML wiring remains deferred because all workflow files are protected by the task protocol.
+- PR #113 implements this phase; exact-head Python, Dart semantic tooling, validation, memory-audit, and lease/scope checks are required before merge. No patch is applied, no provider is called, and no untrusted code is executed.
+
+- The fixture-only dispatch audit writer now stores v2 audit output under the project/manifest/source namespace and rejects unscoped output overrides; legacy v1 output behavior remains intact.

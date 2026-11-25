@@ -16,6 +16,7 @@ from typing import Any
 from .agent_contract import parse_json_object
 from .dispatcher import DispatcherError, dispatch_task, validate_dispatch_record
 from .readonly_adapter import FixtureReadOnlyProvider
+from .project_artifact_namespace import audit_record_path, ensure_namespace_directory
 
 MAX_INPUT_BYTES = 2_000_000
 
@@ -74,19 +75,49 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("--envelope-file", required=True)
     parser.add_argument("--fixture-result-file", required=True)
-    parser.add_argument("--output", required=True)
+    parser.add_argument("--output", help="Legacy v1 output path; v2 output is derived from trusted project identity.")
+    parser.add_argument("--repository-root", default=".", help="Repository root used for project-scoped v2 audit output.")
     parser.add_argument("--provider", choices=("fixture-provider",), default="fixture-provider")
     args = parser.parse_args(argv)
     try:
         envelope = _read_object(args.envelope_file)
         fixture_result = _read_object(args.fixture_result_file)
         record = run_fixture_dispatch(envelope, fixture_result)
-        _write_new_json(args.output, record)
+        project_binding = envelope.get("project_binding")
+        if project_binding is None:
+            if not args.output:
+                raise LocalDispatchRunnerError("Legacy v1 dispatch requires an explicit --output path.")
+            output_path = Path(args.output)
+        else:
+            repository = envelope.get("repository")
+            source_revision = repository.get("base_sha") if isinstance(repository, dict) else None
+            if not isinstance(source_revision, str):
+                raise LocalDispatchRunnerError("Project-scoped dispatch has no pinned source revision.")
+            root = Path(args.repository_root).resolve(strict=True)
+            expected_relative = audit_record_path(
+                "dispatch-audit.json", project_binding=project_binding,
+                source_revision=source_revision,
+            )
+            expected_path = root / expected_relative
+            if args.output:
+                supplied = Path(args.output)
+                supplied_path = supplied.resolve(strict=False) if supplied.is_absolute() else (root / supplied).resolve(strict=False)
+                if supplied_path != expected_path.resolve(strict=False):
+                    raise LocalDispatchRunnerError("Project-scoped audit output must use the derived project/revision namespace.")
+            try:
+                audit_directory = ensure_namespace_directory(
+                    root / "docs/generated", "audit",
+                    project_binding=project_binding, source_revision=source_revision,
+                )
+            except ValueError as exc:
+                raise LocalDispatchRunnerError("Project-scoped audit directory is unsafe.") from exc
+            output_path = audit_directory / "dispatch-audit.json"
+        _write_new_json(str(output_path), record)
     except (LocalDispatchRunnerError, DispatcherError, OSError) as exc:
         print("BLOCKED: " + str(exc), file=sys.stderr)
         return 2
     print("Fixture dispatch validated. No live model was called and no patch was applied.")
-    print("Audit record: " + args.output)
+    print("Audit record: " + str(output_path))
     return 0
 
 

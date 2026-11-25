@@ -1,7 +1,15 @@
 Map<String, Object?> buildCriticalPathReport({
   required Map<String, Object?> resolvedIndex,
   required Map<String, Object?> manifest,
+  Map<String, Object?>? projectBinding,
+  String? sourceRevision,
 }) {
+  if ((projectBinding == null) != (sourceRevision == null)) {
+    throw ArgumentError('Project binding and source revision must be supplied together.');
+  }
+  if (projectBinding != null && projectBinding['base_sha'] != sourceRevision) {
+    throw ArgumentError('Project binding must match the pinned source revision.');
+  }
   final declarations = (resolvedIndex['declarations'] as List).cast<Map<String, Object?>>();
   final callSites = (resolvedIndex['call_sites'] as List).cast<Map<String, Object?>>();
   final declarationsById = <String, Map<String, Object?>>{};
@@ -120,6 +128,8 @@ Map<String, Object?> buildCriticalPathReport({
 
   return {
     'schema_version': 1,
+    if (projectBinding != null) 'project_binding': projectBinding,
+    if (sourceRevision != null) 'source_revision': sourceRevision,
     'generator': 'tools/project_memory/semantic/lib/critical_path_report.dart',
     'analysis_mode': 'static_reachability_from_curated_entrypoints',
     'source_file_count': (resolvedIndex['summary'] as Map<String, Object?>)['source_file_count'],

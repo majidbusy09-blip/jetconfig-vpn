@@ -63,5 +63,64 @@ class ProviderResultIngestionTests(unittest.TestCase):
             ingest_provider_result(self.task_dir, self.envelope, result_path="../agent_result.json")
 
 
+    def test_v2_ingestion_persists_patch_under_project_manifest_and_source_namespace(self):
+        env = dict(self.envelope)
+        env["repository"] = dict(self.envelope["repository"])
+        binding = {
+            "project_id": "jet-vpn-android",
+            "repository_id": "1349356614",
+            "repository_full_name": "majidbusy09-blip/jetconfig-vpn",
+            "default_branch": "main",
+            "manifest_schema_version": 1,
+            "manifest_sha256": "a" * 64,
+            "base_sha": env["repository"]["base_sha"],
+        }
+        env["project_binding"] = binding
+        env["memory_manifest"] = {
+            "version": 1,
+            "required_documents": [item["path"] for item in env["project_context"]],
+            "max_total_bytes": 512000,
+        }
+        result = completed_result(env, self.patch)
+        (self.task_dir / "provider_result.json").write_text(json.dumps(result), encoding="utf-8")
+        outcome = ingest_provider_result(
+            self.task_dir, env, project_binding=binding,
+            source_revision=env["repository"]["base_sha"],
+        )
+        expected = (
+            "patch-artifacts/projects/jet-vpn-android/1349356614/" + "a" * 64 + "/"
+            + env["repository"]["base_sha"] + "/patches"
+        )
+        self.assertEqual(outcome["artifact_directory"], expected)
+        self.assertEqual(outcome["status"], "validated_for_human_review")
+        self.assertFalse(outcome["applied"])
+
+    def test_v2_ingestion_rejects_source_revision_mismatch(self):
+        env = dict(self.envelope)
+        env["repository"] = dict(self.envelope["repository"])
+        binding = {
+            "project_id": "jet-vpn-android",
+            "repository_id": "1349356614",
+            "repository_full_name": "majidbusy09-blip/jetconfig-vpn",
+            "default_branch": "main",
+            "manifest_schema_version": 1,
+            "manifest_sha256": "a" * 64,
+            "base_sha": env["repository"]["base_sha"],
+        }
+        env["project_binding"] = binding
+        env["memory_manifest"] = {
+            "version": 1,
+            "required_documents": [item["path"] for item in env["project_context"]],
+            "max_total_bytes": 512000,
+        }
+        result = completed_result(env, self.patch)
+        (self.task_dir / "provider_result.json").write_text(json.dumps(result), encoding="utf-8")
+        with self.assertRaises(ProviderResultIngestionError):
+            ingest_provider_result(
+                self.task_dir, env, project_binding=binding, source_revision="e" * 40,
+            )
+        self.assertFalse((self.task_dir / "agent_result.json").exists())
+
+
 if __name__ == "__main__":
     unittest.main()

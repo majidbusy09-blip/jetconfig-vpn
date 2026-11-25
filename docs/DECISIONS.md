@@ -342,3 +342,13 @@ Task namespace enumeration uses context-managed `os.scandir` iterators so early 
 - Preserve app version `1.0.9+10`; no app source, signing, or release workflow changes are included in onboarding.
 - Keep semantic source indexing disabled (`strategy=none`) until a project-neutral Dart CLI and artifact namespace exist.
 - Treat the resolved `pubspec.lock` as uncommitted until it is added and reviewed on the target default branch.
+
+
+## D-030 — Project-scoped generated artifact identity (2026-11-25)
+
+- V2 generated artifacts, patch stores, cache identities, and audit paths bind to project_id, immutable repository_id, canonical repository name, canonical manifest SHA-256, and exact source revision.
+- A v2 reader must verify the complete binding and source revision; a digest-only patch reference is resolved only inside that namespace.
+- Legacy v1 JET VPN artifact paths and identifiers remain unchanged. No silent migration or rename is permitted.
+- The canonical manifest digest is computed from recursively key-sorted compact JSON; the checked-out Git origin and HEAD must match the trusted manifest/revision inputs.
+- Workflow artifact upload names are derived by a pure helper, but workflow YAML changes remain deferred because .github/workflows/** is protected by the current task protocol.
+- A helper for cache keys is not proof of a cache backend integration; only existing concrete readers/writers may be wired in this phase.

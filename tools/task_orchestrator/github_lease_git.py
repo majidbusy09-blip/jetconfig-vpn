@@ -236,7 +236,7 @@ def release(*, task_id: str, owner: str, claim_id: str, now: str,
     fetched = _fetch_head(remote, branch, token)
     if fetched != observed:
         raise LeaseGitError("Lock ref changed during read; retry the operation.")
-    current = _read_lease(fetched, token, project_binding)
+    current = _read_lease(fetched, token, task_id, project_binding)
     if current["task_id"] != task_id or current.get("project_binding") != project_binding:
         raise LeaseGitError("Existing lease is bound to a different task or project.")
     plan = release_plan(current, observed_ref_sha=fetched, owner=owner,

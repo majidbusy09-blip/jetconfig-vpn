@@ -80,7 +80,14 @@ def _read_object(path_text: str) -> dict[str, Any]:
             if not chunk:
                 break
             raw.extend(chunk)
-        if len(raw) > MAX_INPUT_BYTES or len(raw) != metadata.st_size:
+        after = os.fstat(descriptor)
+        stable = (
+            after.st_dev == metadata.st_dev and after.st_ino == metadata.st_ino
+            and after.st_size == metadata.st_size
+            and after.st_mtime_ns == metadata.st_mtime_ns
+            and after.st_ctime_ns == metadata.st_ctime_ns
+        )
+        if len(raw) > MAX_INPUT_BYTES or len(raw) != metadata.st_size or not stable:
             raise LocalDispatchRunnerError("Input changed while being read or exceeds the 2 MB size limit.")
         return parse_json_object(bytes(raw), max_bytes=MAX_INPUT_BYTES)
     except LocalDispatchRunnerError:

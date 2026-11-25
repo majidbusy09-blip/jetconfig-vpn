@@ -21,6 +21,7 @@ from .github_lease import (
     LeaseError, lock_branch, make_lease, release_plan, transition_plan,
     validate_lease,
 )
+from .project_namespace import ProjectNamespaceError, lease_record_path, validate_project_binding
 
 REPO_RE = re.compile(r"^[A-Za-z0-9](?:[A-Za-z0-9_.-]*[A-Za-z0-9])?/[A-Za-z0-9](?:[A-Za-z0-9_.-]*[A-Za-z0-9])?$")
 SHA_RE = re.compile(r"^(?:[0-9a-f]{40}|[0-9a-f]{64})$")
@@ -98,8 +99,9 @@ def _fetch_head(remote: str, branch: str, token: str) -> str:
     return sha
 
 
-def _read_lease(commit_sha: str, token: str) -> dict[str, Any]:
-    raw = _git(["show", commit_sha + ":" + LEASE_PATH], token=token)
+def _read_lease(commit_sha: str, token: str, project_binding: dict[str, Any] | None = None) -> dict[str, Any]:
+    path = lease_record_path("", project_binding) if project_binding is None else lease_record_path("lease", project_binding)
+    raw = _git(["show", commit_sha + ":" + path], token=token)
     try:
         parsed = json.loads(raw)
         return validate_lease(parsed)
@@ -107,7 +109,7 @@ def _read_lease(commit_sha: str, token: str) -> dict[str, Any]:
         raise LeaseGitError("Existing lock ref has no valid lease; failing closed.") from exc
 
 
-def _commit_record(parent_sha: str, record: dict[str, Any], token: str) -> str:
+def _commit_record(parent_sha: str, record: dict[str, Any], token: str, project_binding: dict[str, Any] | None = None) -> str:
     if not SHA_RE.fullmatch(parent_sha):
         raise LeaseGitError("Parent commit SHA is invalid.")
     encoded = json.dumps(record, sort_keys=True, separators=(",", ":"), ensure_ascii=False) + "\n"
@@ -119,7 +121,8 @@ def _commit_record(parent_sha: str, record: dict[str, Any], token: str) -> str:
         with tempfile.NamedTemporaryFile(prefix="jet-agent-lease-index-", delete=False) as handle:
             index_name = handle.name
         _git(["read-tree", parent_sha], token=token, index_path=index_name)
-        cacheinfo = "100644," + blob + "," + LEASE_PATH
+        path = LEASE_PATH if project_binding is None else lease_record_path(record["task_id"], project_binding)
+        cacheinfo = "100644," + blob + "," + path
         _git(["update-index", "--add", "--cacheinfo", cacheinfo],
              token=token, index_path=index_name)
         tree = _git(["write-tree"], token=token, index_path=index_name)
@@ -161,21 +164,26 @@ def _push(remote: str, branch: str, commit_sha: str, expected_sha: str | None,
 
 def claim_or_renew(*, operation: str, task_id: str, owner: str, claim_id: str,
                    base_sha: str | None, duration_minutes: int, now: str,
-                   repository: str, token: str, previous_claim_id: str | None = None) -> dict[str, Any]:
+                   repository: str, token: str, previous_claim_id: str | None = None,
+                   project_binding: dict[str, Any] | None = None) -> dict[str, Any]:
     if operation not in {"claim", "renew"}:
         raise LeaseGitError("Operation must be claim or renew.")
     if operation == "claim" and (base_sha is None or not SHA_RE.fullmatch(base_sha)):
         raise LeaseGitError("A full pinned base commit SHA is required for a new claim.")
     if base_sha is not None and not SHA_RE.fullmatch(base_sha):
         raise LeaseGitError("Pinned base commit SHA is invalid.")
+    try:
+        project_binding = validate_project_binding(project_binding) if project_binding is not None else None
+    except ProjectNamespaceError as exc:
+        raise LeaseGitError("Project identity is invalid for lease namespace.") from exc
     remote = _remote_url(repository)
-    branch = lock_branch(task_id)
+    branch = lock_branch(task_id, project_binding)
     observed = _remote_sha(remote, branch, token)
     if observed is None:
         if operation == "renew":
             raise LeaseGitError("Cannot renew a lease whose lock ref does not exist.")
         record = make_lease(task_id=task_id, owner=owner, claim_id=claim_id,
-                            base_sha=base_sha, now=now, duration_minutes=duration_minutes)
+                            base_sha=base_sha, now=now, duration_minutes=duration_minutes, project_binding=project_binding)
         parent = base_sha
         expected = None
     else:
@@ -183,15 +191,15 @@ def claim_or_renew(*, operation: str, task_id: str, owner: str, claim_id: str,
         if fetched != observed:
             # The ref moved during observation; retry from a fresh read, never guess.
             raise LeaseGitError("Lock ref changed during read; retry the operation.")
-        current = _read_lease(fetched, token)
-        if current["task_id"] != task_id:
-            raise LeaseGitError("Existing lease is bound to a different task.")
+        current = _read_lease(fetched, token, project_binding)
+        if current["task_id"] != task_id or current.get("project_binding") != project_binding:
+            raise LeaseGitError("Existing lease is bound to a different task or project.")
         if operation == "renew" and base_sha is None:
             base_sha = current["base_sha"]
         if current["base_sha"] != base_sha:
             raise LeaseGitError("Existing lease is bound to a different pinned base commit.")
         proposed = make_lease(task_id=task_id, owner=owner, claim_id=claim_id,
-                              base_sha=base_sha, now=now, duration_minutes=duration_minutes)
+                              base_sha=base_sha, now=now, duration_minutes=duration_minutes, project_binding=project_binding)
         if operation == "claim":
             plan = transition_plan(current, proposed, observed_ref_sha=fetched, now=now)
         else:
@@ -201,32 +209,45 @@ def claim_or_renew(*, operation: str, task_id: str, owner: str, claim_id: str,
             plan = renew_plan(current, proposed, observed_ref_sha=fetched,
                               owner=owner, claim_id=previous_claim_id, now=now)
         record, parent, expected = plan["record"], fetched, plan["expected_sha"]
-    commit = _commit_record(parent, record, token)
+    commit = _commit_record(parent, record, token, project_binding)
     _push(remote, branch, commit, expected, token)
-    return {"task_id": task_id, "owner": owner, "claim_id": claim_id,
-            "status": record["status"], "base_sha": record["base_sha"],
-            "expires_at": record["expires_at"],
-            "lock_branch": branch, "lock_commit": commit, "verified": True}
+    result = {"task_id": task_id, "owner": owner, "claim_id": claim_id,
+              "status": record["status"], "base_sha": record["base_sha"],
+              "expires_at": record["expires_at"],
+              "lock_branch": branch, "lock_commit": commit, "verified": True}
+    if project_binding is not None:
+        result["project_binding"] = project_binding
+    return result
 
 
 def release(*, task_id: str, owner: str, claim_id: str, now: str,
-            repository: str, token: str) -> dict[str, Any]:
+            repository: str, token: str,
+            project_binding: dict[str, Any] | None = None) -> dict[str, Any]:
+    try:
+        project_binding = validate_project_binding(project_binding) if project_binding is not None else None
+    except ProjectNamespaceError as exc:
+        raise LeaseGitError("Project identity is invalid for lease namespace.") from exc
     remote = _remote_url(repository)
-    branch = lock_branch(task_id)
+    branch = lock_branch(task_id, project_binding)
     observed = _remote_sha(remote, branch, token)
     if observed is None:
         raise LeaseGitError("Lock ref does not exist.")
     fetched = _fetch_head(remote, branch, token)
     if fetched != observed:
         raise LeaseGitError("Lock ref changed during read; retry the operation.")
-    current = _read_lease(fetched, token)
+    current = _read_lease(fetched, token, project_binding)
+    if current["task_id"] != task_id or current.get("project_binding") != project_binding:
+        raise LeaseGitError("Existing lease is bound to a different task or project.")
     plan = release_plan(current, observed_ref_sha=fetched, owner=owner,
                         claim_id=claim_id, now=now)
-    commit = _commit_record(fetched, plan["record"], token)
+    commit = _commit_record(fetched, plan["record"], token, project_binding)
     _push(remote, branch, commit, plan["expected_sha"], token)
-    return {"task_id": task_id, "owner": owner, "claim_id": claim_id,
-            "status": "released", "lock_branch": branch, "lock_commit": commit,
-            "verified": True}
+    result = {"task_id": task_id, "owner": owner, "claim_id": claim_id,
+              "status": "released", "lock_branch": branch, "lock_commit": commit,
+              "verified": True}
+    if project_binding is not None:
+        result["project_binding"] = project_binding
+    return result
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -237,6 +258,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--claim-id", required=True)
     parser.add_argument("--previous-claim-id")
     parser.add_argument("--base-sha")
+    parser.add_argument("--project-binding-json")
     parser.add_argument("--minutes", type=int, default=60)
     parser.add_argument("--now", default=None)
     args = parser.parse_args(argv)
@@ -244,6 +266,7 @@ def main(argv: list[str] | None = None) -> int:
     repository = os.environ.get("GITHUB_REPOSITORY", "")
     now = args.now or _now()
     try:
+        binding = json.loads(args.project_binding_json) if args.project_binding_json else None
         if args.operation in {"claim", "renew"}:
             if args.operation == "claim" and not args.base_sha:
                 raise LeaseGitError("--base-sha is required for a new claim.")
@@ -251,13 +274,13 @@ def main(argv: list[str] | None = None) -> int:
                 operation=args.operation, task_id=args.task_id, owner=args.owner,
                 claim_id=args.claim_id, base_sha=args.base_sha,
                 duration_minutes=args.minutes, now=now, repository=repository,
-                token=token or "", previous_claim_id=args.previous_claim_id,
+                token=token or "", previous_claim_id=args.previous_claim_id, project_binding=binding,
             )
         else:
             result = release(task_id=args.task_id, owner=args.owner,
                              claim_id=args.claim_id, now=now,
-                             repository=repository, token=token or "")
-    except (LeaseGitError, LeaseError) as exc:
+                             repository=repository, token=token or "", project_binding=binding)
+    except (LeaseGitError, LeaseError, ProjectNamespaceError, json.JSONDecodeError) as exc:
         parser.error(str(exc))
     print(json.dumps(result, indent=2))
     return 0

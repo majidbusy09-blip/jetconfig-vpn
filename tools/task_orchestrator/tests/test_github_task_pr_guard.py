@@ -229,6 +229,19 @@ class TaskPRGuardTests(unittest.TestCase):
                     now="2026-11-23T10:30:00Z",
                 )
 
+        tampered_issue = issue_body + " "
+        with patch(
+            "tools.task_orchestrator.github_task_pr_guard.api_get",
+            side_effect=api_responses(issue_body=tampered_issue),
+        ), patch(
+            "tools.task_orchestrator.github_task_pr_guard.load_project_configuration",
+            return_value=(PROJECT_SCHEMA, [ACTIVE_MANIFEST]),
+        ), self.assertRaises(GuardError):
+            validate_agent_pr(
+                event(v2_pr), token="read-token", repository=REPOSITORY,
+                now="2026-11-23T10:30:00Z",
+            )
+
 
     def test_rejects_expired_or_released_lease(self):
         for options in (

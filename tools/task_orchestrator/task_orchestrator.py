@@ -29,6 +29,14 @@ except ImportError:
         from context_builder import ContextBuildError, build_context
 
 try:
+    from .project_cache_store import build_context_cached
+except ImportError:
+    try:
+        from tools.task_orchestrator.project_cache_store import build_context_cached
+    except ImportError:
+        from project_cache_store import build_context_cached
+
+try:
     from .envelope_builder import EnvelopeBuildError, build_agent_envelope
 except ImportError:
     try:
@@ -514,7 +522,7 @@ def command_prepare(args: argparse.Namespace) -> None:
         "prepared_at": now_iso(),
     })
     try:
-        package = build_context(
+        package = build_context_cached(
             root=root, task_id=args.task_id, source_revision=head,
             required_paths=record["required_context"],
             source_paths=record.get("context_paths", []),
@@ -660,7 +668,7 @@ def command_accept_context(args: argparse.Namespace) -> None:
     if envelope_path.exists() or envelope_path.is_symlink():
         raise TaskError("An agent_input.json already exists. Refusing to invalidate or overwrite an existing envelope.")
     try:
-        package = build_context(
+        package = build_context_cached(
             root=root,
             task_id=args.task_id,
             source_revision=base_sha,

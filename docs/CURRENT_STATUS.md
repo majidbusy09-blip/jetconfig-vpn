@@ -354,3 +354,10 @@ The project/repository task namespace scan now owns both `os.scandir` iterators 
 - Issue #108 is closed as completed and its lease is verified released. Issue #114 tracks only the deferred workflow artifact upload-name wiring; it is deliberately unclaimed and has no `agent-task` label pending explicit protected-path approval.
 - Phase 2D-2A PR #109, حسابگر من target PR #2, and central onboarding PR #112 are also merged. Stale PR #111 was closed without merging.
 - حسابگر من remains `registered`, not active. Target memory/CI is on target `main`; `pubspec.lock` remains an uncommitted CI artifact and generic indexing has not yet been smoke-tested against the target checkout. App version remains `1.0.9+10`.
+
+
+## Narrow workflow-path authorization — policy phase
+
+- Repository owner approved a single future workflow path: `.github/workflows/project-memory-audit.yml`, bound to task ID `project-memory-artifact-workflow-v1`.
+- The task intake and agent contract validators are being updated so only that exact task ID can authorize that exact path. All other `.github/workflows/**` paths remain protected, including `agent-lease-commands.yml`, build, release, and deployment workflows.
+- This policy-only phase does not modify any workflow YAML. The actual project-memory audit workflow integration is a separate follow-up after this policy is merged and independently validated.

@@ -799,10 +799,11 @@ def command_impact(args: argparse.Namespace) -> None:
         target = task_record_path.parent / "impact_report.json"
         target.parent.mkdir(parents=True, exist_ok=True)
     report_path = target.relative_to(root).as_posix()
-    encoded = (json.dumps(result, ensure_ascii=False, indent=2) + "\\n").encode("utf-8")
-    temporary = target.with_suffix(".json.tmp")
-    temporary.write_bytes(encoded)
-    temporary.replace(target)
+    encoded = (json.dumps(result, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
+    try:
+        atomic_write_bytes(root, report_path, encoded, replace=True, create_parents=True)
+    except SafeLocalFileError as exc:
+        raise TaskError(f"Impact report could not be written safely: {exc}") from exc
     record["impact_analysis"] = {
         "status": result.get("status") or ("completed_with_unknowns" if result["not_indexed_or_unknown"] else "completed"),
         "report_path": report_path,
@@ -971,7 +972,14 @@ def command_finalize(args: argparse.Namespace) -> None:
     base = record["repository"]["base_sha"]
     # Create the report path before snapshotting so the final inventory includes it.
     handoff_path = path.parent / "HANDOFF.md"
-    handoff_path.touch(exist_ok=True)
+    handoff_relative = handoff_path.relative_to(root).as_posix()
+    try:
+        read_bytes(root, handoff_relative, max_bytes=2_000_000)
+    except SafeLocalFileError:
+        try:
+            atomic_write_bytes(root, handoff_relative, b"", replace=False, create_parents=True)
+        except SafeLocalFileError as exc:
+            raise TaskError(f"Task handoff path could not be prepared safely: {exc}") from exc
     paths = changed_paths(root, base)
     violations = [
         item for item in paths if not is_task_metadata(item, args.task_id, record.get("github_project_binding")) and (
@@ -1017,9 +1025,13 @@ def command_finalize(args: argparse.Namespace) -> None:
     record["finalized_at"] = now_iso()
     record["updated_at"] = now_iso()
     record["handoff"] = render_handoff(record)
-    handoff_temp = handoff_path.with_suffix(".md.tmp")
-    handoff_temp.write_text(record["handoff"], encoding="utf-8")
-    handoff_temp.replace(handoff_path)
+    try:
+        atomic_write_bytes(
+            root, handoff_relative, record["handoff"].encode("utf-8"),
+            replace=True, create_parents=True,
+        )
+    except (SafeLocalFileError, UnicodeEncodeError) as exc:
+        raise TaskError(f"Task handoff could not be written safely: {exc}") from exc
     save_record(record, path)
     print(f"Task {args.task_id} is review_ready. Handoff: {handoff_path}")
 

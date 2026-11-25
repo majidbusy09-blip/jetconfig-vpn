@@ -105,6 +105,52 @@ class GitHubLeaseTransportTests(unittest.TestCase):
                 os.chdir(previous)
 
 
+    def test_project_lease_commit_uses_project_specific_ref_and_record_path(self):
+        from tools.task_orchestrator.github_lease import lock_branch
+        from tools.task_orchestrator.project_namespace import lease_record_path
+        with tempfile.TemporaryDirectory(prefix="jet-project-lease-test-") as tmp:
+            root = Path(tmp)
+            work = root / "work"
+            bare = root / "remote.git"
+            subprocess.run(["git", "init", "--bare", str(bare)], check=True,
+                           capture_output=True, text=True)
+            subprocess.run(["git", "init", str(work)], check=True,
+                           capture_output=True, text=True)
+            subprocess.run(["git", "config", "user.name", "Lease Test"], cwd=work,
+                           check=True, capture_output=True, text=True)
+            subprocess.run(["git", "config", "user.email", "lease-test@example.invalid"],
+                           cwd=work, check=True, capture_output=True, text=True)
+            subprocess.run(["git", "commit", "--allow-empty", "-m", "base"], cwd=work,
+                           check=True, capture_output=True, text=True)
+            parent = subprocess.run(["git", "rev-parse", "HEAD"], cwd=work,
+                                    check=True, capture_output=True, text=True).stdout.strip()
+            binding = {
+                "project_id": "sample-flutter-app", "repository_id": "123456789",
+                "repository_full_name": "owner/repo", "default_branch": "main",
+                "manifest_schema_version": 1, "manifest_sha256": "a" * 64,
+            }
+            previous = Path.cwd()
+            try:
+                os.chdir(work)
+                record = make_lease(
+                    task_id="same-task", owner="chatgpt", claim_id="a" * 16,
+                    base_sha=parent, now="2026-11-23T10:00:00Z",
+                    project_binding=binding,
+                )
+                commit = _commit_record(parent, record, "test-token", binding)
+                branch = lock_branch("same-task", binding)
+                _push(str(bare), branch, commit, None, "test-token")
+                path = lease_record_path("same-task", binding)
+                loaded = subprocess.run(
+                    ["git", "--git-dir", str(bare), "show", commit + ":" + path],
+                    check=True, capture_output=True, text=True,
+                ).stdout
+                self.assertEqual(json.loads(loaded)["project_binding"], binding)
+                self.assertEqual(json.loads(loaded)["schema_version"], 2)
+            finally:
+                os.chdir(previous)
+
+
     def test_renewal_reads_and_preserves_the_existing_pinned_base(self):
         from unittest.mock import patch
         current = make_lease(task_id="sample-task", owner="chatgpt",

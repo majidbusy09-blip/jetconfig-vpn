@@ -14,7 +14,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from .github_issue_intake import TASK_LABEL, load_project_configuration, validate_task_project_binding
+from .github_issue_intake import TASK_LABEL, IntakeError, load_project_configuration, validate_task_project_binding
 from .github_lease_git import LeaseGitError, claim_or_renew, release
 from .github_task_protocol import GitHubTaskError, validate_issue_body
 

@@ -125,6 +125,21 @@ class ProjectArtifactNamespaceTests(unittest.TestCase):
         with self.assertRaises(ProjectArtifactNamespaceError):
             verify_store_namespace(PROJECT_A, REVISION_A, None, REVISION_A)
 
+    def test_nested_generated_report_directories_are_created_safely(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            nested = ensure_namespace_directory(
+                root, "reports", project_binding=PROJECT_A,
+                source_revision=REVISION_A, relative_directory="impact/task-123",
+            )
+            self.assertTrue(nested.is_dir())
+            self.assertTrue(nested.as_posix().endswith("/reports/impact/task-123"))
+            with self.assertRaises(ProjectArtifactNamespaceError):
+                ensure_namespace_directory(
+                    root, "reports", project_binding=PROJECT_A,
+                    source_revision=REVISION_A, relative_directory="../escape",
+                )
+
 
 if __name__ == "__main__":
     unittest.main()

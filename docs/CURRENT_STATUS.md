@@ -361,3 +361,10 @@ The project/repository task namespace scan now owns both `os.scandir` iterators 
 - Repository owner approved a single future workflow path: `.github/workflows/project-memory-audit.yml`, bound to task ID `project-memory-artifact-workflow-v1`.
 - The task intake and agent contract validators are being updated so only that exact task ID can authorize that exact path. All other `.github/workflows/**` paths remain protected, including `agent-lease-commands.yml`, build, release, and deployment workflows.
 - This policy-only phase does not modify any workflow YAML. The actual project-memory audit workflow integration is a separate follow-up after this policy is merged and independently validated.
+
+
+## Project-bound workflow artifact naming — implementation in progress
+
+- The exact-path policy exception was merged in PR #116 as `53eaa1d989c1bc7227cc4f6d66602a4ed5d380dc`; it is bound only to task ID `project-memory-artifact-workflow-v1` and `.github/workflows/project-memory-audit.yml`.
+- The workflow integration now resolves artifact names through a trusted manifest matcher and the exact checked-out `GITHUB_SHA`. If no manifest matches the live immutable repository identity, it retains the legacy names `jet-vpn-semantic-ast-index` and `jet-vpn-code-index`. A matching but invalid/ambiguous manifest or SHA drift fails closed.
+- The integration changes only the approved project-memory audit workflow. Lease-command, build, release, and deployment workflows remain untouched.

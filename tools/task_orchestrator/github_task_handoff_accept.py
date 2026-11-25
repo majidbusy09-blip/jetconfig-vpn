@@ -25,6 +25,7 @@ from typing import Any
 from . import task_orchestrator as orchestrator
 from .envelope_builder import EnvelopeBuildError, _repository_name
 from .github_lease import LeaseError, lock_branch, validate_lease
+from .project_namespace import lease_record_path
 from .github_task_pr_guard import GuardError, api_get
 from .github_task_protocol import GitHubTaskError, validate_issue_body
 from .github_issue_intake import (
@@ -180,7 +181,8 @@ def validate_handoff_for_acceptance(
         raise HandoffAcceptanceError("Handoff lease record is malformed.")
     try:
         current_lease = validate_lease(lease_record)
-        expected_branch = lock_branch(task_id)
+        project_binding_for_lease = manifest.get("project_binding") if manifest.get("handoff_schema") == 3 else None
+        expected_branch = lock_branch(task_id, project_binding_for_lease)
     except LeaseError as exc:
         raise HandoffAcceptanceError("Current remote lease record is invalid.") from exc
     if (
@@ -206,6 +208,7 @@ def validate_handoff_for_acceptance(
         or current_lease["status"] != "active"
         or current_lease["base_sha"] != lease["base_sha"]
         or current_lease["expires_at"] != lease["expires_at"]
+        or current_lease.get("project_binding") != project_binding_for_lease
     ):
         raise HandoffAcceptanceError("Handoff lease differs from the current remote lease.")
     if task["assigned_agent"] not in {"any", lease["owner"]}:
@@ -246,9 +249,10 @@ def _read_json(path: Path) -> Any:
 
 
 
-def _read_current_lease(repository: str, task_id: str, token: str) -> tuple[dict[str, Any], str]:
+def _read_current_lease(repository: str, task_id: str, token: str,
+                        project_binding: dict[str, Any] | None = None) -> tuple[dict[str, Any], str]:
     """Read lease contents at one observed ref SHA and reject ref movement."""
-    branch = lock_branch(task_id)
+    branch = lock_branch(task_id, project_binding)
     ref_path = "/git/ref/heads/" + urllib.parse.quote(branch, safe="/-")
     before = api_get(repository, ref_path, token)
     try:
@@ -259,7 +263,8 @@ def _read_current_lease(repository: str, task_id: str, token: str) -> tuple[dict
     if lock_type != "commit" or not isinstance(lock_commit, str) or not SHA_RE.fullmatch(lock_commit):
         raise HandoffAcceptanceError("Remote task lock ref must point to a full commit SHA.")
     query = urllib.parse.urlencode({"ref": lock_commit})
-    item = api_get(repository, "/contents/.agent-locks/lease.json?" + query, token)
+    path = lease_record_path(task_id, project_binding)
+    item = api_get(repository, "/contents/" + urllib.parse.quote(path, safe="/.") + "?" + query, token)
     if not isinstance(item, dict) or item.get("encoding") != "base64" or not isinstance(item.get("content"), str):
         raise HandoffAcceptanceError("Remote lease content response is malformed.")
     try:
@@ -393,7 +398,8 @@ def accept_handoff(
             project_schema, project_manifests = load_project_configuration(Path(__file__).resolve().parents[2])
         except IntakeError as exc:
             raise HandoffAcceptanceError("Trusted project manifest configuration is unavailable.") from exc
-    lease_record, lock_commit = _read_current_lease(repository, task_id, token)
+    lease_binding = manifest.get("project_binding") if manifest.get("handoff_schema") == 3 else None
+    lease_record, lock_commit = _read_current_lease(repository, task_id, token, lease_binding)
     task = validate_handoff_for_acceptance(
         manifest, issue_data, lease_record, lock_commit, repository=repository,
         repository_metadata=repository_metadata, project_schema=project_schema,

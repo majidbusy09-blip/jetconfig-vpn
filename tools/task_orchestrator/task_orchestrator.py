@@ -13,6 +13,7 @@ import json
 import os
 import re
 import subprocess
+import stat
 import sys
 import time
 from datetime import datetime, timezone
@@ -87,14 +88,14 @@ except ImportError:
         )
 
 try:
-    from .safe_local_files import SafeLocalFileError, atomic_write_bytes, ensure_directory, read_bytes
+    from .safe_local_files import SafeLocalFileError, atomic_write_bytes, ensure_directory, read_bytes, readlink, stat_entry, readlink, stat_entry
 except ImportError:
     try:
         from tools.task_orchestrator.safe_local_files import (
             SafeLocalFileError, atomic_write_bytes, ensure_directory, read_bytes,
         )
     except ImportError:
-        from safe_local_files import SafeLocalFileError, atomic_write_bytes, ensure_directory, read_bytes
+        from safe_local_files import SafeLocalFileError, atomic_write_bytes, ensure_directory, read_bytes, readlink, stat_entry
 
 SCHEMA_VERSION = 1
 REQUIRED_CONTEXT = (
@@ -373,12 +374,18 @@ def matches_any(path: str, patterns: list[str]) -> bool:
 def file_fingerprints(root: Path, patterns: list[str]) -> dict[str, str]:
     result = {}
     for relative in tracked_files(root):
-        if matches_any(relative, patterns):
-            file = root / relative
-            if file.is_symlink():
-                result[relative] = sha256_bytes(os.readlink(file).encode("utf-8"))
-            elif file.is_file():
-                result[relative] = sha256_bytes(file.read_bytes())
+        if not matches_any(relative, patterns):
+            continue
+        try:
+            metadata = stat_entry(root, relative)
+            if metadata is None:
+                continue
+            if stat.S_ISLNK(metadata.st_mode):
+                result[relative] = sha256_bytes(readlink(root, relative).encode("utf-8"))
+            elif stat.S_ISREG(metadata.st_mode):
+                result[relative] = sha256_bytes(read_bytes(root, relative, max_bytes=100_000_000))
+        except SafeLocalFileError as exc:
+            raise TaskError(f"Tracked path could not be fingerprinted safely: {relative}: {exc}") from exc
     return result
 
 
@@ -387,13 +394,18 @@ def path_fingerprints(root: Path, paths: list[str], task_id: str, project_bindin
     for relative in paths:
         if is_task_metadata(relative, task_id, project_binding):
             continue
-        target = root / relative
-        if target.is_symlink():
-            result[relative] = sha256_bytes(os.readlink(target).encode("utf-8"))
-        elif target.is_file():
-            result[relative] = sha256_bytes(target.read_bytes())
-        else:
-            result[relative] = "deleted"
+        try:
+            metadata = stat_entry(root, relative)
+            if metadata is None:
+                result[relative] = "deleted"
+            elif stat.S_ISLNK(metadata.st_mode):
+                result[relative] = sha256_bytes(readlink(root, relative).encode("utf-8"))
+            elif stat.S_ISREG(metadata.st_mode):
+                result[relative] = sha256_bytes(read_bytes(root, relative, max_bytes=100_000_000))
+            else:
+                result[relative] = "special"
+        except SafeLocalFileError as exc:
+            raise TaskError(f"Changed path could not be fingerprinted safely: {relative}: {exc}") from exc
     return result
 
 

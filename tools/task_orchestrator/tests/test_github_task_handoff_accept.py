@@ -104,7 +104,7 @@ def v2_issue_event(operation="claim", claim_id=CLAIM, previous_claim_id=CLAIM):
             "manifest_sha256": manifest_digest(ACTIVE_MANIFEST),
         },
     }
-    body = "<!-- jet-agent-task:v2 -->\\n\\n" + "```json\\n" + json.dumps(task) + "\\n```"
+    body = "<!-- jet-agent-task:v2 -->\n\n" + "```json\n" + json.dumps(task) + "\n```"
     ev = issue_event(operation, claim_id, previous_claim_id)
     ev["issue"]["body"] = body
     return ev
@@ -241,12 +241,12 @@ class HandoffAcceptanceTests(unittest.TestCase):
             git("config", "user.email", "handoff-test@example.invalid")
             git("remote", "add", "origin", "https://github.com/majidbusy09-blip/jetconfig-vpn.git")
             docs = {
-                "AGENTS.md": "Project agent instructions.\\n",
-                "docs/PROJECT_CONTEXT.md": "Project context.\\n",
-                "docs/CURRENT_STATUS.md": "Current status.\\n",
-                "docs/NEXT_STEPS.md": "Next steps.\\n",
-                "docs/TASK_TEMPLATE.md": "Task template.\\n",
-                "docs/DEVELOPMENT_LOG.md": "Development log.\\n",
+                "AGENTS.md": "Project agent instructions.\n",
+                "docs/PROJECT_CONTEXT.md": "Project context.\n",
+                "docs/CURRENT_STATUS.md": "Current status.\n",
+                "docs/NEXT_STEPS.md": "Next steps.\n",
+                "docs/TASK_TEMPLATE.md": "Task template.\n",
+                "docs/DEVELOPMENT_LOG.md": "Development log.\n",
             }
             for name, content in docs.items():
                 target = root / name
@@ -406,7 +406,7 @@ class HandoffAcceptanceTests(unittest.TestCase):
             self.assertEqual(git("rev-parse", "HEAD"), base_sha)
 
             # Simulate implementation progress before a lease renewal.
-            (root / "docs" / "work-in-progress.md").write_text("Local implementation work.\\n", encoding="utf-8")
+            (root / "docs" / "work-in-progress.md").write_text("Local implementation work.\n", encoding="utf-8")
             git("add", "docs/work-in-progress.md")
             git("commit", "-m", "work in progress")
             branch_head = git("rev-parse", "HEAD")

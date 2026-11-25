@@ -132,6 +132,40 @@ class IssueLeaseCommandTests(unittest.TestCase):
         release.assert_called_once()
         self.assertEqual(result["operation"], "release")
 
+    def test_registered_v2_project_cannot_claim_a_lease_from_read_only_intake(self):
+        from pathlib import Path
+        from tools.task_orchestrator.project_registry import manifest_digest
+        root = Path(__file__).resolve().parents[3]
+        schema = json.loads((root / "docs/PROJECT_MANIFEST_SCHEMA.json").read_text(encoding="utf-8"))
+        manifest = dict(schema["examples"][0])
+        manifest["lifecycle"] = "registered"
+        binding = {
+            "project_id": manifest["project_id"],
+            "repository_id": manifest["repository"]["repository_id"],
+            "repository_full_name": manifest["repository"]["full_name"],
+            "default_branch": manifest["repository"]["default_branch"],
+            "manifest_schema_version": manifest["schema_version"],
+            "manifest_sha256": manifest_digest(manifest),
+        }
+        event = issue_event(f"/jet-agent claim chatgpt {CLAIM_A}")
+        ticks = chr(96) * 3
+        event["issue"]["body"] = (
+            "<!-- jet-agent-task:v2 -->\\n\\n" + ticks + "json\\n" +
+            json.dumps({
+                "schema_version": 2, "task_id": "sample-task",
+                "goal": "A bounded test task.", "capability": "documentation", "risk": "low",
+                "assigned_agent": "any", "allow": ["docs/**"], "exclude": [],
+                "scope_reason": "Documentation-only validation.",
+                "verification_profiles": ["python-tooling-tests"], "project_binding": binding,
+            }) + "\\n" + ticks
+        )
+        with patch(
+            "tools.task_orchestrator.github_issue_lease_command.load_project_configuration",
+            return_value=(schema, [manifest]),
+        ):
+            with self.assertRaises(IssueLeaseCommandError):
+                build_issue_lease_request(event)
+
     def test_v2_issue_lease_request_and_execution_preserve_project_binding(self):
         from pathlib import Path
         from tools.task_orchestrator.project_registry import manifest_digest

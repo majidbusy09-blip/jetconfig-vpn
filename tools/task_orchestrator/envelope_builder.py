@@ -9,8 +9,10 @@ from urllib.parse import urlsplit
 
 try:
     from .agent_contract import ContractValidationError, validate_envelope, _path_matches
+    from .project_namespace import ProjectNamespaceError, workspace_id
 except ImportError:
     from agent_contract import ContractValidationError, validate_envelope, _path_matches
+    from project_namespace import ProjectNamespaceError, workspace_id
 
 PACKAGE_FIELDS_V1 = {"schema_version", "task_id", "source_revision", "project_context",
                      "source_context", "total_bytes", "context_sha256"}
@@ -121,6 +123,16 @@ def _verify_package(package: Any, task_id: str, base_sha: str, *, required_conte
     return package
 
 
+def _workspace_id(task_id: str, base_sha: str, project_binding: dict | None) -> str:
+    namespace_binding = None
+    if project_binding is not None:
+        namespace_binding = {key: value for key, value in project_binding.items() if key != "base_sha"}
+    try:
+        return workspace_id(task_id, base_sha, namespace_binding)
+    except ProjectNamespaceError as exc:
+        raise EnvelopeBuildError("Project namespace cannot be derived from the validated task binding.") from exc
+
+
 def build_agent_envelope(record: dict, *, repository_name: str | None = None) -> dict:
     """Create a contract-validated envelope; repository text remains untrusted data."""
     if not isinstance(record, dict):
@@ -200,8 +212,7 @@ def build_agent_envelope(record: dict, *, repository_name: str | None = None) ->
             "name": repository_name or _repository_name(repository.get("origin")),
             "branch": branch,
             "base_sha": base_sha,
-            "workspace_id": "workspace_" + hashlib.sha256(
-                f"{task_id}:{base_sha}".encode("utf-8")).hexdigest()[:24],
+            "workspace_id": _workspace_id(task_id, base_sha, project_binding),
         },
         "scope": {
             "allowed_paths": list(allowed),

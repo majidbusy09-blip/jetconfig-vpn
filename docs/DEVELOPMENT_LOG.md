@@ -639,3 +639,20 @@ PR #101 remains Draft and unmerged for human review. No review submissions or re
 - Handoff acceptance resolves the memory manifest from the trusted project manifest, persists its version and required paths before context preparation, and rechecks the manifest snapshot on lease refresh.
 - حسابگر من repository was inspected read-only: GitHub ID `1423683236`, default branch `main`, Dart/Flutter structure, current `pubspec.yaml` version `1.0.9+10`. No target-repository writes or app-source changes were made.
 - Exact-head CI for Phase 2C is pending; do not claim implementation completion until all required workflows pass on the final branch head.
+
+
+## 2026-11-25 — Phase 2D-1 implementation started
+
+- Created Issue #104 and claimed `project-scoped-lease-workspace-namespace-v1` with claim `202611250335d2d1`, pinned to main `c145412206f62be0f08349d1530646dfb5a776da`.
+- Added pure `project_namespace.py` helpers for validated project namespace, lease branch/path, and workspace ID derivation.
+- Added lease record schema v2 carrying the complete project binding; claim, renewal, release, handoff creation, and handoff acceptance now use the project-scoped ref and lease-record path. V1 remains on `agent-locks/<task_id>` and `.agent-locks/lease.json`.
+- V2 workspace identifiers are derived from project_id, repository_id, manifest digest, task ID, and pinned base SHA.
+- Phase 2D-2 local task-record, context package, patch artifact, cache, source-index, and audit path migration is tracked separately in Issue #106.
+- Exact-head CI has not yet been run on the final branch head.
+
+
+## 2026-11-25 — PR guard added to Phase 2D-1 scope
+
+- Expanded Issue #104 allowlist to include `github_task_pr_guard.py` and its tests after a repository-wide reference audit found the trusted PR guard still read the legacy `.agent-locks/lease.json` path directly.
+- The PR guard now resolves project-scoped refs and lease-record paths using the shared namespace helper, validates the full lease project binding against the current trusted Issue manifest, and retains the v1 legacy path.
+- Added cross-project lease-substitution coverage for the PR guard. The task was released and reclaimed under a fresh claim after its allowlist was expanded.

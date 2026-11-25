@@ -98,6 +98,7 @@ def validate_patch_for_human_review(record: Any, envelope: Any, result: Any,
         )
     except GitHubTaskError as exc:
         raise PatchReviewGateError("Current Issue task payload is invalid.") from exc
+    project_binding = None
     if task["schema_version"] == 2:
         if not isinstance(project_schema, dict) or not isinstance(project_manifests, list):
             raise PatchReviewGateError("Trusted project manifest configuration is unavailable.")
@@ -106,6 +107,7 @@ def validate_patch_for_human_review(record: Any, envelope: Any, result: Any,
                 task, repository_metadata, schema=project_schema,
                 project_manifests=project_manifests,
             )
+            project_binding = binding
         except IntakeError as exc:
             raise PatchReviewGateError("Current project binding is invalid or inactive.") from exc
         expected_binding = dict(binding, base_sha=base_sha)
@@ -125,7 +127,7 @@ def validate_patch_for_human_review(record: Any, envelope: Any, result: Any,
 
     try:
         lease = validate_lease(lease_record)
-        expected_lock = lock_branch(task_id)
+        expected_lock = lock_branch(task_id, project_binding)
     except LeaseError as exc:
         raise PatchReviewGateError("Current remote lease is invalid.") from exc
     if not isinstance(lock_commit, str) or not SHA_RE.fullmatch(lock_commit):
@@ -133,6 +135,7 @@ def validate_patch_for_human_review(record: Any, envelope: Any, result: Any,
     if (lease["task_id"] != task_id or lease["owner"] != handoff.get("owner")
         or lease["claim_id"] != handoff.get("claim_id") or lease["status"] != "active"
         or lease["base_sha"] != base_sha or handoff.get("base_sha") != base_sha
+        or lease.get("project_binding") != project_binding
         or handoff.get("lock_branch") != expected_lock
         or handoff.get("lock_commit") != lock_commit
         or task["assigned_agent"] not in {"any", lease["owner"]}):

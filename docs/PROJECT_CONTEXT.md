@@ -236,3 +236,11 @@ A v2 Issue body alone is not enough to preserve identity after PR creation: othe
 Phase 2B is merged at `a0046fd5d17c32293bef3f904adc2bda89cd48c5`. Task intake and handoff now carry explicit project identity for v2 tasks; legacy v1 remains limited to the JET VPN repository. Phase 2C (Issue #102) is implementing per-project memory selection from the trusted manifest. V2 context packages and agent envelopes bind the project identity, manifest digest, memory-manifest version/document list, its `max_total_bytes` ceiling, and pinned base SHA. The legacy v1 context remains the explicit six-document JET VPN set.
 
 The separate repository `majidbusy09-blip/hesabgar_man` was inspected read-only. Its GitHub repository ID is `1423683236`, default branch is `main`, and its primary language is Dart. It has Flutter source/tests/assets and a CI build workflow. No project manifest or memory docs have been added, no target files were changed, and the project is not registered or active. Onboarding is deferred until context selection and project namespace isolation are complete.
+
+
+## Phase 2D-1 namespace isolation
+
+Phase 2C is merged. Issue #104 implements project-scoped lease refs/records and workspace identifiers. The namespace is derived from immutable `project_id` and numeric `repository_id`; lease records carry the full identity tuple and pinned base SHA. Legacy v1 JET VPN lease paths are preserved. Issue #106 separately tracks local task-record, context package, agent-input, patch artifact, cache, source-index, and audit artifact namespacing. حسابگر من remains unmodified and inactive under onboarding plan #105.
+
+
+Phase 2D-1 now includes the trusted PR guard and patch-review authorization in the shared project lease namespace. These consumers must not fall back to the legacy lease file for v2 tasks; they validate the full project identity tuple and pinned base. Issue #106 remains queued for local task-record and artifact path namespacing.

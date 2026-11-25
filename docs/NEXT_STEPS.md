@@ -294,3 +294,13 @@ The current task lease is time-limited. Renew it before expiry; do not run two a
 3. Phase 2E: implement read-only dry-run onboarding and durable registry persistence/activation gates. Do not activate any project before its memory, toolchain, source index, verification profiles, and isolation checks are ready.
 4. Onboard حسابگر من only after Phase 2C/2D prerequisites: add its central manifest in registered state, define isolated project memory, verify Dart/Flutter analysis and test runners, and produce a read-only readiness report. Its current GitHub identity is repository ID `1423683236`, `majidbusy09-blip/hesabgar_man`, default branch `main`.
 5. Do not modify the حسابگر من repository or activate it as part of Phase 2C. Keep its onboarding as a separately reviewed task.
+
+
+## Phase 2D sequencing
+
+1. Phase 2D-1 (Issue #104): project-scoped lease refs/records and workspace IDs; preserve v1 JET VPN lease path exactly.
+2. Phase 2D-2 (Issue #106): namespace local task records, context packages, agent inputs, patch artifacts, caches, source indexes, and audit artifacts. Do not begin until 2D-1 is reviewed and merged.
+3. After 2D-2, complete registry persistence/readiness and a read-only onboarding dry run for حسابگر من (Issue #105). Keep lifecycle registered until all gates pass.
+
+
+Phase 2D-1 must also verify that the trusted PR guard and patch-review gate use the shared project namespace resolver. A v2 PR must fail closed on cross-project lease substitution, repository rename drift, manifest digest drift, or stale pinned base. V1 PR guard behavior must remain unchanged.

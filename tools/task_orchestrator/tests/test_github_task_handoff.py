@@ -105,6 +105,22 @@ def v2_event(operation="claim", previous_claim=None):
     return ev
 
 
+def v2_lease_result(operation="claim"):
+    binding = {
+        "project_id": ACTIVE_MANIFEST["project_id"],
+        "repository_id": ACTIVE_MANIFEST["repository"]["repository_id"],
+        "repository_full_name": ACTIVE_MANIFEST["repository"]["full_name"],
+        "default_branch": ACTIVE_MANIFEST["repository"]["default_branch"],
+        "manifest_schema_version": ACTIVE_MANIFEST["schema_version"],
+        "manifest_sha256": manifest_digest(ACTIVE_MANIFEST),
+    }
+    from tools.task_orchestrator.github_lease import lock_branch
+    result = lease_result(operation)
+    result["result"]["project_binding"] = binding
+    result["result"]["lock_branch"] = lock_branch("sample-task", binding)
+    return result
+
+
 def v2_project_config():
     return PROJECT_SCHEMA, [ACTIVE_MANIFEST]
 
@@ -151,7 +167,7 @@ class TaskHandoffTests(unittest.TestCase):
             return_value=v2_project_config(),
         ):
             result = build_task_handoff(
-                v2_event(), lease_result(), run_id=12345, run_attempt=1,
+                v2_event(), v2_lease_result(), run_id=12345, run_attempt=1,
                 now="2029-12-31T23:00:00Z",
             )
         self.assertEqual(result["handoff_schema"], 3)

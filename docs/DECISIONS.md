@@ -309,3 +309,13 @@ The PR authorization envelope is a distinct control-plane record, not the agent 
 **Status:** Implemented on Phase 2C branch; awaiting exact-head verification and review.
 
 For v2 project-aware tasks, the trusted checked-in project manifest is the only source of the required project-memory document set. The context package and agent envelope must carry the same validated project binding, manifest digest, memory-manifest version, exact ordered required-document list, manifest-defined `max_total_bytes`, and pinned base SHA. The verifier rejects drift between the persisted task record, context package, and envelope. Legacy v1 remains an explicit compatibility path for the original JET VPN repository and its exact six-document set only. No task text or repository display name may select a project or memory manifest.
+
+
+## D-027 — Project namespace contract for leases and workspaces (2026-11-25)
+
+V2 project-aware tasks use a deterministic namespace derived from the validated `project_id` and immutable numeric `repository_id`. Lease records additionally bind the full project identity tuple and pinned base SHA; a repository rename or manifest digest change must not silently reuse an existing lease. Workspace IDs also include the manifest digest, task ID, and pinned base SHA. Legacy v1 JET VPN lease refs and record paths remain unchanged. Local task-record and artifact path migration is a separate Phase 2D-2 task.
+
+
+## D-028 — Every lease consumer must share the namespace resolver (2026-11-25)
+
+The project-scoped lease namespace is not complete if only the writer uses it. Claim/renew/release, handoff creation, handoff acceptance, the trusted PR guard, and patch-review authorization must all derive the same lock ref and record path and compare the full project binding. Any remaining direct read of the legacy `.agent-locks/lease.json` path is a security gap for v2 tasks. V1 compatibility remains a separate explicit path.

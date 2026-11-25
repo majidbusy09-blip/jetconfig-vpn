@@ -298,3 +298,13 @@ PR #101 remains Draft/open/unmerged and has no review submissions or review thre
 - Phase 2C Issue #102 is active on branch `agent/project-memory-manifest-context-20261125`, base `a0046fd5d17c32293bef3f904adc2bda89cd48c5`. It removes the fixed six-document assumption for v2 project-aware context while preserving the explicit six-document JET VPN v1 compatibility path.
 - حسابگر من repository has been independently identified read-only: `majidbusy09-blip/hesabgar_man`, immutable GitHub repository ID `1423683236`, default branch `main`, primary language Dart. Current `pubspec.yaml` reports version `1.0.9+10`. Its tracked tree contains Flutter application source, tests, assets, and a build workflow, but no project-memory documents were present at repository root in the inspected tree. It remains unregistered and inactive.
 - No external repository was modified. No app source, registry persistence, project activation, release, deployment, provider spend, API key, credential, or untrusted-code execution was performed.
+
+
+## Phase 2D-1 — project lease/workspace namespaces
+
+Phase 2C is merged. Phase 2D-1 is active on branch `agent/project-scoped-lease-workspace-namespace-20261125`, claim `202611250335d2d1`, pinned to main `c145412206f62be0f08349d1530646dfb5a776da`. The implementation adds deterministic namespace derivation, lease schema v2 with project identity, project-specific lock refs/record paths, handoff verification/acceptance against the same namespace, and project-bound workspace IDs. Exact-head CI is pending. Local task-record/artifact/cache/source-index namespacing is deferred to Issue #106. حسابگر من remains unchanged and inactive.
+
+
+## Phase 2D-1 update — PR guard included
+
+The project-scoped lease resolver is now also wired into the trusted PR guard and patch-review authorization. V2 PR validation reads the project-specific lock ref and lease record and rejects a lease record whose full project binding differs from the current trusted Issue binding. Legacy v1 PR validation continues to read the original lock branch and file. Exact-head CI is pending on the latest branch revision.

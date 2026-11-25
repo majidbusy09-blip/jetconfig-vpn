@@ -132,6 +132,51 @@ class IssueLeaseCommandTests(unittest.TestCase):
         release.assert_called_once()
         self.assertEqual(result["operation"], "release")
 
+    def test_v2_issue_lease_request_and_execution_preserve_project_binding(self):
+        from pathlib import Path
+        from tools.task_orchestrator.project_registry import manifest_digest
+        root = Path(__file__).resolve().parents[3]
+        schema = json.loads((root / "docs/PROJECT_MANIFEST_SCHEMA.json").read_text(encoding="utf-8"))
+        manifest = dict(schema["examples"][0])
+        manifest["lifecycle"] = "active"
+        binding = {
+            "project_id": manifest["project_id"],
+            "repository_id": manifest["repository"]["repository_id"],
+            "repository_full_name": manifest["repository"]["full_name"],
+            "default_branch": manifest["repository"]["default_branch"],
+            "manifest_schema_version": manifest["schema_version"],
+            "manifest_sha256": manifest_digest(manifest),
+        }
+        event = issue_event(f"/jet-agent claim chatgpt {CLAIM_A}")
+        ticks = chr(96) * 3
+        event["issue"]["body"] = (
+            "<!-- jet-agent-task:v2 -->\n\n" + ticks + "json\n" +
+            json.dumps({
+                "schema_version": 2, "task_id": "sample-task",
+                "goal": "A bounded test task.", "capability": "documentation", "risk": "low",
+                "assigned_agent": "any", "allow": ["docs/**"], "exclude": [],
+                "scope_reason": "Documentation-only validation.",
+                "verification_profiles": ["python-tooling-tests"], "project_binding": binding,
+            }) + "\n" + ticks
+        )
+        with patch(
+            "tools.task_orchestrator.github_issue_lease_command.load_project_configuration",
+            return_value=(schema, [manifest]),
+        ):
+            request = build_issue_lease_request(event)
+        self.assertEqual(request["project_binding"], binding)
+        with patch("tools.task_orchestrator.github_issue_lease_command.claim_or_renew") as claim:
+            claim.return_value = {
+                "task_id": "sample-task", "owner": "chatgpt", "claim_id": CLAIM_A,
+                "base_sha": BASE, "lock_branch": "agent-locks/projects/" +
+                manifest["project_id"] + "/" + str(manifest["repository"]["repository_id"]) +
+                "/sample-task", "lock_commit": "d" * 40, "verified": True,
+                "project_binding": binding,
+            }
+            execute_issue_lease_command(request, token="test-token", base_sha=BASE,
+                                        now="2026-11-23T10:00:00Z")
+        self.assertEqual(claim.call_args.kwargs["project_binding"], binding)
+
 
 if __name__ == "__main__":
     unittest.main()

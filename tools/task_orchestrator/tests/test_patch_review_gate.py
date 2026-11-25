@@ -1,7 +1,7 @@
 import copy, hashlib, json, tempfile, unittest
 from pathlib import Path
 from unittest.mock import patch
-from tools.task_orchestrator.github_lease import make_lease
+from tools.task_orchestrator.github_lease import make_lease, lock_branch
 from tools.task_orchestrator.patch_artifacts import LocalPatchArtifactStore
 from tools.task_orchestrator.patch_review_gate import PatchReviewGateError, validate_patch_for_human_review
 from tools.task_orchestrator.project_registry import manifest_digest
@@ -80,8 +80,12 @@ class PatchReviewGateTests(unittest.TestCase):
         record=dict(self.record)
         record["github_handoff"]=dict(self.record["github_handoff"],issue_body_sha256=hashlib.sha256(issue["body"].encode()).hexdigest())
         record["github_project_binding"]=dict(binding,base_sha=BASE)
+        record["github_handoff"]["lock_branch"]=lock_branch(TASK,binding)
+        project_lease=make_lease(task_id=TASK,owner="chatgpt",claim_id=CLAIM,
+            base_sha=BASE,now=NOW,duration_minutes=120,project_binding=binding)
         with patch("tools.task_orchestrator.patch_review_gate.validate_task_project_binding",return_value=binding):
-            result=self.gate(record=record,issue_data=issue,project_schema={},project_manifests=[])
+            result=self.gate(record=record,issue_data=issue,lease_record=project_lease,
+                project_schema={},project_manifests=[])
         self.assertEqual(result["status"],"ready_for_human_review")
         stale=dict(record); stale["github_project_binding"]=dict(binding,base_sha="f"*40)
         with patch("tools.task_orchestrator.patch_review_gate.validate_task_project_binding",return_value=binding), self.assertRaises(PatchReviewGateError):

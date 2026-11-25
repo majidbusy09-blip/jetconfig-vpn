@@ -99,8 +99,9 @@ def _fetch_head(remote: str, branch: str, token: str) -> str:
     return sha
 
 
-def _read_lease(commit_sha: str, token: str, project_binding: dict[str, Any] | None = None) -> dict[str, Any]:
-    path = lease_record_path("", project_binding) if project_binding is None else lease_record_path("lease", project_binding)
+def _read_lease(commit_sha: str, token: str, task_id: str,
+                project_binding: dict[str, Any] | None = None) -> dict[str, Any]:
+    path = LEASE_PATH if project_binding is None else lease_record_path(task_id, project_binding)
     raw = _git(["show", commit_sha + ":" + path], token=token)
     try:
         parsed = json.loads(raw)
@@ -191,7 +192,7 @@ def claim_or_renew(*, operation: str, task_id: str, owner: str, claim_id: str,
         if fetched != observed:
             # The ref moved during observation; retry from a fresh read, never guess.
             raise LeaseGitError("Lock ref changed during read; retry the operation.")
-        current = _read_lease(fetched, token, project_binding)
+        current = _read_lease(fetched, token, task_id, project_binding)
         if current["task_id"] != task_id or current.get("project_binding") != project_binding:
             raise LeaseGitError("Existing lease is bound to a different task or project.")
         if operation == "renew" and base_sha is None:

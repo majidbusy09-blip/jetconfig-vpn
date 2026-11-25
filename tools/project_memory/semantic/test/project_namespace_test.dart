@@ -115,6 +115,16 @@ void main() {
       ),
       throwsFormatException,
     );
+    final badBranch = manifest();
+    (badBranch['repository']! as Map<String, Object?>)['default_branch'] = '../main';
+    expect(
+      () => ProjectArtifactIdentity.fromManifest(
+        badBranch,
+        sourceRevision: revision,
+        actualRepositoryFullName: 'majidbusy09-blip/jetconfig-vpn',
+      ),
+      throwsFormatException,
+    );
     final badId = manifest()..['project_id'] = '../escape';
     expect(
       () => ProjectArtifactIdentity.fromManifest(

@@ -117,7 +117,7 @@ def main(argv: list[str] | None = None) -> int:
         print("BLOCKED: " + str(exc), file=sys.stderr)
         return 2
     print("Fixture dispatch validated. No live model was called and no patch was applied.")
-    print("Audit record: " + args.output)
+    print("Audit record: " + str(output_path))
     return 0
 
 

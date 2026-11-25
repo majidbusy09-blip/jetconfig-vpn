@@ -27,14 +27,12 @@ def _open_root(root: str | os.PathLike[str]) -> int:
     if os.open not in getattr(os, "supports_dir_fd", set()):
         raise SafeLocalFileError("Descriptor-relative file operations are unavailable.")
     try:
-        resolved = Path(root).resolve(strict=True)
+        supplied = Path(root).absolute()
     except (OSError, RuntimeError) as exc:
-        raise SafeLocalFileError("File-operation root could not be resolved safely.") from exc
-    if not resolved.is_dir():
-        raise SafeLocalFileError("File-operation root must be an existing directory.")
-    parts = resolved.parts
-    if not resolved.is_absolute() or not parts or parts[0] != os.sep:
-        raise SafeLocalFileError("File-operation root must resolve to an absolute directory.")
+        raise SafeLocalFileError("File-operation root could not be made absolute safely.") from exc
+    parts = supplied.parts
+    if not supplied.is_absolute() or not parts or parts[0] != os.sep:
+        raise SafeLocalFileError("File-operation root must be an absolute directory path.")
     flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
     current = None
     try:

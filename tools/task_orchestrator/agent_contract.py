@@ -27,6 +27,8 @@ MAX_TEXT = 12_000
 MAX_ITEMS = 200
 MAX_FILES = 100
 MAX_PATCH_BYTES = 2_000_000
+WORKFLOW_POLICY_TASK_ID = "project-memory-artifact-workflow-v1"
+WORKFLOW_POLICY_PATH = ".github/workflows/project-memory-audit.yml"
 MAX_WALL_SECONDS = 7_200
 MAX_TOKENS = 500_000
 MAX_TOOL_CALLS = 2_000
@@ -150,7 +152,9 @@ def _path(value: Any, name: str, *, pattern: bool = False) -> str:
     if any(part.lower() in PROTECTED_PARTS for part in parts) or PurePosixPath(raw).name.lower() in {"key.properties", "upload-keystore.jks", "release.keystore"}:
         _fail(f"{name} targets a protected path")
     normalized = PurePosixPath(raw).as_posix()
-    if normalized in PROTECTED_EXACT or normalized.startswith(".github/workflows/"):
+    if normalized in PROTECTED_EXACT or (
+        normalized.startswith(".github/workflows/") and normalized != WORKFLOW_POLICY_PATH
+    ):
         _fail(f"{name} targets a protected path")
     return normalized
 
@@ -253,7 +257,9 @@ def validate_envelope(data: Any) -> dict:
 
     scope = _object(obj["scope"], "scope",
                     {"allowed_paths", "excluded_paths", "scope_reason"})
-    _path_list(scope["allowed_paths"], "scope.allowed_paths", patterns=True)
+    allowed_paths = _path_list(scope["allowed_paths"], "scope.allowed_paths", patterns=True)
+    if WORKFLOW_POLICY_PATH in allowed_paths and obj["task_id"] != WORKFLOW_POLICY_TASK_ID:
+        _fail("The project-memory audit workflow path is reserved for its exact authorized task ID")
     if not isinstance(scope["excluded_paths"], list) or len(scope["excluded_paths"]) > MAX_ITEMS:
         _fail("scope.excluded_paths must be a list")
     for item in scope["excluded_paths"]:

@@ -25,37 +25,120 @@ class LocalDispatchRunnerError(ValueError):
     """A local fixture dispatch input or output is unsafe."""
 
 
-def _read_object(path_text: str) -> dict[str, Any]:
-    path = Path(path_text)
-    if path.is_symlink() or not path.is_file():
-        raise LocalDispatchRunnerError("Input must be a regular non-symlink file.")
-    if path.stat().st_size > MAX_INPUT_BYTES:
-        raise LocalDispatchRunnerError("Input exceeds the 2 MB size limit.")
+def _open_parent_directory(path: Path) -> tuple[int, str]:
+    """Open every parent component without following symlinks; return dirfd and leaf."""
+    if not hasattr(os, "O_DIRECTORY") or not hasattr(os, "O_NOFOLLOW"):
+        raise LocalDispatchRunnerError("Safe no-follow directory operations are unavailable.")
+    if os.open not in getattr(os, "supports_dir_fd", set()):
+        raise LocalDispatchRunnerError("Descriptor-relative file operations are unavailable.")
+    parts = path.parts
+    if not parts:
+        raise LocalDispatchRunnerError("A file path is required.")
+    if path.is_absolute():
+        anchor, segments = os.sep, parts[1:]
+    else:
+        anchor, segments = ".", parts
+    if not segments or any(part in {"", ".", ".."} for part in segments):
+        raise LocalDispatchRunnerError("File paths must not contain empty or parent-traversal components.")
+    leaf = segments[-1]
+    if leaf in {"", ".", ".."}:
+        raise LocalDispatchRunnerError("File name is invalid.")
+    flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
     try:
-        return parse_json_object(path.read_bytes(), max_bytes=MAX_INPUT_BYTES)
+        current = os.open(anchor, flags)
+        for segment in segments[:-1]:
+            child = os.open(segment, flags, dir_fd=current)
+            metadata = os.fstat(child)
+            if not stat.S_ISDIR(metadata.st_mode):
+                os.close(child)
+                raise LocalDispatchRunnerError("Every parent path component must be a real directory.")
+            os.close(current)
+            current = child
+        return current, leaf
+    except Exception:
+        try:
+            os.close(current)
+        except (OSError, UnboundLocalError):
+            pass
+        raise
+
+
+def _read_object(path_text: str) -> dict[str, Any]:
+    parent_fd = None
+    descriptor = None
+    try:
+        parent_fd, leaf = _open_parent_directory(Path(path_text))
+        descriptor = os.open(leaf, os.O_RDONLY | os.O_NOFOLLOW, dir_fd=parent_fd)
+        metadata = os.fstat(descriptor)
+        if not stat.S_ISREG(metadata.st_mode):
+            raise LocalDispatchRunnerError("Input must be a regular non-symlink file.")
+        if metadata.st_size > MAX_INPUT_BYTES:
+            raise LocalDispatchRunnerError("Input exceeds the 2 MB size limit.")
+        raw = bytearray()
+        while len(raw) <= MAX_INPUT_BYTES:
+            chunk = os.read(descriptor, min(65536, MAX_INPUT_BYTES + 1 - len(raw)))
+            if not chunk:
+                break
+            raw.extend(chunk)
+        after = os.fstat(descriptor)
+        stable = (
+            after.st_dev == metadata.st_dev and after.st_ino == metadata.st_ino
+            and after.st_size == metadata.st_size
+            and after.st_mtime_ns == metadata.st_mtime_ns
+            and after.st_ctime_ns == metadata.st_ctime_ns
+        )
+        if len(raw) > MAX_INPUT_BYTES or len(raw) != metadata.st_size or not stable:
+            raise LocalDispatchRunnerError("Input changed while being read or exceeds the 2 MB size limit.")
+        return parse_json_object(bytes(raw), max_bytes=MAX_INPUT_BYTES)
+    except LocalDispatchRunnerError:
+        raise
     except (OSError, ValueError) as exc:
-        raise LocalDispatchRunnerError("Input JSON is invalid or unreadable.") from exc
+        raise LocalDispatchRunnerError("Input JSON is invalid, unsafe, or unreadable.") from exc
+    finally:
+        if descriptor is not None:
+            os.close(descriptor)
+        if parent_fd is not None:
+            os.close(parent_fd)
 
 
 def _write_new_json(path_text: str, value: dict[str, Any]) -> None:
-    path = Path(path_text)
-    parent = path.parent
-    if parent.is_symlink() or not parent.is_dir() or path.exists() or path.is_symlink():
-        raise LocalDispatchRunnerError("Output parent must exist and output must not already exist.")
-    payload = json.dumps(value, ensure_ascii=False, sort_keys=True, indent=2) + "\n"
-    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
-    if hasattr(os, "O_NOFOLLOW"):
-        flags |= os.O_NOFOLLOW
-    descriptor = os.open(path, flags, 0o600)
+    parent_fd = None
+    descriptor = None
+    leaf = None
+    created = False
     try:
-        with os.fdopen(descriptor, "w", encoding="utf-8") as stream:
-            stream.write(payload)
-    except Exception:
+        parent_fd, leaf = _open_parent_directory(Path(path_text))
         try:
-            path.unlink()
-        except OSError:
-            pass
+            payload = (json.dumps(value, ensure_ascii=False, sort_keys=True, indent=2) + "\n").encode("utf-8")
+        except UnicodeEncodeError as exc:
+            raise LocalDispatchRunnerError("Audit output contains invalid Unicode.") from exc
+        descriptor = os.open(
+            leaf, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
+            0o600, dir_fd=parent_fd,
+        )
+        created = True
+        view = memoryview(payload)
+        while view:
+            written = os.write(descriptor, view)
+            if written <= 0:
+                raise LocalDispatchRunnerError("Audit output write made no progress.")
+            view = view[written:]
+        os.fsync(descriptor)
+        os.close(descriptor)
+        descriptor = None
+        os.fsync(parent_fd)
+    except Exception:
+        if descriptor is not None:
+            os.close(descriptor)
+        if created and parent_fd is not None and leaf is not None:
+            try:
+                os.unlink(leaf, dir_fd=parent_fd)
+            except OSError:
+                pass
         raise
+    finally:
+        if parent_fd is not None:
+            os.close(parent_fd)
 
 
 def run_fixture_dispatch(envelope: dict, fixture_result: dict) -> dict:

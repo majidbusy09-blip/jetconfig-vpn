@@ -1,6 +1,6 @@
 """Read-only task PR guard. Runs trusted-main code; never executes PR code."""
 from __future__ import annotations
-import argparse, base64, json, os, re, urllib.error, urllib.parse, urllib.request
+import argparse, base64, hashlib, json, os, re, urllib.error, urllib.parse, urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 from .agent_contract import ContractValidationError, _path, _path_matches
@@ -10,7 +10,10 @@ from .github_issue_intake import (
 from .github_lease import LeaseError, validate_lease
 from .github_task_protocol import GitHubTaskError, validate_issue_body
 
-MARKER = "<!-- jet-agent-pr:v1 -->"
+PR_MARKERS = {1: "<!-- jet-agent-pr:v1 -->", 2: "<!-- jet-agent-pr:v2 -->"}
+MARKER = PR_MARKERS[1]
+PROJECT_BINDING_FIELDS = {"project_id", "repository_id", "repository_full_name", "default_branch", "manifest_schema_version", "manifest_sha256"}
+DIGEST_RE = re.compile(r"^[a-f0-9]{64}$")
 AGENTS = {"chatgpt", "grok"}
 CLAIM_RE = re.compile(r"^[a-f0-9]{16,64}$")
 SHA_RE = re.compile(r"^(?:[0-9a-f]{40}|[0-9a-f]{64})$")
@@ -31,11 +34,15 @@ def _unique(pairs):
 
 
 def parse_pr_envelope(body):
-    if not isinstance(body, str) or MARKER not in body:
+    if not isinstance(body, str):
         return None
-    if body.count(MARKER) != 1:
-        raise GuardError("PR marker must appear exactly once.")
-    tail = body.split(MARKER, 1)[1].strip()
+    found = [(version, marker) for version, marker in PR_MARKERS.items() if marker in body]
+    if not found:
+        return None
+    if len(found) != 1 or body.count(found[0][1]) != 1:
+        raise GuardError("Exactly one versioned PR marker is required.")
+    marker_version, marker = found[0]
+    tail = body.split(marker, 1)[1].strip()
     match = re.fullmatch(r"\x60\x60\x60json\s*(\{.*\})\s*\x60\x60\x60", tail, re.DOTALL)
     if not match:
         raise GuardError("Expected one fenced JSON object after PR marker.")
@@ -43,16 +50,28 @@ def parse_pr_envelope(body):
         value = json.loads(match.group(1), object_pairs_hook=_unique)
     except (json.JSONDecodeError, GuardError) as exc:
         raise GuardError("Invalid PR envelope JSON.") from exc
-    if not isinstance(value, dict) or set(value) != {"schema_version", "task_issue", "owner", "claim_id"}:
+    common = {"schema_version", "task_issue", "owner", "claim_id"}
+    expected = common if marker_version == 1 else common | {
+        "issue_body_sha256", "project_binding", "base_sha",
+    }
+    if not isinstance(value, dict) or set(value) != expected:
         raise GuardError("PR envelope fields are invalid.")
-    if isinstance(value["schema_version"], bool) or value["schema_version"] != 1:
-        raise GuardError("Unsupported PR envelope schema.")
+    if isinstance(value["schema_version"], bool) or value["schema_version"] != marker_version:
+        raise GuardError("PR marker and envelope schema version do not match.")
     if isinstance(value["task_issue"], bool) or not isinstance(value["task_issue"], int) or value["task_issue"] < 1:
         raise GuardError("task_issue must be a positive Issue number.")
     if value["owner"] not in {"chatgpt", "grok"}:
         raise GuardError("owner must be chatgpt or grok.")
     if not isinstance(value["claim_id"], str) or not CLAIM_RE.fullmatch(value["claim_id"]):
         raise GuardError("claim_id format is invalid.")
+    if marker_version == 2:
+        if not isinstance(value["issue_body_sha256"], str) or not DIGEST_RE.fullmatch(value["issue_body_sha256"]):
+            raise GuardError("v2 PR envelope Issue-body digest is invalid.")
+        if not isinstance(value["base_sha"], str) or not SHA_RE.fullmatch(value["base_sha"]):
+            raise GuardError("v2 PR envelope pinned base SHA is invalid.")
+        binding = value["project_binding"]
+        if not isinstance(binding, dict) or set(binding) != PROJECT_BINDING_FIELDS:
+            raise GuardError("v2 PR envelope project binding is malformed.")
     return value
 
 
@@ -203,10 +222,21 @@ def validate_agent_pr(event, *, token, repository, now=None):
             )
         except IntakeError as exc:
             raise GuardError("Linked Issue project binding is invalid or inactive.") from exc
+    if task["schema_version"] == 1 and envelope["schema_version"] != 1:
+        raise GuardError("Legacy v1 tasks require a v1 PR authorization envelope.")
+    if task["schema_version"] == 2:
+        if envelope["schema_version"] != 2:
+            raise GuardError("Project-bound v2 tasks require a v2 PR authorization envelope.")
+        issue_body = issue.get("body")
+        issue_digest = hashlib.sha256(issue_body.encode("utf-8")).hexdigest() if isinstance(issue_body, str) else None
+        if envelope["issue_body_sha256"] != issue_digest or envelope["project_binding"] != project_binding:
+            raise GuardError("PR authorization envelope differs from the exact current Issue body or project binding.")
     if task["assigned_agent"] not in {"any", envelope["owner"]}:
         raise GuardError("PR owner does not match task assignment.")
 
     lease = read_lease(repository, task["task_id"], token)
+    if task["schema_version"] == 2 and envelope["base_sha"] != lease["base_sha"]:
+        raise GuardError("PR authorization envelope differs from the lease-pinned base SHA.")
     if lease["task_id"] != task["task_id"] or lease["owner"] != envelope["owner"] or lease["claim_id"] != envelope["claim_id"] or lease["status"] != "active":
         raise GuardError("PR does not match the active task lease.")
     moment = datetime.fromisoformat((now or datetime.now(timezone.utc).isoformat()).replace("Z", "+00:00"))

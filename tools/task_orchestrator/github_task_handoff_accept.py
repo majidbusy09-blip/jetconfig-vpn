@@ -307,7 +307,13 @@ def _refresh_existing_task(
     manifest: dict[str, Any],
     branch_name: str,
 ) -> Path:
-    record, record_path = orchestrator.load_record(root, task_id)
+    project_binding = None
+    if manifest.get("handoff_schema") == 3:
+        project_binding = {
+            **manifest["project_binding"],
+            "base_sha": manifest["lease"]["base_sha"],
+        }
+    record, record_path = orchestrator.load_record(root, task_id, project_binding)
     if record.get("state") not in {"prepared", "implementation", "verification", "review_ready"}:
         raise HandoffAcceptanceError("Only an already prepared task can refresh its lease handoff.")
     orchestrator.require_task_branch(root, record)
@@ -447,12 +453,12 @@ def accept_handoff(
                     "Worktree must be clean before creating the task branch: " +
                     ", ".join(dirty_before_switch[:12])
                 )
-            new_branch = "agent/" + task_id
+            new_branch = orchestrator.local_task_branch(task_id, project_binding)
             if orchestrator.run_git(root, "branch", "--list", new_branch):
                 raise HandoffAcceptanceError("Local task branch already exists; refusing to reuse it.")
             orchestrator.run_git(root, "switch", "-c", new_branch, base_sha)
     branch_name = orchestrator.current_branch(root)
-    task_record_path = orchestrator.task_path(root, task_id)
+    task_record_path = orchestrator.task_path(root, task_id, project_binding)
     if task_record_path.exists() or task_record_path.is_symlink():
         if not refresh_existing:
             raise HandoffAcceptanceError(
@@ -499,16 +505,14 @@ def accept_handoff(
         scope_reason=task["scope_reason"],
         check=task["verification_profiles"],
         context=[],
+        project_binding=project_binding,
+        project_memory_manifest=project_memory_manifest,
+        required_context=required_context,
     )
     orchestrator.command_init(init_args)
-    record, record_path = orchestrator.load_record(root, task_id)
-    if project_binding is not None:
-        record["required_context"] = required_context
-        record["github_project_binding"] = project_binding
-        record["project_memory_manifest"] = project_memory_manifest
-        orchestrator.save_record(record, record_path)
-    orchestrator.command_prepare(Namespace(task_id=task_id))
-    record, record_path = orchestrator.load_record(root, task_id)
+    record, record_path = orchestrator.load_record(root, task_id, project_binding)
+    orchestrator.command_prepare(Namespace(task_id=task_id, project_binding=project_binding))
+    record, record_path = orchestrator.load_record(root, task_id, project_binding)
     record["assigned_agent"] = task["assigned_agent"]
     record["source"] = "github-issue"
     record["github_handoff"] = _handoff_metadata(manifest)
@@ -518,7 +522,7 @@ def accept_handoff(
             "base_sha": manifest["lease"]["base_sha"],
         }
     orchestrator.save_record(record, record_path)
-    orchestrator.command_build_envelope(Namespace(task_id=task_id))
+    orchestrator.command_build_envelope(Namespace(task_id=task_id, project_binding=project_binding))
     output = record_path.parent / "agent_input.json"
     print("Accepted handoff on local branch " + branch_name + ".")
     print("Created local-only agent envelope: " + output.relative_to(root).as_posix())

@@ -52,6 +52,24 @@ except ImportError:
     except ImportError:
         from impact_analyzer import ImpactAnalysisError, analyze_impact
 
+
+try:
+    from .project_namespace import (
+        ProjectNamespaceError, local_task_branch, task_record_directory,
+        task_record_path as project_task_record_path,
+    )
+except ImportError:
+    try:
+        from tools.task_orchestrator.project_namespace import (
+            ProjectNamespaceError, local_task_branch, task_record_directory,
+            task_record_path as project_task_record_path,
+        )
+    except ImportError:
+        from project_namespace import (
+            ProjectNamespaceError, local_task_branch, task_record_directory,
+            task_record_path as project_task_record_path,
+        )
+
 SCHEMA_VERSION = 1
 REQUIRED_CONTEXT = (
     "AGENTS.md",
@@ -114,16 +132,90 @@ def sha256_bytes(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
-def task_path(root: Path, task_id: str) -> Path:
+
+def _assert_safe_task_path(root: Path, path: Path) -> None:
+    root_abs = root.absolute()
+    path_abs = path.absolute()
+    try:
+        relative = path_abs.relative_to(root_abs)
+    except ValueError as exc:
+        raise TaskError("Task metadata path escapes the repository root.") from exc
+    cursor = root_abs
+    for part in relative.parts:
+        cursor = cursor / part
+        if cursor.is_symlink():
+            raise TaskError("Task metadata path contains a symlink; refusing traversal.")
+    if path_abs.exists() and not path_abs.is_file():
+        raise TaskError("Task metadata target is not a regular file.")
+
+
+def task_path(root: Path, task_id: str, project_binding: dict[str, Any] | None = None) -> Path:
+    try:
+        relative = project_task_record_path(task_id, project_binding)
+    except ProjectNamespaceError as exc:
+        raise TaskError(str(exc)) from exc
+    path = root / relative
+    _assert_safe_task_path(root, path)
+    return path
+
+
+def _candidate_task_paths(root: Path, task_id: str) -> list[Path]:
+    tasks_root = root / TASK_DIR
+    if tasks_root.is_symlink():
+        raise TaskError("Task metadata root is a symlink; refusing traversal.")
+    _assert_safe_task_path(root, tasks_root / "_scan")
+    if not tasks_root.is_dir():
+        return []
+    candidates: list[Path] = []
+    legacy = tasks_root / task_id / "task.json"
+    if legacy.is_symlink():
+        raise TaskError("Legacy task record is a symlink; refusing traversal.")
+    if legacy.is_file():
+        candidates.append(legacy)
+    try:
+        with os.scandir(tasks_root) as project_entries:
+            for project_entry in project_entries:
+                if project_entry.is_symlink():
+                    raise TaskError("Project task namespace contains a symlink; refusing ambiguous lookup.")
+                if not project_entry.is_dir(follow_symlinks=False):
+                    continue
+                with os.scandir(project_entry.path) as repository_entries:
+                    for repository_entry in repository_entries:
+                        if repository_entry.is_symlink():
+                            raise TaskError("Repository task namespace contains a symlink; refusing ambiguous lookup.")
+                        if not repository_entry.is_dir(follow_symlinks=False):
+                            continue
+                        task_dir = Path(repository_entry.path) / task_id
+                        if task_dir.is_symlink():
+                            raise TaskError("Namespaced task directory is a symlink; refusing traversal.")
+                        candidate = task_dir / "task.json"
+                        if candidate.is_symlink():
+                            raise TaskError("Namespaced task record is a symlink; refusing traversal.")
+                        if candidate.is_file():
+                            candidates.append(candidate)
+    except OSError as exc:
+        raise TaskError("Unable to enumerate project-scoped task records safely.") from exc
+    return sorted(candidates)
+
+
+def load_record(
+    root: Path, task_id: str, project_binding: dict[str, Any] | None = None
+) -> tuple[dict[str, Any], Path]:
     if not TASK_ID_RE.fullmatch(task_id):
         raise TaskError("Invalid task ID; use 3-64 lowercase letters, digits, and hyphens.")
-    return root / TASK_DIR / task_id / "task.json"
-
-
-def load_record(root: Path, task_id: str) -> tuple[dict[str, Any], Path]:
-    path = task_path(root, task_id)
-    if not path.is_file():
+    if project_binding is not None:
+        path = task_path(root, task_id, project_binding)
+        candidates = [path] if path.is_file() else []
+    else:
+        candidates = _candidate_task_paths(root, task_id)
+        if len(candidates) > 1:
+            raise TaskError(
+                f"Task ID '{task_id}' exists in multiple projects; provide an explicit project binding."
+            )
+        path = candidates[0] if candidates else task_path(root, task_id)
+    if not candidates:
         raise TaskError(f"Task record not found: {path.relative_to(root)}")
+    _assert_safe_task_path(root, path)
     try:
         record = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
@@ -132,12 +224,26 @@ def load_record(root: Path, task_id: str) -> tuple[dict[str, Any], Path]:
         raise TaskError("Task record must be a JSON object.")
     if record.get("schema_version") != SCHEMA_VERSION or record.get("task_id") != task_id:
         raise TaskError("Unsupported or inconsistent task record schema.")
+    record_binding = record.get("github_project_binding")
+    if record_binding is not None:
+        expected_path = task_path(root, task_id, record_binding)
+        if expected_path != path:
+            raise TaskError("Task record project identity does not match its storage namespace.")
+    elif path != task_path(root, task_id):
+        raise TaskError("A legacy task record cannot reside in a project-scoped directory.")
+    if project_binding is not None and record_binding != project_binding:
+        raise TaskError("Task record project binding does not match the requested project.")
     return record, path
 
 
 def save_record(record: dict[str, Any], path: Path) -> None:
+    root = repository_root()
+    _assert_safe_task_path(root, path)
     path.parent.mkdir(parents=True, exist_ok=True)
+    _assert_safe_task_path(root, path)
     temp = path.with_suffix(".json.tmp")
+    if temp.is_symlink():
+        raise TaskError("Temporary task metadata path is a symlink; refusing overwrite.")
     temp.write_text(json.dumps(record, ensure_ascii=False, indent=2) + "\n",
                     encoding="utf-8")
     temp.replace(path)
@@ -166,9 +272,14 @@ def status_paths(root: Path) -> list[str]:
     return sorted(set(paths))
 
 
-def is_task_metadata(path: str, task_id: str) -> bool:
-    # Only the two orchestrator-owned files are exempt from user source scope.
-    base = (TASK_DIR / task_id).as_posix()
+def is_task_metadata(
+    path: str, task_id: str, project_binding: dict[str, Any] | None = None
+) -> bool:
+    # Only the orchestrator-owned files inside this exact task namespace are exempt.
+    try:
+        base = task_record_directory(task_id, project_binding)
+    except ProjectNamespaceError:
+        return False
     if path in {f"{base}/task.json", f"{base}/HANDOFF.md", f"{base}/agent_input.json", f"{base}/impact_report.json"}:
         return True
     return path.startswith(f"{base}/context_suggestions_") and path.endswith(".json")
@@ -244,10 +355,10 @@ def file_fingerprints(root: Path, patterns: list[str]) -> dict[str, str]:
     return result
 
 
-def path_fingerprints(root: Path, paths: list[str], task_id: str) -> dict[str, str]:
+def path_fingerprints(root: Path, paths: list[str], task_id: str, project_binding: dict[str, Any] | None = None) -> dict[str, str]:
     result = {}
     for relative in paths:
-        if is_task_metadata(relative, task_id):
+        if is_task_metadata(relative, task_id, project_binding):
             continue
         target = root / relative
         if target.is_symlink():
@@ -339,8 +450,9 @@ def command_init(args: argparse.Namespace) -> None:
         raise TaskError("Unknown verification profile(s): " + ", ".join(unknown))
     if args.risk not in {"low", "medium", "high"}:
         raise TaskError("Risk must be low, medium, or high.")
-    path = task_path(root, args.task_id)
-    if path.exists():
+    project_binding = getattr(args, "project_binding", None)
+    path = task_path(root, args.task_id, project_binding)
+    if path.exists() or path.is_symlink():
         raise TaskError("A task with this ID already exists.")
     record = {
         "schema_version": SCHEMA_VERSION,
@@ -355,7 +467,7 @@ def command_init(args: argparse.Namespace) -> None:
         "scope": {"allowed": sorted(set(args.allow)), "excluded": sorted(set(args.exclude)),
                   "reason": args.scope_reason.strip() or None},
         "planned_checks": list(dict.fromkeys(args.check)),
-        "required_context": list(REQUIRED_CONTEXT),
+        "required_context": list(getattr(args, "required_context", REQUIRED_CONTEXT)),
         "context_paths": list(dict.fromkeys(args.context)),
         "context_package": None,
         "context_fingerprints": {},
@@ -368,19 +480,22 @@ def command_init(args: argparse.Namespace) -> None:
         "unresolved_risks": [],
         "handoff": None,
     }
+    if project_binding is not None:
+        record["github_project_binding"] = project_binding
+        record["project_memory_manifest"] = getattr(args, "project_memory_manifest", None)
     save_record(record, path)
     print(f"Created {path.relative_to(root)}. Next: prepare --task-id {args.task_id}")
 
 
 def command_prepare(args: argparse.Namespace) -> None:
     root = repository_root()
-    record, path = load_record(root, args.task_id)
+    record, path = load_record(root, args.task_id, getattr(args, "project_binding", None))
     require_state(record, "draft")
     branch = current_branch(root)
     origin = safe_remote_identity(run_git(root, "remote", "get-url", "origin", check=False))
     if origin != record["repository"].get("origin"):
         raise TaskError("Repository origin changed after task initialization; create a fresh task record.")
-    unexpected = [p for p in status_paths(root) if not is_task_metadata(p, args.task_id)]
+    unexpected = [p for p in status_paths(root) if not is_task_metadata(p, args.task_id, record.get("github_project_binding"))]
     if unexpected:
         raise TaskError("Worktree has pre-existing changes outside this task record: " + ", ".join(unexpected[:12]))
     head = run_git(root, "rev-parse", "HEAD")
@@ -419,7 +534,7 @@ def command_prepare(args: argparse.Namespace) -> None:
 
 def command_build_envelope(args: argparse.Namespace) -> None:
     root = repository_root()
-    record, task_record_path = load_record(root, args.task_id)
+    record, task_record_path = load_record(root, args.task_id, getattr(args, "project_binding", None))
     require_state(record, "prepared", "implementation", "verification")
     require_task_branch(root, record)
     try:
@@ -469,7 +584,7 @@ def command_build_envelope(args: argparse.Namespace) -> None:
 
 def command_accept_context(args: argparse.Namespace) -> None:
     root = repository_root()
-    record, task_record_path = load_record(root, args.task_id)
+    record, task_record_path = load_record(root, args.task_id, getattr(args, "project_binding", None))
     require_state(record, "prepared")
     require_task_branch(root, record)
     base_sha = record.get("repository", {}).get("base_sha")
@@ -566,7 +681,7 @@ def command_accept_context(args: argparse.Namespace) -> None:
 
 def command_suggest_context(args: argparse.Namespace) -> None:
     root = repository_root()
-    record, task_record_path = load_record(root, args.task_id)
+    record, task_record_path = load_record(root, args.task_id, getattr(args, "project_binding", None))
     require_state(record, "prepared", "implementation", "verification")
     require_task_branch(root, record)
     try:
@@ -603,14 +718,14 @@ def command_suggest_context(args: argparse.Namespace) -> None:
 
 def command_impact(args: argparse.Namespace) -> None:
     root = repository_root()
-    record, task_record_path = load_record(root, args.task_id)
+    record, task_record_path = load_record(root, args.task_id, getattr(args, "project_binding", None))
     require_state(record, "prepared", "implementation", "verification")
     require_task_branch(root, record)
     base_sha = record.get("repository", {}).get("base_sha")
     if not isinstance(base_sha, str):
         raise TaskError("Task has no pinned base SHA.")
     changed = [item for item in changed_paths(root, base_sha)
-               if not is_task_metadata(item, args.task_id)]
+               if not is_task_metadata(item, args.task_id, record.get("github_project_binding"))]
     if not changed:
         result = {
             "schema_version": 1, "task_id": args.task_id, "source_revision": base_sha,
@@ -659,7 +774,7 @@ def command_impact(args: argparse.Namespace) -> None:
 
 def command_begin(args: argparse.Namespace) -> None:
     root = repository_root()
-    record, path = load_record(root, args.task_id)
+    record, path = load_record(root, args.task_id, getattr(args, "project_binding", None))
     require_state(record, "prepared")
     require_task_branch(root, record)
     current = run_git(root, "rev-parse", "HEAD")
@@ -675,7 +790,7 @@ def command_begin(args: argparse.Namespace) -> None:
 
 def command_validate_scope(args: argparse.Namespace) -> None:
     root = repository_root()
-    record, path = load_record(root, args.task_id)
+    record, path = load_record(root, args.task_id, getattr(args, "project_binding", None))
     require_state(record, "prepared", "implementation", "verification")
     require_task_branch(root, record)
     base = record.get("repository", {}).get("base_sha")
@@ -684,7 +799,7 @@ def command_validate_scope(args: argparse.Namespace) -> None:
     paths = changed_paths(root, base)
     violations = []
     for item in paths:
-        if is_task_metadata(item, args.task_id):
+        if is_task_metadata(item, args.task_id, record.get("github_project_binding")):
             continue
         if matches_any(item, record["scope"]["excluded"]):
             violations.append(f"excluded: {item}")
@@ -695,7 +810,7 @@ def command_validate_scope(args: argparse.Namespace) -> None:
         "status": "failed" if violations else "passed",
         "checked_at": now_iso(),
         "violations": violations,
-        "path_fingerprints": path_fingerprints(root, paths, args.task_id),
+        "path_fingerprints": path_fingerprints(root, paths, args.task_id, record.get("github_project_binding")),
     }
     record["updated_at"] = now_iso()
     save_record(record, path)
@@ -706,7 +821,7 @@ def command_validate_scope(args: argparse.Namespace) -> None:
 
 def command_verify(args: argparse.Namespace) -> None:
     root = repository_root()
-    record, path = load_record(root, args.task_id)
+    record, path = load_record(root, args.task_id, getattr(args, "project_binding", None))
     require_state(record, "implementation", "verification")
     require_task_branch(root, record)
     profile = args.profile
@@ -718,7 +833,7 @@ def command_verify(args: argparse.Namespace) -> None:
     base_sha = record.get("repository", {}).get("base_sha")
     verification_paths_before = changed_paths(root, base_sha) if base_sha else []
     verification_fingerprints_before = path_fingerprints(
-        root, verification_paths_before, args.task_id
+        root, verification_paths_before, args.task_id, record.get("github_project_binding")
     )
     allowed_env = {
         "PATH", "HOME", "TMPDIR", "TEMP", "TMP", "LANG", "LC_ALL", "CI",
@@ -750,7 +865,7 @@ def command_verify(args: argparse.Namespace) -> None:
         exit_code, status, output = 126, "failed", str(exc)
     duration = round(time.monotonic() - started, 3)
     verification_paths = changed_paths(root, base_sha) if base_sha else []
-    verification_fingerprints = path_fingerprints(root, verification_paths, args.task_id)
+    verification_fingerprints = path_fingerprints(root, verification_paths, args.task_id, record.get("github_project_binding"))
     source_stable = (
         verification_paths_before == verification_paths
         and verification_fingerprints_before == verification_fingerprints
@@ -785,7 +900,7 @@ def command_verify(args: argparse.Namespace) -> None:
 
 def command_finalize(args: argparse.Namespace) -> None:
     root = repository_root()
-    record, path = load_record(root, args.task_id)
+    record, path = load_record(root, args.task_id, getattr(args, "project_binding", None))
     require_state(record, "verification", "implementation")
     require_task_branch(root, record)
     if not args.reviewed_diff:
@@ -804,14 +919,14 @@ def command_finalize(args: argparse.Namespace) -> None:
     handoff_path.touch(exist_ok=True)
     paths = changed_paths(root, base)
     violations = [
-        item for item in paths if not is_task_metadata(item, args.task_id) and (
+        item for item in paths if not is_task_metadata(item, args.task_id, record.get("github_project_binding")) and (
             matches_any(item, record["scope"]["excluded"])
             or not matches_any(item, record["scope"]["allowed"])
         )
     ]
     if violations:
         raise TaskError("Final diff contains out-of-scope paths: " + ", ".join(violations))
-    current_fingerprints = path_fingerprints(root, paths, args.task_id)
+    current_fingerprints = path_fingerprints(root, paths, args.task_id, record.get("github_project_binding"))
     if current_fingerprints != record["scope_validation"].get("path_fingerprints", {}):
         raise TaskError("Files changed after scope validation; rerun validate-scope and review the complete diff.")
     stale_checks = []
@@ -839,8 +954,8 @@ def command_finalize(args: argparse.Namespace) -> None:
         "untracked_paths": untracked,
         "path_fingerprints": current_fingerprints,
         "task_metadata_paths": [
-            (TASK_DIR / args.task_id / "task.json").as_posix(),
-            (TASK_DIR / args.task_id / "HANDOFF.md").as_posix(),
+            item for item in paths
+            if is_task_metadata(item, args.task_id, record.get("github_project_binding"))
         ],
     }
     record["state"] = "review_ready"

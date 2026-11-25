@@ -287,3 +287,18 @@ PR #49 merged `sandbox_acceptance.py`, a strict verifier for independently signe
 ### Phase 2D-1 lease consumer audit — 2026-11-25
 
 The shared project namespace resolver must be used by every lease consumer, including the trusted PR guard and patch-review gate, not only by claim/renew/release and handoff code. V2 lease consumers must compare the complete project binding; v1 remains on its exact legacy ref and file path.
+
+
+## Multi-project implementation snapshot — 2026-11-25
+
+- Phase 2C PR #103 is merged; project memory document selection is manifest-driven and context/envelope metadata binds the project identity, memory manifest, digest, and pinned base SHA.
+- Phase 2D-1 PR #107 is merged at `dcf754ac5b22691687ebe0d9ec0f88623e4265b5`; lease branches/records and workspace identifiers are project-scoped while legacy v1 JET VPN paths remain unchanged.
+- Phase 2D-2A is under review in PR #109. V2 local task records, context packages, handoff notes, impact reports, suggestions, and agent-input envelopes use `.agent/tasks/<project_id>/<repository_id>/<task_id>/`; local task branches are project-scoped. Legacy v1 task paths/branches remain unchanged. Ambiguous task-ID lookup fails closed.
+- The protected `.github/workflows/**` path was intentionally excluded from Issue #106. The existing workflow still has a broad agent-input artifact glob; do not weaken path protection or edit that workflow under Issue #106. Exact artifact-upload hardening is tracked separately.
+- حسابگر من (`majidbusy09-blip/hesabgar_man`, repository ID `1423683236`) remains read-only inspected, unregistered, and inactive. Do not modify it until project namespace isolation and onboarding readiness gates are complete.
+- No paid APIs, credentials, provider spend, release/deploy, production changes, or untrusted-code execution.
+
+
+### Scandir resource ownership
+
+Directory enumeration in task namespace scans must use context-managed `os.scandir` iterators. This guarantees handles close even when fail-closed validation raises while scanning a symlinked entry.

@@ -62,6 +62,42 @@ def lease_record_path(task_id: str, project_binding: Any = None) -> str:
     return ".agent-locks/projects/" + namespace_key(project_binding) + "/" + task_id + ".json"
 
 
+def _identity_binding(project_binding: Any) -> dict[str, Any]:
+    if not isinstance(project_binding, dict):
+        raise ProjectNamespaceError("A project binding object is required.")
+    allowed = PROJECT_BINDING_FIELDS | {"base_sha"}
+    if set(project_binding) not in {frozenset(PROJECT_BINDING_FIELDS), frozenset(allowed)}:
+        raise ProjectNamespaceError("Project binding contains unexpected identity fields.")
+    if "base_sha" in project_binding:
+        base_sha = project_binding["base_sha"]
+        if not isinstance(base_sha, str) or not GIT_SHA_RE.fullmatch(base_sha):
+            raise ProjectNamespaceError("Project binding base_sha must be a full Git commit SHA.")
+    identity = {key: value for key, value in project_binding.items() if key != "base_sha"}
+    return validate_project_binding(identity)
+
+
+def task_record_directory(task_id: str, project_binding: Any = None) -> str:
+    if not isinstance(task_id, str) or not TASK_ID_RE.fullmatch(task_id):
+        raise ProjectNamespaceError("Invalid task_id.")
+    if project_binding is None:
+        return ".agent/tasks/" + task_id
+    key = namespace_key(_identity_binding(project_binding))
+    return ".agent/tasks/" + key + "/" + task_id
+
+
+def task_record_path(task_id: str, project_binding: Any = None) -> str:
+    return task_record_directory(task_id, project_binding) + "/task.json"
+
+
+def local_task_branch(task_id: str, project_binding: Any = None) -> str:
+    if not isinstance(task_id, str) or not TASK_ID_RE.fullmatch(task_id):
+        raise ProjectNamespaceError("Invalid task_id.")
+    if project_binding is None:
+        return "agent/" + task_id
+    key = namespace_key(_identity_binding(project_binding))
+    return "agent/projects/" + key + "/" + task_id
+
+
 def workspace_id(task_id: str, base_sha: str, project_binding: Any = None) -> str:
     if not isinstance(task_id, str) or not TASK_ID_RE.fullmatch(task_id):
         raise ProjectNamespaceError("Invalid task_id.")

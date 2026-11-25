@@ -308,3 +308,19 @@ Phase 2C is merged. Phase 2D-1 is active on branch `agent/project-scoped-lease-w
 ## Phase 2D-1 update — PR guard included
 
 The project-scoped lease resolver is now also wired into the trusted PR guard and patch-review authorization. V2 PR validation reads the project-specific lock ref and lease record and rejects a lease record whose full project binding differs from the current trusted Issue binding. Legacy v1 PR validation continues to read the original lock branch and file. Exact-head CI is pending on the latest branch revision.
+
+
+## Current multi-project status — 2026-11-25
+
+- PR #103 merged: manifest-selected project memory and v2 context/envelope binding.
+- PR #107 merged: project-scoped lease refs/records and workspace IDs. Main SHA after merge: `dcf754ac5b22691687ebe0d9ec0f88623e4265b5`.
+- PR #109 is Draft/open for Issue #106 (Phase 2D-2A). It introduces project-scoped local task records, context/handoff/agent-input metadata paths, project-aware metadata filtering/fingerprinting, ambiguity rejection, and project-specific local task branches. Legacy v1 JET VPN paths are preserved.
+- The final verified PR #109 head is `7acce911e1fe5e61077bc77749d401cad9492f2d`. Exact-head checks passed: 448 Task Orchestrator tests (run `45551100959`), Non-production PR Validation (`45551100865`), Project Memory Audit (`45551100829`), and Agent PR Lease and Scope Guard (`45551097893`). PR #109 remains Draft/open for review and has not been merged.
+- Issue #108 (Phase 2D-2B) remains queued until #106 is reviewed and merged.
+- حسابگر من repository ID `1423683236` remains unregistered/inactive; no target-repository writes have been made.
+- The workflow artifact-upload wildcard remains a known issue because `.github/workflows/**` is protected from this task; a separate reviewed task is required.
+
+
+### Scandir iterator cleanup — PR #109
+
+The project/repository task namespace scan now owns both `os.scandir` iterators through context managers. This closes directory handles even when symlink validation raises early. The 450-test run on the prior exact head passed but emitted ResourceWarning for these iterators; the cleanup follow-up requires a fresh exact-head CI run.

@@ -656,3 +656,21 @@ PR #101 remains Draft and unmerged for human review. No review submissions or re
 - Expanded Issue #104 allowlist to include `github_task_pr_guard.py` and its tests after a repository-wide reference audit found the trusted PR guard still read the legacy `.agent-locks/lease.json` path directly.
 - The PR guard now resolves project-scoped refs and lease-record paths using the shared namespace helper, validates the full lease project binding against the current trusted Issue manifest, and retains the v1 legacy path.
 - Added cross-project lease-substitution coverage for the PR guard. The task was released and reclaimed under a fresh claim after its allowlist was expanded.
+
+
+## 2026-11-25 — Phase 2D-2A implementation
+
+- Confirmed PR #103 and PR #107 are merged.
+- Claimed Issue #106 with active lease `202611250825beef`, pinned to `dcf754ac5b22691687ebe0d9ec0f88623e4265b5`.
+- Implemented project-aware local task path derivation and resolution. V2 records are stored under `.agent/tasks/<project_id>/<repository_id>/<task_id>/`; legacy v1 remains at `.agent/tasks/<task_id>/`.
+- Added fail-closed ambiguity handling, persisted-binding/path consistency checks, symlink rejection, metadata-path classification scoped to the exact project directory, and project-specific local task branch names.
+- Updated handoff acceptance and refresh to use the validated project binding and namespaced directory; v2 handoff integration tests assert the exact path and branch.
+- Draft PR #109 opened. Exact-head CI passed on final head `7acce911e1fe5e61077bc77749d401cad9492f2d`: 448 Task Orchestrator tests (run `45551100959`), Non-production PR Validation (`45551100865`), Project Memory Audit (`45551100829`), and Agent PR Lease and Scope Guard (`45551097893`). PR #109 remains Draft/open for human review.
+- Protected workflow upload step remains unchanged; its broad glob is explicitly deferred to a separate reviewed task because `.github/workflows/**` is protected.
+- No external repository writes, app-source changes, activation, paid API, provider spend, release/deploy, or untrusted-code execution.
+
+
+### PR #109 — deterministic Scandir cleanup
+
+- The latest 450-test run passed, including the new project- and repository-level symlink tests, but emitted ResourceWarning because fail-closed exceptions interrupted bare `os.scandir` iteration.
+- Wrapped both namespace scans in context managers so iterators close on normal completion and early exceptions. Fresh exact-head validation is pending.

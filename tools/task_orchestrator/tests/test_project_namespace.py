@@ -1,7 +1,7 @@
 import unittest
 
 from tools.task_orchestrator.project_namespace import (
-    ProjectNamespaceError, lease_branch, lease_record_path, namespace_key, workspace_id,
+    ProjectNamespaceError, lease_branch, lease_record_path, local_task_branch, namespace_key, task_record_directory, task_record_path, workspace_id,
 )
 
 BASE = "a" * 40
@@ -59,6 +59,24 @@ class ProjectNamespaceTests(unittest.TestCase):
                 lease_branch("same-task", bad)
         with self.assertRaises(ProjectNamespaceError):
             lease_branch("../unsafe", BINDING_A)
+
+    def test_project_scoped_task_paths_and_local_branches_are_distinct(self):
+        self.assertEqual(task_record_directory("same-task", BINDING_A),
+                         ".agent/tasks/sample-flutter-app/123456789/same-task")
+        self.assertEqual(task_record_path("same-task", BINDING_B),
+                         ".agent/tasks/second-flutter-app/987654321/same-task/task.json")
+        self.assertEqual(local_task_branch("same-task", BINDING_A),
+                         "agent/projects/sample-flutter-app/123456789/same-task")
+        self.assertEqual(task_record_directory("same-task"), ".agent/tasks/same-task")
+        self.assertEqual(local_task_branch("same-task"), "agent/same-task")
+
+    def test_task_path_rejects_invalid_project_namespace(self):
+        with self.assertRaises(ProjectNamespaceError):
+            task_record_path("../escape", BINDING_A)
+        with self.assertRaises(ProjectNamespaceError):
+            task_record_path("same-task", dict(BINDING_A, base_sha="../escape"))
+        with self.assertRaises(ProjectNamespaceError):
+            task_record_path("same-task", dict(BINDING_A, unexpected="ignored"))
 
 
 if __name__ == "__main__":

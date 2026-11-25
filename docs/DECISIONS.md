@@ -319,3 +319,17 @@ V2 project-aware tasks use a deterministic namespace derived from the validated 
 ## D-028 — Every lease consumer must share the namespace resolver (2026-11-25)
 
 The project-scoped lease namespace is not complete if only the writer uses it. Claim/renew/release, handoff creation, handoff acceptance, the trusted PR guard, and patch-review authorization must all derive the same lock ref and record path and compare the full project binding. Any remaining direct read of the legacy `.agent-locks/lease.json` path is a security gap for v2 tasks. V1 compatibility remains a separate explicit path.
+
+
+## D-027 — Project-scoped local task metadata (2026-11-25)
+
+**Status:** Implemented in Draft PR #109; awaiting exact-head CI and review.
+
+For project-aware v2 tasks, task records and orchestrator-owned local artifacts must reside under `.agent/tasks/<project_id>/<repository_id>/<task_id>/`. The same task ID may exist in multiple projects. Explicit project binding selects the exact directory; implicit lookup is permitted only when one candidate exists and must fail closed on ambiguity. Persisted project identity must match the directory, and symlinked path components are rejected. Local task branches are also project-scoped. Legacy v1 JET VPN task paths and branch names remain unchanged.
+
+The protected GitHub Actions workflow path is not part of Issue #106. The current broad artifact upload glob must be replaced only through a separate reviewed workflow-policy task; protected-path validation must not be weakened.
+
+
+## 2026-11-25 — Close directory iterators on fail-closed scans
+
+Task namespace enumeration uses context-managed `os.scandir` iterators so early rejection (for example, a symlinked project or repository entry) closes the iterator deterministically. This avoids ResourceWarning/file-handle leakage while preserving fail-closed behavior.

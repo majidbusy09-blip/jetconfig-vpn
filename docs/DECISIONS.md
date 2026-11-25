@@ -273,3 +273,14 @@ A report signer cannot require an authorization attestation that is issued only 
 4. An independent post-sign verifier reconstructs the content again and verifies the final report signature.
 
 The verifier-attestation key and report-signing key must be distinct. The authorization ledger must be durable, atomic, anti-replay, and fail closed in production. Test fakes and injected interfaces do not satisfy those operational requirements. This flow does not authorize execution; preserve all execution flags as false.
+
+
+## D-024 — Multi-project registry identity must be explicit and immutable (2026-11-25)
+
+**Status:** Accepted architecture; registry implementation in progress.
+
+Every managed project is identified by a stable JET AI `project_id` bound to GitHub's immutable numeric repository ID. Canonical owner/name, HTTPS URL, and configured default branch are checked against trusted live repository metadata before consequential operations. Duplicate project IDs and repository IDs remain reserved even for retired entries; repository renames require an explicit audited migration.
+
+Project manifests are declarative data and cannot weaken global safety policy. A project may be eligible for implementation only when its lifecycle is explicitly `active`. Required verification profiles must both be declared by the project and have an implemented fixed runner. An unknown profile blocks readiness; it is never silently replaced by an unrelated check.
+
+The first implementation phase is a pure validator with no network, filesystem persistence, subprocess, GitHub mutation, model/provider call, or project-code execution. Task/envelope/lease/context/workspace/cache/artifact identity propagation is separate follow-up work. «حسابگر من» is not registered until its exact repository URL and immutable repository identity are independently verified.

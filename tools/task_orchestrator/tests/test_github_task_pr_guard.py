@@ -2,6 +2,7 @@ import base64
 import copy
 import hashlib
 import json
+import urllib.parse
 from pathlib import Path
 import unittest
 from unittest.mock import patch

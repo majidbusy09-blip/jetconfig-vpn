@@ -73,9 +73,10 @@
     ]
   },
   "protected_paths": [
-    "android/key.properties",
-    "android/app/key.properties",
+    ".github/workflows/agent-task-intake.yml",
     ".github/workflows/build.yml",
+    "android/app/key.properties",
+    "android/key.properties",
     "secrets"
   ],
   "operational_constraints": {

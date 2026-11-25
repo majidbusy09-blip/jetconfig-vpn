@@ -145,6 +145,26 @@ void main() {
     expect(call['target_element_id'], isNotNull);
   });
 
+  test('rejects a tracked Dart source path that is a symlink outside the repository', () async {
+    final outside = await Directory.systemTemp.createTemp('resolved-index-outside-');
+    try {
+      final outsideFile = File('${outside.path}/secret.dart');
+      await outsideFile.writeAsString('void secret() {}');
+      final link = Link('${temp.path}/lib');
+      await link.create(outside.path);
+      await expectLater(
+        buildResolvedIndex(
+          sourcePaths: ['${temp.path}/lib/secret.dart'],
+          repositoryRoot: temp.path,
+          sourceGitBlobShas: {'lib/secret.dart': 'tracked-link-blob'},
+        ),
+        throwsArgumentError,
+      );
+    } finally {
+      await outside.delete(recursive: true);
+    }
+  });
+
   test('reports dynamic invocation as unresolved instead of guessing', () async {
     const source = '''
 void invoke(dynamic callback) {

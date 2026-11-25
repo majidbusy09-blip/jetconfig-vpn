@@ -24,9 +24,19 @@ Future<Map<String, Object?>> buildResolvedIndex({
   final normalizedPaths = sourcePaths.map((path) => File(path).absolute.path).toSet().toList()
     ..sort((a, b) => _relativePath(absoluteRoot, a).compareTo(_relativePath(absoluteRoot, b)));
   if (normalizedPaths.isEmpty) throw ArgumentError('At least one Dart source file is required.');
+  final realRoot = await Directory(absoluteRoot).resolveSymbolicLinks();
   for (final path in normalizedPaths) {
     if (!path.startsWith('${absoluteRoot}/')) throw ArgumentError('Source file is outside the repository root: $path');
     if (!path.endsWith('.dart')) throw ArgumentError('Source file is not Dart: $path');
+    final type = await FileSystemEntity.type(path, followLinks: false);
+    if (type != FileSystemEntityType.file) {
+      throw ArgumentError('Source path must be a regular non-symlink file: $path');
+    }
+    final resolvedPath = await File(path).resolveSymbolicLinks();
+    if (resolvedPath != realRoot &&
+        !resolvedPath.startsWith('${realRoot}${Platform.pathSeparator}')) {
+      throw ArgumentError('Resolved source file escapes the repository root: $path');
+    }
   }
 
   final pubspec = await File('${absoluteRoot}/pubspec.yaml').readAsString();

@@ -78,14 +78,33 @@ class GitHubIssueIntakeTests(unittest.TestCase):
         with self.assertRaises(IntakeError):
             build_intake(bad)
 
-    def test_accepts_v2_only_when_binding_manifest_and_live_metadata_match(self):
+    def test_accepts_v2_active_project_only_after_binding_manifest_and_live_metadata_match(self):
         payload = v2_payload()
         result = build_intake(
             event(payload), project_schema=SCHEMA, project_manifests=[JET_MANIFEST]
         )
         self.assertEqual(result["task"]["schema_version"], 2)
         self.assertEqual(result["project_binding"], payload["project_binding"])
+        self.assertEqual(result["project_lifecycle"], "active")
+        self.assertTrue(result["implementation_eligible"])
+        self.assertEqual(result["execution"]["status"], "validated-awaiting-claim")
         self.assertFalse(result["execution"]["model_called"])
+
+    def test_registered_project_can_enter_read_only_intake_but_cannot_claim_lease(self):
+        registered = copy.deepcopy(JET_MANIFEST)
+        registered["lifecycle"] = "registered"
+        result = build_intake(
+            event(v2_payload(registered)),
+            project_schema=SCHEMA,
+            project_manifests=[registered],
+        )
+        self.assertEqual(result["project_lifecycle"], "registered")
+        self.assertFalse(result["implementation_eligible"])
+        self.assertEqual(result["execution"]["status"], "validated-awaiting-activation")
+        self.assertFalse(result["execution"]["lease_claimed"])
+        self.assertFalse(result["execution"]["agent_dispatched"])
+        self.assertFalse(result["execution"]["model_called"])
+        self.assertFalse(result["execution"]["source_uploaded"])
 
     def test_rejects_v2_stale_digest_mismatched_repo_and_inactive_manifest(self):
         payload = v2_payload()
@@ -100,7 +119,7 @@ class GitHubIssueIntakeTests(unittest.TestCase):
             build_intake(bad_event, project_schema=SCHEMA, project_manifests=[JET_MANIFEST])
 
         inactive = copy.deepcopy(JET_MANIFEST)
-        inactive["lifecycle"] = "registered"
+        inactive["lifecycle"] = "paused"
         with self.assertRaises(IntakeError):
             build_intake(
                 event(v2_payload(inactive)), project_schema=SCHEMA, project_manifests=[inactive]

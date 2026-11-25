@@ -98,6 +98,7 @@ def validate_task_project_binding(
     *,
     schema: dict[str, Any],
     project_manifests: list[dict[str, Any]],
+    require_active: bool = True,
 ) -> dict[str, Any]:
     """Bind a v2 task to one checked-in manifest and trusted live repository metadata."""
     if task.get("schema_version") != 2:
@@ -118,7 +119,10 @@ def validate_task_project_binding(
             existing_manifests=existing,
             available_profiles=AVAILABLE_PROFILES,
         )
-        ensure_implementation_eligible(manifest)
+        if require_active:
+            ensure_implementation_eligible(manifest)
+        elif manifest.get("lifecycle") not in {"registered", "active"}:
+            raise ProjectRegistryError("Project lifecycle does not permit task intake.")
     except ProjectRegistryError as exc:
         raise IntakeError("v2 project manifest or repository binding failed validation.") from exc
 
@@ -183,8 +187,18 @@ def build_intake(
         if not isinstance(project_schema, dict) or not isinstance(project_manifests, list):
             raise IntakeError("Trusted project manifest configuration is unavailable for v2 intake.")
         binding = validate_task_project_binding(
-            task, repository, schema=project_schema, project_manifests=project_manifests
+            task, repository, schema=project_schema, project_manifests=project_manifests,
+            require_active=False,
         )
+
+    project_lifecycle = None
+    implementation_eligible = None
+    if binding is not None:
+        matched_manifest = next(
+            item for item in project_manifests if item.get("project_id") == binding["project_id"]
+        )
+        project_lifecycle = matched_manifest.get("lifecycle")
+        implementation_eligible = project_lifecycle == "active"
 
     full_name = repository.get("full_name")
     if not isinstance(full_name, str) or "/" not in full_name or len(full_name) > 200:
@@ -202,7 +216,13 @@ def build_intake(
         "issue_body_sha256": hashlib.sha256(body.encode("utf-8")).hexdigest(),
         "task": task,
         "execution": {
-            "status": "validated-awaiting-claim",
+            "status": (
+                "validated-awaiting-claim"
+                if implementation_eligible is True
+                else "validated-awaiting-activation"
+                if binding is not None
+                else "validated-awaiting-claim"
+            ),
             "lease_claimed": False,
             "agent_dispatched": False,
             "model_called": False,
@@ -211,6 +231,8 @@ def build_intake(
     }
     if binding is not None:
         result["project_binding"] = binding
+        result["project_lifecycle"] = project_lifecycle
+        result["implementation_eligible"] = implementation_eligible
     return result
 
 

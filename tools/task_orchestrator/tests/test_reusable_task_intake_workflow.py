@@ -1,0 +1,33 @@
+import unittest
+from pathlib import Path
+
+
+ROOT = Path(__file__).resolve().parents[3]
+
+
+class ReusableTaskIntakeWorkflowTests(unittest.TestCase):
+    def test_reusable_workflow_checks_out_caller_and_trusted_control_plane_separately(self):
+        workflow = (ROOT / ".github/workflows/agent-task-intake-reusable.yml").read_text(encoding="utf-8")
+        self.assertIn("workflow_call:", workflow)
+        self.assertIn("actions/checkout@v4", workflow)
+        self.assertIn("repository: majidbusy09-blip/jetconfig-vpn", workflow)
+        self.assertIn("path: .jet-ai/central", workflow)
+        self.assertIn("PYTHONPATH: ${{ github.workspace }}/.jet-ai/central", workflow)
+        self.assertIn('python -m tools.task_orchestrator.github_issue_intake', workflow)
+        self.assertIn('"$GITHUB_EVENT_PATH"', workflow)
+        self.assertIn("contents: read", workflow)
+        self.assertIn("issues: read", workflow)
+        self.assertNotIn("contents: write", workflow)
+        self.assertNotIn("issues: write", workflow)
+
+    def test_first_party_intake_workflow_is_only_a_reusable_workflow_caller(self):
+        workflow = (ROOT / ".github/workflows/agent-task-intake.yml").read_text(encoding="utf-8")
+        self.assertIn("issues:", workflow)
+        self.assertIn("types: [opened, labeled, edited]", workflow)
+        self.assertIn("uses: ./.github/workflows/agent-task-intake-reusable.yml", workflow)
+        self.assertIn("contents: read", workflow)
+        self.assertIn("issues: read", workflow)
+
+
+if __name__ == "__main__":
+    unittest.main()

@@ -1,0 +1,53 @@
+name: JET AI - Reusable Cross-Repository Task Intake
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+  issues: read
+
+jobs:
+  validate-and-package:
+    if: >-
+      github.event.issue.pull_request == null &&
+      github.event.issue.state == 'open' &&
+      contains(github.event.issue.labels.*.name, 'agent-task')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout the calling repository at the event revision
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Checkout trusted JET AI control-plane tooling
+        uses: actions/checkout@v4
+        with:
+          repository: majidbusy09-blip/jetconfig-vpn
+          ref: main
+          path: .jet-ai/central
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Validate Issue and build read-only intake artifact
+        env:
+          PYTHONPATH: ${{ github.workspace }}/.jet-ai/central
+        run: |
+          set -euo pipefail
+          python -m tools.task_orchestrator.github_issue_intake \
+            --event-file "$GITHUB_EVENT_PATH" \
+            --output intake/task.json
+
+      - name: Upload validated task artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: agent-task-${{ github.event.issue.number }}
+          path: intake/task.json
+          if-no-files-found: error
+          retention-days: 14

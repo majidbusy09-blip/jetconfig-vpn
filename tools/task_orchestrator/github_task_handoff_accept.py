@@ -346,6 +346,7 @@ def _refresh_existing_task(
         expected_memory = {
             "version": memory.get("manifest_version"),
             "required_documents": memory.get("required_documents"),
+            "max_total_bytes": memory.get("max_total_bytes"),
         }
         if (record.get("project_memory_manifest") != expected_memory
                 or record.get("required_context") != expected_memory["required_documents"]):
@@ -417,13 +418,17 @@ def accept_handoff(
         memory = matches[0]["memory"]
         memory_version = memory.get("manifest_version")
         memory_paths = memory.get("required_documents")
+        memory_max_bytes = memory.get("max_total_bytes")
         if (isinstance(memory_version, bool) or not isinstance(memory_version, int)
                 or memory_version < 1 or not isinstance(memory_paths, list) or not memory_paths
                 or not all(isinstance(item, str) and item for item in memory_paths)
-                or len(memory_paths) != len(set(memory_paths))):
+                or len(memory_paths) != len(set(memory_paths))
+                or isinstance(memory_max_bytes, bool) or not isinstance(memory_max_bytes, int)
+                or memory_max_bytes < 1024):
             raise HandoffAcceptanceError("Trusted project memory manifest is malformed.")
         required_context = list(memory_paths)
-        project_memory_manifest = {"version": memory_version, "required_documents": list(memory_paths)}
+        project_memory_manifest = {"version": memory_version, "required_documents": list(memory_paths),
+                                   "max_total_bytes": memory_max_bytes}
         project_binding = {**manifest["project_binding"], "base_sha": base_sha}
     current_branch = orchestrator.run_git(root, "branch", "--show-current")
     if create_branch:
@@ -473,6 +478,7 @@ def accept_handoff(
             excluded_patterns=task["exclude"],
             project_binding=project_binding,
             memory_manifest_version=(project_memory_manifest or {}).get("version"),
+            memory_manifest_max_total_bytes=(project_memory_manifest or {}).get("max_total_bytes"),
         )
     except orchestrator.ContextBuildError as exc:
         raise HandoffAcceptanceError("Required project context is unavailable at the pinned base.") from exc

@@ -285,13 +285,19 @@ def validate_envelope(data: Any) -> dict:
         _git_sha(binding["base_sha"], "project_binding.base_sha")
         if binding["repository_full_name"] != repo["name"] or binding["base_sha"] != repo["base_sha"]:
             _fail("project_binding repository or base SHA differs from the envelope repository")
-        memory = _object(obj["memory_manifest"], "memory_manifest", {"version", "required_documents"})
+        memory = _object(obj["memory_manifest"], "memory_manifest", {"version", "required_documents", "max_total_bytes"})
         memory_version = memory["version"]
         if isinstance(memory_version, bool) or not isinstance(memory_version, int) or memory_version < 1:
             _fail("memory_manifest.version must be a positive integer")
         required_documents = _strings(memory["required_documents"], "memory_manifest.required_documents", maximum=MAX_FILES)
         if not required_documents or required_documents != [item["path"] for item in project_documents]:
             _fail("memory_manifest.required_documents must exactly match the ordered project_context documents")
+        memory_limit = memory["max_total_bytes"]
+        if isinstance(memory_limit, bool) or not isinstance(memory_limit, int) or memory_limit < 1024:
+            _fail("memory_manifest.max_total_bytes must be an integer of at least 1024")
+        project_bytes = sum(len(item["content"].encode("utf-8")) for item in project_documents)
+        if project_bytes > memory_limit:
+            _fail("project_context exceeds memory_manifest.max_total_bytes")
     semantic = _object(obj["semantic_context"], "semantic_context",
                        {"status", "source_sha", "summary", "limitations"})
     _enum(semantic["status"], {"current", "stale", "unavailable"}, "semantic_context.status")

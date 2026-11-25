@@ -96,7 +96,8 @@ def _verify_package(package: Any, task_id: str, base_sha: str, *, required_conte
         if package.get("project_binding") != project_binding or not isinstance(memory_manifest, dict):
             raise EnvelopeBuildError("Context package project identity differs from the persisted task binding.")
         expected_memory = {"version": memory_manifest.get("version"),
-                           "required_documents": list(required_context)}
+                           "required_documents": list(required_context),
+                           "max_total_bytes": memory_manifest.get("max_total_bytes")}
         if package.get("memory_manifest") != expected_memory or document_paths != list(required_context):
             raise EnvelopeBuildError("Context package documents differ from the trusted project memory manifest.")
     total = 0
@@ -149,8 +150,11 @@ def build_agent_envelope(record: dict, *, repository_name: str | None = None) ->
             raise EnvelopeBuildError("Task project identity is missing or differs from the pinned base SHA.")
         if not isinstance(memory_manifest, dict) or set(memory_manifest) != {"version", "required_documents"}:
             raise EnvelopeBuildError("Task project memory manifest is missing or malformed.")
-        if memory_manifest.get("required_documents") != required_context:
-            raise EnvelopeBuildError("Task required-context paths differ from the persisted project memory manifest.")
+        if (memory_manifest.get("required_documents") != required_context
+                or isinstance(memory_manifest.get("max_total_bytes"), bool)
+                or not isinstance(memory_manifest.get("max_total_bytes"), int)
+                or memory_manifest["max_total_bytes"] < 1024):
+            raise EnvelopeBuildError("Task required-context paths or byte limit differ from the persisted project memory manifest.")
     package = _verify_package(record.get("context_package"), task_id, base_sha,
                               required_context=required_context, project_binding=project_binding,
                               memory_manifest=memory_manifest)
@@ -238,6 +242,7 @@ def build_agent_envelope(record: dict, *, repository_name: str | None = None) ->
         envelope["memory_manifest"] = {
             "version": memory_manifest["version"],
             "required_documents": list(required_context),
+            "max_total_bytes": memory_manifest["max_total_bytes"],
         }
     try:
         validate_envelope(envelope)

@@ -105,7 +105,7 @@ def build_issue_lease_request(event: Any) -> dict[str, Any]:
     if not isinstance(issue_url, str) or not issue_url.startswith("https://github.com/"):
         raise IssueLeaseCommandError("Issue URL is invalid.")
     try:
-        task = validate_issue_body(issue.get("body"))
+        task = validate_issue_body(issue.get("body"), repository_metadata=repository, allow_legacy_jet_vpn=True)
     except GitHubTaskError as exc:
         raise IssueLeaseCommandError("Issue task payload is invalid.") from exc
     command = parse_lease_comment(comment.get("body"))

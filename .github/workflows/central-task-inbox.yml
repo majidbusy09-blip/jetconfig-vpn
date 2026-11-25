@@ -83,10 +83,12 @@ jobs:
           from pathlib import Path
           archive = Path("/tmp/task-artifact.zip")
           with zipfile.ZipFile(archive) as zf:
-              names = zf.namelist()
-              if len(names) != 1 or names[0] not in {"task.json", "intake/task.json"}:
-                  raise SystemExit(f"Unexpected artifact archive entries: {names!r}")
-              data = zf.read(names[0])
+              entries = zf.infolist()
+              if len(entries) != 1 or entries[0].filename not in {"task.json", "intake/task.json"}:
+                  raise SystemExit(f"Unexpected artifact archive entries: {[item.filename for item in entries]!r}")
+              if entries[0].file_size < 1 or entries[0].file_size > 256_000:
+                  raise SystemExit("Task artifact entry is empty or exceeds the configured size limit.")
+              data = zf.read(entries[0])
           if not data or len(data) > 256_000:
               raise SystemExit("Task artifact is empty or exceeds the configured limit.")
           Path("/tmp/task.json").write_bytes(data)
@@ -105,16 +107,9 @@ jobs:
           fi
 
       - name: Persist validated task in central inbox
-        env:
-          CROSS_REPO_TOKEN: ${{ secrets.JET_AI_CROSS_REPO_READ_TOKEN }}
         run: |
           set -euo pipefail
           REPO="$(python -c 'import json;print(json.load(open("/tmp/validated-dispatch.json"))["target_repository"])')"
-          curl --fail --silent --show-error --location \
-            -H "Authorization: Bearer $CROSS_REPO_TOKEN" \
-            -H "Accept: application/vnd.github+json" \
-            https://api.github.com/repos/"$REPO" \
-            --output /tmp/repository-metadata.json
           python -m tools.task_orchestrator.github_task_inbox \
             --artifact /tmp/task.json \
             --repository-metadata /tmp/repository-metadata.json

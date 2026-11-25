@@ -683,3 +683,13 @@ PR #101 remains Draft and unmerged for human review. No review submissions or re
 - Reviewed `pubspec.lock` from CI artifact `14998203164`: 101 resolved packages, 23,577 bytes, compatible with pinned SDKs. It remains untracked on target main pending a separate reproducible commit/PR.
 - PR #111 became non-mergeable because its base was superseded by PR #109. Its changes are being transferred to a clean branch from current main; stale PR #111 will not be force-merged.
 - No target app source/version, signing, release/deployment, production setting, credential, or project activation changes were made.
+
+
+## 2026-11-25 — Phase 2D-2B implementation started
+
+- Added project_artifact_namespace.py and adversarial tests for identity-derived generated paths, cache keys, audit paths, workflow artifact names, symlink rejection, and v1 compatibility.
+- Extended local patch artifact storage with a project/repository/manifest/source namespace. Provider-result ingestion derives this from the persisted task record, and the review gate rejects a store from another project or source revision.
+- Added Dart ProjectArtifactIdentity: canonical manifest digest, GitHub origin comparison, exact HEAD pin, namespace paths, and artifact-name generation.
+- Extended the analyzer-resolved index and critical-path report metadata; updated their CLIs for explicit project manifest/revision inputs while preserving default v1 output paths.
+- Workflow YAML was deliberately left unchanged because workflow paths are protected; workflow artifact naming remains a separate reviewed integration step.
+- Draft PR #113 created for early CI feedback. No target app source, signing, release, activation, provider invocation, or patch application.

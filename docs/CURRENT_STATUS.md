@@ -315,7 +315,7 @@ The project-scoped lease resolver is now also wired into the trusted PR guard an
 - PR #103 merged: manifest-selected project memory and v2 context/envelope binding.
 - PR #107 merged: project-scoped lease refs/records and workspace IDs. Main SHA after merge: `dcf754ac5b22691687ebe0d9ec0f88623e4265b5`.
 - PR #109 is Draft/open for Issue #106 (Phase 2D-2A). It introduces project-scoped local task records, context/handoff/agent-input metadata paths, project-aware metadata filtering/fingerprinting, ambiguity rejection, and project-specific local task branches. Legacy v1 JET VPN paths are preserved.
-- The latest reviewed PR head is `7b2dedc8e5c97d626fa7957708d7bd38ea9ac728`; exact-head CI is being rerun after final path-binding validation changes. Do not claim PR #109 complete until all required workflows pass on this exact head.
+- The final verified PR #109 head is `7acce911e1fe5e61077bc77749d401cad9492f2d`. Exact-head checks passed: 448 Task Orchestrator tests (run `45551100959`), Non-production PR Validation (`45551100865`), Project Memory Audit (`45551100829`), and Agent PR Lease and Scope Guard (`45551097893`). PR #109 remains Draft/open for review and has not been merged.
 - Issue #108 (Phase 2D-2B) remains queued until #106 is reviewed and merged.
 - حسابگر من repository ID `1423683236` remains unregistered/inactive; no target-repository writes have been made.
 - The workflow artifact-upload wildcard remains a known issue because `.github/workflows/**` is protected from this task; a separate reviewed task is required.

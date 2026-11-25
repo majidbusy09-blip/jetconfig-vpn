@@ -665,6 +665,6 @@ PR #101 remains Draft and unmerged for human review. No review submissions or re
 - Implemented project-aware local task path derivation and resolution. V2 records are stored under `.agent/tasks/<project_id>/<repository_id>/<task_id>/`; legacy v1 remains at `.agent/tasks/<task_id>/`.
 - Added fail-closed ambiguity handling, persisted-binding/path consistency checks, symlink rejection, metadata-path classification scoped to the exact project directory, and project-specific local task branch names.
 - Updated handoff acceptance and refresh to use the validated project binding and namespaced directory; v2 handoff integration tests assert the exact path and branch.
-- Draft PR #109 opened. Exact-head CI is pending on final head `7b2dedc8e5c97d626fa7957708d7bd38ea9ac728`.
+- Draft PR #109 opened. Exact-head CI passed on final head `7acce911e1fe5e61077bc77749d401cad9492f2d`: 448 Task Orchestrator tests (run `45551100959`), Non-production PR Validation (`45551100865`), Project Memory Audit (`45551100829`), and Agent PR Lease and Scope Guard (`45551097893`). PR #109 remains Draft/open for human review.
 - Protected workflow upload step remains unchanged; its broad glob is explicitly deferred to a separate reviewed task because `.github/workflows/**` is protected.
 - No external repository writes, app-source changes, activation, paid API, provider spend, release/deploy, or untrusted-code execution.

@@ -222,3 +222,26 @@ Onboarding does not:
 - merge code or change production settings.
 
 Any capability outside read-only discovery requires a separately scoped task, valid project identity, active lease, and the relevant explicit approval.
+
+
+## 7. Verified حسابگر من discovery — 2026-11-25
+
+The owner supplied the exact repository URL and the live GitHub identity was independently fetched:
+
+- Repository: `majidbusy09-blip/hesabgar_man`
+- URL: `https://github.com/majidbusy09-blip/hesabgar_man`
+- Immutable repository ID: `1423683236`
+- Default branch: `main`
+- Inspected source baseline: `a07992d3f4721fe1524bd093502f08171dafc92b`
+- Package: `hesabgar_man`; version: `1.0.9+10`
+- Project ID approved in Issue #105 task payload: `hesabgar-man`
+
+The repository contains a Flutter/Dart application under `lib/`, tests under `test/`, a `pubspec.yaml`, and an existing release-oriented `.github/workflows/build.yml`. That release workflow is not used for pull-request validation.
+
+A separate target-repository PR adds project memory and a read-only Flutter validation workflow pinned to Flutter 3.27.4. The initial validation attempt passed static analysis but failed tests because the repository's declared Vazirmatn font assets are downloaded only by the existing release workflow and are not committed in the source tree. The PR validation workflow was updated to stage the same pinned font release before tests; the rerun must pass before the Flutter profiles are marked verified.
+
+The inspected source-index implementation has a reusable multi-file Dart analyzer library, but its current CLI derives the repository root from a JET VPN-specific directory layout and writes `jet_vpn_*` artifacts. It is not a safe drop-in adapter for حسابگر من. The initial manifest therefore declares no source index; a project-neutral adapter is a separate reviewed task.
+
+The inspected baseline has no committed `pubspec.lock`. Dependency resolution therefore remains less reproducible than a lockfile-pinned app build. Do not claim full reproducibility until a reviewed lockfile is committed.
+
+Dry-run onboarding remains read-only and the manifest lifecycle stays `registered`. Missing CI evidence, target PR merge, and source-index policy keep the overall state at `NEEDS_REVIEW`; no activation is authorized.

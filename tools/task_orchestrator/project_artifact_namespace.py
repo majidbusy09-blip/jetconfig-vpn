@@ -204,6 +204,7 @@ def ensure_namespace_directory(
     *,
     project_binding: dict[str, Any],
     source_revision: str,
+    relative_directory: str | None = None,
 ) -> Path:
     """Create and verify a project-scoped directory without following symlinks."""
     if not isinstance(category, str) or not CATEGORY_RE.fullmatch(category):
@@ -213,6 +214,8 @@ def ensure_namespace_directory(
         raise ProjectArtifactNamespaceError("Artifact root must be an existing regular directory.")
     resolved_root = supplied.resolve(strict=True)
     segments = ("projects",) + namespace_segments(project_binding, source_revision) + (category,)
+    if relative_directory is not None:
+        segments += _safe_relative(relative_directory, "Artifact namespace subdirectory")
     current = resolved_root
     for segment in segments:
         current = current / segment

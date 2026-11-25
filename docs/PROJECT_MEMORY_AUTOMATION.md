@@ -95,3 +95,5 @@ Then generate the critical-path report from the same pinned identity:
 Outputs are isolated under docs/generated/projects/<project_id>/<repository_id>/<manifest_sha256>/<source_revision>/indexes/. The resolved index and critical-path report carry the binding and source revision; report generation rejects a mismatched index. Project-aware cache keys, audit paths, and future workflow artifact names use the same identity tuple.
 
 Calling either CLI without project options preserves the existing v1 paths: docs/generated/jet_vpn_resolved_index.json and docs/generated/jet_vpn_critical_paths.json. The legacy single-file AST candidate index also remains unchanged. Actual workflow YAML artifact upload wiring is deferred because workflow paths are protected by the current task protocol; the pure naming helper is available for that separately reviewed change.
+
+The fixture-only dispatch audit writer uses the same v2 audit namespace and rejects an output override that would escape it. The v1 command continues to require and honor its explicit output path.

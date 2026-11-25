@@ -90,7 +90,7 @@ Future<void> main(List<String> args) async {
     }
     final resolvedIndex = jsonDecode(await indexFile.readAsString()) as Map<String, Object?>;
     if (identity != null &&
-        (resolvedIndex['project_binding'] != identity.binding ||
+        (!identity.matchesBinding(resolvedIndex['project_binding']) ||
          resolvedIndex['source_revision'] != identity.sourceRevision)) {
       stderr.writeln('Resolved index belongs to a different project, manifest, or source revision.');
       exitCode = 2;

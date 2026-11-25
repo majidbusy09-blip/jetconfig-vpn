@@ -346,3 +346,11 @@ The project/repository task namespace scan now owns both `os.scandir` iterators 
 - PR #113 implements this phase; exact-head Python, Dart semantic tooling, validation, memory-audit, and lease/scope checks are required before merge. No patch is applied, no provider is called, and no untrusted code is executed.
 
 - The fixture-only dispatch audit writer now stores v2 audit output under the project/manifest/source namespace and rejects unscoped output overrides; legacy v1 output behavior remains intact.
+
+
+## Post-merge state — 2026-11-25
+
+- Phase 2D-2B PR #113 is merged as `1a6911431c27523631c9b707a2ff74be06baf571`; exact-head Python, validation, semantic-index, critical-path, deterministic-generation, task-intelligence, lexical-index, and lease/scope checks passed.
+- Issue #108 is closed as completed and its lease is verified released. Issue #114 tracks only the deferred workflow artifact upload-name wiring; it is deliberately unclaimed and has no `agent-task` label pending explicit protected-path approval.
+- Phase 2D-2A PR #109, حسابگر من target PR #2, and central onboarding PR #112 are also merged. Stale PR #111 was closed without merging.
+- حسابگر من remains `registered`, not active. Target memory/CI is on target `main`; `pubspec.lock` remains an uncommitted CI artifact and generic indexing has not yet been smoke-tested against the target checkout. App version remains `1.0.9+10`.

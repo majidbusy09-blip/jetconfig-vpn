@@ -46,6 +46,11 @@ jobs:
         with:
           fetch-depth: 1
 
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
       - name: Resolve project-scoped artifact names
         id: artifact_names
         env:
@@ -108,11 +113,6 @@ jobs:
           cmp "$RUNNER_TEMP/semantic-index-first.json" ../../../docs/generated/jet_vpn_semantic_index.json
           cmp "$RUNNER_TEMP/resolved-index-first.json" ../../../docs/generated/jet_vpn_resolved_index.json
           cmp "$RUNNER_TEMP/critical-paths-first.json" ../../../docs/generated/jet_vpn_critical_paths.json
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
 
       - name: Smoke-test task intelligence against the real generated source index
         if: ${{ hashFiles('tools/task_orchestrator/context_selector.py', 'tools/task_orchestrator/impact_analyzer.py') != '' }}

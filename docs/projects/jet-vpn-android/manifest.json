@@ -1,0 +1,104 @@
+{
+  "schema_version": 1,
+  "project_id": "jet-vpn-android",
+  "display_name": "JET VPN Android",
+  "repository": {
+    "provider": "github",
+    "repository_id": "1349356614",
+    "full_name": "majidbusy09-blip/jetconfig-vpn",
+    "url": "https://github.com/majidbusy09-blip/jetconfig-vpn",
+    "default_branch": "main"
+  },
+  "lifecycle": "registered",
+  "project_type": "flutter_android",
+  "languages": [
+    {
+      "name": "Dart",
+      "primary": true
+    },
+    {
+      "name": "Java",
+      "primary": false
+    },
+    {
+      "name": "Python",
+      "primary": false
+    },
+    {
+      "name": "YAML",
+      "primary": false
+    }
+  ],
+  "toolchains": [
+    {
+      "id": "flutter",
+      "required": true,
+      "version_source": "pubspec.yaml and CI setup"
+    },
+    {
+      "id": "python",
+      "required": true,
+      "version": "3.12"
+    }
+  ],
+  "memory": {
+    "manifest_version": 1,
+    "required_documents": [
+      "AGENTS.md",
+      "docs/PROJECT_CONTEXT.md",
+      "docs/CURRENT_STATUS.md",
+      "docs/NEXT_STEPS.md",
+      "docs/DEVELOPMENT_LOG.md"
+    ],
+    "optional_documents": [
+      "docs/DECISIONS.md",
+      "docs/KNOWN_ISSUES.md"
+    ],
+    "max_total_bytes": 512000,
+    "survival_check": "tracked-regular-file-at-exact-head"
+  },
+  "source_index": {
+    "strategy": "dart_analyzer",
+    "input_paths": [
+      "lib"
+    ],
+    "generated_artifacts": [
+      "docs/generated/jet_vpn_code_index.json"
+    ],
+    "freshness_check": "python tools/project_memory/index_dart.py --check --check-status"
+  },
+  "verification": {
+    "required_profiles": [
+      "python-tooling-tests",
+      "flutter-analysis",
+      "flutter-tests"
+    ],
+    "supported_profiles": [
+      "python-tooling-tests",
+      "flutter-analysis",
+      "flutter-tests",
+      "lexical-memory-audit"
+    ],
+    "capabilities": [
+      "unit_tests",
+      "static_analysis",
+      "build",
+      "memory_audit",
+      "source_index"
+    ]
+  },
+  "protected_paths": [
+    "android/key.properties",
+    "android/app/key.properties",
+    "secrets"
+  ],
+  "operational_constraints": {
+    "maximum_task_risk": "medium",
+    "external_network": "read_only_allowlist",
+    "release_requires_human_approval": true,
+    "deploy_requires_human_approval": true,
+    "untrusted_code_execution": false,
+    "paid_model_api": false,
+    "credentials_in_manifest": false
+  }
+}

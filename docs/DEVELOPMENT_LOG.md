@@ -674,3 +674,12 @@ PR #101 remains Draft and unmerged for human review. No review submissions or re
 
 - The latest 450-test run passed, including the new project- and repository-level symlink tests, but emitted ResourceWarning because fail-closed exceptions interrupted bare `os.scandir` iteration.
 - Wrapped both namespace scans in context managers so iterators close on normal completion and early exceptions. Fresh exact-head validation is pending.
+
+
+## 2026-11-25 — onboarding and Phase 2D-2A merge reconciliation
+
+- Squash-merged Phase 2D-2A PR #109 as `30a665c29fe658b37139c8e232b2411f6e59305a` after exact-head checks passed.
+- Squash-merged target حسابگر من PR #2 as `177eb1a1f0ae8ae5a77a2c1c136804dff042d5db`; Flutter 3.27.4 / Dart 3.6.2 static analysis and 74 tests passed on the PR head.
+- Reviewed `pubspec.lock` from CI artifact `14998203164`: 101 resolved packages, 23,577 bytes, compatible with pinned SDKs. It remains untracked on target main pending a separate reproducible commit/PR.
+- PR #111 became non-mergeable because its base was superseded by PR #109. Its changes are being transferred to a clean branch from current main; stale PR #111 will not be force-merged.
+- No target app source/version, signing, release/deployment, production setting, credential, or project activation changes were made.

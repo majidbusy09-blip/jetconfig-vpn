@@ -73,6 +73,10 @@ class ProjectNamespaceTests(unittest.TestCase):
     def test_task_path_rejects_invalid_project_namespace(self):
         with self.assertRaises(ProjectNamespaceError):
             task_record_path("../escape", BINDING_A)
+        with self.assertRaises(ProjectNamespaceError):
+            task_record_path("same-task", dict(BINDING_A, base_sha="../escape"))
+        with self.assertRaises(ProjectNamespaceError):
+            task_record_path("same-task", dict(BINDING_A, unexpected="ignored"))
 
 
 if __name__ == "__main__":

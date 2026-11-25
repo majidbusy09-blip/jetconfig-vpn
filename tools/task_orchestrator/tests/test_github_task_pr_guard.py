@@ -6,7 +6,8 @@ from pathlib import Path
 import unittest
 from unittest.mock import patch
 
-from tools.task_orchestrator.github_lease import make_lease
+from tools.task_orchestrator.github_lease import make_lease, lock_branch
+from tools.task_orchestrator.project_namespace import lease_record_path
 from tools.task_orchestrator.github_task_pr_guard import (
     GuardError, parse_pr_envelope, validate_paths, validate_agent_pr,
 )
@@ -96,9 +97,15 @@ def event(pr_body_text=None):
 
 
 def api_responses(*, lease_status="active", expires="2026-11-23T11:00:00Z",
-                  assigned="any", merge_base=BASE, files=None, issue_body=None):
+                  assigned="any", merge_base=BASE, files=None, issue_body=None,
+                  lease_record_binding=None):
+    expected_binding = v2_project_binding() if isinstance(issue_body, str) and "<!-- jet-agent-task:v2 -->" in issue_body else None
+    record_binding = expected_binding if lease_record_binding is None else lease_record_binding
     lease = make_lease(task_id="sample-task", owner="chatgpt", claim_id=CLAIM,
-                       base_sha=BASE, now="2026-11-23T10:00:00Z", duration_minutes=60)
+                       base_sha=BASE, now="2026-11-23T10:00:00Z", duration_minutes=60,
+                       project_binding=record_binding)
+    lease_branch = lock_branch("sample-task", expected_binding)
+    lease_path = lease_record_path("sample-task", expected_binding)
     lease["status"] = lease_status
     lease["expires_at"] = expires
     encoded = base64.b64encode((json.dumps(lease) + "\n").encode()).decode()
@@ -109,9 +116,9 @@ def api_responses(*, lease_status="active", expires="2026-11-23T11:00:00Z",
         if path == "/issues/42":
             return {"number": 42, "state": "open", "labels": [{"name": "agent-task"}],
                     "body": issue_body if issue_body is not None else task_body(assigned)}
-        if path == "/git/ref/heads/agent-locks/sample-task":
+        if path == "/git/ref/heads/" + urllib.parse.quote(lease_branch, safe="/-"):
             return {"object": {"sha": LOCK, "type": "commit"}}
-        if path.startswith("/contents/.agent-locks/lease.json?"):
+        if path.startswith("/contents/" + urllib.parse.quote(lease_path, safe="/.") + "?"):
             return {"encoding": "base64", "content": encoded}
         if path.startswith("/compare/"):
             return {"merge_base_commit": {"sha": merge_base}}
@@ -275,6 +282,23 @@ class TaskPRGuardTests(unittest.TestCase):
         for item in (bad_base, bad_head):
             with self.subTest(item=item), self.assertRaises(GuardError):
                 validate_agent_pr(item, token="read-token", repository=REPOSITORY)
+
+    def test_v2_pr_guard_rejects_lease_from_another_project(self):
+        issue_body = v2_task_body()
+        other = dict(v2_project_binding(), project_id="other-flutter-app",
+                     repository_id="999999999", repository_full_name="owner/other",
+                     manifest_sha256="f" * 64)
+        with patch(
+            "tools.task_orchestrator.github_task_pr_guard.api_get",
+            side_effect=api_responses(issue_body=issue_body, lease_record_binding=other),
+        ), patch(
+            "tools.task_orchestrator.github_task_pr_guard.load_project_configuration",
+            return_value=(PROJECT_SCHEMA, [ACTIVE_MANIFEST]),
+        ), self.assertRaises(GuardError):
+            validate_agent_pr(
+                event(pr_body_v2(issue_body)), token="read-token", repository=REPOSITORY,
+                now="2026-11-23T10:30:00Z",
+            )
 
 
 if __name__ == "__main__":

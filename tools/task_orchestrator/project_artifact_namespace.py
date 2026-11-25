@@ -94,7 +94,7 @@ def namespaced_relative_path(
     if project_binding is None:
         if source_revision is not None:
             raise ProjectArtifactNamespaceError("A source revision cannot be supplied without a project binding.")
-        return PurePosixPath(relative_path).as_posix()
+        return PurePosixPath(*_safe_relative(relative_path, "Artifact relative path")).as_posix()
     if not isinstance(category, str) or not CATEGORY_RE.fullmatch(category):
         raise ProjectArtifactNamespaceError("Artifact category is invalid.")
     if source_revision is None:
@@ -126,6 +126,28 @@ def index_output_paths(
             "semantic": "semantic_index.json",
         }.items()
     }
+
+
+def cache_relative_path(
+    cache_name: str,
+    *,
+    project_binding: dict[str, Any] | None = None,
+    source_revision: str | None = None,
+) -> str:
+    """Return the exact legacy cache name or a source-bound v2 cache path."""
+    if not isinstance(cache_name, str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,127}", cache_name):
+        raise ProjectArtifactNamespaceError("Cache name is invalid.")
+    return namespaced_relative_path("cache", cache_name, project_binding=project_binding, source_revision=source_revision)
+
+
+def audit_record_path(
+    record_name: str,
+    *,
+    project_binding: dict[str, Any] | None = None,
+    source_revision: str | None = None,
+) -> str:
+    """Return a project/source-bound audit record path."""
+    return namespaced_relative_path("audit", record_name, project_binding=project_binding, source_revision=source_revision)
 
 
 def cache_key(

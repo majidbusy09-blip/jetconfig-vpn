@@ -8,6 +8,7 @@ from __future__ import annotations
 import hashlib
 import os
 import re
+import secrets
 import stat
 from pathlib import Path
 from typing import Any
@@ -16,6 +17,7 @@ from .patch_pipeline import PatchPipelineError, validate_completed_patch
 from .project_artifact_namespace import (
     ProjectArtifactNamespaceError,
     ensure_namespace_directory,
+    namespace_segments,
     verify_store_namespace,
 )
 
@@ -50,6 +52,7 @@ class LocalPatchArtifactStore:
             if source_revision is not None:
                 raise PatchArtifactError("A source revision cannot be supplied without a project binding.")
             self.root = self.base_root
+            self.namespace_segments: tuple[str, ...] = ()
         else:
             if source_revision is None:
                 raise PatchArtifactError("A project-scoped artifact store requires a pinned source revision.")
@@ -58,9 +61,40 @@ class LocalPatchArtifactStore:
                     self.base_root, "patches", project_binding=project_binding,
                     source_revision=source_revision,
                 )
+                self.namespace_segments = (
+                    ("projects",) + namespace_segments(project_binding, source_revision) + ("patches",)
+                )
             except ProjectArtifactNamespaceError as exc:
                 raise PatchArtifactError("Project artifact namespace is invalid or unsafe.") from exc
         self.max_bytes = max_bytes
+
+    def _open_store_directory(self) -> int:
+        """Open the root and namespace by descriptor-relative no-follow traversal."""
+        if not hasattr(os, "O_DIRECTORY") or not hasattr(os, "O_NOFOLLOW"):
+            raise PatchArtifactError("Safe no-follow directory operations are unavailable.")
+        if os.open not in getattr(os, "supports_dir_fd", set()):
+            raise PatchArtifactError("Descriptor-relative artifact operations are unavailable.")
+        flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
+        parts = self.base_root.parts
+        if not self.base_root.is_absolute() or not parts or parts[0] != os.sep:
+            raise PatchArtifactError("Artifact root must be an absolute resolved directory.")
+        try:
+            current = os.open(os.sep, flags)
+            try:
+                for segment in parts[1:] + self.namespace_segments:
+                    child = os.open(segment, flags, dir_fd=current)
+                    metadata = os.fstat(child)
+                    if not stat.S_ISDIR(metadata.st_mode):
+                        os.close(child)
+                        raise PatchArtifactError("Artifact namespace contains a non-directory component.")
+                    os.close(current)
+                    current = child
+                return current
+            except Exception:
+                os.close(current)
+                raise
+        except OSError as exc:
+            raise PatchArtifactError("Artifact namespace could not be opened safely.") from exc
 
     def assert_namespace(self, project_binding: dict | None, source_revision: str) -> None:
         """Verify this store belongs to the exact task project and pinned source."""
@@ -71,14 +105,14 @@ class LocalPatchArtifactStore:
         except ProjectArtifactNamespaceError as exc:
             raise PatchArtifactError("Artifact store belongs to a different project or source revision.") from exc
 
-    def _path_for_ref(self, artifact_ref: str) -> tuple[str, Path]:
+    def _path_for_ref(self, artifact_ref: str) -> tuple[str, str]:
         if not isinstance(artifact_ref, str):
             raise PatchArtifactError("Artifact reference must be text.")
         match = _ARTIFACT_RE.fullmatch(artifact_ref)
         if not match:
             raise PatchArtifactError("Artifact reference must be artifact:sha256:<64 lowercase hex characters>.")
         digest = match.group(1)
-        return digest, self.root / (digest + ".patch")
+        return digest, digest + ".patch"
 
     def store_patch(self, patch_text: str) -> str:
         """Persist exact patch text without overwriting an existing digest path."""
@@ -92,72 +126,92 @@ class LocalPatchArtifactStore:
             raise PatchArtifactError("Patch is empty or exceeds the configured artifact size limit.")
         digest = hashlib.sha256(encoded).hexdigest()
         artifact_ref = "artifact:sha256:" + digest
-        _, target = self._path_for_ref(artifact_ref)
-        flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
-        if hasattr(os, "O_NOFOLLOW"):
-            flags |= os.O_NOFOLLOW
+        _, filename = self._path_for_ref(artifact_ref)
+        directory = self._open_store_directory()
+        temporary = ".tmp-" + secrets.token_hex(12)
+        descriptor = None
+        published = False
         try:
-            descriptor = os.open(target, flags, 0o600)
+            descriptor = os.open(
+                temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
+                0o600, dir_fd=directory,
+            )
+            view = memoryview(encoded)
+            while view:
+                written = os.write(descriptor, view)
+                if written <= 0:
+                    raise PatchArtifactError("Patch artifact write made no progress.")
+                view = view[written:]
+            os.fsync(descriptor)
+            os.close(descriptor)
+            descriptor = None
+            # Atomic immutable publication; a pre-existing digest path is never replaced.
+            os.link(temporary, filename, src_dir_fd=directory, dst_dir_fd=directory, follow_symlinks=False)
+            published = True
+            os.fsync(directory)
         except FileExistsError:
-            # Content-addressed collisions must contain exactly the same bytes.
             existing = self.load_patch(artifact_ref)
             if existing != patch_text:
                 raise PatchArtifactError("Existing artifact at this digest does not match its reference.")
             return artifact_ref
         except OSError as exc:
-            raise PatchArtifactError("Could not create the patch artifact safely.") from exc
-        try:
-            with os.fdopen(descriptor, "wb") as stream:
-                stream.write(encoded)
-                stream.flush()
-                os.fsync(stream.fileno())
-        except Exception:
+            if published:
+                try:
+                    os.unlink(filename, dir_fd=directory)
+                except OSError:
+                    pass
+            raise PatchArtifactError("Could not publish the patch artifact safely.") from exc
+        finally:
+            if descriptor is not None:
+                os.close(descriptor)
             try:
-                target.unlink()
-            except OSError:
+                os.unlink(temporary, dir_fd=directory)
+            except FileNotFoundError:
                 pass
-            raise
+            os.close(directory)
         return artifact_ref
 
     def load_patch(self, artifact_ref: str) -> str:
         """Read a regular non-symlink artifact and verify its exact digest."""
-        digest, target = self._path_for_ref(artifact_ref)
+        digest, filename = self._path_for_ref(artifact_ref)
+        directory = self._open_store_directory()
+        descriptor = None
         try:
-            metadata = target.lstat()
-        except FileNotFoundError as exc:
-            raise PatchArtifactError("Patch artifact does not exist in the local store.") from exc
-        except OSError as exc:
-            raise PatchArtifactError("Patch artifact metadata could not be read.") from exc
-        if stat.S_ISLNK(metadata.st_mode) or not stat.S_ISREG(metadata.st_mode):
-            raise PatchArtifactError("Patch artifact must be a regular non-symlink file.")
-        if metadata.st_size < 1 or metadata.st_size > self.max_bytes:
-            raise PatchArtifactError("Patch artifact is empty or exceeds the configured size limit.")
-        flags = os.O_RDONLY
-        if hasattr(os, "O_NOFOLLOW"):
-            flags |= os.O_NOFOLLOW
-        try:
-            descriptor = os.open(target, flags)
-        except OSError as exc:
-            raise PatchArtifactError("Patch artifact could not be opened safely.") from exc
-        try:
-            opened = os.fstat(descriptor)
-            if not stat.S_ISREG(opened.st_mode) or opened.st_size != metadata.st_size:
-                raise PatchArtifactError("Patch artifact changed while it was being opened.")
-            with os.fdopen(descriptor, "rb") as stream:
-                raw = stream.read(self.max_bytes + 1)
-        except Exception:
             try:
+                descriptor = os.open(filename, os.O_RDONLY | os.O_NOFOLLOW, dir_fd=directory)
+            except FileNotFoundError as exc:
+                raise PatchArtifactError("Patch artifact does not exist in the local store.") from exc
+            except OSError as exc:
+                raise PatchArtifactError("Patch artifact could not be opened safely.") from exc
+            metadata = os.fstat(descriptor)
+            if not stat.S_ISREG(metadata.st_mode):
+                raise PatchArtifactError("Patch artifact must be a regular non-symlink file.")
+            if metadata.st_size < 1 or metadata.st_size > self.max_bytes:
+                raise PatchArtifactError("Patch artifact is empty or exceeds the configured size limit.")
+            raw = bytearray()
+            while len(raw) <= self.max_bytes:
+                chunk = os.read(descriptor, min(65536, self.max_bytes + 1 - len(raw)))
+                if not chunk:
+                    break
+                raw.extend(chunk)
+            after = os.fstat(descriptor)
+            stable = (
+                after.st_dev == metadata.st_dev and after.st_ino == metadata.st_ino
+                and after.st_size == metadata.st_size
+                and after.st_mtime_ns == metadata.st_mtime_ns
+                and after.st_ctime_ns == metadata.st_ctime_ns
+            )
+            if len(raw) != metadata.st_size or len(raw) > self.max_bytes or not stable:
+                raise PatchArtifactError("Patch artifact changed while being read or exceeded its size limit.")
+        finally:
+            if descriptor is not None:
                 os.close(descriptor)
-            except OSError:
-                pass
-            raise
-        if len(raw) != metadata.st_size or len(raw) > self.max_bytes:
-            raise PatchArtifactError("Patch artifact size changed or exceeded the configured limit.")
+            os.close(directory)
         actual = hashlib.sha256(raw).hexdigest()
         if actual != digest:
             raise PatchArtifactError("Patch artifact SHA-256 verification failed.")
         try:
-            return raw.decode("utf-8", errors="strict")
+            return bytes(raw).decode("utf-8", errors="strict")
         except UnicodeDecodeError as exc:
             raise PatchArtifactError("Patch artifact is not valid UTF-8.") from exc
 

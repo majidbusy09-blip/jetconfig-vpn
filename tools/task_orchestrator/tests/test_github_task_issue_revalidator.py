@@ -5,7 +5,8 @@ from tools.task_orchestrator.github_task_issue_revalidator import (
     RevalidationError, revalidate_issue_event,
 )
 
-REPOSITORY = "owner/repository"
+REPOSITORY = "majidbusy09-blip/jetconfig-vpn"
+REPOSITORY_METADATA = {"id": 1349356614, "full_name": REPOSITORY, "html_url": "https://github.com/" + REPOSITORY, "default_branch": "main"}
 
 
 def task_body():
@@ -25,7 +26,7 @@ def task_body():
 def issue_event(action="edited"):
     return {
         "action": action,
-        "repository": {"full_name": REPOSITORY},
+        "repository": dict(REPOSITORY_METADATA),
         "issue": {
             "number": 42, "state": "open", "body": task_body(),
             "labels": [{"name": "agent-task"}],
@@ -48,7 +49,7 @@ class TaskIssueRevalidatorTests(unittest.TestCase):
         event["label"] = {"name": "agent-task"}
         with patch(
             "tools.task_orchestrator.github_task_issue_revalidator.api_get",
-            return_value=[],
+            side_effect=[REPOSITORY_METADATA, []],
         ) as api:
             result = revalidate_issue_event(event, token="read-token", repository=REPOSITORY)
         self.assertEqual(result["status"], "revalidated")
@@ -72,7 +73,7 @@ class TaskIssueRevalidatorTests(unittest.TestCase):
         }
         with patch(
             "tools.task_orchestrator.github_task_issue_revalidator.api_get",
-            return_value=[pr],
+            side_effect=[REPOSITORY_METADATA, [pr]],
         ), patch(
             "tools.task_orchestrator.github_task_issue_revalidator.validate_agent_pr",
             return_value={"status": "validated-agent-pr", "pr_number": 9},

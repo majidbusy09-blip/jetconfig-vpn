@@ -10,6 +10,8 @@ from tools.task_orchestrator.github_issue_lease_command import (
 CLAIM_A = "a" * 16
 CLAIM_B = "b" * 16
 BASE = "c" * 40
+JET_REPOSITORY = "majidbusy09-blip/jetconfig-vpn"
+JET_METADATA = {"id": 1349356614, "full_name": JET_REPOSITORY, "html_url": "https://github.com/" + JET_REPOSITORY, "default_branch": "main"}
 
 
 def issue_event(comment_body, *, assigned_agent="any", association="OWNER"):
@@ -28,13 +30,13 @@ def issue_event(comment_body, *, assigned_agent="any", association="OWNER"):
     body = "<!-- jet-agent-task:v1 -->\n\n" + "\x60\x60\x60json\n" + json.dumps(payload) + "\n\x60\x60\x60"
     return {
         "action": "created",
-        "repository": {"full_name": "owner/repository"},
+        "repository": dict(JET_METADATA),
         "issue": {
             "number": 42,
             "state": "open",
             "title": "[JET-AGENT] Sample task",
             "body": body,
-            "html_url": "https://github.com/owner/repository/issues/42",
+            "html_url": "https://github.com/majidbusy09-blip/jetconfig-vpn/issues/42",
             "labels": [{"name": "agent-task"}],
         },
         "comment": {
@@ -77,7 +79,7 @@ class IssueLeaseCommandTests(unittest.TestCase):
     def test_builds_request_only_for_open_labeled_issue_and_trusted_author(self):
         request = build_issue_lease_request(issue_event(f"/jet-agent claim chatgpt {CLAIM_A}"))
         self.assertEqual(request["task_id"], "sample-task")
-        self.assertEqual(request["repository"], "owner/repository")
+        self.assertEqual(request["repository"], JET_REPOSITORY)
         with self.assertRaises(IssueLeaseCommandError):
             build_issue_lease_request(issue_event(f"/jet-agent claim chatgpt {CLAIM_A}",
                                                   association="NONE"))

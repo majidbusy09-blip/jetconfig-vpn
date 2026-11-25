@@ -8,6 +8,8 @@ CLAIM = "a" * 16
 BASE = "b" * 40
 LOCK = "c" * 40
 EXPIRES = "2030-01-01T01:00:00Z"
+JET_REPOSITORY = "majidbusy09-blip/jetconfig-vpn"
+JET_METADATA = {"id": 1349356614, "full_name": JET_REPOSITORY, "html_url": "https://github.com/" + JET_REPOSITORY, "default_branch": "main"}
 
 
 def event(operation="claim"):
@@ -30,13 +32,13 @@ def event(operation="claim"):
         command = f"/jet-agent renew chatgpt {'d' * 16} {CLAIM}"
     return {
         "action": "created",
-        "repository": {"full_name": "owner/repository"},
+        "repository": dict(JET_METADATA),
         "issue": {
             "number": 42,
             "state": "open",
             "title": "[JET-AGENT] Handoff test",
             "body": body,
-            "html_url": "https://github.com/owner/repository/issues/42",
+            "html_url": "https://github.com/majidbusy09-blip/jetconfig-vpn/issues/42",
             "labels": [{"name": "agent-task"}],
         },
         "comment": {"body": command, "author_association": "OWNER"},

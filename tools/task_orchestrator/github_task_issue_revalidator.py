@@ -75,17 +75,17 @@ def revalidate_issue_event(event: dict, *, token: str, repository: str) -> dict:
     # revalidation even though the Issue's current labels no longer include it.
     if not has_task_label and not removed_task_label:
         return {"status": "not-agent-task", "issue_number": number, "checked_prs": 0}
-    live_repository = api_get(repository, "", token)
-    for key in ("id", "full_name", "html_url", "default_branch"):
-        if event["repository"].get(key) != live_repository.get(key):
-            raise RevalidationError("Event repository identity differs from live GitHub metadata.")
     try:
         task = validate_issue_body(
-            issue.get("body"), repository_metadata=live_repository,
+            issue.get("body"), repository_metadata=event["repository"],
             allow_legacy_jet_vpn=True,
         )
     except GitHubTaskError as exc:
         raise RevalidationError("Changed task Issue payload is invalid.") from exc
+    live_repository = api_get(repository, "", token)
+    for key in ("id", "full_name", "html_url", "default_branch"):
+        if event["repository"].get(key) != live_repository.get(key):
+            raise RevalidationError("Event repository identity differs from live GitHub metadata.")
     if task["schema_version"] == 2:
         schema, manifests = load_project_configuration(Path(__file__).resolve().parents[2])
         try:

@@ -8,7 +8,8 @@ from tools.task_orchestrator.github_task_pr_guard import (
     GuardError, parse_pr_envelope, validate_paths, validate_agent_pr,
 )
 
-REPOSITORY = "owner/repository"
+REPOSITORY = "majidbusy09-blip/jetconfig-vpn"
+REPOSITORY_METADATA = {"id": 1349356614, "full_name": REPOSITORY, "html_url": "https://github.com/" + REPOSITORY, "default_branch": "main"}
 BASE = "a" * 40
 HEAD = "b" * 40
 LOCK = "c" * 40
@@ -41,12 +42,12 @@ def pr_body():
 def event():
     return {
         "action": "opened",
-        "repository": {"full_name": REPOSITORY},
+        "repository": dict(REPOSITORY_METADATA),
         "pull_request": {
             "state": "open",
             "number": 7,
             "body": pr_body(),
-            "base": {"ref": "main", "sha": "e" * 40, "repo": {"full_name": REPOSITORY}},
+            "base": {"ref": "main", "sha": "e" * 40, "repo": dict(REPOSITORY_METADATA)},
             "head": {"sha": HEAD, "ref": "agent/sample-task", "repo": {"full_name": REPOSITORY}},
         },
     }
@@ -61,6 +62,8 @@ def api_responses(*, lease_status="active", expires="2026-11-23T11:00:00Z",
     encoded = base64.b64encode((json.dumps(lease) + "\n").encode()).decode()
     encoded = encoded[:24] + "\n" + encoded[24:]
     def api(repository, path, token):
+        if path == "":
+            return dict(REPOSITORY_METADATA)
         if path == "/issues/42":
             return {"number": 42, "state": "open", "labels": [{"name": "agent-task"}],
                     "body": task_body(assigned)}

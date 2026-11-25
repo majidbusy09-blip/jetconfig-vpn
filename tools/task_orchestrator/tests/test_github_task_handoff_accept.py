@@ -17,7 +17,8 @@ from tools.task_orchestrator.github_task_handoff_accept import (
     _read_current_lease,
 )
 
-REPOSITORY = "owner/repository"
+REPOSITORY = "majidbusy09-blip/jetconfig-vpn"
+REPOSITORY_METADATA = {"id": 1349356614, "full_name": REPOSITORY, "html_url": "https://github.com/" + REPOSITORY, "default_branch": "main"}
 TASK_ID = "sample-task"
 CLAIM = "a" * 16
 BASE = "b" * 40
@@ -38,10 +39,10 @@ def issue_event(operation="claim", claim_id=CLAIM, previous_claim_id=CLAIM):
     body = "<!-- jet-agent-task:v1 -->\n\n" + "```json\n" + json.dumps(task) + "\n```"
     return {
         "action": "created",
-        "repository": {"full_name": REPOSITORY},
+        "repository": dict(REPOSITORY_METADATA),
         "issue": {
             "number": 42, "state": "open", "body": body,
-            "html_url": "https://github.com/owner/repository/issues/42",
+            "html_url": "https://github.com/majidbusy09-blip/jetconfig-vpn/issues/42",
             "labels": [{"name": "agent-task"}],
         },
         "comment": {"body": (f"/jet-agent claim chatgpt {claim_id}" if operation == "claim" else f"/jet-agent renew chatgpt {previous_claim_id} {claim_id}"), "author_association": "OWNER"},
@@ -85,7 +86,7 @@ class HandoffAcceptanceTests(unittest.TestCase):
     def test_accepts_current_issue_and_exact_active_remote_lease(self):
         accepted = validate_handoff_for_acceptance(
             manifest(), current_issue(), current_lease(), LOCK_COMMIT,
-            repository=REPOSITORY, now=NOW,
+            repository=REPOSITORY, repository_metadata=REPOSITORY_METADATA, now=NOW,
         )
         self.assertEqual(accepted["task_id"], TASK_ID)
         self.assertEqual(accepted["assigned_agent"], "any")
@@ -208,7 +209,7 @@ class HandoffAcceptanceTests(unittest.TestCase):
             git("init", "-q")
             git("config", "user.name", "Handoff Acceptance Test")
             git("config", "user.email", "handoff-test@example.invalid")
-            git("remote", "add", "origin", "https://github.com/owner/repository.git")
+            git("remote", "add", "origin", "https://github.com/majidbusy09-blip/jetconfig-vpn.git")
             docs = {
                 "AGENTS.md": "Project agent instructions.\n",
                 "docs/PROJECT_CONTEXT.md": "Project context.\n",
@@ -252,7 +253,7 @@ class HandoffAcceptanceTests(unittest.TestCase):
                 os.chdir(root)
                 with patch(
                     "tools.task_orchestrator.github_task_handoff_accept.api_get",
-                    return_value=issue,
+                    side_effect=[issue, REPOSITORY_METADATA],
                 ), patch(
                     "tools.task_orchestrator.github_task_handoff_accept._read_current_lease",
                     return_value=(lease_record, LOCK_COMMIT),

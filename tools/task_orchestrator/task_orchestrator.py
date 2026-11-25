@@ -54,6 +54,11 @@ except ImportError:
 
 
 try:
+    from .project_artifact_namespace import index_output_paths, namespaced_relative_path
+except ImportError:
+    from tools.task_orchestrator.project_artifact_namespace import index_output_paths, namespaced_relative_path
+
+try:
     from .project_namespace import (
         ProjectNamespaceError, local_task_branch, task_record_directory,
         task_record_path as project_task_record_path,
@@ -724,8 +729,15 @@ def command_impact(args: argparse.Namespace) -> None:
     base_sha = record.get("repository", {}).get("base_sha")
     if not isinstance(base_sha, str):
         raise TaskError("Task has no pinned base SHA.")
+    project_binding = record.get("github_project_binding")
+    if project_binding is not None:
+        index_paths = index_output_paths(project_binding=project_binding, source_revision=base_sha)
+    else:
+        index_paths = index_output_paths()
+    resolved_index_path = Path(args.resolved_index) if args.resolved_index else Path(index_paths["resolved"])
+    critical_paths_path = Path(args.critical_paths) if args.critical_paths else Path(index_paths["critical_paths"])
     changed = [item for item in changed_paths(root, base_sha)
-               if not is_task_metadata(item, args.task_id, record.get("github_project_binding"))]
+               if not is_task_metadata(item, args.task_id, project_binding)]
     if not changed:
         result = {
             "schema_version": 1, "task_id": args.task_id, "source_revision": base_sha,
@@ -738,19 +750,28 @@ def command_impact(args: argparse.Namespace) -> None:
         try:
             result = analyze_impact(
                 root=root, task_record=record, changed_paths=changed,
-                resolved_index_path=Path(args.resolved_index),
-                critical_paths_path=Path(args.critical_paths),
+                resolved_index_path=resolved_index_path,
+                critical_paths_path=critical_paths_path,
             )
         except (ImpactAnalysisError, ContextSelectionError) as exc:
             raise TaskError(f"Verified impact analysis blocked: {exc}") from exc
-    target = task_record_path.parent / "impact_report.json"
+    if project_binding is not None:
+        report_path = namespaced_relative_path(
+            "reports", f"impact/{args.task_id}/impact_report.json",
+            project_binding=project_binding, source_revision=base_sha,
+        )
+        target = root / report_path
+    else:
+        target = task_record_path.parent / "impact_report.json"
+        report_path = target.relative_to(root).as_posix()
+    target.parent.mkdir(parents=True, exist_ok=True)
     encoded = (json.dumps(result, ensure_ascii=False, indent=2) + "\\n").encode("utf-8")
     temporary = target.with_suffix(".json.tmp")
     temporary.write_bytes(encoded)
     temporary.replace(target)
     record["impact_analysis"] = {
         "status": result.get("status") or ("completed_with_unknowns" if result["not_indexed_or_unknown"] else "completed"),
-        "report_path": target.relative_to(root).as_posix(),
+        "report_path": report_path,
         "report_sha256": sha256_bytes(encoded),
         "source_revision": base_sha,
         "changed_paths": result["changed_paths"],
@@ -761,7 +782,7 @@ def command_impact(args: argparse.Namespace) -> None:
     }
     record["updated_at"] = now_iso()
     save_record(record, task_record_path)
-    print(f"Verified impact report: {target.relative_to(root)}")
+    print(f"Verified impact report: {report_path}")
     print(f"Analysis status: {result.get('status', 'completed')}")
     print(f"Changed paths: {len(result['changed_paths'])}; indexed: {len(result['indexed_changed_paths'])}; unknown: {len(result['not_indexed_or_unknown'])}")
     print("Impacted critical paths: " + (", ".join(str(item["id"]) for item in result["impacted_critical_paths"]) or "none identified"))
@@ -1043,8 +1064,8 @@ def build_parser() -> argparse.ArgumentParser:
         item.set_defaults(func=func)
     impact = sub.add_parser("impact", help="Analyze changed paths against verified semantic and critical-path artifacts.")
     impact.add_argument("--task-id", required=True)
-    impact.add_argument("--resolved-index", default="docs/generated/jet_vpn_resolved_index.json")
-    impact.add_argument("--critical-paths", default="docs/generated/jet_vpn_critical_paths.json")
+    impact.add_argument("--resolved-index")
+    impact.add_argument("--critical-paths")
     impact.set_defaults(func=command_impact)
     verify = sub.add_parser("verify", help="Run one declared, fixed verification profile.")
     verify.add_argument("--task-id", required=True)

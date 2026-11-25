@@ -54,7 +54,7 @@ class TaskIssueRevalidatorTests(unittest.TestCase):
             result = revalidate_issue_event(event, token="read-token", repository=REPOSITORY)
         self.assertEqual(result["status"], "revalidated")
         self.assertEqual(result["checked_prs"], 0)
-        api.assert_called_once()
+        self.assertEqual(api.call_count, 2)
 
     def test_issue_event_revalidates_only_prs_linked_by_envelope(self):
         from tools.task_orchestrator.github_task_pr_guard import MARKER

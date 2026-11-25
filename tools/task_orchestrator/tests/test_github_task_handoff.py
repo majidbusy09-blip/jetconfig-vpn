@@ -59,7 +59,7 @@ def lease_result(operation="claim"):
         "operation": operation,
         "task_id": "sample-task",
         "issue_number": 42,
-        "issue_url": "https://github.com/owner/repository/issues/42",
+        "issue_url": "https://github.com/majidbusy09-blip/jetconfig-vpn/issues/42",
         "result": {
             "task_id": "sample-task",
             "owner": "chatgpt",

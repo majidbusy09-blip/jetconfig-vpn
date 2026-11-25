@@ -7,6 +7,8 @@ from tools.task_orchestrator.local_dispatch_runner import (
     LocalDispatchRunnerError,
     main,
     run_fixture_dispatch,
+    _read_object,
+    _write_new_json,
 )
 from tools.task_orchestrator.tests.test_agent_contract import envelope, result_for
 from tools.task_orchestrator.project_artifact_namespace import audit_record_path
@@ -68,6 +70,34 @@ class LocalDispatchRunnerTests(unittest.TestCase):
             from tools.task_orchestrator.local_dispatch_runner import _read_object
             with self.assertRaises(LocalDispatchRunnerError):
                 _read_object(str(link))
+
+    def test_rejects_symlink_parent_for_input(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            real = root / "real"
+            real.mkdir()
+            (real / "input.json").write_text("{}", encoding="utf-8")
+            link = root / "linked-parent"
+            try:
+                link.symlink_to(real, target_is_directory=True)
+            except OSError:
+                self.skipTest("symlink creation unavailable")
+            with self.assertRaises(LocalDispatchRunnerError):
+                _read_object(str(link / "input.json"))
+
+    def test_rejects_symlink_parent_for_output(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            real = root / "real"
+            real.mkdir()
+            link = root / "linked-parent"
+            try:
+                link.symlink_to(real, target_is_directory=True)
+            except OSError:
+                self.skipTest("symlink creation unavailable")
+            with self.assertRaises((LocalDispatchRunnerError, OSError)):
+                _write_new_json(str(link / "audit.json"), {"safe": True})
+            self.assertFalse((real / "audit.json").exists())
 
     def test_v2_dispatch_audit_is_written_under_project_and_revision_namespace(self):
         env = envelope()

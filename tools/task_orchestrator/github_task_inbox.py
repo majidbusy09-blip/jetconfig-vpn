@@ -144,18 +144,19 @@ def ingest_artifact_bytes(raw: bytes, *, root: Path, repository_metadata: dict[s
         # A task ID is unique within an immutable repository identity, even if
         # someone attempts to submit it through a second Issue number.
         inbox_dir = root / relative_directory
-        for entry in os.scandir(inbox_dir):
-            if entry.name == f"{issue_number}.json" or not entry.name.endswith(".json"):
-                continue
-            if entry.is_symlink() or not entry.is_file(follow_symlinks=False):
-                raise InboxError("Central inbox contains an unsafe non-regular entry.")
-            other_path = f"{relative_directory}/{entry.name}"
-            try:
-                other = loads_unique_json(read_bytes(root, other_path, max_bytes=MAX_ARTIFACT_BYTES * 2).decode("utf-8"))
-            except (SafeLocalFileError, UnicodeDecodeError, ProjectRegistryError) as exc:
-                raise InboxError("A neighboring inbox record is unreadable; refusing duplicate checks.") from exc
-            if other.get("task_id") == task_id:
-                raise InboxError("This task_id is already registered for another Issue in the same repository.")
+        with os.scandir(inbox_dir) as entries:
+            for entry in entries:
+                if entry.name == f"{issue_number}.json" or not entry.name.endswith(".json"):
+                    continue
+                if entry.is_symlink() or not entry.is_file(follow_symlinks=False):
+                    raise InboxError("Central inbox contains an unsafe non-regular entry.")
+                other_path = f"{relative_directory}/{entry.name}"
+                try:
+                    other = loads_unique_json(read_bytes(root, other_path, max_bytes=MAX_ARTIFACT_BYTES * 2).decode("utf-8"))
+                except (SafeLocalFileError, UnicodeDecodeError, ProjectRegistryError) as exc:
+                    raise InboxError("A neighboring inbox record is unreadable; refusing duplicate checks.") from exc
+                if other.get("task_id") == task_id:
+                    raise InboxError("This task_id is already registered for another Issue in the same repository.")
         if existing is not None:
             try:
                 old = loads_unique_json(existing.decode("utf-8", errors="strict"))

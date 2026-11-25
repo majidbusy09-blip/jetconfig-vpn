@@ -117,7 +117,7 @@ class ProjectArtifactIdentity {
   }
 
   static String repositoryNameFromRemote(String remote) {
-    if (remote.isEmpty || remote.contains(r'\\')) {
+    if (remote.isEmpty || remote.contains(String.fromCharCode(92))) {
       throw const FormatException('Git remote is empty or malformed.');
     }
     String path;

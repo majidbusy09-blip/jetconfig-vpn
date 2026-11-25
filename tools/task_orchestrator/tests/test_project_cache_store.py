@@ -51,8 +51,10 @@ class ProjectScopedCacheStoreTests(unittest.TestCase):
             name = "context-v1-" + "e" * 64
             value = package()
             store.put(name, value, project_binding=BINDING, source_revision=SOURCE, input_sha256=INPUT)
-            self.assertIsNone(store.get(name, project_binding=BINDING, source_revision="f" * 40, input_sha256=INPUT))
-            self.assertIsNone(store.get(name, project_binding=BINDING, source_revision=SOURCE, input_sha256="9" * 64))
+            with self.assertRaises(cache.ProjectCacheError):
+                store.get(name, project_binding=BINDING, source_revision="f" * 40, input_sha256=INPUT)
+            with self.assertRaises(cache.ProjectCacheError):
+                store.get(name, project_binding=BINDING, source_revision=SOURCE, input_sha256="9" * 64)
 
     def test_corrupt_entry_fails_closed(self):
         with tempfile.TemporaryDirectory() as root:

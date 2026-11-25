@@ -79,7 +79,10 @@ Future<void> main(List<String> args) async {
     final indexFile = File('${root.path}/$indexPath');
     final manifestPath = options['critical-paths-manifest'] ??
         '${root.path}/docs/critical_paths.json';
-    final manifestFile = File(manifestPath);
+    final suppliedManifest = File(manifestPath);
+    final manifestFile = suppliedManifest.isAbsolute
+        ? suppliedManifest
+        : File('${root.path}/$manifestPath');
     if (!await indexFile.exists() || !await manifestFile.exists()) {
       stderr.writeln('Missing resolved index or critical-path manifest. Generate the resolved index first.');
       exitCode = 2;

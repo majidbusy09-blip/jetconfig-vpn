@@ -56,7 +56,10 @@ except ImportError:
 try:
     from .project_artifact_namespace import index_output_paths, ensure_namespace_directory
 except ImportError:
-    from tools.task_orchestrator.project_artifact_namespace import index_output_paths, ensure_namespace_directory
+    try:
+        from tools.task_orchestrator.project_artifact_namespace import index_output_paths, ensure_namespace_directory
+    except ImportError:
+        from project_artifact_namespace import index_output_paths, ensure_namespace_directory
 
 try:
     from .project_namespace import (

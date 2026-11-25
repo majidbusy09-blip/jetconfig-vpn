@@ -169,7 +169,7 @@ void main() {
     final root = await Directory.systemTemp.createTemp('project-namespace-');
     final outside = await Directory.systemTemp.createTemp('project-namespace-outside-');
     try {
-      await Directory('${root.path}/docs/generated').create(recursive: true);
+      await Directory('${root.path}/docs/generated/projects').create(recursive: true);
       await Directory('${root.path}/docs/generated/projects').delete();
       await Link('${root.path}/docs/generated/projects').create(outside.path);
       await expectLater(

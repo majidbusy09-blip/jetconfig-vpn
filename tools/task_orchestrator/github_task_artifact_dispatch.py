@@ -90,6 +90,9 @@ def validate_remote_metadata(
         raise DispatchError("Downloaded artifact metadata ID differs from the dispatch.")
     if artifact_metadata.get("name") != dispatch["artifact_name"] or artifact_metadata.get("expired") is not False:
         raise DispatchError("Artifact name is unexpected or artifact has expired.")
+    size = artifact_metadata.get("size_in_bytes")
+    if isinstance(size, bool) or not isinstance(size, int) or size < 1 or size > 512_000:
+        raise DispatchError("Artifact size is missing or exceeds the configured limit.")
     workflow = artifact_metadata.get("workflow_run")
     if not isinstance(workflow, dict):
         raise DispatchError("Artifact is not associated with a GitHub Actions workflow run.")

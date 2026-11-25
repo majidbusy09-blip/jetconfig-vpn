@@ -167,7 +167,11 @@ def review_task_patch(
     envelope = _read_json_object(envelope_file)
     result = _read_json_object(result_file)
     try:
-        store = LocalPatchArtifactStore(artifact_root)
+        store = LocalPatchArtifactStore(
+            artifact_root,
+            project_binding=record.get("github_project_binding"),
+            source_revision=(base_sha if record.get("github_project_binding") is not None else None),
+        )
         return validate_patch_for_human_review(
             record, envelope, result, store, issue_data, lease_record, lock_commit,
             repository=repository, repository_metadata=repository_metadata,

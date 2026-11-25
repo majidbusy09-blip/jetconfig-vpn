@@ -222,3 +222,130 @@ Onboarding does not:
 - merge code or change production settings.
 
 Any capability outside read-only discovery requires a separately scoped task, valid project identity, active lease, and the relevant explicit approval.
+
+
+## 7. Verified حسابگر من discovery — 2026-11-25
+
+The owner supplied the exact repository URL and the live GitHub identity was independently fetched:
+
+- Repository: `majidbusy09-blip/hesabgar_man`
+- URL: `https://github.com/majidbusy09-blip/hesabgar_man`
+- Immutable repository ID: `1423683236`
+- Default branch: `main`
+- Inspected source baseline: `a07992d3f4721fe1524bd093502f08171dafc92b`
+- Package: `hesabgar_man`; version: `1.0.9+10`
+- Project ID approved in Issue #105 task payload: `hesabgar-man`
+
+The repository contains a Flutter/Dart application under `lib/`, tests under `test/`, a `pubspec.yaml`, and an existing release-oriented `.github/workflows/build.yml`. That release workflow is not used for pull-request validation.
+
+A separate target-repository PR adds project memory and a read-only Flutter validation workflow pinned to Flutter 3.27.4. The initial validation attempt passed static analysis but failed tests because the repository's declared Vazirmatn font assets are downloaded only by the existing release workflow and are not committed in the source tree. The PR validation workflow was updated to stage the same pinned font release before tests; the rerun must pass before the Flutter profiles are marked verified.
+
+The inspected source-index implementation has a reusable multi-file Dart analyzer library, but its current CLI derives the repository root from a JET VPN-specific directory layout and writes `jet_vpn_*` artifacts. It is not a safe drop-in adapter for حسابگر من. The initial manifest therefore declares no source index; a project-neutral adapter is a separate reviewed task.
+
+The inspected baseline has no committed `pubspec.lock`. Dependency resolution therefore remains less reproducible than a lockfile-pinned app build. Do not claim full reproducibility until a reviewed lockfile is committed.
+
+Dry-run onboarding remains read-only and the manifest lifecycle stays `registered`. Missing CI evidence, target PR merge, and source-index policy keep the overall state at `NEEDS_REVIEW`; no activation is authorized.
+
+
+## 8. Actual حسابگر من dry-run report — 2026-11-25
+
+Pinned target candidate revision: `26feaf761c751cb5991b98fcc81e1086d94bb97c` (the head of target PR #2; not yet merged to `main`).
+
+The five required memory documents are present as tracked regular files at that exact candidate revision. Their Git blob IDs and byte sizes were read from the target repository tree:
+
+| Required document | Git blob | Bytes |
+|---|---|---:|
+| `AGENTS.md` | `9295b5b5680ff2bd55ee9ab35c0a7d190798aa7e` | 2,523 |
+| `docs/PROJECT_CONTEXT.md` | `018781c137816c1610b69aa44a76dbadf12fe7da` | 2,901 |
+| `docs/CURRENT_STATUS.md` | `e4d66480e0660c59c67c1258834c1eb36dc15005` | 1,748 |
+| `docs/NEXT_STEPS.md` | `315e99144cd64e6cbef6d83d848da82c638a3211` | 1,898 |
+| `docs/DEVELOPMENT_LOG.md` | `a8313a17d24879e561f07263354482ee2f9d691c` | 877 |
+
+Total required memory size: 9,947 bytes (limit: 512,000 bytes).
+
+The exact-head target CI run [45562174116](https://github.com/majidbusy09-blip/hesabgar_man/actions/runs/45562174116) passed Flutter analysis and all 74 tests using Flutter 3.27.4 / Dart 3.6.2. It also uploaded the resolved `pubspec.lock` as artifact `hesabgar-pubspec-lock` (artifact ID `14998157558`); the lockfile is not yet committed to the target repository.
+
+The central manifest SHA-256 is `ec6ad4643acfc0d141e0820a2cbfeff671625edad6a94d6fe55dc6b254d944a0`.
+
+### Machine-readable report
+
+```json
+{
+  "report_schema_version": 1,
+  "mode": "dry_run_read_only",
+  "project_id_candidate": "hesabgar-man",
+  "manifest_sha256": "ec6ad4643acfc0d141e0820a2cbfeff671625edad6a94d6fe55dc6b254d944a0",
+  "repository": {
+    "provider": "github",
+    "repository_id": "1423683236",
+    "full_name": "majidbusy09-blip/hesabgar_man",
+    "url": "https://github.com/majidbusy09-blip/hesabgar_man",
+    "default_branch": "main",
+    "base_sha": "26feaf761c751cb5991b98fcc81e1086d94bb97c",
+    "identity_verified": true
+  },
+  "discovery": {
+    "project_type": "flutter_android",
+    "languages": ["Dart", "YAML"],
+    "toolchains": [
+      {"id": "flutter", "expected_version": "3.27.4", "observed_version": "3.27.4", "verified": true},
+      {"id": "dart", "expected_version": "3.6.2", "observed_version": "3.6.2", "verified": true}
+    ],
+    "memory": {
+      "required_documents_found": [
+        "AGENTS.md",
+        "docs/PROJECT_CONTEXT.md",
+        "docs/CURRENT_STATUS.md",
+        "docs/NEXT_STEPS.md",
+        "docs/DEVELOPMENT_LOG.md"
+      ],
+      "missing_documents": [],
+      "invalid_documents": [],
+      "total_bytes": 9947,
+      "max_total_bytes": 512000
+    },
+    "source_index": {
+      "status": "adapter_required",
+      "manifest_strategy": "none",
+      "reason": "The existing resolved Dart analyzer library is multi-file, but its current CLI root and generated artifact names are JET VPN-specific."
+    },
+    "verification": {
+      "required_profiles": [
+        {"profile": "flutter-analysis", "status": "success"},
+        {"profile": "flutter-tests", "status": "success"}
+      ],
+      "available_profiles": [
+        "flutter-analysis",
+        "flutter-tests",
+        "lexical-memory-audit",
+        "python-tooling-tests"
+      ]
+    },
+    "protected_paths": [
+      "android/key.properties",
+      "android/app/key.properties",
+      ".github/workflows/build.yml",
+      "secrets"
+    ]
+  },
+  "blockers": [],
+  "human_decisions": [
+    "Merge the separately reviewed target-repository memory/CI PR before registration readiness.",
+    "Commit and review pubspec.lock to make Flutter dependency resolution reproducible.",
+    "Implement and review a project-neutral Dart source-index adapter before enabling source indexing."
+  ],
+  "writes_performed": false,
+  "overall_readiness": "NEEDS_REVIEW",
+  "implementation_eligible": false
+}
+```
+
+**Readiness:** `NEEDS_REVIEW`. Identity, required memory and fixed Flutter checks are verified at the candidate PR head. The target PR is not merged, the generated lockfile is not committed, and the source-index adapter remains deferred. The manifest stays `registered`; this report does not activate the project or authorize implementation tasks.
+
+
+## Post-merge reconciliation — 2026-11-25
+
+- Target PR #2 is merged as `177eb1a1f0ae8ae5a77a2c1c136804dff042d5db`. Its exact-head Flutter 3.27.4 / Dart 3.6.2 validation passed static analysis and 74 tests.
+- The five required memory documents are on the target default branch. Their blob identities are unchanged from the validated PR head; the refreshed report pins target merge commit above.
+- The resolved `pubspec.lock` remains a reviewed CI artifact and is not yet tracked on target `main`; dependency reproducibility remains a review item.
+- Project lifecycle remains `registered`, not active. Dart source indexing remains deferred until the project-neutral adapter is implemented.

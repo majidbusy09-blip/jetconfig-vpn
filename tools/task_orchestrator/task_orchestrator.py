@@ -588,19 +588,21 @@ def command_build_envelope(args: argparse.Namespace) -> None:
     except EnvelopeBuildError as exc:
         raise TaskError(f"Agent envelope blocked: {exc}") from exc
     target = task_record_path.parent / "agent_input.json"
+    relative_target = target.relative_to(root).as_posix()
     encoded = (json.dumps(envelope, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
-    if target.exists():
-        try:
-            existing = target.read_bytes()
-        except OSError as exc:
-            raise TaskError("Existing agent envelope cannot be read safely.") from exc
+    try:
+        existing = read_bytes(root, relative_target, max_bytes=2_000_000)
+    except SafeLocalFileError:
+        existing = None
+    if existing is not None:
         if existing != encoded:
             raise TaskError("An agent_input.json already exists with different content; refusing to overwrite it.")
         print(f"Agent envelope is already current: {target.relative_to(root)}")
         return
-    temporary = target.with_suffix(".json.tmp")
-    temporary.write_bytes(encoded)
-    temporary.replace(target)
+    try:
+        atomic_write_bytes(root, relative_target, encoded, replace=False)
+    except SafeLocalFileError as exc:
+        raise TaskError(f"Agent envelope could not be created safely: {exc}") from exc
     print(
         f"Built contract v1.1 envelope for {args.task_id}: "
         f"{len(envelope['project_context'])} project and "
@@ -624,9 +626,9 @@ def command_accept_context(args: argparse.Namespace) -> None:
             or suggestions_path.parent.resolve() != task_record_path.parent.resolve()):
         raise TaskError("Suggestions file must be a regular local artifact inside this task's metadata directory.")
     try:
-        raw = suggestions_path.read_bytes()
-        if len(raw) > 2_000_000:
-            raise TaskError("Suggestions artifact exceeds the 2 MB limit.")
+        raw = read_bytes(
+            root, suggestions_path.relative_to(root).as_posix(), max_bytes=2_000_000
+        )
         def unique_object(pairs):
             result = {}
             for key, value in pairs:
@@ -635,8 +637,8 @@ def command_accept_context(args: argparse.Namespace) -> None:
                 result[key] = value
             return result
         suggestion_record = json.loads(raw.decode("utf-8"), object_pairs_hook=unique_object)
-    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
-        raise TaskError("Suggestions artifact is unreadable or invalid UTF-8 JSON.") from exc
+    except (SafeLocalFileError, ValueError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise TaskError("Suggestions artifact is unreadable, unsafe, or invalid UTF-8 JSON.") from exc
     if (not isinstance(suggestion_record, dict)
             or suggestion_record.get("schema_version") != 1
             or suggestion_record.get("task_id") != args.task_id
@@ -725,15 +727,21 @@ def command_suggest_context(args: argparse.Namespace) -> None:
     target_dir = task_record_path.parent
     target = target_dir / f"context_suggestions_{result['query_sha256'][:12]}.json"
     encoded = (json.dumps(result, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
-    if target.exists():
-        if target.is_symlink() or target.read_bytes() != encoded:
+    relative_target = target.relative_to(root).as_posix()
+    try:
+        existing = read_bytes(root, relative_target, max_bytes=2_000_000)
+    except SafeLocalFileError:
+        existing = None
+    if existing is not None:
+        if existing != encoded:
             raise TaskError("An existing context-suggestion artifact differs; refusing to overwrite it.")
         print(f"Context suggestions are already current: {target.relative_to(root)}")
         return
-    target_dir.mkdir(parents=True, exist_ok=True)
-    temporary = target.with_suffix(".json.tmp")
-    temporary.write_bytes(encoded)
-    temporary.replace(target)
+    try:
+        ensure_directory(root, target_dir.relative_to(root).as_posix())
+        atomic_write_bytes(root, relative_target, encoded, replace=False)
+    except SafeLocalFileError as exc:
+        raise TaskError(f"Context-suggestion artifact could not be written safely: {exc}") from exc
     print(
         f"Ranked {result['candidate_count']} in-scope source file(s); "
         f"wrote {len(result['suggestions'])} suggestions to {target.relative_to(root)}. "

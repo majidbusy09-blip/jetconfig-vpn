@@ -1,5 +1,7 @@
 import base64
+import copy
 import json
+from pathlib import Path
 import unittest
 from unittest.mock import patch
 
@@ -7,6 +9,7 @@ from tools.task_orchestrator.github_lease import make_lease
 from tools.task_orchestrator.github_task_pr_guard import (
     GuardError, parse_pr_envelope, validate_paths, validate_agent_pr,
 )
+from tools.task_orchestrator.project_registry import manifest_digest
 
 REPOSITORY = "majidbusy09-blip/jetconfig-vpn"
 REPOSITORY_METADATA = {"id": 1349356614, "full_name": REPOSITORY, "html_url": "https://github.com/" + REPOSITORY, "default_branch": "main"}
@@ -14,6 +17,10 @@ BASE = "a" * 40
 HEAD = "b" * 40
 LOCK = "c" * 40
 CLAIM = "d" * 16
+ROOT = Path(__file__).resolve().parents[3]
+PROJECT_SCHEMA = json.loads((ROOT / "docs/PROJECT_MANIFEST_SCHEMA.json").read_text(encoding="utf-8"))
+ACTIVE_MANIFEST = copy.deepcopy(PROJECT_SCHEMA["examples"][0])
+ACTIVE_MANIFEST["lifecycle"] = "active"
 
 
 def task_body(assigned="any"):
@@ -31,6 +38,26 @@ def task_body(assigned="any"):
     }
     ticks = chr(96) * 3
     return "<!-- jet-agent-task:v1 -->\n\n" + ticks + "json\n" + json.dumps(task) + "\n" + ticks
+
+
+def v2_task_body():
+    task = {
+        "schema_version": 2, "task_id": "sample-task",
+        "goal": "A bounded documentation task.", "capability": "documentation",
+        "risk": "low", "assigned_agent": "any", "allow": ["docs/**"],
+        "exclude": ["docs/private/**"], "scope_reason": "Documentation only.",
+        "verification_profiles": ["python-tooling-tests"],
+        "project_binding": {
+            "project_id": ACTIVE_MANIFEST["project_id"],
+            "repository_id": ACTIVE_MANIFEST["repository"]["repository_id"],
+            "repository_full_name": ACTIVE_MANIFEST["repository"]["full_name"],
+            "default_branch": ACTIVE_MANIFEST["repository"]["default_branch"],
+            "manifest_schema_version": ACTIVE_MANIFEST["schema_version"],
+            "manifest_sha256": manifest_digest(ACTIVE_MANIFEST),
+        },
+    }
+    ticks = chr(96) * 3
+    return "<!-- jet-agent-task:v2 -->\n\n" + ticks + "json\n" + json.dumps(task) + "\n" + ticks
 
 
 def pr_body():
@@ -54,7 +81,7 @@ def event():
 
 
 def api_responses(*, lease_status="active", expires="2026-11-23T11:00:00Z",
-                  assigned="any", merge_base=BASE, files=None):
+                  assigned="any", merge_base=BASE, files=None, issue_body=None):
     lease = make_lease(task_id="sample-task", owner="chatgpt", claim_id=CLAIM,
                        base_sha=BASE, now="2026-11-23T10:00:00Z", duration_minutes=60)
     lease["status"] = lease_status
@@ -66,7 +93,7 @@ def api_responses(*, lease_status="active", expires="2026-11-23T11:00:00Z",
             return dict(REPOSITORY_METADATA)
         if path == "/issues/42":
             return {"number": 42, "state": "open", "labels": [{"name": "agent-task"}],
-                    "body": task_body(assigned)}
+                    "body": issue_body if issue_body is not None else task_body(assigned)}
         if path == "/git/ref/heads/agent-locks/sample-task":
             return {"object": {"sha": LOCK, "type": "commit"}}
         if path.startswith("/contents/.agent-locks/lease.json?"):
@@ -117,6 +144,38 @@ class TaskPRGuardTests(unittest.TestCase):
         self.assertEqual(result["task_id"], "sample-task")
         self.assertEqual(result["changed_paths"], ["docs/guide.md"])
         self.assertEqual(result["base_sha"], BASE)
+
+    def test_v2_pr_guard_checks_immutable_identity_on_base_and_head(self):
+        with patch(
+            "tools.task_orchestrator.github_task_pr_guard.api_get",
+            side_effect=api_responses(issue_body=v2_task_body()),
+        ), patch(
+            "tools.task_orchestrator.github_task_pr_guard.load_project_configuration",
+            return_value=(PROJECT_SCHEMA, [ACTIVE_MANIFEST]),
+        ):
+            result = validate_agent_pr(
+                event(), token="read-token", repository=REPOSITORY,
+                now="2026-11-23T10:30:00Z",
+            )
+        self.assertEqual(result["project_binding"]["project_id"], ACTIVE_MANIFEST["project_id"])
+        for role in ("base", "head"):
+            for key, value in (("id", 999), ("full_name", "fork/repository"),
+                               ("default_branch", "trunk"),
+                               ("html_url", "https://github.com/fork/repository")):
+                bad = event()
+                bad["pull_request"][role]["repo"][key] = value
+                with self.subTest(role=role, key=key), patch(
+                    "tools.task_orchestrator.github_task_pr_guard.api_get",
+                    side_effect=api_responses(issue_body=v2_task_body()),
+                ), patch(
+                    "tools.task_orchestrator.github_task_pr_guard.load_project_configuration",
+                    return_value=(PROJECT_SCHEMA, [ACTIVE_MANIFEST]),
+                ), self.assertRaises(GuardError):
+                    validate_agent_pr(
+                        bad, token="read-token", repository=REPOSITORY,
+                        now="2026-11-23T10:30:00Z",
+                    )
+
 
     def test_rejects_expired_or_released_lease(self):
         for options in (

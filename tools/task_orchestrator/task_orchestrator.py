@@ -400,7 +400,6 @@ def command_prepare(args: argparse.Namespace) -> None:
             project_binding=record.get("github_project_binding"),
             memory_manifest_version=(record.get("project_memory_manifest") or {}).get("version"),
             memory_manifest_max_total_bytes=(record.get("project_memory_manifest") or {}).get("max_total_bytes"),
-            memory_manifest_max_total_bytes=(record.get("project_memory_manifest") or {}).get("max_total_bytes"),
         )
     except ContextBuildError as exc:
         raise TaskError(f"Context build blocked: {exc}") from exc

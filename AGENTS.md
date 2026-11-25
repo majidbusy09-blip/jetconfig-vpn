@@ -287,3 +287,13 @@ PR #49 merged `sandbox_acceptance.py`, a strict verifier for independently signe
 ### Phase 2D-1 lease consumer audit — 2026-11-25
 
 The shared project namespace resolver must be used by every lease consumer, including the trusted PR guard and patch-review gate, not only by claim/renew/release and handoff code. V2 lease consumers must compare the complete project binding; v1 remains on its exact legacy ref and file path.
+
+
+## حسابگر من onboarding task — 2026-11-25
+
+- Issue #105 is now an active, leased control-plane onboarding task after Phase 2C PR #103 and Phase 2D-1 PR #107 were merged.
+- The target is exactly `majidbusy09-blip/hesabgar_man`, immutable repository ID `1423683236`; candidate project ID is `hesabgar-man`.
+- The target app baseline is `1.0.9+10`. Preserve it; do not bump the version as part of onboarding.
+- Keep target repository changes in a separate PR. Do not activate the project; its manifest lifecycle remains `registered`.
+- A dedicated target-repository Flutter analysis/test workflow is being validated. Do not claim a profile passed until the exact Actions run is successful.
+- The existing JET VPN Dart index CLI and output names are project-specific. Do not point the hesabgar manifest at them; use `source_index.strategy=none` until a generic adapter is implemented and reviewed.

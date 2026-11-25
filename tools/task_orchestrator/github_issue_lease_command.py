@@ -104,12 +104,13 @@ def build_issue_lease_request(event: Any) -> dict[str, Any]:
     issue_url = issue.get("html_url")
     if not isinstance(issue_url, str) or not issue_url.startswith("https://github.com/"):
         raise IssueLeaseCommandError("Issue URL is invalid.")
+    project_binding = None
     try:
         task = validate_issue_body(issue.get("body"), repository_metadata=repository, allow_legacy_jet_vpn=True)
         if task["schema_version"] == 2:
             try:
                 schema, manifests = load_project_configuration(Path(__file__).resolve().parents[2])
-                validate_task_project_binding(task, repository, schema=schema, project_manifests=manifests)
+                project_binding = validate_task_project_binding(task, repository, schema=schema, project_manifests=manifests)
             except IntakeError as exc:
                 raise IssueLeaseCommandError("Task project binding failed trusted validation.") from exc
     except GitHubTaskError as exc:
@@ -123,6 +124,7 @@ def build_issue_lease_request(event: Any) -> dict[str, Any]:
         "issue_number": issue_number,
         "issue_url": issue_url,
         "task_id": task["task_id"],
+        "project_binding": project_binding,
         "assigned_agent": assigned,
         "command": command,
     }
@@ -152,6 +154,7 @@ def execute_issue_lease_command(request: dict[str, Any], *, token: str,
         "now": moment,
         "repository": request["repository"],
         "token": token,
+        "project_binding": request.get("project_binding"),
     }
     if operation == "claim":
         if base_sha is None:

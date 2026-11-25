@@ -235,6 +235,11 @@ class EnvelopeBuilderTests(unittest.TestCase):
         with self.assertRaises(EnvelopeBuildError):
             build_agent_envelope(record)
 
+        orphan = task_record()
+        orphan["project_memory_manifest"] = {"version": 1, "required_documents": orphan["required_context"]}
+        with self.assertRaises(EnvelopeBuildError):
+            build_agent_envelope(orphan)
+
 
 if __name__ == "__main__":
     unittest.main()

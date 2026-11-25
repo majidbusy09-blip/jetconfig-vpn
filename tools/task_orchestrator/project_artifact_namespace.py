@@ -209,7 +209,15 @@ def ensure_namespace_directory(
     source_revision: str,
     relative_directory: str | None = None,
 ) -> Path:
-    """Create and verify a project-scoped directory without following symlinks."""
+    """Create a namespace using descriptor-relative, no-follow directory traversal.
+
+    Every child lookup is relative to an already-open directory descriptor and
+    uses O_NOFOLLOW|O_DIRECTORY. This closes the check-then-open race for the
+    directory components created or traversed by this function. Callers that
+    subsequently create files must also use descriptor-relative no-follow APIs;
+    the returned Path is a display/compatibility path, not a capability handle.
+    Platforms without the required POSIX primitives fail closed.
+    """
     if not isinstance(category, str) or not CATEGORY_RE.fullmatch(category):
         raise ProjectArtifactNamespaceError("Artifact category is invalid.")
     supplied = Path(root)
@@ -219,26 +227,45 @@ def ensure_namespace_directory(
     segments = ("projects",) + namespace_segments(project_binding, source_revision) + (category,)
     if relative_directory is not None:
         segments += _safe_relative(relative_directory, "Artifact namespace subdirectory")
-    current = resolved_root
-    for segment in segments:
-        current = current / segment
+
+    required_flags = ("O_DIRECTORY", "O_NOFOLLOW")
+    if any(not hasattr(os, name) for name in required_flags) or os.open not in getattr(os, "supports_dir_fd", set()):
+        raise ProjectArtifactNamespaceError("Safe descriptor-relative directory operations are unavailable on this platform.")
+    flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
+    opened: list[int] = []
+    try:
         try:
-            current.mkdir(mode=0o700)
-        except FileExistsError:
-            pass
+            current_fd = os.open(str(resolved_root), flags)
         except OSError as exc:
-            raise ProjectArtifactNamespaceError("Could not create the project artifact namespace safely.") from exc
-        try:
-            metadata = current.lstat()
-        except OSError as exc:
-            raise ProjectArtifactNamespaceError("Project artifact namespace cannot be inspected.") from exc
-        if stat.S_ISLNK(metadata.st_mode) or not stat.S_ISDIR(metadata.st_mode):
-            raise ProjectArtifactNamespaceError("Project artifact namespace contains a symlink or non-directory.")
-        try:
-            current.resolve(strict=True).relative_to(resolved_root)
-        except (OSError, ValueError) as exc:
-            raise ProjectArtifactNamespaceError("Project artifact namespace escaped its root.") from exc
-    return current
+            raise ProjectArtifactNamespaceError("Artifact root could not be opened without following symlinks.") from exc
+        opened.append(current_fd)
+        if not stat.S_ISDIR(os.fstat(current_fd).st_mode):
+            raise ProjectArtifactNamespaceError("Artifact root must be a regular directory.")
+
+        for segment in segments:
+            try:
+                os.mkdir(segment, mode=0o700, dir_fd=current_fd)
+            except FileExistsError:
+                pass
+            except OSError as exc:
+                raise ProjectArtifactNamespaceError("Could not create the project artifact namespace safely.") from exc
+            try:
+                child_fd = os.open(segment, flags, dir_fd=current_fd)
+            except OSError as exc:
+                raise ProjectArtifactNamespaceError("Namespace component is not a stable, non-symlink directory.") from exc
+            if not stat.S_ISDIR(os.fstat(child_fd).st_mode):
+                os.close(child_fd)
+                raise ProjectArtifactNamespaceError("Namespace component is not a directory.")
+            opened.append(child_fd)
+            current_fd = child_fd
+    finally:
+        for descriptor in reversed(opened):
+            try:
+                os.close(descriptor)
+            except OSError:
+                pass
+
+    return resolved_root.joinpath(*segments)
 
 
 def verify_store_namespace(

@@ -48,7 +48,7 @@ def validate_lease(value: Any) -> dict[str, Any]:
     if not isinstance(value, dict):
         raise LeaseError("Lease record must be an object.")
     version = value.get("schema_version")
-    if isinstance(version, bool) or version not in {LEASE_SCHEMA_LEGACY, LEASE_SCHEMA_PROJECT}:
+    if isinstance(version, bool) or not isinstance(version, int) or version not in {LEASE_SCHEMA_LEGACY, LEASE_SCHEMA_PROJECT}:
         raise LeaseError("Unsupported lease schema.")
     fields = common_fields if version == LEASE_SCHEMA_LEGACY else common_fields | {"project_binding"}
     if set(value) != fields:
@@ -56,11 +56,11 @@ def validate_lease(value: Any) -> dict[str, Any]:
     task_id = value["task_id"]
     if not isinstance(task_id, str) or not TASK_ID_RE.fullmatch(task_id):
         raise LeaseError("Invalid task_id.")
-    if value["owner"] not in AGENTS:
+    if not isinstance(value["owner"], str) or value["owner"] not in AGENTS:
         raise LeaseError("owner must be chatgpt or grok.")
     if not isinstance(value["claim_id"], str) or not re.fullmatch(r"[a-f0-9]{16,64}", value["claim_id"]):
         raise LeaseError("claim_id must be 16-64 lowercase hexadecimal characters.")
-    if value["status"] not in {"active", "released"}:
+    if not isinstance(value["status"], str) or value["status"] not in {"active", "released"}:
         raise LeaseError("Invalid lease status.")
     claimed, expires = _utc(value["claimed_at"]), _utc(value["expires_at"])
     if expires <= claimed or expires - claimed > timedelta(minutes=MAX_LEASE_MINUTES):

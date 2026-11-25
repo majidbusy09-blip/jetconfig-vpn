@@ -61,7 +61,7 @@ def parse_pr_envelope(body):
         raise GuardError("PR marker and envelope schema version do not match.")
     if isinstance(value["task_issue"], bool) or not isinstance(value["task_issue"], int) or value["task_issue"] < 1:
         raise GuardError("task_issue must be a positive Issue number.")
-    if value["owner"] not in {"chatgpt", "grok"}:
+    if not isinstance(value["owner"], str) or value["owner"] not in {"chatgpt", "grok"}:
         raise GuardError("owner must be chatgpt or grok.")
     if not isinstance(value["claim_id"], str) or not CLAIM_RE.fullmatch(value["claim_id"]):
         raise GuardError("claim_id format is invalid.")

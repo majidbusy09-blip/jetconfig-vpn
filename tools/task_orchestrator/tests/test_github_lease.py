@@ -124,6 +124,15 @@ class GitHubLeaseTests(unittest.TestCase):
                                 claim_id="a" * 16, now=NOW)
         self.assertEqual(released["branch"], lock_branch("sample-task", binding_a))
 
+    def test_rejects_unhashable_lease_schema_owner_and_status_types(self):
+        valid = make_lease(task_id="sample-task", owner="chatgpt", claim_id="a" * 16,
+                           base_sha=BASE, now=NOW)
+        for field, bad in (("schema_version", []), ("owner", []), ("status", {})):
+            malformed = dict(valid)
+            malformed[field] = bad
+            with self.subTest(field=field), self.assertRaises(LeaseError):
+                validate_lease(malformed)
+
 
 if __name__ == "__main__":
     unittest.main()

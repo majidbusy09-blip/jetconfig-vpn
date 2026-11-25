@@ -13,6 +13,7 @@ import json
 import os
 import re
 import subprocess
+import stat
 import sys
 import time
 from datetime import datetime, timezone
@@ -84,6 +85,20 @@ except ImportError:
         from project_namespace import (
             ProjectNamespaceError, local_task_branch, task_record_directory,
             task_record_path as project_task_record_path,
+        )
+
+try:
+    from .safe_local_files import (
+        SafeLocalFileError, atomic_write_bytes, ensure_directory, read_bytes, readlink, stat_entry,
+    )
+except ImportError:
+    try:
+        from tools.task_orchestrator.safe_local_files import (
+            SafeLocalFileError, atomic_write_bytes, ensure_directory, read_bytes, readlink, stat_entry,
+        )
+    except ImportError:
+        from safe_local_files import (
+            SafeLocalFileError, atomic_write_bytes, ensure_directory, read_bytes, readlink, stat_entry,
         )
 
 SCHEMA_VERSION = 1
@@ -233,9 +248,10 @@ def load_record(
         raise TaskError(f"Task record not found: {path.relative_to(root)}")
     _assert_safe_task_path(root, path)
     try:
-        record = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
-        raise TaskError(f"Task record is unreadable: {exc}") from exc
+        raw = read_bytes(root, path.relative_to(root).as_posix(), max_bytes=2_000_000)
+        record = json.loads(raw.decode("utf-8", errors="strict"))
+    except (SafeLocalFileError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise TaskError(f"Task record is unreadable or unsafe: {exc}") from exc
     if not isinstance(record, dict):
         raise TaskError("Task record must be a JSON object.")
     if record.get("schema_version") != SCHEMA_VERSION or record.get("task_id") != task_id:
@@ -252,17 +268,17 @@ def load_record(
     return record, path
 
 
-def save_record(record: dict[str, Any], path: Path) -> None:
+def save_record(record: dict[str, Any], path: Path, *, create_only: bool = False) -> None:
     root = repository_root()
     _assert_safe_task_path(root, path)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    _assert_safe_task_path(root, path)
-    temp = path.with_suffix(".json.tmp")
-    if temp.is_symlink():
-        raise TaskError("Temporary task metadata path is a symlink; refusing overwrite.")
-    temp.write_text(json.dumps(record, ensure_ascii=False, indent=2) + "\n",
-                    encoding="utf-8")
-    temp.replace(path)
+    try:
+        relative = path.relative_to(root).as_posix()
+        parent = path.parent.relative_to(root).as_posix()
+        ensure_directory(root, parent)
+        encoded = (json.dumps(record, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
+        atomic_write_bytes(root, relative, encoded, replace=not create_only)
+    except (ValueError, SafeLocalFileError, UnicodeEncodeError) as exc:
+        raise TaskError(f"Task record could not be saved safely: {exc}") from exc
 
 
 def status_paths(root: Path) -> list[str]:
@@ -362,12 +378,18 @@ def matches_any(path: str, patterns: list[str]) -> bool:
 def file_fingerprints(root: Path, patterns: list[str]) -> dict[str, str]:
     result = {}
     for relative in tracked_files(root):
-        if matches_any(relative, patterns):
-            file = root / relative
-            if file.is_symlink():
-                result[relative] = sha256_bytes(os.readlink(file).encode("utf-8"))
-            elif file.is_file():
-                result[relative] = sha256_bytes(file.read_bytes())
+        if not matches_any(relative, patterns):
+            continue
+        try:
+            metadata = stat_entry(root, relative)
+            if metadata is None:
+                continue
+            if stat.S_ISLNK(metadata.st_mode):
+                result[relative] = sha256_bytes(readlink(root, relative).encode("utf-8"))
+            elif stat.S_ISREG(metadata.st_mode):
+                result[relative] = sha256_bytes(read_bytes(root, relative, max_bytes=100_000_000))
+        except SafeLocalFileError as exc:
+            raise TaskError(f"Tracked path could not be fingerprinted safely: {relative}: {exc}") from exc
     return result
 
 
@@ -376,13 +398,18 @@ def path_fingerprints(root: Path, paths: list[str], task_id: str, project_bindin
     for relative in paths:
         if is_task_metadata(relative, task_id, project_binding):
             continue
-        target = root / relative
-        if target.is_symlink():
-            result[relative] = sha256_bytes(os.readlink(target).encode("utf-8"))
-        elif target.is_file():
-            result[relative] = sha256_bytes(target.read_bytes())
-        else:
-            result[relative] = "deleted"
+        try:
+            metadata = stat_entry(root, relative)
+            if metadata is None:
+                result[relative] = "deleted"
+            elif stat.S_ISLNK(metadata.st_mode):
+                result[relative] = sha256_bytes(readlink(root, relative).encode("utf-8"))
+            elif stat.S_ISREG(metadata.st_mode):
+                result[relative] = sha256_bytes(read_bytes(root, relative, max_bytes=100_000_000))
+            else:
+                result[relative] = "special"
+        except SafeLocalFileError as exc:
+            raise TaskError(f"Changed path could not be fingerprinted safely: {relative}: {exc}") from exc
     return result
 
 
@@ -499,7 +526,7 @@ def command_init(args: argparse.Namespace) -> None:
     if project_binding is not None:
         record["github_project_binding"] = project_binding
         record["project_memory_manifest"] = getattr(args, "project_memory_manifest", None)
-    save_record(record, path)
+    save_record(record, path, create_only=True)
     print(f"Created {path.relative_to(root)}. Next: prepare --task-id {args.task_id}")
 
 
@@ -577,19 +604,21 @@ def command_build_envelope(args: argparse.Namespace) -> None:
     except EnvelopeBuildError as exc:
         raise TaskError(f"Agent envelope blocked: {exc}") from exc
     target = task_record_path.parent / "agent_input.json"
+    relative_target = target.relative_to(root).as_posix()
     encoded = (json.dumps(envelope, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
-    if target.exists():
-        try:
-            existing = target.read_bytes()
-        except OSError as exc:
-            raise TaskError("Existing agent envelope cannot be read safely.") from exc
+    try:
+        existing = read_bytes(root, relative_target, max_bytes=2_000_000)
+    except SafeLocalFileError:
+        existing = None
+    if existing is not None:
         if existing != encoded:
             raise TaskError("An agent_input.json already exists with different content; refusing to overwrite it.")
         print(f"Agent envelope is already current: {target.relative_to(root)}")
         return
-    temporary = target.with_suffix(".json.tmp")
-    temporary.write_bytes(encoded)
-    temporary.replace(target)
+    try:
+        atomic_write_bytes(root, relative_target, encoded, replace=False)
+    except SafeLocalFileError as exc:
+        raise TaskError(f"Agent envelope could not be created safely: {exc}") from exc
     print(
         f"Built contract v1.1 envelope for {args.task_id}: "
         f"{len(envelope['project_context'])} project and "
@@ -613,9 +642,9 @@ def command_accept_context(args: argparse.Namespace) -> None:
             or suggestions_path.parent.resolve() != task_record_path.parent.resolve()):
         raise TaskError("Suggestions file must be a regular local artifact inside this task's metadata directory.")
     try:
-        raw = suggestions_path.read_bytes()
-        if len(raw) > 2_000_000:
-            raise TaskError("Suggestions artifact exceeds the 2 MB limit.")
+        raw = read_bytes(
+            root, suggestions_path.relative_to(root).as_posix(), max_bytes=2_000_000
+        )
         def unique_object(pairs):
             result = {}
             for key, value in pairs:
@@ -624,8 +653,8 @@ def command_accept_context(args: argparse.Namespace) -> None:
                 result[key] = value
             return result
         suggestion_record = json.loads(raw.decode("utf-8"), object_pairs_hook=unique_object)
-    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
-        raise TaskError("Suggestions artifact is unreadable or invalid UTF-8 JSON.") from exc
+    except (SafeLocalFileError, ValueError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise TaskError("Suggestions artifact is unreadable, unsafe, or invalid UTF-8 JSON.") from exc
     if (not isinstance(suggestion_record, dict)
             or suggestion_record.get("schema_version") != 1
             or suggestion_record.get("task_id") != args.task_id
@@ -714,15 +743,21 @@ def command_suggest_context(args: argparse.Namespace) -> None:
     target_dir = task_record_path.parent
     target = target_dir / f"context_suggestions_{result['query_sha256'][:12]}.json"
     encoded = (json.dumps(result, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
-    if target.exists():
-        if target.is_symlink() or target.read_bytes() != encoded:
+    relative_target = target.relative_to(root).as_posix()
+    try:
+        existing = read_bytes(root, relative_target, max_bytes=2_000_000)
+    except SafeLocalFileError:
+        existing = None
+    if existing is not None:
+        if existing != encoded:
             raise TaskError("An existing context-suggestion artifact differs; refusing to overwrite it.")
         print(f"Context suggestions are already current: {target.relative_to(root)}")
         return
-    target_dir.mkdir(parents=True, exist_ok=True)
-    temporary = target.with_suffix(".json.tmp")
-    temporary.write_bytes(encoded)
-    temporary.replace(target)
+    try:
+        ensure_directory(root, target_dir.relative_to(root).as_posix())
+        atomic_write_bytes(root, relative_target, encoded, replace=False)
+    except SafeLocalFileError as exc:
+        raise TaskError(f"Context-suggestion artifact could not be written safely: {exc}") from exc
     print(
         f"Ranked {result['candidate_count']} in-scope source file(s); "
         f"wrote {len(result['suggestions'])} suggestions to {target.relative_to(root)}. "
@@ -778,12 +813,12 @@ def command_impact(args: argparse.Namespace) -> None:
         target = report_directory / "impact_report.json"
     else:
         target = task_record_path.parent / "impact_report.json"
-        target.parent.mkdir(parents=True, exist_ok=True)
     report_path = target.relative_to(root).as_posix()
-    encoded = (json.dumps(result, ensure_ascii=False, indent=2) + "\\n").encode("utf-8")
-    temporary = target.with_suffix(".json.tmp")
-    temporary.write_bytes(encoded)
-    temporary.replace(target)
+    encoded = (json.dumps(result, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
+    try:
+        atomic_write_bytes(root, report_path, encoded, replace=True, create_parents=True)
+    except SafeLocalFileError as exc:
+        raise TaskError(f"Impact report could not be written safely: {exc}") from exc
     record["impact_analysis"] = {
         "status": result.get("status") or ("completed_with_unknowns" if result["not_indexed_or_unknown"] else "completed"),
         "report_path": report_path,
@@ -952,7 +987,14 @@ def command_finalize(args: argparse.Namespace) -> None:
     base = record["repository"]["base_sha"]
     # Create the report path before snapshotting so the final inventory includes it.
     handoff_path = path.parent / "HANDOFF.md"
-    handoff_path.touch(exist_ok=True)
+    handoff_relative = handoff_path.relative_to(root).as_posix()
+    try:
+        read_bytes(root, handoff_relative, max_bytes=2_000_000)
+    except SafeLocalFileError:
+        try:
+            atomic_write_bytes(root, handoff_relative, b"", replace=False, create_parents=True)
+        except SafeLocalFileError as exc:
+            raise TaskError(f"Task handoff path could not be prepared safely: {exc}") from exc
     paths = changed_paths(root, base)
     violations = [
         item for item in paths if not is_task_metadata(item, args.task_id, record.get("github_project_binding")) and (
@@ -998,9 +1040,13 @@ def command_finalize(args: argparse.Namespace) -> None:
     record["finalized_at"] = now_iso()
     record["updated_at"] = now_iso()
     record["handoff"] = render_handoff(record)
-    handoff_temp = handoff_path.with_suffix(".md.tmp")
-    handoff_temp.write_text(record["handoff"], encoding="utf-8")
-    handoff_temp.replace(handoff_path)
+    try:
+        atomic_write_bytes(
+            root, handoff_relative, record["handoff"].encode("utf-8"),
+            replace=True, create_parents=True,
+        )
+    except (SafeLocalFileError, UnicodeEncodeError) as exc:
+        raise TaskError(f"Task handoff could not be written safely: {exc}") from exc
     save_record(record, path)
     print(f"Task {args.task_id} is review_ready. Handoff: {handoff_path}")
 

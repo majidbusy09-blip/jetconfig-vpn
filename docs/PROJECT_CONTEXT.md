@@ -251,3 +251,6 @@ Phase 2D-1 now includes the trusted PR guard and patch-review authorization in t
 Phase 2C PR #103 and Phase 2D-1 PR #107 are merged. Phase 2D-2A is in Draft PR #109 (Issue #106): project-aware local task record paths, context/handoff/agent-input artifacts, metadata filtering/fingerprinting, unambiguous task lookup, and project-scoped local task branches. V1 JET VPN paths remain unchanged.
 
 The current GitHub Actions workflow still uploads agent-input files through a broad wildcard. Its workflow file is protected by the task protocol and was not changed in Issue #106. Exact artifact-upload hardening must be completed through a separate reviewed workflow-policy task. حسابگر من remains unmodified, unregistered, and inactive.
+
+
+Task namespace scans use context-managed `os.scandir` iterators. This is required because fail-closed symlink checks can raise during iteration; context managers guarantee directory handles are closed on that path.

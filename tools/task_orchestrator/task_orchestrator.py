@@ -163,6 +163,7 @@ def _candidate_task_paths(root: Path, task_id: str) -> list[Path]:
     tasks_root = root / TASK_DIR
     if tasks_root.is_symlink():
         raise TaskError("Task metadata root is a symlink; refusing traversal.")
+    _assert_safe_task_path(root, tasks_root / "_scan")
     if not tasks_root.is_dir():
         return []
     candidates: list[Path] = []

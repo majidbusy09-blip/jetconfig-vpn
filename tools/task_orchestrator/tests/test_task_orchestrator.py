@@ -9,6 +9,8 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+
+from tools.task_orchestrator import task_orchestrator as orchestrator
 from argparse import Namespace
 
 SCRIPT = Path(__file__).resolve().parents[1] / "task_orchestrator.py"
@@ -470,6 +472,75 @@ class OrchestratorIntegrationTests(unittest.TestCase):
         self.cli("finalize", "--task-id", self.task_id, "--reviewed-diff")
         record = json.loads(self.record.read_text(encoding="utf-8"))
         self.assertEqual(record["state"], "review_ready")
+    def test_project_scoped_task_records_do_not_collide_and_implicit_lookup_fails_closed(self) -> None:
+        binding_a = {
+            "project_id": "first-project", "repository_id": "111111",
+            "repository_full_name": "owner/first", "default_branch": "main",
+            "manifest_schema_version": 1, "manifest_sha256": "a" * 64,
+            "base_sha": "b" * 40,
+        }
+        binding_b = {
+            "project_id": "second-project", "repository_id": "222222",
+            "repository_full_name": "owner/second", "default_branch": "main",
+            "manifest_schema_version": 1, "manifest_sha256": "c" * 64,
+            "base_sha": "b" * 40,
+        }
+        path_a = orchestrator.task_path(self.root, self.task_id, binding_a)
+        path_b = orchestrator.task_path(self.root, self.task_id, binding_b)
+        self.assertNotEqual(path_a, path_b)
+        for path, binding in ((path_a, binding_a), (path_b, binding_b)):
+            path.parent.mkdir(parents=True)
+            path.write_text(json.dumps({
+                "schema_version": 1, "task_id": self.task_id,
+                "github_project_binding": binding,
+            }), encoding="utf-8")
+        with self.assertRaisesRegex(orchestrator.TaskError, "multiple projects"):
+            orchestrator.load_record(self.root, self.task_id)
+        record_a, loaded_a = orchestrator.load_record(self.root, self.task_id, binding_a)
+        record_b, loaded_b = orchestrator.load_record(self.root, self.task_id, binding_b)
+        self.assertEqual(loaded_a, path_a)
+        self.assertEqual(loaded_b, path_b)
+        self.assertEqual(record_a["github_project_binding"], binding_a)
+        self.assertEqual(record_b["github_project_binding"], binding_b)
+        self.assertTrue(orchestrator.is_task_metadata(
+            path_a.relative_to(self.root).as_posix(), self.task_id, binding_a
+        ))
+        self.assertFalse(orchestrator.is_task_metadata(
+            path_b.relative_to(self.root).as_posix(), self.task_id, binding_a
+        ))
+
+    def test_project_scoped_task_lookup_requires_unique_match(self) -> None:
+        binding = {
+            "project_id": "first-project", "repository_id": "111111",
+            "repository_full_name": "owner/first", "default_branch": "main",
+            "manifest_schema_version": 1, "manifest_sha256": "a" * 64,
+            "base_sha": "b" * 40,
+        }
+        path = orchestrator.task_path(self.root, self.task_id, binding)
+        path.parent.mkdir(parents=True)
+        path.write_text(json.dumps({
+            "schema_version": 1, "task_id": self.task_id,
+            "github_project_binding": binding,
+        }), encoding="utf-8")
+        record, loaded = orchestrator.load_record(self.root, self.task_id)
+        self.assertEqual(loaded, path)
+        self.assertEqual(record["task_id"], self.task_id)
+
+    def test_project_scoped_task_path_rejects_symlinked_namespace(self) -> None:
+        binding = {
+            "project_id": "first-project", "repository_id": "111111",
+            "repository_full_name": "owner/first", "default_branch": "main",
+            "manifest_schema_version": 1, "manifest_sha256": "a" * 64,
+            "base_sha": "b" * 40,
+        }
+        tasks = self.root / ".agent" / "tasks"
+        tasks.mkdir(parents=True)
+        outside = self.root / "outside"
+        outside.mkdir()
+        (tasks / "first-project").symlink_to(outside, target_is_directory=True)
+        with self.assertRaisesRegex(orchestrator.TaskError, "symlink"):
+            orchestrator.task_path(self.root, self.task_id, binding)
+
 
 if __name__ == "__main__":
     unittest.main()

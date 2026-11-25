@@ -174,10 +174,14 @@ def _candidate_task_paths(root: Path, task_id: str) -> list[Path]:
         candidates.append(legacy)
     try:
         for project_entry in os.scandir(tasks_root):
-            if project_entry.is_symlink() or not project_entry.is_dir(follow_symlinks=False):
+            if project_entry.is_symlink():
+                raise TaskError("Project task namespace contains a symlink; refusing ambiguous lookup.")
+            if not project_entry.is_dir(follow_symlinks=False):
                 continue
             for repository_entry in os.scandir(project_entry.path):
-                if repository_entry.is_symlink() or not repository_entry.is_dir(follow_symlinks=False):
+                if repository_entry.is_symlink():
+                    raise TaskError("Repository task namespace contains a symlink; refusing ambiguous lookup.")
+                if not repository_entry.is_dir(follow_symlinks=False):
                     continue
                 task_dir = Path(repository_entry.path) / task_id
                 if task_dir.is_symlink():

@@ -9,8 +9,10 @@ from urllib.parse import urlsplit
 
 try:
     from .agent_contract import ContractValidationError, validate_envelope, _path_matches
+    from .project_namespace import ProjectNamespaceError, workspace_id
 except ImportError:
     from agent_contract import ContractValidationError, validate_envelope, _path_matches
+    from project_namespace import ProjectNamespaceError, workspace_id
 
 PACKAGE_FIELDS_V1 = {"schema_version", "task_id", "source_revision", "project_context",
                      "source_context", "total_bytes", "context_sha256"}

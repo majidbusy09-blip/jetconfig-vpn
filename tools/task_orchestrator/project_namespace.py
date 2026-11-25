@@ -65,6 +65,13 @@ def lease_record_path(task_id: str, project_binding: Any = None) -> str:
 def _identity_binding(project_binding: Any) -> dict[str, Any]:
     if not isinstance(project_binding, dict):
         raise ProjectNamespaceError("A project binding object is required.")
+    allowed = PROJECT_BINDING_FIELDS | {"base_sha"}
+    if set(project_binding) not in {frozenset(PROJECT_BINDING_FIELDS), frozenset(allowed)}:
+        raise ProjectNamespaceError("Project binding contains unexpected identity fields.")
+    if "base_sha" in project_binding:
+        base_sha = project_binding["base_sha"]
+        if not isinstance(base_sha, str) or not GIT_SHA_RE.fullmatch(base_sha):
+            raise ProjectNamespaceError("Project binding base_sha must be a full Git commit SHA.")
     identity = {key: value for key, value in project_binding.items() if key != "base_sha"}
     return validate_project_binding(identity)
 

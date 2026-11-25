@@ -115,6 +115,45 @@ class VerifiedImpactAnalyzerTests(unittest.TestCase):
         with self.assertRaises(ImpactAnalysisError):
             self.analyze(["../secrets.txt"])
 
+    def test_v2_artifacts_must_match_task_project_manifest_and_source(self):
+        binding = {
+            "project_id": "fixture-app",
+            "repository_id": "123456",
+            "repository_full_name": "owner/fixture-app",
+            "default_branch": "main",
+            "manifest_schema_version": 1,
+            "manifest_sha256": "a" * 64,
+            "base_sha": self.base,
+        }
+        self.task["github_project_binding"] = binding
+        self.index["project_binding"] = binding
+        self.index["source_revision"] = self.base
+        self.report["project_binding"] = binding
+        self.report["source_revision"] = self.base
+        self.write_artifacts()
+        result = self.analyze(["lib/vpn.dart"])
+        self.assertEqual(result["source_revision"], self.base)
+
+        self.report["source_revision"] = "f" * 40
+        self.write_artifacts()
+        with self.assertRaises(ImpactAnalysisError):
+            self.analyze(["lib/vpn.dart"])
+
+        self.report["source_revision"] = self.base
+        self.index["project_binding"] = dict(binding, repository_id="999999")
+        self.write_artifacts()
+        with self.assertRaises(ImpactAnalysisError):
+            self.analyze(["lib/vpn.dart"])
+
+    def test_legacy_task_cannot_consume_v2_artifacts(self):
+        self.index["project_binding"] = {"project_id": "fixture-app"}
+        self.index["source_revision"] = self.base
+        self.report["project_binding"] = {"project_id": "fixture-app"}
+        self.report["source_revision"] = self.base
+        self.write_artifacts()
+        with self.assertRaises(ImpactAnalysisError):
+            self.analyze(["lib/vpn.dart"])
+
 
 if __name__ == "__main__":
     unittest.main()

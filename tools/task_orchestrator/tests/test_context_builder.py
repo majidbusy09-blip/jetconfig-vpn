@@ -186,7 +186,7 @@ class ContextBuilderTests(unittest.TestCase):
         self.assertEqual(package["schema_version"], 2)
         self.assertEqual(package["project_binding"], binding)
         self.assertEqual(package["memory_manifest"], {
-            "version": 2, "required_documents": paths,
+            "version": 2, "required_documents": paths, "max_total_bytes": 4096,
         })
         with self.assertRaises(ContextBuildError):
             build_context(

@@ -189,7 +189,7 @@ class EnvelopeBuilderTests(unittest.TestCase):
         package_value["memory_manifest"] = {"version": 1, "required_documents": required, "max_total_bytes": 512000}
         record["required_context"] = required
         record["github_project_binding"] = binding
-        record["project_memory_manifest"] = {"version": 1, "required_documents": required}
+        record["project_memory_manifest"] = {"version": 1, "required_documents": required, "max_total_bytes": 512000}
         package_value["total_bytes"] = sum(
             len(item["content"].encode())
             for item in package_value["project_context"] + package_value["source_context"]
@@ -219,10 +219,10 @@ class EnvelopeBuilderTests(unittest.TestCase):
         ]
         package_value["schema_version"] = 2
         package_value["project_binding"] = binding
-        package_value["memory_manifest"] = {"version": 1, "required_documents": required}
+        package_value["memory_manifest"] = {"version": 1, "required_documents": required, "max_total_bytes": 512000}
         record["required_context"] = required
         record["github_project_binding"] = binding
-        record["project_memory_manifest"] = {"version": 1, "required_documents": required}
+        record["project_memory_manifest"] = {"version": 1, "required_documents": required, "max_total_bytes": 512000}
         package_value["total_bytes"] = sum(
             len(item["content"].encode())
             for item in package_value["project_context"] + package_value["source_context"]
@@ -236,7 +236,7 @@ class EnvelopeBuilderTests(unittest.TestCase):
             build_agent_envelope(record)
 
         orphan = task_record()
-        orphan["project_memory_manifest"] = {"version": 1, "required_documents": orphan["required_context"]}
+        orphan["project_memory_manifest"] = {"version": 1, "required_documents": orphan["required_context"], "max_total_bytes": 512000}
         with self.assertRaises(EnvelopeBuildError):
             build_agent_envelope(orphan)
 

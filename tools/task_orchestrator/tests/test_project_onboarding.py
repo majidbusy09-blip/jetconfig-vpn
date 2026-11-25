@@ -111,7 +111,41 @@ class ProjectOnboardingTests(unittest.TestCase):
         )
         self.assertEqual(report["overall_readiness"], "NEEDS_REVIEW")
         self.assertTrue(any("pubspec.lock" in item for item in report["human_decisions"]))
-        self.assertTrue(any("Dart semantic indexing" in item for item in report["human_decisions"]))
+        self.assertTrue(any("Source indexing is not yet operational" in item for item in report["human_decisions"]))
+
+    def test_ci_verified_indexing_is_not_misreported_as_runtime_supported(self):
+        report = self.report(
+            source_index_assessment={
+                "status": "ci_verified_runtime_pending",
+                "reason": "CI generated project-bound artifacts and exercised task intelligence.",
+            },
+        )
+        self.assertEqual(report["overall_readiness"], "NEEDS_REVIEW")
+        self.assertTrue(
+            any(
+                "orchestrator still requires verified artifact provisioning at runtime" in item
+                for item in report["human_decisions"]
+            )
+        )
+        self.assertFalse(report["implementation_eligible"])
+
+    def test_adapter_assessment_uses_project_specific_reason_without_jet_vpn_assumptions(self):
+        report = self.report(
+            source_index_assessment={
+                "status": "adapter_required",
+                "reason": "The configured source paths are not yet consumed by the runtime adapter.",
+            },
+        )
+        self.assertTrue(
+            any(
+                "The configured source paths are not yet consumed by the runtime adapter."
+                in item
+                for item in report["human_decisions"]
+            )
+        )
+        self.assertFalse(
+            any("JET VPN entrypoints" in item for item in report["human_decisions"])
+        )
 
     def test_malformed_base_sha_blocks_readiness(self):
         report = self.report(base_sha="main")

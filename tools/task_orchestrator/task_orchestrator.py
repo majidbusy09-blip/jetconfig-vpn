@@ -86,6 +86,16 @@ except ImportError:
             task_record_path as project_task_record_path,
         )
 
+try:
+    from .safe_local_files import SafeLocalFileError, atomic_write_bytes, ensure_directory, read_bytes
+except ImportError:
+    try:
+        from tools.task_orchestrator.safe_local_files import (
+            SafeLocalFileError, atomic_write_bytes, ensure_directory, read_bytes,
+        )
+    except ImportError:
+        from safe_local_files import SafeLocalFileError, atomic_write_bytes, ensure_directory, read_bytes
+
 SCHEMA_VERSION = 1
 REQUIRED_CONTEXT = (
     "AGENTS.md",
@@ -233,9 +243,10 @@ def load_record(
         raise TaskError(f"Task record not found: {path.relative_to(root)}")
     _assert_safe_task_path(root, path)
     try:
-        record = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
-        raise TaskError(f"Task record is unreadable: {exc}") from exc
+        raw = read_bytes(root, path.relative_to(root).as_posix(), max_bytes=2_000_000)
+        record = json.loads(raw.decode("utf-8", errors="strict"))
+    except (SafeLocalFileError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise TaskError(f"Task record is unreadable or unsafe: {exc}") from exc
     if not isinstance(record, dict):
         raise TaskError("Task record must be a JSON object.")
     if record.get("schema_version") != SCHEMA_VERSION or record.get("task_id") != task_id:
@@ -252,17 +263,17 @@ def load_record(
     return record, path
 
 
-def save_record(record: dict[str, Any], path: Path) -> None:
+def save_record(record: dict[str, Any], path: Path, *, create_only: bool = False) -> None:
     root = repository_root()
     _assert_safe_task_path(root, path)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    _assert_safe_task_path(root, path)
-    temp = path.with_suffix(".json.tmp")
-    if temp.is_symlink():
-        raise TaskError("Temporary task metadata path is a symlink; refusing overwrite.")
-    temp.write_text(json.dumps(record, ensure_ascii=False, indent=2) + "\n",
-                    encoding="utf-8")
-    temp.replace(path)
+    try:
+        relative = path.relative_to(root).as_posix()
+        parent = path.parent.relative_to(root).as_posix()
+        ensure_directory(root, parent)
+        encoded = (json.dumps(record, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
+        atomic_write_bytes(root, relative, encoded, replace=not create_only)
+    except (ValueError, SafeLocalFileError, UnicodeEncodeError) as exc:
+        raise TaskError(f"Task record could not be saved safely: {exc}") from exc
 
 
 def status_paths(root: Path) -> list[str]:
@@ -499,7 +510,7 @@ def command_init(args: argparse.Namespace) -> None:
     if project_binding is not None:
         record["github_project_binding"] = project_binding
         record["project_memory_manifest"] = getattr(args, "project_memory_manifest", None)
-    save_record(record, path)
+    save_record(record, path, create_only=True)
     print(f"Created {path.relative_to(root)}. Next: prepare --task-id {args.task_id}")
 
 

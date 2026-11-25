@@ -436,13 +436,13 @@ def command_init(args: argparse.Namespace) -> None:
 
 def command_prepare(args: argparse.Namespace) -> None:
     root = repository_root()
-    record, path = load_record(root, args.task_id)
+    record, path = load_record(root, args.task_id, getattr(args, "project_binding", None))
     require_state(record, "draft")
     branch = current_branch(root)
     origin = safe_remote_identity(run_git(root, "remote", "get-url", "origin", check=False))
     if origin != record["repository"].get("origin"):
         raise TaskError("Repository origin changed after task initialization; create a fresh task record.")
-    unexpected = [p for p in status_paths(root) if not is_task_metadata(p, args.task_id)]
+    unexpected = [p for p in status_paths(root) if not is_task_metadata(p, args.task_id, record.get("github_project_binding"))]
     if unexpected:
         raise TaskError("Worktree has pre-existing changes outside this task record: " + ", ".join(unexpected[:12]))
     head = run_git(root, "rev-parse", "HEAD")
@@ -481,7 +481,7 @@ def command_prepare(args: argparse.Namespace) -> None:
 
 def command_build_envelope(args: argparse.Namespace) -> None:
     root = repository_root()
-    record, task_record_path = load_record(root, args.task_id)
+    record, task_record_path = load_record(root, args.task_id, getattr(args, "project_binding", None))
     require_state(record, "prepared", "implementation", "verification")
     require_task_branch(root, record)
     try:
@@ -672,7 +672,7 @@ def command_impact(args: argparse.Namespace) -> None:
     if not isinstance(base_sha, str):
         raise TaskError("Task has no pinned base SHA.")
     changed = [item for item in changed_paths(root, base_sha)
-               if not is_task_metadata(item, args.task_id)]
+               if not is_task_metadata(item, args.task_id, record.get("github_project_binding"))]
     if not changed:
         result = {
             "schema_version": 1, "task_id": args.task_id, "source_revision": base_sha,
@@ -746,7 +746,7 @@ def command_validate_scope(args: argparse.Namespace) -> None:
     paths = changed_paths(root, base)
     violations = []
     for item in paths:
-        if is_task_metadata(item, args.task_id):
+        if is_task_metadata(item, args.task_id, record.get("github_project_binding")):
             continue
         if matches_any(item, record["scope"]["excluded"]):
             violations.append(f"excluded: {item}")
@@ -757,7 +757,7 @@ def command_validate_scope(args: argparse.Namespace) -> None:
         "status": "failed" if violations else "passed",
         "checked_at": now_iso(),
         "violations": violations,
-        "path_fingerprints": path_fingerprints(root, paths, args.task_id),
+        "path_fingerprints": path_fingerprints(root, paths, args.task_id, record.get("github_project_binding")),
     }
     record["updated_at"] = now_iso()
     save_record(record, path)
@@ -780,7 +780,7 @@ def command_verify(args: argparse.Namespace) -> None:
     base_sha = record.get("repository", {}).get("base_sha")
     verification_paths_before = changed_paths(root, base_sha) if base_sha else []
     verification_fingerprints_before = path_fingerprints(
-        root, verification_paths_before, args.task_id
+        root, verification_paths_before, args.task_id, record.get("github_project_binding")
     )
     allowed_env = {
         "PATH", "HOME", "TMPDIR", "TEMP", "TMP", "LANG", "LC_ALL", "CI",
@@ -812,7 +812,7 @@ def command_verify(args: argparse.Namespace) -> None:
         exit_code, status, output = 126, "failed", str(exc)
     duration = round(time.monotonic() - started, 3)
     verification_paths = changed_paths(root, base_sha) if base_sha else []
-    verification_fingerprints = path_fingerprints(root, verification_paths, args.task_id)
+    verification_fingerprints = path_fingerprints(root, verification_paths, args.task_id, record.get("github_project_binding"))
     source_stable = (
         verification_paths_before == verification_paths
         and verification_fingerprints_before == verification_fingerprints

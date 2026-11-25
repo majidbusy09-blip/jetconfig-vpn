@@ -96,7 +96,7 @@ class GitHubTaskArtifactDispatchTests(unittest.TestCase):
                 "manifest_sha256": "b" * 64,
             },
         }
-        body = "<!-- jet-agent-task:v2 -->\\n" + "```json\\n" + json.dumps(task) + "\\n" + "```"
+        body = "<!-- jet-agent-task:v2 -->\n" + "```json\n" + json.dumps(task) + "\n" + "```"
         artifact = {
             "issue_number": 17, "issue_title": "Task title",
             "issue_body_sha256": hashlib.sha256(body.encode()).hexdigest(),
@@ -114,7 +114,7 @@ class GitHubTaskArtifactDispatchTests(unittest.TestCase):
         with self.assertRaises(DispatchError):
             validate_issue_snapshot(dispatch, intake_artifact=artifact,
                                     issue_metadata=changed, repository_metadata=REPOSITORY)
-        changed = dict(issue, body=body + "\\nEdited after intake")
+        changed = dict(issue, body=body + "\nEdited after intake")
         with self.assertRaises(DispatchError):
             validate_issue_snapshot(dispatch, intake_artifact=artifact,
                                     issue_metadata=changed, repository_metadata=REPOSITORY)

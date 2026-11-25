@@ -78,3 +78,20 @@ The application regression suite, static semantic tooling, and local task-execut
 ## Sandbox acceptance evidence verifier
 
 The independent report verifier and adversarial tests are part of the orchestrator tooling. This is not a source-index input and does not alter the application source fingerprint. The test suite runs through the existing Task Orchestrator workflow.
+
+
+## Project-scoped v2 indexing and artifact identities
+
+The v2 project namespace is derived from a trusted manifest plus the exact checked-out Git revision. The Dart helper recomputes the canonical manifest SHA-256, validates the project/repository identity, compares the manifest canonical repository name with git remote get-url origin, and requires the requested source revision to equal git rev-parse HEAD.
+
+For a project-aware checkout, run the resolved indexer with explicit identity:
+
+    dart run bin/resolve.dart --write --repository-root=/path/to/checkout --project-manifest=/path/to/trusted/project-manifest.json --source-revision=<full-git-commit-sha>
+
+Then generate the critical-path report from the same pinned identity:
+
+    dart run bin/critical_paths.dart --write --repository-root=/path/to/checkout --project-manifest=/path/to/trusted/project-manifest.json --source-revision=<same-full-git-commit-sha> --critical-paths-manifest=docs/critical_paths.json
+
+Outputs are isolated under docs/generated/projects/<project_id>/<repository_id>/<manifest_sha256>/<source_revision>/indexes/. The resolved index and critical-path report carry the binding and source revision; report generation rejects a mismatched index. Project-aware cache keys, audit paths, and future workflow artifact names use the same identity tuple.
+
+Calling either CLI without project options preserves the existing v1 paths: docs/generated/jet_vpn_resolved_index.json and docs/generated/jet_vpn_critical_paths.json. The legacy single-file AST candidate index also remains unchanged. Actual workflow YAML artifact upload wiring is deferred because workflow paths are protected by the current task protocol; the pure naming helper is available for that separately reviewed change.

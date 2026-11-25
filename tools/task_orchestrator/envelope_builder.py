@@ -140,7 +140,9 @@ def build_agent_envelope(record: dict, *, repository_name: str | None = None) ->
     required_context = record.get("required_context")
     if not isinstance(required_context, list) or not required_context or not all(isinstance(x, str) for x in required_context):
         raise EnvelopeBuildError("Task required-context manifest is missing or malformed.")
-    if project_binding is None and memory_manifest is None and required_context != REQUIRED_PROJECT_CONTEXT:
+    if (project_binding is None) != (memory_manifest is None):
+        raise EnvelopeBuildError("Project identity and project memory manifest must be persisted together.")
+    if project_binding is None and required_context != REQUIRED_PROJECT_CONTEXT:
         raise EnvelopeBuildError("Legacy v1 tasks must use the exact six-document JET VPN compatibility manifest.")
     if project_binding is not None:
         if not isinstance(project_binding, dict) or project_binding.get("base_sha") != base_sha:

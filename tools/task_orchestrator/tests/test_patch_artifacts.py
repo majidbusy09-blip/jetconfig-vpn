@@ -117,6 +117,51 @@ class PatchArtifactStoreTests(unittest.TestCase):
             with self.assertRaises(PatchArtifactError):
                 store_a.assert_namespace(binding, "d" * 40)
 
+    def test_rejects_root_replaced_by_symlink_after_initialization(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            store_root = root / "store"
+            outside = root / "outside"
+            store_root.mkdir()
+            outside.mkdir()
+            store = LocalPatchArtifactStore(store_root)
+            saved = root / "store-saved"
+            store_root.rename(saved)
+            try:
+                store_root.symlink_to(outside, target_is_directory=True)
+            except OSError:
+                self.skipTest("symlink creation unavailable")
+            with self.assertRaises(PatchArtifactError):
+                store.store_patch(patch_text())
+            self.assertEqual(list(outside.iterdir()), [])
+
+    def test_rejects_project_namespace_replaced_by_symlink_after_initialization(self):
+        binding = {
+            "project_id": "alpha-app",
+            "repository_id": "123456",
+            "repository_full_name": "owner/alpha-app",
+            "default_branch": "main",
+            "manifest_schema_version": 1,
+            "manifest_sha256": "a" * 64,
+            "base_sha": "b" * 40,
+        }
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            store = LocalPatchArtifactStore(root, project_binding=binding, source_revision="b" * 40)
+            projects = root / "projects"
+            namespace = projects / "alpha-app"
+            outside = root / "outside"
+            outside.mkdir()
+            saved = projects / "alpha-app-saved"
+            namespace.rename(saved)
+            try:
+                namespace.symlink_to(outside, target_is_directory=True)
+            except OSError:
+                self.skipTest("symlink creation unavailable")
+            with self.assertRaises(PatchArtifactError):
+                store.store_patch(patch_text())
+            self.assertEqual(list(outside.iterdir()), [])
+
     def test_legacy_store_root_remains_unchanged(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)

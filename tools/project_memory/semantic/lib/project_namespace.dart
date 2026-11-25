@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:crypto/crypto.dart';
 
@@ -106,6 +107,40 @@ class ProjectArtifactIdentity {
   bool matchesBinding(Object? value) {
     if (value is! Map) return false;
     return jsonEncode(_canonicalize(value)) == jsonEncode(_canonicalize(binding));
+  }
+
+  Future<void> ensureOutputParent(
+    Directory repositoryRoot,
+    String relativeOutputPath, {
+    required bool createMissing,
+  }) async {
+    final parts = relativeOutputPath.split('/');
+    if (parts.length < 2 || parts.any((part) => part.isEmpty || part == '.' || part == '..' || part.startsWith('.'))) {
+      throw const FormatException('Generated output path contains an unsafe segment.');
+    }
+    final rootPath = await repositoryRoot.resolveSymbolicLinks();
+    var current = Directory(rootPath);
+    for (final part in parts.take(parts.length - 1)) {
+      final next = Directory('${current.path}/$part');
+      var type = await FileSystemEntity.type(next.path, followLinks: false);
+      if (type == FileSystemEntityType.notFound && createMissing) {
+        await next.create();
+        type = await FileSystemEntity.type(next.path, followLinks: false);
+      }
+      if (type != FileSystemEntityType.directory) {
+        throw const FormatException('Generated output path contains a missing, symlinked, or non-directory component.');
+      }
+      final resolved = await next.resolveSymbolicLinks();
+      if (resolved != rootPath && !resolved.startsWith('$rootPath${Platform.pathSeparator}')) {
+        throw const FormatException('Generated output directory escapes the repository root.');
+      }
+      current = Directory(resolved);
+    }
+    final output = File('${current.path}/${parts.last}');
+    final outputType = await FileSystemEntity.type(output.path, followLinks: false);
+    if (outputType != FileSystemEntityType.notFound && outputType != FileSystemEntityType.file) {
+      throw const FormatException('Generated output must be a regular file or not exist.');
+    }
   }
 
   String artifactName(String prefix) {

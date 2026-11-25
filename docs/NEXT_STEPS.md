@@ -304,3 +304,13 @@ The current task lease is time-limited. Renew it before expiry; do not run two a
 
 
 Phase 2D-1 must also verify that the trusted PR guard and patch-review gate use the shared project namespace resolver. A v2 PR must fail closed on cross-project lease substitution, repository rename drift, manifest digest drift, or stale pinned base. V1 PR guard behavior must remain unchanged.
+
+
+## Current execution order — 2026-11-25
+
+1. Complete target PR #2: rerun pinned Flutter validation after staging the required Vazirmatn font assets; inspect logs and update the status accurately. Review the absent `pubspec.lock` and add one only through a reproducible, reviewed process.
+2. Complete central Issue #105: validate the hesabgar manifest against live repository identity and uniqueness, run the read-only readiness report at the exact target PR head, and keep lifecycle `registered`. Do not activate until all readiness gates and human review pass.
+3. Finish independent review of PR #109. It is a hard dependency for Issue #108; do not start Phase 2D-2B before #109 is reviewed and merged.
+4. After #109 merges, begin Issue #108 with a separate task/lease and cross-project artifact/cache/index/audit isolation tests.
+5. Issue #110 remains a separate protected-workflow change. Do not edit `.github/workflows/agent-lease-commands.yml` or weaken protected-path checks without explicit approval of that exact policy change.
+6. Keep all release, signing, deployment, registry activation, paid API and untrusted-code execution gates unchanged.

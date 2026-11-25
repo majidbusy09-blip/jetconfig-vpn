@@ -103,6 +103,11 @@ class ProjectArtifactIdentity {
   String get criticalPathsPath => '$namespaceRoot/indexes/critical_paths.json';
   String get semanticIndexPath => '$namespaceRoot/indexes/semantic_index.json';
 
+  bool matchesBinding(Object? value) {
+    if (value is! Map) return false;
+    return jsonEncode(_canonicalize(value)) == jsonEncode(_canonicalize(binding));
+  }
+
   String artifactName(String prefix) {
     if (!_artifactPrefix.hasMatch(prefix)) {
       throw const FormatException('Workflow artifact prefix is invalid.');

@@ -327,3 +327,12 @@ Phase 2D-1 must also verify that the trusted PR guard and patch-review gate use 
 4. Add and review `pubspec.lock` through a dedicated target-repository PR before declaring dependency reproducibility complete.
 5. Keep Issue #110 separate: do not edit `.github/workflows/agent-lease-commands.yml` until the exact protected workflow-policy change is explicitly approved.
 6. No activation, release, signing, deployment, paid API, credentials, or untrusted-code execution without their separate gates.
+
+
+## Phase 2D-2B execution notes — 2026-11-25
+
+1. Complete PR #113 exact-head Python and Dart checks; fix every regression before marking it ready.
+2. Verify the v2 project identity path using a checked-out repository whose Git origin, manifest repository ID/name, manifest digest, and HEAD all match.
+3. Add/verify cache and audit consumer integration where a concrete cache/audit writer exists; no standalone cache subsystem is currently present, so the pure namespace key/path API must not be mistaken for a wired cache backend.
+4. Keep workflow YAML artifact upload wiring deferred until a separate workflow-policy task is approved; do not modify .github/workflows/agent-lease-commands.yml or any other workflow in this task.
+5. After Phase 2D-2B is merged, refresh the حسابگر من readiness report, commit/review its resolved pubspec.lock, and keep its lifecycle registered until the generic Dart adapter and all onboarding gates are satisfied.

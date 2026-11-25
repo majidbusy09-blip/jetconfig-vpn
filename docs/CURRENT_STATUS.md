@@ -324,3 +324,13 @@ The project-scoped lease resolver is now also wired into the trusted PR guard an
 ### Scandir iterator cleanup — PR #109
 
 The project/repository task namespace scan now owns both `os.scandir` iterators through context managers. This closes directory handles even when symlink validation raises early. The 450-test run on the prior exact head passed but emitted ResourceWarning for these iterators; the cleanup follow-up requires a fresh exact-head CI run.
+
+
+## Verified merges — 2026-11-25
+
+- Phase 2D-2A PR #109 is merged as `30a665c29fe658b37139c8e232b2411f6e59305a`. Project-aware local task records, handoff/context/input paths, metadata filtering, and local task branches are now on `main`; v1 JET VPN paths remain preserved.
+- حسابگر من target PR #2 is merged as `177eb1a1f0ae8ae5a77a2c1c136804dff042d5db`. Its dedicated Flutter 3.27.4 / Dart 3.6.2 workflow passed static analysis and 74 tests on the exact PR head. App version remains `1.0.9+10`.
+- Central onboarding PR #111 was based on the pre-#109 main and became non-mergeable after #109 landed. Its onboarding changes are being rebased into a fresh PR; do not merge the stale branch.
+- The resolved `pubspec.lock` was reviewed from CI artifact `14998203164` (101 packages, 23,577 bytes) but is not tracked on target `main`; reproducible dependency resolution remains open.
+- حسابگر من remains `registered`, not active. Generic Dart source-index adapter is still required before source indexing can be enabled.
+- Issue #108 is now unblocked by merged #109 and is the next implementation phase. Issue #110 remains separately gated on explicit approval for its protected workflow policy change.

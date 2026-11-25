@@ -343,6 +343,6 @@ The project/repository task namespace scan now owns both `os.scandir` iterators 
 - Patch artifact storage, provider-result ingestion, and patch-review authorization now accept/verify the same project namespace. Cross-project and stale-revision store reuse fails closed.
 - Dart resolved-index and critical-path tooling now accept a trusted project manifest and exact source revision, validate the canonical manifest digest and checked-out GitHub origin, and write project/revision-scoped outputs.
 - Workflow artifact-name helper and cache/audit path helpers are implemented. Actual workflow YAML wiring remains deferred because all workflow files are protected by the task protocol.
-- PR #113 is still a draft while exact-head tests and semantic tooling checks are completed. No patch is applied, no provider is called, and no untrusted code is executed.
+- PR #113 implements this phase; exact-head Python, Dart semantic tooling, validation, memory-audit, and lease/scope checks are required before merge. No patch is applied, no provider is called, and no untrusted code is executed.
 
 - The fixture-only dispatch audit writer now stores v2 audit output under the project/manifest/source namespace and rejects unscoped output overrides; legacy v1 output behavior remains intact.

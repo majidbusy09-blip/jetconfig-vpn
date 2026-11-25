@@ -117,3 +117,14 @@ Project-aware v2 tasks use the shared pure namespace helper in `tools/task_orche
 - V2 workspace IDs include project_id, repository_id, manifest digest, task ID, and pinned base SHA. Legacy workspace IDs retain the original derivation.
 
 Legacy schema v1 remains byte-for-byte compatible: lock branch `agent-locks/<task_id>` and record `.agent-locks/lease.json`. V1 intake remains restricted to the original JET VPN repository. No automatic migration or namespace rebinding is performed.
+
+
+## Live cross-repository intake evidence — 2026-11-25
+
+- Hesabgar Issue #17 exercised the target-side caller and central reusable workflow. Successful run: `45677327585`.
+- Uploaded artifact: `agent-task-17`, artifact ID `15052647029`, 986 bytes, digest `sha256:684fcf539601637432ee08e861dc929ed989757ab1a47ddbab1cbe9f78471481`.
+- The run log confirmed validation of task `live-intake-smoke-20261125` and explicitly confirmed no lease was claimed and no model/implementation agent was invoked.
+- The temporary issue is closed. The smoke test created no branch, PR, source upload, lease, or implementation change.
+- Two earlier attempts failed closed on the binding check. Central PR #132 added field-name-only mismatch diagnostics and exact payload regression coverage. The later live retry passed with the current manifest.
+- This proves the read-only intake event path only. It does not prove reusable lease/handoff, target workspace preparation, automatic source-index provisioning, or implementation execution.
+

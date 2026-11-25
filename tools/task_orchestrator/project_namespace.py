@@ -62,6 +62,18 @@ def lease_record_path(task_id: str, project_binding: Any = None) -> str:
     return ".agent-locks/projects/" + namespace_key(project_binding) + "/" + task_id + ".json"
 
 
+def task_record_dir(task_id: str, project_binding: Any = None) -> str:
+    if not isinstance(task_id, str) or not TASK_ID_RE.fullmatch(task_id):
+        raise ProjectNamespaceError("Invalid task_id.")
+    if project_binding is None:
+        return ".agent/tasks/" + task_id
+    binding = validate_project_binding(
+        {key: value for key, value in project_binding.items() if key != "base_sha"}
+        if isinstance(project_binding, dict) and "base_sha" in project_binding else project_binding
+    )
+    return ".agent/tasks/" + binding["project_id"] + "/" + binding["repository_id"] + "/" + task_id
+
+
 def workspace_id(task_id: str, base_sha: str, project_binding: Any = None) -> str:
     if not isinstance(task_id, str) or not TASK_ID_RE.fullmatch(task_id):
         raise ProjectNamespaceError("Invalid task_id.")

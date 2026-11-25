@@ -146,6 +146,7 @@ def validate_patch_for_human_review(record: Any, envelope: Any, result: Any,
         raise PatchReviewGateError("Lease expiry differs from the accepted handoff; renew and re-accept.")
 
     try:
+        store.assert_namespace(project_binding, base_sha)
         validated = store.validate_result_patch(result, envelope)
     except PatchArtifactError as exc:
         raise PatchReviewGateError("Patch artifact failed integrity, contract, or scope validation.") from exc

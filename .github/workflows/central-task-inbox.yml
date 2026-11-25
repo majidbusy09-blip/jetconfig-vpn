@@ -19,7 +19,7 @@ jobs:
       - name: Checkout central control plane
         uses: actions/checkout@v4
         with:
-          ref: main
+          ref: ${{ github.sha }}
           fetch-depth: 0
           persist-credentials: true
 

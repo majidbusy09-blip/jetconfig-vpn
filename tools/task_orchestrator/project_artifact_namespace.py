@@ -69,7 +69,7 @@ def namespace_segments(project_binding: Any, source_revision: str) -> tuple[str,
 
 
 def _safe_relative(value: str, label: str) -> tuple[str, ...]:
-    if not isinstance(value, str) or not value or value.startswith("/") or "\\" in value:
+    if not isinstance(value, str) or not value or value.startswith("/") or value.find("\\") >= 0 or re.match(r"^[A-Za-z]:", value):
         raise ProjectArtifactNamespaceError(f"{label} must be a non-empty relative POSIX path.")
     path = PurePosixPath(value)
     parts = path.parts

@@ -169,9 +169,22 @@ def build_readiness_report(
         else "unknown"
     )
     if index_status in {"adapter_required", "not_reusable_as_is", "unknown"}:
+        reason = (
+            source_index_assessment.get("reason")
+            if isinstance(source_index_assessment, dict)
+            else None
+        )
+        detail = reason.strip() if isinstance(reason, str) and reason.strip() else (
+            "A compatible source-index adapter has not been verified for this project."
+        )
         _append_unique(
             human_decisions,
-            "Dart semantic indexing needs a project-neutral CLI/output adapter; the existing JET VPN entrypoints and artifact names are repository-specific.",
+            f"Source indexing is not yet operational for this project: {detail}",
+        )
+    elif index_status == "ci_verified_runtime_pending":
+        _append_unique(
+            human_decisions,
+            "Project-bound index generation and task-intelligence consumption passed CI, but the orchestrator still requires verified artifact provisioning at runtime; prove automatic generation or retrieval and freshness checks before marking indexing supported.",
         )
     elif index_status not in {"supported", "not_required"}:
         _append_unique(human_decisions, "Review the source-index compatibility assessment before activation.")

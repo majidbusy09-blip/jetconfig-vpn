@@ -703,3 +703,10 @@ PR #101 remains Draft and unmerged for human review. No review submissions or re
 - Closed Issue #108 and verified release of lease `2026112508172d34`.
 - Created queued follow-up Issue #114 for project-scoped workflow artifact upload-name wiring. It remains unclaimed and unlabelled until the protected workflow-path policy change is explicitly approved.
 - حسابگر من onboarding remains registered and pending lockfile commit/review plus a target-checkout source-index smoke test.
+
+
+## 2026-11-25 — Narrow workflow policy authorization
+
+- Repository owner explicitly authorized a narrowly scoped exception for `.github/workflows/project-memory-audit.yml` only.
+- Split the work into two independently reviewable phases: (1) policy validators and adversarial tests, with no workflow YAML changes; (2) actual workflow wiring in a separate task after the policy merge.
+- The exception is bound to exact task ID `project-memory-artifact-workflow-v1`; the lease-command workflow and all other workflow/build/release/deploy paths remain protected.

@@ -49,7 +49,10 @@ Future<ProjectArtifactIdentity?> _loadIdentity(
   if (manifestPath == null) return null;
   final revision = options['source-revision'];
   if (revision == null) throw const FormatException('Project indexing requires --source-revision.');
-  final manifestFile = File(manifestPath);
+  final suppliedManifest = File(manifestPath);
+  final manifestFile = suppliedManifest.isAbsolute
+      ? suppliedManifest
+      : File('${root.path}/$manifestPath');
   if (await FileSystemEntity.type(manifestFile.path, followLinks: false) !=
       FileSystemEntityType.file) {
     throw StateError('Project manifest must be a regular non-symlink file.');

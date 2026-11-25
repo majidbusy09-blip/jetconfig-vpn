@@ -10,7 +10,7 @@ import zipfile
 from pathlib import Path
 from unittest.mock import patch
 
-from tools.task_orchestrator.github_lease import make_lease
+from tools.task_orchestrator.github_lease import make_lease, lock_branch
 from tools.task_orchestrator.github_task_handoff import build_task_handoff
 from tools.task_orchestrator.project_registry import manifest_digest
 from tools.task_orchestrator.github_task_handoff_accept import (
@@ -121,9 +121,17 @@ def v2_current_issue():
 
 def v2_handoff(operation="claim", claim_id=CLAIM, previous_claim_id=CLAIM, base_sha=BASE, lock_commit=LOCK_COMMIT, run_id=321):
     ev = v2_issue_event(operation, claim_id, previous_claim_id)
+    binding = {
+        "project_id": ACTIVE_MANIFEST["project_id"],
+        "repository_id": ACTIVE_MANIFEST["repository"]["repository_id"],
+        "repository_full_name": ACTIVE_MANIFEST["repository"]["full_name"],
+        "default_branch": ACTIVE_MANIFEST["repository"]["default_branch"],
+        "manifest_schema_version": ACTIVE_MANIFEST["schema_version"],
+        "manifest_sha256": manifest_digest(ACTIVE_MANIFEST),
+    }
     lease_record = make_lease(
         task_id=TASK_ID, owner="chatgpt", claim_id=claim_id,
-        base_sha=base_sha, now=NOW, duration_minutes=120,
+        base_sha=base_sha, now=NOW, duration_minutes=120, project_binding=binding,
     )
     lease_result = {
         "operation": operation, "task_id": TASK_ID, "issue_number": 42,
@@ -132,8 +140,9 @@ def v2_handoff(operation="claim", claim_id=CLAIM, previous_claim_id=CLAIM, base_
             "task_id": TASK_ID, "owner": "chatgpt", "claim_id": claim_id,
             "status": "active", "base_sha": base_sha,
             "expires_at": lease_record["expires_at"],
-            "lock_branch": "agent-locks/" + TASK_ID,
+            "lock_branch": lock_branch(TASK_ID, binding),
             "lock_commit": lock_commit, "verified": True,
+            "project_binding": binding,
         },
     }
     with patch(

@@ -54,9 +54,9 @@ except ImportError:
 
 
 try:
-    from .project_artifact_namespace import index_output_paths, namespaced_relative_path
+    from .project_artifact_namespace import index_output_paths, ensure_namespace_directory
 except ImportError:
-    from tools.task_orchestrator.project_artifact_namespace import index_output_paths, namespaced_relative_path
+    from tools.task_orchestrator.project_artifact_namespace import index_output_paths, ensure_namespace_directory
 
 try:
     from .project_namespace import (
@@ -756,15 +756,19 @@ def command_impact(args: argparse.Namespace) -> None:
         except (ImpactAnalysisError, ContextSelectionError) as exc:
             raise TaskError(f"Verified impact analysis blocked: {exc}") from exc
     if project_binding is not None:
-        report_path = namespaced_relative_path(
-            "reports", f"impact/{args.task_id}/impact_report.json",
-            project_binding=project_binding, source_revision=base_sha,
-        )
-        target = root / report_path
+        try:
+            report_directory = ensure_namespace_directory(
+                root / "docs/generated", "reports",
+                project_binding=project_binding, source_revision=base_sha,
+                relative_directory=f"impact/{args.task_id}",
+            )
+        except ValueError as exc:
+            raise TaskError(f"Project-scoped impact report path is unsafe: {exc}") from exc
+        target = report_directory / "impact_report.json"
     else:
         target = task_record_path.parent / "impact_report.json"
-        report_path = target.relative_to(root).as_posix()
-    target.parent.mkdir(parents=True, exist_ok=True)
+        target.parent.mkdir(parents=True, exist_ok=True)
+    report_path = target.relative_to(root).as_posix()
     encoded = (json.dumps(result, ensure_ascii=False, indent=2) + "\\n").encode("utf-8")
     temporary = target.with_suffix(".json.tmp")
     temporary.write_bytes(encoded)

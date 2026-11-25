@@ -7,6 +7,7 @@ from tools.task_orchestrator.tests.test_agent_contract import envelope
 from tools.task_orchestrator.tests.test_patch_pipeline import completed_result, patch_text
 
 REPO="majidbusy09-blip/jetconfig-vpn"; TASK="smart-routing-fix"
+REPO_METADATA={"id":1349356614,"full_name":REPO,"html_url":"https://github.com/"+REPO,"default_branch":"main"}
 BASE="a"*40; HEAD="b"*40; LOCK="c"*40; CLAIM="d"*16
 NOW="2030-01-01T00:00:00Z"; EXPIRES="2030-01-01T02:00:00Z"
 
@@ -44,6 +45,7 @@ class PatchReviewGateTests(unittest.TestCase):
     def gate(self,**changes):
         args=dict(record=self.record,envelope=self.env,result=self.result,store=self.store,
           issue_data=self.issue,lease_record=self.lease,lock_commit=LOCK,repository=REPO,
+          repository_metadata=REPO_METADATA,
           branch="agent/"+TASK,head_sha=HEAD,base_is_ancestor=True,worktree_clean=True,now=NOW)
         args.update(changes); return validate_patch_for_human_review(**args)
     def test_current_scoped_patch_is_reviewable_but_never_applied(self):

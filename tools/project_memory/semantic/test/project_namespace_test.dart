@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:test/test.dart';
 import 'package:jet_vpn_semantic_memory/project_namespace.dart';
 
@@ -143,6 +145,31 @@ void main() {
       actualRepositoryFullName: 'majidbusy09-blip/jetconfig-vpn',
     );
     expect(() => identity.artifactName(List.filled(64, 'p').join()), throwsFormatException);
+  });
+
+  test('matches bindings canonically and rejects symlinked output parents', () async {
+    final identity = ProjectArtifactIdentity.fromManifest(
+      manifest(),
+      sourceRevision: revision,
+      actualRepositoryFullName: 'majidbusy09-blip/jetconfig-vpn',
+    );
+    expect(identity.matchesBinding(Map<String, Object?>.from(identity.binding)), isTrue);
+    expect(identity.matchesBinding({'project_id': 'other'}), isFalse);
+
+    final root = await Directory.systemTemp.createTemp('project-namespace-');
+    final outside = await Directory.systemTemp.createTemp('project-namespace-outside-');
+    try {
+      await Directory('${root.path}/docs/generated').create(recursive: true);
+      await Directory('${root.path}/docs/generated/projects').delete();
+      await Link('${root.path}/docs/generated/projects').create(outside.path);
+      await expectLater(
+        identity.ensureOutputParent(root, identity.resolvedIndexPath, createMissing: true),
+        throwsFormatException,
+      );
+    } finally {
+      await root.delete(recursive: true);
+      await outside.delete(recursive: true);
+    }
   });
 
 }

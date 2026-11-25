@@ -203,6 +203,26 @@ class ContextBuilderTests(unittest.TestCase):
                 memory_manifest_version=2, memory_manifest_max_total_bytes=1,
             )
 
+    def test_enforces_manifest_project_memory_byte_budget(self):
+        target = self.root / "AGENTS.md"
+        target.write_text("x" * 2048, encoding="utf-8")
+        git(self.root, "add", "AGENTS.md")
+        git(self.root, "commit", "-m", "oversized project memory")
+        self.revision = git(self.root, "rev-parse", "HEAD")
+        binding = {
+            "project_id": "sample-flutter-app", "repository_id": "123456789",
+            "repository_full_name": "owner/repo", "default_branch": "main",
+            "manifest_schema_version": 1, "manifest_sha256": "a" * 64,
+            "base_sha": self.revision,
+        }
+        with self.assertRaises(ContextBuildError):
+            build_context(
+                root=self.root, task_id="context-test", source_revision=self.revision,
+                required_paths=["AGENTS.md"], source_paths=[], allowed_patterns=["lib/**"],
+                excluded_patterns=[], project_binding=binding, memory_manifest_version=1,
+                memory_manifest_max_total_bytes=1024,
+            )
+
 
 if __name__ == "__main__":
     unittest.main()

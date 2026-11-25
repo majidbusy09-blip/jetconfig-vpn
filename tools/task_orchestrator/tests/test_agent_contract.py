@@ -359,6 +359,7 @@ class AgentContractTests(unittest.TestCase):
             lambda item: item["project_binding"].update(base_sha=SHA_B),
             lambda item: item["memory_manifest"].update(required_documents=["docs/OTHER.md"]),
             lambda item: item["project_binding"].update(repository_id="not-numeric"),
+            lambda item: item["memory_manifest"].update(max_total_bytes=1),
         ):
             bad = copy.deepcopy(env)
             mutate(bad)

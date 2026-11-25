@@ -44,7 +44,7 @@ def _identity(project_binding: Any, source_revision: str) -> dict[str, Any]:
     if not isinstance(project_binding, dict):
         raise ProjectArtifactNamespaceError("A project binding object is required.")
     allowed = PROJECT_BINDING_FIELDS | {"base_sha"}
-    if set(project_binding) not in {frozenset(PROJECT_BINDING_FIELDS), frozenset(allowed)}:
+    if frozenset(project_binding) not in {frozenset(PROJECT_BINDING_FIELDS), frozenset(allowed)}:
         raise ProjectArtifactNamespaceError("Project binding has unexpected or missing identity fields.")
     if not isinstance(source_revision, str) or not GIT_SHA_RE.fullmatch(source_revision):
         raise ProjectArtifactNamespaceError("Pinned source revision must be a full lowercase Git SHA.")

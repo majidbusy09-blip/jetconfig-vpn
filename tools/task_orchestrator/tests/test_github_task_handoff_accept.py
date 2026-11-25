@@ -198,7 +198,7 @@ class HandoffAcceptanceTests(unittest.TestCase):
         with self.assertRaises(HandoffAcceptanceError):
             validate_handoff_for_acceptance(
                 manifest(), current_issue(), current_lease(), LOCK_COMMIT,
-                repository="other/repository", now=NOW,
+                repository="other/repository", repository_metadata=REPOSITORY_METADATA, now=NOW,
             )
 
     def test_rejects_expired_lease_and_execution_flags(self):

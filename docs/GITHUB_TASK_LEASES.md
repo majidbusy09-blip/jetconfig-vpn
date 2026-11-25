@@ -117,3 +117,14 @@ Project-aware v2 tasks use the shared pure namespace helper in `tools/task_orche
 - V2 workspace IDs include project_id, repository_id, manifest digest, task ID, and pinned base SHA. Legacy workspace IDs retain the original derivation.
 
 Legacy schema v1 remains byte-for-byte compatible: lock branch `agent-locks/<task_id>` and record `.agent-locks/lease.json`. V1 intake remains restricted to the original JET VPN repository. No automatic migration or namespace rebinding is performed.
+
+
+## Live read-only intake smoke evidence — 2026-11-25
+
+- Hesabgar temporary Issue #17 successfully invoked the target caller and central reusable workflow in runs `45677327585` and `45678817592`.
+- The first successful artifact was `agent-task-17`, ID `15052647029`, 986 bytes, SHA-256 `684fcf539601637432ee08e861dc929ed989757ab1a47ddbab1cbe9f78471481`. The second retry artifact ID was `15053470675`, 1,005 bytes; it was downloaded and inspected.
+- The inspected task JSON confirms `validated-awaiting-activation`, `implementation_eligible=false`, `lease_claimed=false`, `agent_dispatched=false`, `model_called=false`, and `source_uploaded=false`. The workflow log independently confirms no lease and no model/implementation agent invocation.
+- The temporary issue is closed. No branch, PR, source upload, lease, or implementation change resulted from the test.
+- Central PR #134 removes the `opened` trigger and keeps `labeled` as the single admission event plus `edited` for task-body changes. This prevents duplicate intake when an issue is created with the `agent-task` label. Hesabgar PR #18 applies the same correction and ensures workflow changes trigger project validation.
+- This proves read-only intake only. It does not prove reusable lease/handoff, target workspace preparation, automatic source-index provisioning, or implementation execution.
+

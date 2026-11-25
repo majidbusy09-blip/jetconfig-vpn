@@ -63,7 +63,8 @@ class ProjectArtifactIdentity {
     if (fullName != actualRepositoryFullName) {
       throw const FormatException('Manifest repository identity differs from the checked-out origin.');
     }
-    if (defaultBranch is! String || defaultBranch.isEmpty || defaultBranch.length > 255) {
+    if (defaultBranch is! String || defaultBranch.isEmpty || defaultBranch.length > 255 ||
+        defaultBranch.startsWith('/') || defaultBranch.split('/').contains('..')) {
       throw const FormatException('Manifest default_branch is missing or malformed.');
     }
     final digest = sha256.convert(

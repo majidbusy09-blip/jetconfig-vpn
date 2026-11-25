@@ -319,3 +319,13 @@ V2 project-aware tasks use a deterministic namespace derived from the validated 
 ## D-028 — Every lease consumer must share the namespace resolver (2026-11-25)
 
 The project-scoped lease namespace is not complete if only the writer uses it. Claim/renew/release, handoff creation, handoff acceptance, the trusted PR guard, and patch-review authorization must all derive the same lock ref and record path and compare the full project binding. Any remaining direct read of the legacy `.agent-locks/lease.json` path is a security gap for v2 tasks. V1 compatibility remains a separate explicit path.
+
+
+## 2026-11-25 — حسابگر من onboarding gates
+
+- Use project ID `hesabgar-man` and immutable GitHub repository ID `1423683236`.
+- Keep lifecycle `registered`; a manifest or successful CI does not activate a project.
+- Preserve app version `1.0.9+10`.
+- Require the dedicated Flutter analysis/test workflow; do not count skipped or failed steps as passes.
+- The current Dart analyzer CLI and artifact paths are JET VPN-specific. The initial حسابگر manifest declares no source index until a project-neutral CLI and output namespace are implemented.
+- Missing `pubspec.lock` is a dependency-reproducibility limitation, not something to hide in the readiness report.

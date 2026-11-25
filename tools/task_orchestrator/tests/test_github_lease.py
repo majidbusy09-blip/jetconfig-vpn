@@ -1,6 +1,6 @@
 import unittest
 from tools.task_orchestrator.github_lease import (
-    LeaseError, make_lease, lock_branch, transition_plan, release_plan, renew_plan,
+    LeaseError, make_lease, lock_branch, transition_plan, release_plan, renew_plan, validate_lease,
 )
 
 BASE = "a" * 40

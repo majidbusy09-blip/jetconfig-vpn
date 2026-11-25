@@ -26,15 +26,19 @@ def _open_root(root: str | os.PathLike[str]) -> int:
         raise SafeLocalFileError("Safe no-follow directory operations are unavailable.")
     if os.open not in getattr(os, "supports_dir_fd", set()):
         raise SafeLocalFileError("Descriptor-relative file operations are unavailable.")
-    resolved = Path(root).resolve(strict=True)
+    try:
+        resolved = Path(root).resolve(strict=True)
+    except (OSError, RuntimeError) as exc:
+        raise SafeLocalFileError("File-operation root could not be resolved safely.") from exc
     if not resolved.is_dir():
         raise SafeLocalFileError("File-operation root must be an existing directory.")
     parts = resolved.parts
     if not resolved.is_absolute() or not parts or parts[0] != os.sep:
         raise SafeLocalFileError("File-operation root must resolve to an absolute directory.")
     flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
-    current = os.open(os.sep, flags)
+    current = None
     try:
+        current = os.open(os.sep, flags)
         for segment in parts[1:]:
             child = os.open(segment, flags, dir_fd=current)
             metadata = os.fstat(child)
@@ -44,11 +48,19 @@ def _open_root(root: str | os.PathLike[str]) -> int:
             os.close(current)
             current = child
         return current
+    except OSError as exc:
+        if current is not None:
+            try:
+                os.close(current)
+            except OSError:
+                pass
+        raise SafeLocalFileError("File-operation root contains an unsafe or inaccessible path component.") from exc
     except Exception:
-        try:
-            os.close(current)
-        except OSError:
-            pass
+        if current is not None:
+            try:
+                os.close(current)
+            except OSError:
+                pass
         raise
 
 
@@ -106,6 +118,8 @@ def _open_parent(root: str | os.PathLike[str], relative_path: str, *, create: bo
 def read_bytes(
     root: str | os.PathLike[str], relative_path: str, *, max_bytes: int = 2_000_000
 ) -> bytes:
+    if isinstance(max_bytes, bool) or not isinstance(max_bytes, int) or max_bytes < 1:
+        raise SafeLocalFileError("Input size limit must be a positive integer.")
     parent = None
     descriptor = None
     try:

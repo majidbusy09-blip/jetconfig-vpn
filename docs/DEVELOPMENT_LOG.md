@@ -717,3 +717,11 @@ PR #101 remains Draft and unmerged for human review. No review submissions or re
 - Added `workflow_artifact_names.py`, which validates the checked-out SHA against `GITHUB_SHA`, resolves a matching trusted checked-in manifest using immutable repository identity, and derives project/source-bound names through the shared namespace helper.
 - Missing matching manifests preserve the two historical JET VPN artifact names exactly. Invalid, duplicate, stale, or identity-mismatched matching manifests fail closed.
 - Wired only `.github/workflows/project-memory-audit.yml`; the lease-command workflow and all build/release/deploy workflows remain unchanged.
+
+
+## 2026-11-25 — Artifact workflow merged and verified on main
+
+- Merged policy PR #116 (`53eaa1d989c1bc7227cc4f6d66602a4ed5d380dc`) and workflow integration PR #118 (`a79d556643ce4aad1dfa0ababb225258be4ac4c1`).
+- Verified post-merge Project Memory Audit run `45589911286`; both v2 artifacts were uploaded with the exact main source SHA and trusted JET VPN manifest digest. Artifact IDs: `15010357716` and `15009809182`.
+- Released the workflow integration lease and closed Issues #114 and #117. The protected agent-lease workflow was not modified.
+- Reconfirmed حسابگر من `pubspec.yaml` is unchanged between the CI lockfile artifact head and current target main. The lockfile remains untracked on target main, and target-specific source-index smoke testing is still pending.

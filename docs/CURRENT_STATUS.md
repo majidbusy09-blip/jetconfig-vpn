@@ -368,3 +368,12 @@ The project/repository task namespace scan now owns both `os.scandir` iterators 
 - The exact-path policy exception was merged in PR #116 as `53eaa1d989c1bc7227cc4f6d66602a4ed5d380dc`; it is bound only to task ID `project-memory-artifact-workflow-v1` and `.github/workflows/project-memory-audit.yml`.
 - The workflow integration now resolves artifact names through a trusted manifest matcher and the exact checked-out `GITHUB_SHA`. If no manifest matches the live immutable repository identity, it retains the legacy names `jet-vpn-semantic-ast-index` and `jet-vpn-code-index`. A matching but invalid/ambiguous manifest or SHA drift fails closed.
 - The integration changes only the approved project-memory audit workflow. Lease-command, build, release, and deployment workflows remain untouched.
+
+
+## Workflow artifact integration — merged 2026-11-25
+
+- Exact-path policy PR #116 merged as `53eaa1d989c1bc7227cc4f6d66602a4ed5d380dc`; the path exception is bound to task ID `project-memory-artifact-workflow-v1` and `.github/workflows/project-memory-audit.yml` only.
+- Workflow integration PR #118 merged as `a79d556643ce4aad1dfa0ababb225258be4ac4c1`.
+- Main-branch Project Memory Audit run `45589911286` passed. It resolved the trusted JET VPN manifest and generated v2 artifact names bound to repository ID `1349356614`, manifest SHA-256 `6fadf7b2cfe00303787285ab6b38db4de513642d3b9bf5f8d13c35403754aedc`, and source revision `a79d556643ce4aad1dfa0ababb225258be4ac4c1`.
+- Main-branch artifact IDs: semantic AST `15010357716`; code index `15009809182`.
+- The lease-command workflow and all build/release/deploy workflows remain unchanged.

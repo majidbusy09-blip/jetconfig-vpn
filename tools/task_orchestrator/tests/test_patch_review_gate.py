@@ -79,7 +79,7 @@ class PatchReviewGateTests(unittest.TestCase):
             "project_binding": binding,
         }
         ticks = chr(96) * 3
-        issue = dict(self.issue, body="<!-- jet-agent-task:v2 -->\\n" + ticks + "json\\n" + json.dumps(task) + "\\n" + ticks)
+        issue = dict(self.issue, body="<!-- jet-agent-task:v2 -->\n" + ticks + "json\n" + json.dumps(task) + "\n" + ticks)
         record = dict(self.record)
         record["github_handoff"] = dict(
             self.record["github_handoff"],

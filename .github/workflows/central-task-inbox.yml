@@ -1,0 +1,151 @@
+name: JET AI - Central Task Inbox Transport
+
+on:
+  repository_dispatch:
+    types: [jet-ai-task-artifact-ready]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: jet-ai-central-task-inbox
+  cancel-in-progress: false
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout central control plane
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Validate dispatch payload against trusted project manifests
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          from tools.task_orchestrator.github_issue_intake import load_project_configuration
+          from tools.task_orchestrator.github_task_artifact_dispatch import validate_dispatch_event
+          event = json.loads(Path(os.environ["GITHUB_EVENT_PATH"]).read_text())
+          _, manifests = load_project_configuration(Path.cwd())
+          value = validate_dispatch_event(event, manifests)
+          Path("/tmp/dispatch.json").write_text(json.dumps(value), encoding="utf-8")
+          PY
+
+      - name: Validate payload and fetch trusted GitHub metadata
+        env:
+          CROSS_REPO_TOKEN: ${{ secrets.JET_AI_CROSS_REPO_READ_TOKEN }}
+        run: |
+          set -euo pipefail
+          test -n "$CROSS_REPO_TOKEN" || { echo "Missing JET_AI_CROSS_REPO_READ_TOKEN (Actions: read on registered target repositories)." >&2; exit 1; }
+          REPO="$(python -c 'import json;print(json.load(open("/tmp/dispatch.json"))["target_repository"])')"
+          ARTIFACT_ID="$(python -c 'import json;print(json.load(open("/tmp/dispatch.json"))["artifact_id"])')"
+          curl --fail --silent --show-error --location \
+            -H "Authorization: Bearer $CROSS_REPO_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            https://api.github.com/repos/"$REPO"/actions/artifacts/"$ARTIFACT_ID" \
+            --output /tmp/artifact-metadata.json
+          curl --fail --silent --show-error --location \
+            -H "Authorization: Bearer $CROSS_REPO_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            https://api.github.com/repos/"$REPO" \
+            --output /tmp/repository-metadata.json
+          python -m tools.task_orchestrator.github_task_artifact_dispatch \
+            --event-file "$GITHUB_EVENT_PATH" \
+            --artifact-metadata-file /tmp/artifact-metadata.json \
+            --repository-metadata-file /tmp/repository-metadata.json \
+            --output-file /tmp/validated-dispatch.json
+
+      - name: Download and safely read the validated artifact archive
+        env:
+          CROSS_REPO_TOKEN: ${{ secrets.JET_AI_CROSS_REPO_READ_TOKEN }}
+        run: |
+          set -euo pipefail
+          REPO="$(python -c 'import json;print(json.load(open("/tmp/validated-dispatch.json"))["target_repository"])')"
+          ARTIFACT_ID="$(python -c 'import json;print(json.load(open("/tmp/validated-dispatch.json"))["artifact_id"])')"
+          curl --fail --silent --show-error --location \
+            -H "Authorization: Bearer $CROSS_REPO_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            https://api.github.com/repos/"$REPO"/actions/artifacts/"$ARTIFACT_ID"/zip \
+            --output /tmp/task-artifact.zip
+          python - <<'PY'
+          import zipfile
+          from pathlib import Path
+          archive = Path("/tmp/task-artifact.zip")
+          with zipfile.ZipFile(archive) as zf:
+              entries = zf.infolist()
+              if len(entries) != 1 or entries[0].filename not in {"task.json", "intake/task.json"}:
+                  raise SystemExit(f"Unexpected artifact archive entries: {[item.filename for item in entries]!r}")
+              if entries[0].file_size < 1 or entries[0].file_size > 256_000:
+                  raise SystemExit("Task artifact entry is empty or exceeds the configured size limit.")
+              data = zf.read(entries[0])
+          if not data or len(data) > 256_000:
+              raise SystemExit("Task artifact is empty or exceeds the configured limit.")
+          Path("/tmp/task.json").write_bytes(data)
+          PY
+
+      - name: Revalidate current Issue state and exact task body
+        env:
+          CROSS_REPO_TOKEN: ${{ secrets.JET_AI_CROSS_REPO_READ_TOKEN }}
+        run: |
+          set -euo pipefail
+          REPO="$(python -c 'import json;print(json.load(open("/tmp/validated-dispatch.json"))["target_repository"])')"
+          ISSUE="$(python -c 'import json;print(json.load(open("/tmp/validated-dispatch.json"))["issue_number"])')"
+          curl --fail --silent --show-error --location \
+            -H "Authorization: Bearer $CROSS_REPO_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            https://api.github.com/repos/"$REPO"/issues/"$ISSUE" \
+            --output /tmp/issue-metadata.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from tools.task_orchestrator.github_task_artifact_dispatch import validate_issue_snapshot
+          dispatch = json.loads(Path("/tmp/validated-dispatch.json").read_text())
+          artifact = json.loads(Path("/tmp/task.json").read_text())
+          issue = json.loads(Path("/tmp/issue-metadata.json").read_text())
+          repository = json.loads(Path("/tmp/repository-metadata.json").read_text())
+          validate_issue_snapshot(
+              dispatch, intake_artifact=artifact,
+              issue_metadata=issue, repository_metadata=repository,
+          )
+          print("Live Issue is open, still labeled agent-task, and byte-for-byte body fingerprint matches.")
+          PY
+
+      - name: Checkout durable inbox branch
+        run: |
+          set -euo pipefail
+          git fetch origin main:refs/remotes/origin/main
+          if git ls-remote --exit-code --heads origin task-inbox >/dev/null 2>&1; then
+            git fetch origin task-inbox:refs/remotes/origin/task-inbox
+            git checkout -B task-inbox origin/task-inbox
+            git merge --no-edit origin/main
+          else
+            git checkout -b task-inbox origin/main
+          fi
+
+      - name: Persist validated task in central inbox
+        run: |
+          set -euo pipefail
+          REPO="$(python -c 'import json;print(json.load(open("/tmp/validated-dispatch.json"))["target_repository"])')"
+          python -m tools.task_orchestrator.github_task_inbox \
+            --artifact /tmp/task.json \
+            --repository-metadata /tmp/repository-metadata.json
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .agent/inbox
+          if git diff --cached --quiet; then
+            echo "Inbox record already exists; no commit required."
+            exit 0
+          fi
+          git commit -m "inbox: ingest $REPO Issue $(python -c 'import json;print(json.load(open("/tmp/validated-dispatch.json"))["issue_number"])')"
+          git push origin HEAD:refs/heads/task-inbox

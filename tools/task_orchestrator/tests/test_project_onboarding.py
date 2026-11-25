@@ -124,5 +124,49 @@ class ProjectOnboardingTests(unittest.TestCase):
         self.assertEqual(report["overall_readiness"], "BLOCKED")
 
 
+    def test_live_hesabgar_candidate_report_is_needs_review_not_active(self):
+        target_sha = "bf5c753b3c3c4f7249a0093920462d5a738b24cf"
+        existing_jet = json.loads(
+            (ROOT / "docs/projects/jet-vpn-android/manifest.json").read_text(encoding="utf-8")
+        )
+        evidence = {
+            "AGENTS.md": ("9295b5b5680ff2bd55ee9ab35c0a7d190798aa7e", 2523),
+            "docs/PROJECT_CONTEXT.md": ("018781c137816c1610b69aa44a76dbadf12fe7da", 2901),
+            "docs/CURRENT_STATUS.md": ("e4d66480e0660c59c67c1258834c1eb36dc15005", 1748),
+            "docs/NEXT_STEPS.md": ("315e99144cd64e6cbef6d83d848da82c638a3211", 1898),
+            "docs/DEVELOPMENT_LOG.md": ("a8313a17d24879e561f07263354482ee2f9d691c", 877),
+        }
+        inventory = {
+            path: {
+                "tracked": True,
+                "regular_file": True,
+                "blob_sha": blob_sha,
+                "source_sha": target_sha,
+                "size_bytes": size,
+            }
+            for path, (blob_sha, size) in evidence.items()
+        }
+        report = self.report(
+            base_sha=target_sha,
+            existing_manifests=[existing_jet],
+            memory_inventory=inventory,
+            toolchain_evidence={
+                "flutter": {"verified": True, "version": "3.27.4", "source": "run 45562750263"},
+                "dart": {"verified": True, "version": "3.6.2", "source": "run 45562750263"},
+            },
+            runner_results={"flutter-analysis": "success", "flutter-tests": "success"},
+            source_index_assessment={"status": "adapter_required"},
+            target_memory_pr_merged=False,
+            dependency_lockfile_present=False,
+        )
+        self.assertEqual(report["overall_readiness"], "NEEDS_REVIEW")
+        self.assertEqual(report["blockers"], [])
+        self.assertEqual(report["discovery"]["memory"]["total_bytes"], 9947)
+        self.assertEqual(len(report["discovery"]["memory"]["required_documents_found"]), 5)
+        self.assertTrue(report["repository"]["identity_verified"])
+        self.assertFalse(report["implementation_eligible"])
+        self.assertEqual(report["manifest_validation"]["lifecycle"], "registered")
+
+
 if __name__ == "__main__":
     unittest.main()

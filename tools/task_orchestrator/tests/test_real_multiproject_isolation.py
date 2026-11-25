@@ -132,38 +132,42 @@ class RealMultiProjectIsolationIntegrationTests(unittest.TestCase):
 
     def test_real_hesabgar_manifest_accepts_read_only_intake_but_not_execution(self):
         schema = json.loads((ROOT / "docs" / "PROJECT_MANIFEST_SCHEMA.json").read_text(encoding="utf-8"))
+        self.assertEqual(
+            HESABGAR_BINDING["manifest_sha256"],
+            "2b1dd1e9507d61c7dfdda7fd7d95d3ddbb39979d36d36aa3daa88d8a4dd17ece",
+        )
         payload = {
             "schema_version": 2,
-            "task_id": "hesabgar-readonly-intake",
-            "goal": "Validate the read-only cross-repository task intake path.",
-            "capability": "documentation",
+            "task_id": "live-intake-smoke-20261125",
+            "goal": "Verify the read-only GitHub Issue intake packaging for Hesabgar. Do not modify repository files, create branches, open pull requests, claim a lease, or invoke an implementation agent.",
+            "capability": "investigation",
             "risk": "low",
             "assigned_agent": "any",
-            "allow": ["docs/**"],
-            "exclude": [],
-            "scope_reason": "Read-only intake integration test.",
+            "allow": ["docs/CURRENT_STATUS.md"],
+            "exclude": [".github/workflows", "android", "lib"],
+            "scope_reason": "One-time operational smoke test of the registered project's read-only task intake path; no implementation or repository mutation is authorized.",
             "verification_profiles": ["flutter-analysis"],
             "project_binding": HESABGAR_BINDING,
         }
         ticks = chr(96) * 3
         body = chr(10).join([
             "<!-- jet-agent-task:v2 -->", "", ticks + "json",
-            json.dumps(payload), ticks,
+            json.dumps(payload, indent=2), ticks,
         ])
         event = {
             "action": "opened",
             "repository": {
-                "id": int(HESABGAR_BINDING["repository_id"]),
-                "full_name": HESABGAR_BINDING["repository_full_name"],
-                "html_url": "https://github.com/" + HESABGAR_BINDING["repository_full_name"],
-                "default_branch": HESABGAR_BINDING["default_branch"],
+                "id": 1423683236,
+                "full_name": "majidbusy09-blip/hesabgar_man",
+                "html_url": "https://github.com/majidbusy09-blip/hesabgar_man",
+                "default_branch": "main",
             },
             "issue": {
-                "number": 9001,
-                "title": "Read-only Hesabgar intake integration test",
+                "number": 17,
+                "title": "[TEMPORARY] Verify read-only cross-repository task intake",
                 "body": body,
                 "state": "open",
-                "html_url": "https://github.com/" + HESABGAR_BINDING["repository_full_name"] + "/issues/9001",
+                "html_url": "https://github.com/majidbusy09-blip/hesabgar_man/issues/17",
                 "labels": [{"name": "agent-task"}],
             },
         }

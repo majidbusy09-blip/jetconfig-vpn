@@ -136,7 +136,14 @@ def validate_task_project_binding(
         "manifest_sha256": validated["manifest_sha256"],
     }
     if binding != expected:
-        raise IntakeError("v2 task project binding is stale or differs from its trusted manifest.")
+        mismatched_fields = sorted(
+            key for key in set(binding) | set(expected)
+            if binding.get(key) != expected.get(key)
+        )
+        raise IntakeError(
+            "v2 task project binding is stale or differs from its trusted manifest; "
+            "mismatched field(s): " + ", ".join(mismatched_fields)
+        )
     return dict(expected)
 
 

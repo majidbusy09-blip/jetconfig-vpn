@@ -90,5 +90,40 @@ class PatchArtifactStoreTests(unittest.TestCase):
             LocalPatchArtifactStore(link)
 
 
+    def test_project_scoped_stores_use_distinct_identity_and_source_directories(self):
+        binding = {
+            "project_id": "alpha-app",
+            "repository_id": "123456",
+            "repository_full_name": "owner/alpha-app",
+            "default_branch": "main",
+            "manifest_schema_version": 1,
+            "manifest_sha256": "a" * 64,
+            "base_sha": "b" * 40,
+        }
+        other = dict(binding, project_id="beta-app", repository_id="654321",
+                     repository_full_name="owner/beta-app", manifest_sha256="c" * 64)
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            store_a = LocalPatchArtifactStore(root, project_binding=binding, source_revision="b" * 40)
+            store_b = LocalPatchArtifactStore(root, project_binding=other, source_revision="b" * 40)
+            patch = patch_text()
+            ref_a = store_a.store_patch(patch)
+            ref_b = store_b.store_patch(patch)
+            self.assertEqual(ref_a, ref_b)
+            self.assertNotEqual(store_a.root, store_b.root)
+            self.assertTrue(store_a.load_patch(ref_a))
+            with self.assertRaises(PatchArtifactError):
+                store_a.assert_namespace(other, "b" * 40)
+            with self.assertRaises(PatchArtifactError):
+                store_a.assert_namespace(binding, "d" * 40)
+
+    def test_legacy_store_root_remains_unchanged(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            store = LocalPatchArtifactStore(root)
+            self.assertEqual(store.root, root.resolve())
+            self.assertEqual(list(root.iterdir()), [])
+
+
 if __name__ == "__main__":
     unittest.main()

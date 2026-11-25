@@ -366,6 +366,31 @@ class AgentContractTests(unittest.TestCase):
             with self.assertRaises(ContractValidationError):
                 validate_envelope(bad)
 
+    def test_rejects_combined_project_and_source_context_over_global_limit(self):
+        env = envelope()
+        def document(path, content):
+            return {"path": path, "content": content,
+                    "sha256": hashlib.sha256(content.encode("utf-8")).hexdigest()}
+        env["project_context"] = [
+            document("AGENTS.md", "p" * 200000),
+            document("docs/PROJECT_CONTEXT.md", "p" * 200000),
+        ]
+        env["source_context"] = [
+            document("lib/one.dart", "s" * 200000),
+            document("lib/two.dart", "s" * 200000),
+        ]
+        env["project_binding"] = {
+            "project_id": "jet-vpn-android", "repository_id": "1349356614",
+            "repository_full_name": "majidbusy09-blip/jetconfig-vpn", "default_branch": "main",
+            "manifest_schema_version": 1, "manifest_sha256": "a" * 64, "base_sha": SHA_A,
+        }
+        env["memory_manifest"] = {
+            "version": 1, "required_documents": ["AGENTS.md", "docs/PROJECT_CONTEXT.md"],
+            "max_total_bytes": 512000,
+        }
+        with self.assertRaises(ContractValidationError):
+            validate_envelope(env)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -1,1 +1,1 @@
-{"base_sha":"2ddf73c248b6c5e411c2f7eca996d1806c112f60","claim_id":"2026112508172d34","claimed_at":"2026-11-25T08:18:05.641269Z","expires_at":"2026-11-25T10:18:05.641269Z","owner":"chatgpt","schema_version":1,"status":"active","task_id":"project-scoped-artifact-cache-index-audit-v1"}
+{"base_sha":"2ddf73c248b6c5e411c2f7eca996d1806c112f60","claim_id":"2026112508172d34","claimed_at":"2026-11-25T08:18:05.641269Z","expires_at":"2026-11-25T10:18:05.641269Z","owner":"chatgpt","schema_version":1,"status":"released","task_id":"project-scoped-artifact-cache-index-audit-v1"}

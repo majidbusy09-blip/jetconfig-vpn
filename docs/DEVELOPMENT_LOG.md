@@ -695,3 +695,11 @@ PR #101 remains Draft and unmerged for human review. No review submissions or re
 - Draft PR #113 created for early CI feedback. No target app source, signing, release, activation, provider invocation, or patch application.
 
 - Wired the local fixture-only dispatch audit writer to derive its v2 output path from the envelope's trusted project binding and pinned source revision; explicit v2 path overrides fail closed.
+
+
+## 2026-11-25 — Phase 2D-2B merged
+
+- Squash-merged PR #113 as `1a6911431c27523631c9b707a2ff74be06baf571` after all exact-head checks passed, including Python orchestrator tests, Dart semantic tests, resolved-index and critical-path generation, deterministic output verification, task-intelligence smoke test, and lexical code-index verification.
+- Closed Issue #108 and verified release of lease `2026112508172d34`.
+- Created queued follow-up Issue #114 for project-scoped workflow artifact upload-name wiring. It remains unclaimed and unlabelled until the protected workflow-path policy change is explicitly approved.
+- حسابگر من onboarding remains registered and pending lockfile commit/review plus a target-checkout source-index smoke test.

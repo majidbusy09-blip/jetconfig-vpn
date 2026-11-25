@@ -114,6 +114,15 @@ class GitHubLeaseTests(unittest.TestCase):
                            base_sha=BASE, now="2026-11-23T12:00:00Z", project_binding=binding_b)
         with self.assertRaisesRegex(LeaseError, "Project identity mismatch"):
             transition_plan(first, other, observed_ref_sha=BASE, now="2026-11-23T12:00:00Z")
+        for drift in (
+            dict(binding_a, repository_full_name="owner/renamed"),
+            dict(binding_a, manifest_sha256="c" * 64),
+        ):
+            changed = make_lease(task_id="sample-task", owner="grok", claim_id="d" * 16,
+                                 base_sha=BASE, now="2026-11-23T12:00:00Z",
+                                 project_binding=drift)
+            with self.subTest(binding=drift), self.assertRaisesRegex(LeaseError, "Project identity mismatch"):
+                transition_plan(first, changed, observed_ref_sha=BASE, now="2026-11-23T12:00:00Z")
         renewed_other = make_lease(task_id="sample-task", owner="chatgpt", claim_id="c" * 16,
                                    base_sha=BASE, now="2026-11-23T10:30:00Z",
                                    project_binding=binding_b)

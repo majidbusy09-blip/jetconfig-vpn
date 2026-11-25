@@ -161,15 +161,17 @@ class TaskPRGuardTests(unittest.TestCase):
         self.assertEqual(result["base_sha"], BASE)
 
     def test_v2_pr_guard_checks_immutable_identity_on_base_and_head(self):
+        issue_body = v2_task_body()
+        v2_pr = pr_body_v2(issue_body)
         with patch(
             "tools.task_orchestrator.github_task_pr_guard.api_get",
-            side_effect=api_responses(issue_body=v2_task_body()),
+            side_effect=api_responses(issue_body=issue_body),
         ), patch(
             "tools.task_orchestrator.github_task_pr_guard.load_project_configuration",
             return_value=(PROJECT_SCHEMA, [ACTIVE_MANIFEST]),
         ):
             result = validate_agent_pr(
-                event(), token="read-token", repository=REPOSITORY,
+                event(v2_pr), token="read-token", repository=REPOSITORY,
                 now="2026-11-23T10:30:00Z",
             )
         self.assertEqual(result["project_binding"]["project_id"], ACTIVE_MANIFEST["project_id"])
@@ -177,7 +179,7 @@ class TaskPRGuardTests(unittest.TestCase):
             for key, value in (("id", 999), ("full_name", "fork/repository"),
                                ("default_branch", "trunk"),
                                ("html_url", "https://github.com/fork/repository")):
-                bad = event()
+                bad = event(v2_pr)
                 bad["pull_request"][role]["repo"][key] = value
                 with self.subTest(role=role, key=key), patch(
                     "tools.task_orchestrator.github_task_pr_guard.api_get",

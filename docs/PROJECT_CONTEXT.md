@@ -229,3 +229,10 @@ No paid API, provider account, credential, source upload, release, deployment, p
 ### PR authorization envelope boundary
 
 A v2 Issue body alone is not enough to preserve identity after PR creation: otherwise an Issue could be downgraded to a legacy v1 body while an existing PR and lease remain. Therefore v2 tasks also require a separate PR authorization envelope v2 containing the exact Issue-body SHA-256, the same validated project-binding tuple, and the lease-pinned base SHA. The PR guard rejects a v2 task with a v1 PR envelope, a stale Issue-body digest, a different project binding, or a different base SHA. Legacy v1 tasks continue to require the v1 PR envelope. This is a PR control-plane record only; the agent context/input envelope schema remains unchanged.
+
+
+## Phase 2B/2C multi-project progress — 2026-11-25
+
+Phase 2B is merged at `a0046fd5d17c32293bef3f904adc2bda89cd48c5`. Task intake and handoff now carry explicit project identity for v2 tasks; legacy v1 remains limited to the JET VPN repository. Phase 2C (Issue #102) is implementing per-project memory selection from the trusted manifest. V2 context packages and agent envelopes bind the project identity, manifest digest, memory-manifest version/document list, and pinned base SHA. The legacy v1 context remains the explicit six-document JET VPN set.
+
+The separate repository `majidbusy09-blip/hesabgar_man` was inspected read-only. Its GitHub repository ID is `1423683236`, default branch is `main`, and its primary language is Dart. It has Flutter source/tests/assets and a CI build workflow. No project manifest or memory docs have been added, no target files were changed, and the project is not registered or active. Onboarding is deferred until context selection and project namespace isolation are complete.

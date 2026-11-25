@@ -1,8 +1,10 @@
 import copy
+import hashlib
+import json
 import unittest
 
 from tools.task_orchestrator.github_task_artifact_dispatch import (
-    DispatchError, validate_dispatch_event, validate_remote_metadata,
+    DispatchError, validate_dispatch_event, validate_remote_metadata, validate_issue_snapshot,
 )
 
 MANIFEST = {
@@ -77,6 +79,49 @@ class GitHubTaskArtifactDispatchTests(unittest.TestCase):
         bad = dict(REPOSITORY, id=999)
         with self.assertRaises(DispatchError):
             validate_remote_metadata(dispatch, artifact_metadata=ARTIFACT, repository_metadata=bad)
+
+    def test_live_issue_snapshot_must_match_exact_body_label_and_open_state(self):
+        dispatch = validate_dispatch_event(EVENT, [MANIFEST])
+        task = {
+            "schema_version": 2, "task_id": "sample-task",
+            "goal": "A bounded task for issue snapshot validation.",
+            "capability": "investigation", "risk": "low", "assigned_agent": "any",
+            "allow": ["docs/**"], "exclude": [],
+            "scope_reason": "Read-only snapshot test.",
+            "verification_profiles": ["python-tooling-tests"],
+            "project_binding": {
+                "project_id": "hesabgar-man", "repository_id": "1423683236",
+                "repository_full_name": "majidbusy09-blip/hesabgar_man",
+                "default_branch": "main", "manifest_schema_version": 1,
+                "manifest_sha256": "b" * 64,
+            },
+        }
+        body = "<!-- jet-agent-task:v2 -->\\n" + "```json\\n" + json.dumps(task) + "\\n" + "```"
+        artifact = {
+            "issue_number": 17, "issue_title": "Task title",
+            "issue_body_sha256": hashlib.sha256(body.encode()).hexdigest(),
+            "task": task,
+        }
+        issue = {
+            "number": 17, "title": "Task title",
+            "html_url": "https://github.com/majidbusy09-blip/hesabgar_man/issues/17",
+            "state": "open", "body": body,
+            "labels": [{"name": "agent-task"}],
+        }
+        validate_issue_snapshot(dispatch, intake_artifact=artifact,
+                                issue_metadata=issue, repository_metadata=REPOSITORY)
+        changed = dict(issue, state="closed")
+        with self.assertRaises(DispatchError):
+            validate_issue_snapshot(dispatch, intake_artifact=artifact,
+                                    issue_metadata=changed, repository_metadata=REPOSITORY)
+        changed = dict(issue, body=body + "\\nEdited after intake")
+        with self.assertRaises(DispatchError):
+            validate_issue_snapshot(dispatch, intake_artifact=artifact,
+                                    issue_metadata=changed, repository_metadata=REPOSITORY)
+        changed = dict(issue, labels=[])
+        with self.assertRaises(DispatchError):
+            validate_issue_snapshot(dispatch, intake_artifact=artifact,
+                                    issue_metadata=changed, repository_metadata=REPOSITORY)
 
 
 if __name__ == "__main__":

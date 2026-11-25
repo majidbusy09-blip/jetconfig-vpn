@@ -42,7 +42,7 @@ class ProjectArtifactIdentity {
     final projectId = manifest['project_id'];
     final schemaVersion = manifest['schema_version'];
     final repository = manifest['repository'];
-    if (projectId is! String || !_projectId.hasMatch(projectId)) {
+    if (projectId is! String || projectId.length < 3 || projectId.length > 64 || !_projectId.hasMatch(projectId)) {
       throw const FormatException('Manifest project_id is malformed.');
     }
     if (schemaVersion is! int || schemaVersion < 1) {
@@ -147,13 +147,17 @@ class ProjectArtifactIdentity {
     if (!_artifactPrefix.hasMatch(prefix)) {
       throw const FormatException('Workflow artifact prefix is invalid.');
     }
-    return [
+    final name = [
       prefix,
       projectId,
       repositoryId,
       manifestSha256,
       sourceRevision,
     ].join('-');
+    if (name.length > 256) {
+      throw const FormatException('Workflow artifact name exceeds the 256-character platform limit.');
+    }
+    return name;
   }
 
   static String repositoryNameFromRemote(String remote) {

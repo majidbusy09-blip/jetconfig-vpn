@@ -517,6 +517,34 @@ class HandoffAcceptanceTests(unittest.TestCase):
             self.assertEqual(renewed_record["github_handoff"]["lock_commit"], renewed_lock)
             self.assertEqual(git("rev-parse", "HEAD"), branch_head)
 
+    def test_reads_project_scoped_lease_ref_and_record_path(self):
+        from tools.task_orchestrator.project_namespace import lease_record_path
+        binding = {
+            "project_id": ACTIVE_MANIFEST["project_id"],
+            "repository_id": ACTIVE_MANIFEST["repository"]["repository_id"],
+            "repository_full_name": ACTIVE_MANIFEST["repository"]["full_name"],
+            "default_branch": ACTIVE_MANIFEST["repository"]["default_branch"],
+            "manifest_schema_version": ACTIVE_MANIFEST["schema_version"],
+            "manifest_sha256": manifest_digest(ACTIVE_MANIFEST),
+        }
+        record = make_lease(
+            task_id=TASK_ID, owner="chatgpt", claim_id=CLAIM, base_sha=BASE,
+            now=NOW, duration_minutes=120, project_binding=binding,
+        )
+        encoded = base64.b64encode(json.dumps(record).encode("utf-8")).decode("ascii")
+        ref = {"object": {"sha": LOCK_COMMIT, "type": "commit"}}
+        contents = {"encoding": "base64", "content": encoded}
+        with patch(
+            "tools.task_orchestrator.github_task_handoff_accept.api_get",
+            side_effect=[ref, contents, ref],
+        ) as api:
+            loaded, commit = _read_current_lease(REPOSITORY, TASK_ID, "read-token", binding)
+        self.assertEqual(loaded, record)
+        self.assertEqual(commit, LOCK_COMMIT)
+        self.assertIn("agent-locks/projects/" + ACTIVE_MANIFEST["project_id"],
+                      api.call_args_list[0].args[1])
+        self.assertIn(lease_record_path(TASK_ID, binding), api.call_args_list[1].args[1])
+
 
 if __name__ == "__main__":
     unittest.main()

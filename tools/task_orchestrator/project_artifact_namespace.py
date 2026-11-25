@@ -189,13 +189,16 @@ def workflow_artifact_name(
             raise ProjectArtifactNamespaceError("A source revision cannot be supplied without a project binding.")
         return prefix
     identity = _identity(project_binding, source_revision or "")
-    return "-".join((
+    name = "-".join((
         prefix,
         identity["project_id"],
         identity["repository_id"],
         identity["manifest_sha256"],
         source_revision,
     ))
+    if len(name) > 256:
+        raise ProjectArtifactNamespaceError("Workflow artifact name exceeds the 256-character platform limit.")
+    return name
 
 
 def ensure_namespace_directory(

@@ -543,6 +543,8 @@ def command_accept_context(args: argparse.Namespace) -> None:
             source_paths=new_paths,
             allowed_patterns=record["scope"]["allowed"],
             excluded_patterns=record["scope"]["excluded"],
+            project_binding=record.get("github_project_binding"),
+            memory_manifest_version=(record.get("project_memory_manifest") or {}).get("version"),
         )
     except ContextBuildError as exc:
         raise TaskError(f"Selected context blocked by source/scope validation: {exc}") from exc

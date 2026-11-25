@@ -6,6 +6,7 @@ manifests. It performs no network requests and never grants task execution.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import re
 import sys
@@ -14,9 +15,11 @@ from typing import Any
 
 try:
     from .github_issue_intake import IntakeError, load_project_configuration
+    from .github_task_protocol import GitHubTaskError, validate_issue_body
     from .project_registry import ProjectRegistryError
 except ImportError:
     from github_issue_intake import IntakeError, load_project_configuration
+    from github_task_protocol import GitHubTaskError, validate_issue_body
     from project_registry import ProjectRegistryError
 
 REPO_ID_RE = re.compile(r"^[0-9]{1,20}$")
@@ -109,6 +112,44 @@ def validate_remote_metadata(
         "repository_default_branch": repository_metadata.get("default_branch"),
         "artifact_size_in_bytes": artifact_metadata.get("size_in_bytes"),
     }
+
+
+
+def validate_issue_snapshot(
+    dispatch: dict[str, Any],
+    *,
+    intake_artifact: Any,
+    issue_metadata: Any,
+    repository_metadata: dict[str, Any],
+) -> None:
+    """Reject stale/closed Issues and re-parse the exact current Issue body."""
+    if not isinstance(intake_artifact, dict) or not isinstance(issue_metadata, dict):
+        raise DispatchError("Intake artifact and live Issue metadata must be JSON objects.")
+    number = dispatch["issue_number"]
+    expected_url = f"https://github.com/{dispatch['target_repository']}/issues/{number}"
+    if issue_metadata.get("number") != number or issue_metadata.get("html_url") != expected_url:
+        raise DispatchError("Live Issue identity differs from the dispatched Issue.")
+    if issue_metadata.get("state") != "open" or issue_metadata.get("pull_request") is not None:
+        raise DispatchError("Only an open GitHub Issue (not a pull request) may enter the inbox.")
+    if issue_metadata.get("title") != intake_artifact.get("issue_title"):
+        raise DispatchError("Live Issue title changed after the intake artifact was created.")
+    labels = issue_metadata.get("labels")
+    if not isinstance(labels, list) or not any(
+        isinstance(item, dict) and item.get("name") == "agent-task" for item in labels
+    ):
+        raise DispatchError("Live Issue no longer carries the agent-task label.")
+    body = issue_metadata.get("body")
+    if not isinstance(body, str):
+        raise DispatchError("Live Issue body is missing.")
+    digest = hashlib.sha256(body.encode("utf-8")).hexdigest()
+    if digest != intake_artifact.get("issue_body_sha256"):
+        raise DispatchError("Live Issue body changed after the intake artifact was created.")
+    try:
+        parsed_task = validate_issue_body(body, repository_metadata=repository_metadata)
+    except GitHubTaskError as exc:
+        raise DispatchError("Current Issue body no longer passes task protocol validation.") from exc
+    if parsed_task != intake_artifact.get("task"):
+        raise DispatchError("Current Issue task payload differs from the uploaded intake artifact.")
 
 
 def main(argv: list[str] | None = None) -> int:

@@ -80,7 +80,8 @@ def _document(root, revision: str, relative: str) -> dict[str, str]:
 
 def build_context(*, root, task_id: str, source_revision: str, required_paths: list[str],
                   source_paths: list[str], allowed_patterns: list[str],
-                  excluded_patterns: list[str]) -> dict[str, Any]:
+                  excluded_patterns: list[str], project_binding: dict[str, Any] | None = None,
+                  memory_manifest_version: int | None = None) -> dict[str, Any]:
     if not REVISION_RE.fullmatch(source_revision or ""):
         raise ContextBuildError("Source revision must be a full Git commit SHA.")
     if not task_id or len(task_id) > 64:
@@ -104,11 +105,46 @@ def build_context(*, root, task_id: str, source_revision: str, required_paths: l
     total_bytes = sum(len(item["content"].encode("utf-8")) for item in project_documents + source_documents)
     if total_bytes > MAX_CONTEXT_TOTAL_BYTES:
         raise ContextBuildError(f"Combined context exceeds {MAX_CONTEXT_TOTAL_BYTES} bytes ({total_bytes} selected); narrow --context. No content was truncated.")
-    package: dict[str, Any] = {
-        "schema_version": 1, "task_id": task_id, "source_revision": source_revision,
-        "project_context": project_documents, "source_context": source_documents,
-        "total_bytes": total_bytes,
-    }
+    if project_binding is None:
+        if memory_manifest_version is not None:
+            raise ContextBuildError("A memory manifest version requires a validated project binding.")
+        package: dict[str, Any] = {
+            "schema_version": 1, "task_id": task_id, "source_revision": source_revision,
+            "project_context": project_documents, "source_context": source_documents,
+            "total_bytes": total_bytes,
+        }
+    else:
+        expected_binding_fields = {
+            "project_id", "repository_id", "repository_full_name", "default_branch",
+            "manifest_schema_version", "manifest_sha256", "base_sha",
+        }
+        if not isinstance(project_binding, dict) or set(project_binding) != expected_binding_fields:
+            raise ContextBuildError("Project context binding is malformed.")
+        if (not isinstance(project_binding.get("project_id"), str)
+                or not re.fullmatch(r"[a-z][a-z0-9-]*[a-z0-9]", project_binding["project_id"])
+                or not isinstance(project_binding.get("repository_id"), str)
+                or not re.fullmatch(r"[0-9]{1,20}", project_binding["repository_id"])
+                or not isinstance(project_binding.get("repository_full_name"), str)
+                or not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", project_binding["repository_full_name"])
+                or not isinstance(project_binding.get("default_branch"), str)
+                or not project_binding["default_branch"].strip()
+                or isinstance(project_binding.get("manifest_schema_version"), bool)
+                or not isinstance(project_binding.get("manifest_schema_version"), int)
+                or project_binding["manifest_schema_version"] < 1
+                or not isinstance(project_binding.get("manifest_sha256"), str)
+                or not re.fullmatch(r"[0-9a-f]{64}", project_binding["manifest_sha256"])
+                or project_binding.get("base_sha") != source_revision):
+            raise ContextBuildError("Project context binding does not match the pinned source revision or valid identity fields.")
+        if (isinstance(memory_manifest_version, bool) or not isinstance(memory_manifest_version, int)
+                or memory_manifest_version < 1 or not project_paths):
+            raise ContextBuildError("A project context requires a positive memory manifest version and required documents.")
+        package = {
+            "schema_version": 2, "task_id": task_id, "source_revision": source_revision,
+            "project_binding": dict(project_binding),
+            "memory_manifest": {"version": memory_manifest_version, "required_documents": project_paths},
+            "project_context": project_documents, "source_context": source_documents,
+            "total_bytes": total_bytes,
+        }
     canonical = json.dumps(package, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
     package["context_sha256"] = hashlib.sha256(canonical).hexdigest()
     return package

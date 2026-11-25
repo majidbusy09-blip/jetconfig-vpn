@@ -34,6 +34,8 @@ TASK_ID_RE = re.compile(r"^[a-z0-9][a-z0-9-]{2,63}$")
 SHA_RE = re.compile(r"^[0-9a-f]{64}$")
 PATCH_RE = re.compile(r"^artifact:sha256:([0-9a-f]{64})$")
 REPO_RE = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
+PROJECT_ID_RE = re.compile(r"^[a-z][a-z0-9-]*[a-z0-9]$")
+REPOSITORY_ID_RE = re.compile(r"^[0-9]{1,20}$")
 
 PROTECTED_EXACT = {
     ".env", ".env.local", ".env.production", "key.properties",
@@ -229,7 +231,7 @@ def validate_envelope(data: Any) -> dict:
         "scope", "project_context", "source_context", "semantic_context",
         "constraints", "budgets", "verification_profiles",
     }
-    obj = _object(data, "task envelope", required)
+    obj = _object(data, "task envelope", required, {"project_binding", "memory_manifest"})
     if obj["contract_version"] != CONTRACT_VERSION:
         _fail("unsupported contract_version")
     if not isinstance(obj["task_id"], str) or not TASK_ID_RE.fullmatch(obj["task_id"]):
@@ -258,8 +260,38 @@ def validate_envelope(data: Any) -> dict:
         _path(item, "scope.excluded_paths[]", pattern=True)
     _text(scope["scope_reason"], "scope.scope_reason", 2_000, empty=True)
 
-    _context_documents(obj["project_context"], "project_context")
+    project_documents = _context_documents(obj["project_context"], "project_context")
     _context_documents(obj["source_context"], "source_context")
+    has_binding = "project_binding" in obj
+    has_memory = "memory_manifest" in obj
+    if has_binding != has_memory:
+        _fail("project_binding and memory_manifest must be supplied together")
+    if has_binding:
+        binding = _object(obj["project_binding"], "project_binding", {
+            "project_id", "repository_id", "repository_full_name", "default_branch",
+            "manifest_schema_version", "manifest_sha256", "base_sha",
+        })
+        if not isinstance(binding["project_id"], str) or not PROJECT_ID_RE.fullmatch(binding["project_id"]):
+            _fail("project_binding.project_id is malformed")
+        if not isinstance(binding["repository_id"], str) or not REPOSITORY_ID_RE.fullmatch(binding["repository_id"]):
+            _fail("project_binding.repository_id is malformed")
+        if not isinstance(binding["repository_full_name"], str) or not REPO_RE.fullmatch(binding["repository_full_name"]):
+            _fail("project_binding.repository_full_name is malformed")
+        _text(binding["default_branch"], "project_binding.default_branch", 255)
+        version = binding["manifest_schema_version"]
+        if isinstance(version, bool) or not isinstance(version, int) or version < 1:
+            _fail("project_binding.manifest_schema_version must be a positive integer")
+        _sha(binding["manifest_sha256"], "project_binding.manifest_sha256")
+        _git_sha(binding["base_sha"], "project_binding.base_sha")
+        if binding["repository_full_name"] != repo["name"] or binding["base_sha"] != repo["base_sha"]:
+            _fail("project_binding repository or base SHA differs from the envelope repository")
+        memory = _object(obj["memory_manifest"], "memory_manifest", {"version", "required_documents"})
+        memory_version = memory["version"]
+        if isinstance(memory_version, bool) or not isinstance(memory_version, int) or memory_version < 1:
+            _fail("memory_manifest.version must be a positive integer")
+        required_documents = _strings(memory["required_documents"], "memory_manifest.required_documents", maximum=MAX_FILES)
+        if not required_documents or required_documents != [item["path"] for item in project_documents]:
+            _fail("memory_manifest.required_documents must exactly match the ordered project_context documents")
     semantic = _object(obj["semantic_context"], "semantic_context",
                        {"status", "source_sha", "summary", "limitations"})
     _enum(semantic["status"], {"current", "stale", "unavailable"}, "semantic_context.status")

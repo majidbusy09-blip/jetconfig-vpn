@@ -397,6 +397,8 @@ def command_prepare(args: argparse.Namespace) -> None:
             source_paths=record.get("context_paths", []),
             allowed_patterns=record["scope"]["allowed"],
             excluded_patterns=record["scope"]["excluded"],
+            project_binding=record.get("github_project_binding"),
+            memory_manifest_version=(record.get("project_memory_manifest") or {}).get("version"),
         )
     except ContextBuildError as exc:
         raise TaskError(f"Context build blocked: {exc}") from exc
@@ -428,6 +430,8 @@ def command_build_envelope(args: argparse.Namespace) -> None:
             source_paths=record.get("context_paths", []),
             allowed_patterns=record["scope"]["allowed"],
             excluded_patterns=record["scope"]["excluded"],
+            project_binding=record.get("github_project_binding"),
+            memory_manifest_version=(record.get("project_memory_manifest") or {}).get("version"),
         )
         if package_from_git != record.get("context_package"):
             raise TaskError(

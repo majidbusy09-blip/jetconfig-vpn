@@ -948,8 +948,8 @@ def command_finalize(args: argparse.Namespace) -> None:
         "untracked_paths": untracked,
         "path_fingerprints": current_fingerprints,
         "task_metadata_paths": [
-            project_task_record_path(args.task_id, record.get("github_project_binding")),
-            task_record_directory(args.task_id, record.get("github_project_binding")) + "/HANDOFF.md",
+            item for item in paths
+            if is_task_metadata(item, args.task_id, record.get("github_project_binding"))
         ],
     }
     record["state"] = "review_ready"

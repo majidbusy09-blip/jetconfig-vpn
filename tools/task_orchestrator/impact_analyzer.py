@@ -85,6 +85,19 @@ def analyze_impact(*, root: Path, task_record: dict[str, Any],
     if (report.get("schema_version") != 1
             or report.get("analysis_mode") != "static_reachability_from_curated_entrypoints"):
         raise ImpactAnalysisError("Unsupported critical-path report schema.")
+    project_binding = task_record.get("github_project_binding")
+    if project_binding is not None:
+        if not isinstance(project_binding, dict):
+            raise ImpactAnalysisError("Task project binding is malformed.")
+        expected_binding = dict(project_binding)
+        expected_binding["base_sha"] = base_sha
+        if (index.get("project_binding") != expected_binding
+                or report.get("project_binding") != expected_binding
+                or index.get("source_revision") != base_sha
+                or report.get("source_revision") != base_sha):
+            raise ImpactAnalysisError("Semantic artifacts belong to a different project, manifest, or pinned source revision.")
+    elif any(key in value for value in (index, report) for key in ("project_binding", "source_revision")):
+        raise ImpactAnalysisError("A legacy task cannot consume project-scoped semantic artifacts.")
     source = index.get("source")
     files = source.get("files") if isinstance(source, dict) else None
     if (not isinstance(files, list) or not files or len(files) > 5_000

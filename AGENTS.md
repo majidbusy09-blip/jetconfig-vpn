@@ -297,3 +297,8 @@ The shared project namespace resolver must be used by every lease consumer, incl
 - The protected `.github/workflows/**` path was intentionally excluded from Issue #106. The existing workflow still has a broad agent-input artifact glob; do not weaken path protection or edit that workflow under Issue #106. Exact artifact-upload hardening is tracked separately.
 - حسابگر من (`majidbusy09-blip/hesabgar_man`, repository ID `1423683236`) remains read-only inspected, unregistered, and inactive. Do not modify it until project namespace isolation and onboarding readiness gates are complete.
 - No paid APIs, credentials, provider spend, release/deploy, production changes, or untrusted-code execution.
+
+
+### Scandir resource ownership
+
+Directory enumeration in task namespace scans must use context-managed `os.scandir` iterators. This guarantees handles close even when fail-closed validation raises while scanning a symlinked entry.

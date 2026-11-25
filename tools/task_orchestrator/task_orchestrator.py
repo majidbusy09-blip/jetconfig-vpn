@@ -88,14 +88,18 @@ except ImportError:
         )
 
 try:
-    from .safe_local_files import SafeLocalFileError, atomic_write_bytes, ensure_directory, read_bytes, readlink, stat_entry, readlink, stat_entry
+    from .safe_local_files import (
+        SafeLocalFileError, atomic_write_bytes, ensure_directory, read_bytes, readlink, stat_entry,
+    )
 except ImportError:
     try:
         from tools.task_orchestrator.safe_local_files import (
-            SafeLocalFileError, atomic_write_bytes, ensure_directory, read_bytes,
+            SafeLocalFileError, atomic_write_bytes, ensure_directory, read_bytes, readlink, stat_entry,
         )
     except ImportError:
-        from safe_local_files import SafeLocalFileError, atomic_write_bytes, ensure_directory, read_bytes, readlink, stat_entry
+        from safe_local_files import (
+            SafeLocalFileError, atomic_write_bytes, ensure_directory, read_bytes, readlink, stat_entry,
+        )
 
 SCHEMA_VERSION = 1
 REQUIRED_CONTEXT = (

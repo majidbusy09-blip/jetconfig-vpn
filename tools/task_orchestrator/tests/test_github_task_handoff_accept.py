@@ -97,14 +97,14 @@ class HandoffAcceptanceTests(unittest.TestCase):
             lambda issue: issue.update(body=issue["body"] + "\nchanged"),
             lambda issue: issue.update(labels=[]),
             lambda issue: issue.update(number=99),
-            lambda issue: issue.update(html_url="https://github.com/owner/repository/issues/99"),
+            lambda issue: issue.update(html_url="https://github.com/majidbusy09-blip/jetconfig-vpn/issues/99"),
         ):
             issue = current_issue()
             mutate(issue)
             with self.subTest(issue=issue), self.assertRaises(HandoffAcceptanceError):
                 validate_handoff_for_acceptance(
                     manifest(), issue, current_lease(), LOCK_COMMIT,
-                    repository=REPOSITORY, now=NOW,
+                    repository=REPOSITORY, repository_metadata=REPOSITORY_METADATA, now=NOW,
                 )
 
     def test_rejects_mismatched_task_lease_and_lock_ref(self):
@@ -120,7 +120,7 @@ class HandoffAcceptanceTests(unittest.TestCase):
             with self.subTest(lease=lease, lock_sha=lock_sha), self.assertRaises(HandoffAcceptanceError):
                 validate_handoff_for_acceptance(
                     manifest(), current_issue(), lease, lock_sha,
-                    repository=REPOSITORY, now=NOW,
+                    repository=REPOSITORY, repository_metadata=REPOSITORY_METADATA, now=NOW,
                 )
 
     def test_rejects_modified_manifest_and_wrong_repository(self):
@@ -129,7 +129,7 @@ class HandoffAcceptanceTests(unittest.TestCase):
         with self.assertRaises(HandoffAcceptanceError):
             validate_handoff_for_acceptance(
                 payload, current_issue(), current_lease(), LOCK_COMMIT,
-                repository=REPOSITORY, now=NOW,
+                repository=REPOSITORY, repository_metadata=REPOSITORY_METADATA, now=NOW,
             )
         with self.assertRaises(HandoffAcceptanceError):
             validate_handoff_for_acceptance(
@@ -143,7 +143,7 @@ class HandoffAcceptanceTests(unittest.TestCase):
         with self.assertRaises(HandoffAcceptanceError):
             validate_handoff_for_acceptance(
                 manifest(), current_issue(), lease, LOCK_COMMIT,
-                repository=REPOSITORY, now=NOW,
+                repository=REPOSITORY, repository_metadata=REPOSITORY_METADATA, now=NOW,
             )
         for invalid_flag in (True, 0, "false"):
             payload = manifest()
@@ -151,7 +151,7 @@ class HandoffAcceptanceTests(unittest.TestCase):
             with self.subTest(invalid_flag=invalid_flag), self.assertRaises(HandoffAcceptanceError):
                 validate_handoff_for_acceptance(
                     payload, current_issue(), current_lease(), LOCK_COMMIT,
-                    repository=REPOSITORY, now=NOW,
+                    repository=REPOSITORY, repository_metadata=REPOSITORY_METADATA, now=NOW,
                 )
 
 
@@ -233,7 +233,7 @@ class HandoffAcceptanceTests(unittest.TestCase):
             )
             lease_payload = {
                 "operation": "claim", "task_id": TASK_ID, "issue_number": 42,
-                "issue_url": "https://github.com/owner/repository/issues/42",
+                "issue_url": "https://github.com/majidbusy09-blip/jetconfig-vpn/issues/42",
                 "result": {
                     "task_id": TASK_ID, "owner": "chatgpt", "claim_id": CLAIM,
                     "status": "active", "base_sha": base_sha,
@@ -295,7 +295,7 @@ class HandoffAcceptanceTests(unittest.TestCase):
             wrong_renewal_event = issue_event("renew", renewed_claim, "f" * 16)
             wrong_renewal_result = {
                 "operation": "renew", "task_id": TASK_ID, "issue_number": 42,
-                "issue_url": "https://github.com/owner/repository/issues/42",
+                "issue_url": "https://github.com/majidbusy09-blip/jetconfig-vpn/issues/42",
                 "result": {
                     "task_id": TASK_ID, "owner": "chatgpt", "claim_id": renewed_claim,
                     "status": "active", "base_sha": base_sha,
@@ -314,7 +314,7 @@ class HandoffAcceptanceTests(unittest.TestCase):
                 os.chdir(root)
                 with patch(
                     "tools.task_orchestrator.github_task_handoff_accept.api_get",
-                    return_value=issue,
+                    side_effect=[issue, REPOSITORY_METADATA],
                 ), patch(
                     "tools.task_orchestrator.github_task_handoff_accept._read_current_lease",
                     return_value=(renewed_lease, renewed_lock),
@@ -330,7 +330,7 @@ class HandoffAcceptanceTests(unittest.TestCase):
             renewed_event = issue_event("renew", renewed_claim, CLAIM)
             renewed_result = {
                 "operation": "renew", "task_id": TASK_ID, "issue_number": 42,
-                "issue_url": "https://github.com/owner/repository/issues/42",
+                "issue_url": "https://github.com/majidbusy09-blip/jetconfig-vpn/issues/42",
                 "result": {
                     "task_id": TASK_ID, "owner": "chatgpt", "claim_id": renewed_claim,
                     "status": "active", "base_sha": base_sha,
@@ -348,7 +348,7 @@ class HandoffAcceptanceTests(unittest.TestCase):
                 os.chdir(root)
                 with patch(
                     "tools.task_orchestrator.github_task_handoff_accept.api_get",
-                    return_value=issue,
+                    side_effect=[issue, REPOSITORY_METADATA],
                 ), patch(
                     "tools.task_orchestrator.github_task_handoff_accept._read_current_lease",
                     return_value=(renewed_lease, renewed_lock),

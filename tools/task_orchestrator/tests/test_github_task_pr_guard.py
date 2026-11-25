@@ -48,7 +48,7 @@ def event():
             "number": 7,
             "body": pr_body(),
             "base": {"ref": "main", "sha": "e" * 40, "repo": dict(REPOSITORY_METADATA)},
-            "head": {"sha": HEAD, "ref": "agent/sample-task", "repo": {"full_name": REPOSITORY}},
+            "head": {"sha": HEAD, "ref": "agent/sample-task", "repo": dict(REPOSITORY_METADATA)},
         },
     }
 

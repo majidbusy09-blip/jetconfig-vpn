@@ -20,10 +20,11 @@ class ReusableTaskIntakeWorkflowTests(unittest.TestCase):
         self.assertNotIn("contents: write", workflow)
         self.assertNotIn("issues: write", workflow)
 
-    def test_first_party_intake_workflow_is_only_a_reusable_workflow_caller(self):
+    def test_first_party_intake_workflow_uses_single_admission_event_without_opened_duplicates(self):
         workflow = (ROOT / ".github/workflows/agent-task-intake.yml").read_text(encoding="utf-8")
         self.assertIn("issues:", workflow)
-        self.assertIn("types: [opened, labeled, edited]", workflow)
+        self.assertIn("types: [labeled, edited]", workflow)
+        self.assertNotIn("types: [opened, labeled, edited]", workflow)
         self.assertIn("uses: ./.github/workflows/agent-task-intake-reusable.yml", workflow)
         self.assertIn("contents: read", workflow)
         self.assertIn("issues: read", workflow)

@@ -240,7 +240,7 @@ The repository contains a Flutter/Dart application under `lib/`, tests under `te
 
 A separate target-repository PR adds project memory and a read-only Flutter validation workflow pinned to Flutter 3.27.4. The initial validation attempt passed static analysis but failed tests because the repository's declared Vazirmatn font assets are downloaded only by the existing release workflow and are not committed in the source tree. The PR validation workflow was updated to stage the same pinned font release before tests; the rerun must pass before the Flutter profiles are marked verified.
 
-The inspected source-index implementation has a reusable multi-file Dart analyzer library, but its current CLI derives the repository root from a JET VPN-specific directory layout and writes `jet_vpn_*` artifacts. It is not a safe drop-in adapter for حسابگر من. The initial manifest therefore declares no source index; a project-neutral adapter is a separate reviewed task.
+The source-index implementation has a reusable multi-file Dart analyzer library and a project-bound CLI that accepts an explicit repository root, project manifest, and pinned source revision. Its generated outputs are namespaced by project identity, manifest digest, and source revision rather than being restricted to JET VPN artifact names. The current Dart CLI still enumerates tracked Dart files under `lib/`; this matches حسابگر من's configured source layout but is not yet a manifest-driven multi-language adapter. More importantly, the central task orchestrator can resolve project-scoped artifact paths and consume verified indexes, but automatic runtime generation/retrieval and freshness enforcement are not yet proven end-to-end. Therefore the Hesabgar manifest correctly remains `source_index.strategy=none` until those runtime gates and isolation tests pass.
 
 The inspected baseline has no committed `pubspec.lock`. Dependency resolution therefore remains less reproducible than a lockfile-pinned app build. Do not claim full reproducibility until a reviewed lockfile is committed.
 
@@ -354,6 +354,14 @@ The central manifest SHA-256 is `ec6ad4643acfc0d141e0820a2cbfeff671625edad6a94d6
 ## Control-plane reconciliation after Phase 2D-2B — 2026-11-25
 
 - Central manifest/readiness PR #112 is merged; target memory/CI PR #2 is merged into `hesabgar_man` as `177eb1a1f0ae8ae5a77a2c1c136804dff042d5db`.
-- Phase 2D-2B project-scoped artifact and Dart index tooling is merged in control-plane PR #113. This provides the generic CLI, but it has not yet been run against the target checkout; therefore the manifest remains `source_index.strategy=none` and lifecycle `registered`.
-- `pubspec.lock` was reviewed from CI artifact `14998203164` but remains untracked on target `main`; dependency reproducibility is still an open readiness item.
-- Do not activate the project until the lockfile is committed/reviewed, target source-index smoke test passes, and namespace isolation receives independent review.
+- Phase 2D-2B project-scoped artifact and Dart index tooling is merged in control-plane PR #113. The project-bound CLI has since been executed against the actual Hesabgar checkout in target PR #12 validation.
+- Target PR #10 committed the reviewed `pubspec.lock`; its SHA-256 is `5e758df74d809f0b11c56f834364456d16d7d1bf48534312bc08dd84fa542cac`.
+- Target PR #12 merged as `9b5b324e197d806afa7365abe360c972dbeaf13a`. Post-merge Project Validation run `45665085754` and APK/AAB build run `45665085751` both succeeded on that exact main SHA.
+- The validation run generated the project-bound resolved index and critical-path report, verified source/repository/project bindings and tracked-file fingerprints, and smoke-tested Task Intelligence against the real artifacts.
+- The successful CI smoke test proves project-bound generation and consumption in CI. It does not prove that the local/central orchestrator automatically provisions or retrieves fresh artifacts at runtime. The manifest therefore remains `source_index.strategy=none` and lifecycle `registered`.
+- Next gates: automatic runtime artifact provisioning/retrieval with freshness enforcement, cross-project isolation tests using at least two different projects/toolchains, and owner-side Android device acceptance. No activation is implied by the CI pass.
+
+
+## Latest evidence reconciliation — 2026-11-25 (supersedes stale status statements above)
+
+The older dry-run snapshots in Sections 7–8 are historical records and must not be treated as the current state. The verified current target main SHA is `9b5b324e197d806afa7365abe360c972dbeaf13a`. PR #12 and its post-merge CI runs establish that the reusable Dart CLI can generate project-bound artifacts for Hesabgar and that Task Intelligence can consume those artifacts in CI. The unresolved gap is runtime automation: the task orchestrator currently derives namespaced artifact paths and validates the supplied files, but it does not itself guarantee that the matching artifacts have been generated or retrieved before each task. Cross-project isolation and manual device acceptance also remain open. Keep lifecycle `registered` and source-index strategy `none` until these gates are independently verified.

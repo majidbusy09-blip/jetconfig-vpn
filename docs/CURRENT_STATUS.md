@@ -319,3 +319,8 @@ The project-scoped lease resolver is now also wired into the trusted PR guard an
 - Issue #108 (Phase 2D-2B) remains queued until #106 is reviewed and merged.
 - حسابگر من repository ID `1423683236` remains unregistered/inactive; no target-repository writes have been made.
 - The workflow artifact-upload wildcard remains a known issue because `.github/workflows/**` is protected from this task; a separate reviewed task is required.
+
+
+### Scandir iterator cleanup — PR #109
+
+The project/repository task namespace scan now owns both `os.scandir` iterators through context managers. This closes directory handles even when symlink validation raises early. The 450-test run on the prior exact head passed but emitted ResourceWarning for these iterators; the cleanup follow-up requires a fresh exact-head CI run.

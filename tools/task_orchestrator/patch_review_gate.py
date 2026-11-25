@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from typing import Any
 from .github_lease import LeaseError, lock_branch, validate_lease
 from .github_task_protocol import GitHubTaskError, validate_issue_body
+from .github_issue_intake import IntakeError, validate_task_project_binding
 from .patch_artifacts import LocalPatchArtifactStore, PatchArtifactError
 
 SHA_RE = re.compile(r"^(?:[0-9a-f]{40}|[0-9a-f]{64})$")
@@ -26,8 +27,11 @@ def _moment(value: str) -> datetime:
 
 def validate_patch_for_human_review(record: Any, envelope: Any, result: Any,
         store: LocalPatchArtifactStore, issue_data: Any, lease_record: Any,
-        lock_commit: str, *, repository: str, branch: str, head_sha: str,
-        base_is_ancestor: bool, worktree_clean: bool, now: str) -> dict[str, Any]:
+        lock_commit: str, *, repository: str, repository_metadata: dict[str, Any],
+        project_schema: dict[str, Any] | None = None,
+        project_manifests: list[dict[str, Any]] | None = None,
+        branch: str, head_sha: str, base_is_ancestor: bool,
+        worktree_clean: bool, now: str) -> dict[str, Any]:
     """Bind current Issue/lease/workspace observations and exact patch bytes to one task.
 
     The caller obtains live GitHub and Git observations through trusted adapters.
@@ -89,9 +93,26 @@ def validate_patch_for_human_review(record: Any, envelope: Any, result: Any,
     if not isinstance(body, str) or hashlib.sha256(body.encode("utf-8")).hexdigest() != handoff.get("issue_body_sha256"):
         raise PatchReviewGateError("Current Issue body differs from the accepted handoff.")
     try:
-        task = validate_issue_body(body)
+        task = validate_issue_body(
+            body, repository_metadata=repository_metadata, allow_legacy_jet_vpn=True
+        )
     except GitHubTaskError as exc:
         raise PatchReviewGateError("Current Issue task payload is invalid.") from exc
+    if task["schema_version"] == 2:
+        if not isinstance(project_schema, dict) or not isinstance(project_manifests, list):
+            raise PatchReviewGateError("Trusted project manifest configuration is unavailable.")
+        try:
+            binding = validate_task_project_binding(
+                task, repository_metadata, schema=project_schema,
+                project_manifests=project_manifests,
+            )
+        except IntakeError as exc:
+            raise PatchReviewGateError("Current project binding is invalid or inactive.") from exc
+        expected_binding = dict(binding, base_sha=base_sha)
+        if record.get("github_project_binding") != expected_binding:
+            raise PatchReviewGateError("Persisted project identity or pinned base SHA differs from the current task.")
+    elif record.get("github_project_binding") is not None:
+        raise PatchReviewGateError("A project-aware task cannot be reviewed through a legacy v1 task body.")
     if (task["task_id"] != task_id or task["goal"] != record.get("goal")
         or task["capability"] != record.get("capability_improved")
         or task["risk"] != record.get("risk")

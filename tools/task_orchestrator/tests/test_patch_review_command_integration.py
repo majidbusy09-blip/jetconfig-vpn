@@ -9,7 +9,7 @@ from tools.task_orchestrator import patch_review_command as command
 from tools.task_orchestrator.patch_artifacts import LocalPatchArtifactStore
 from tools.task_orchestrator.provider_result_ingestion import ingest_provider_result
 from tools.task_orchestrator.tests.test_patch_review_gate import (
-    BASE, HEAD, LOCK, NOW, REPO, TASK, fixtures,
+    BASE, HEAD, LOCK, NOW, REPO, TASK, REPO_METADATA, fixtures,
 )
 from tools.task_orchestrator.tests.test_patch_pipeline import completed_result, patch_text
 
@@ -51,7 +51,7 @@ class PatchReviewCommandIntegrationTests(unittest.TestCase):
             patch.object(command.orchestrator, "current_branch", return_value="agent/" + TASK),
             patch.object(command.orchestrator, "status_paths", return_value=[]),
             patch.object(command, "_base_is_ancestor", return_value=True),
-            patch.object(command, "api_get", return_value=issue or self.issue),
+            patch.object(command, "api_get", side_effect=[issue or self.issue, REPO_METADATA]),
             patch.object(command, "_read_current_lease",
                          return_value=(lease or self.lease, lock_commit)),
         ):

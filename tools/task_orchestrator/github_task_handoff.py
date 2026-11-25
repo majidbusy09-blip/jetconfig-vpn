@@ -19,6 +19,7 @@ from .github_issue_lease_command import (
     IssueLeaseCommandError,
     build_issue_lease_request,
 )
+from .github_issue_intake import IntakeError, load_project_configuration, validate_task_project_binding
 from .github_lease import LeaseError, lock_branch
 from .github_task_protocol import GitHubTaskError, validate_issue_body
 
@@ -113,12 +114,24 @@ def build_task_handoff(
     issue = event["issue"]
     body = issue.get("body")
     try:
-        task = validate_issue_body(body)
+        task = validate_issue_body(
+            body, repository_metadata=event.get("repository"), allow_legacy_jet_vpn=True
+        )
     except GitHubTaskError as exc:
         raise TaskHandoffError("Task Issue payload is invalid.") from exc
     body_digest = hashlib.sha256(body.encode("utf-8")).hexdigest()
 
-    return {
+    project_binding = None
+    if task["schema_version"] == 2:
+        try:
+            schema, manifests = load_project_configuration(Path(__file__).resolve().parents[2])
+            project_binding = validate_task_project_binding(
+                task, event["repository"], schema=schema, project_manifests=manifests
+            )
+        except IntakeError as exc:
+            raise TaskHandoffError("Task project binding failed trusted validation.") from exc
+
+    handoff = {
         "handoff_schema": 2,
         "handoff_id": (
             "issue-" + str(request["issue_number"]) +
@@ -153,6 +166,10 @@ def build_task_handoff(
             "patch_applied": False,
         },
     }
+    if project_binding is not None:
+        handoff["handoff_schema"] = 3
+        handoff["project_binding"] = project_binding
+    return handoff
 
 
 def main(argv: list[str] | None = None) -> int:

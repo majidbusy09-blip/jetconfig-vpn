@@ -19,6 +19,10 @@ from . import task_orchestrator as orchestrator
 from .envelope_builder import _repository_name
 from .github_task_handoff_accept import _read_current_lease
 from .github_task_pr_guard import api_get
+from .github_task_protocol import GitHubTaskError, validate_issue_body
+from .github_issue_intake import (
+    IntakeError, load_project_configuration, validate_task_project_binding,
+)
 from .patch_artifacts import LocalPatchArtifactStore, PatchArtifactError
 from .patch_review_gate import PatchReviewGateError, validate_patch_for_human_review
 
@@ -124,6 +128,24 @@ def review_task_patch(
         raise PatchReviewCommandError("Set GITHUB_TOKEN or GH_TOKEN with read-only access to this repository.")
 
     issue_data = api_get(repository, "/issues/" + str(issue_number), auth)
+    repository_metadata = api_get(repository, "", auth)
+    try:
+        task = validate_issue_body(
+            issue_data.get("body"), repository_metadata=repository_metadata,
+            allow_legacy_jet_vpn=True,
+        )
+    except GitHubTaskError as exc:
+        raise PatchReviewCommandError("Current Issue task payload is invalid.") from exc
+    project_schema = project_manifests = None
+    if task["schema_version"] == 2:
+        try:
+            project_schema, project_manifests = load_project_configuration(root)
+            validate_task_project_binding(
+                task, repository_metadata, schema=project_schema,
+                project_manifests=project_manifests,
+            )
+        except IntakeError as exc:
+            raise PatchReviewCommandError("Current project binding is invalid or inactive.") from exc
     lease_record, lock_commit = _read_current_lease(repository, task_id, auth)
 
     branch = orchestrator.current_branch(root)
@@ -148,7 +170,9 @@ def review_task_patch(
         store = LocalPatchArtifactStore(artifact_root)
         return validate_patch_for_human_review(
             record, envelope, result, store, issue_data, lease_record, lock_commit,
-            repository=repository, branch=branch, head_sha=head_sha,
+            repository=repository, repository_metadata=repository_metadata,
+            project_schema=project_schema, project_manifests=project_manifests,
+            branch=branch, head_sha=head_sha,
             base_is_ancestor=base_is_ancestor, worktree_clean=worktree_clean,
             now=now or datetime.now(timezone.utc).isoformat(),
         )

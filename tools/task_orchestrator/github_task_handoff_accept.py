@@ -27,6 +27,9 @@ from .envelope_builder import EnvelopeBuildError, _repository_name
 from .github_lease import LeaseError, lock_branch, validate_lease
 from .github_task_pr_guard import GuardError, api_get
 from .github_task_protocol import GitHubTaskError, validate_issue_body
+from .github_issue_intake import (
+    IntakeError, load_project_configuration, validate_task_project_binding,
+)
 
 SHA_RE = re.compile(r"^(?:[0-9a-f]{40}|[0-9a-f]{64})$")
 DIGEST_RE = re.compile(r"^[0-9a-f]{64}$")
@@ -70,6 +73,9 @@ def validate_handoff_for_acceptance(
     lock_commit: str,
     *,
     repository: str,
+    repository_metadata: dict[str, Any],
+    project_schema: dict[str, Any] | None = None,
+    project_manifests: list[dict[str, Any]] | None = None,
     now: str | None = None,
 ) -> dict[str, Any]:
     """Bind the downloaded manifest to the current Issue and remote lease."""
@@ -77,14 +83,22 @@ def validate_handoff_for_acceptance(
         "handoff_schema", "handoff_id", "source", "repository", "issue",
         "task", "lease", "workflow", "execution",
     }
-    if not isinstance(manifest, dict) or set(manifest) != top_fields:
+    if not isinstance(manifest, dict):
         raise HandoffAcceptanceError("Handoff manifest has unexpected or missing fields.")
-    if manifest["handoff_schema"] != 2 or isinstance(manifest["handoff_schema"], bool):
+    handoff_schema = manifest.get("handoff_schema")
+    if isinstance(handoff_schema, bool) or handoff_schema not in {2, 3}:
         raise HandoffAcceptanceError("Unsupported handoff schema.")
+    expected_fields = top_fields | ({"project_binding"} if handoff_schema == 3 else set())
+    if set(manifest) != expected_fields:
+        raise HandoffAcceptanceError("Handoff manifest has unexpected or missing fields.")
     if manifest["source"] != "github-issue" or manifest["repository"] != repository:
         raise HandoffAcceptanceError("Handoff source or repository identity does not match.")
     if not isinstance(manifest["task"], dict):
         raise HandoffAcceptanceError("Handoff task payload is malformed.")
+    if (handoff_schema == 2 and manifest["task"].get("schema_version") != 1) or (
+        handoff_schema == 3 and manifest["task"].get("schema_version") != 2
+    ):
+        raise HandoffAcceptanceError("Handoff schema and task payload version do not match.")
     task_id = manifest["task"].get("task_id")
     if not isinstance(task_id, str) or not orchestrator.TASK_ID_RE.fullmatch(task_id):
         raise HandoffAcceptanceError("Handoff task ID is invalid.")
@@ -112,11 +126,25 @@ def validate_handoff_for_acceptance(
     if not isinstance(body, str) or hashlib.sha256(body.encode("utf-8")).hexdigest() != issue["body_sha256"]:
         raise HandoffAcceptanceError("Current Issue body differs from the handoff snapshot.")
     try:
-        task = validate_issue_body(body)
+        task = validate_issue_body(
+            body, repository_metadata=repository_metadata, allow_legacy_jet_vpn=True
+        )
     except GitHubTaskError as exc:
         raise HandoffAcceptanceError("Current Issue task payload is invalid.") from exc
     if task != manifest["task"]:
         raise HandoffAcceptanceError("Handoff task payload differs from the current Issue body.")
+    if handoff_schema == 3:
+        if not isinstance(project_schema, dict) or not isinstance(project_manifests, list):
+            raise HandoffAcceptanceError("Trusted project manifest configuration is unavailable.")
+        try:
+            expected_binding = validate_task_project_binding(
+                task, repository_metadata, schema=project_schema,
+                project_manifests=project_manifests,
+            )
+        except IntakeError as exc:
+            raise HandoffAcceptanceError("Current project binding failed trusted validation.") from exc
+        if manifest.get("project_binding") != expected_binding:
+            raise HandoffAcceptanceError("Handoff project binding differs from the trusted manifest.")
 
     workflow = manifest["workflow"]
     if not isinstance(workflow, dict) or set(workflow) != {"run_id", "run_attempt"}:
@@ -300,6 +328,15 @@ def _refresh_existing_task(
         raise HandoffAcceptanceError("Renewed handoff no longer matches the existing local task definition.")
     stable_fields = ("issue_number", "issue_url", "issue_body_sha256", "owner", "base_sha", "lock_branch")
     new_metadata = _handoff_metadata(manifest)
+    if manifest["handoff_schema"] == 3:
+        expected_binding = {
+            **manifest["project_binding"],
+            "base_sha": manifest["lease"]["base_sha"],
+        }
+        if record.get("github_project_binding") != expected_binding:
+            raise HandoffAcceptanceError("Project identity changed; explicit project migration is required.")
+    elif record.get("github_project_binding") is not None:
+        raise HandoffAcceptanceError("A project-aware task cannot be refreshed through a legacy handoff.")
     if new_metadata["operation"] != "renew" or old_handoff.get("claim_id") != new_metadata["previous_claim_id"]:
         raise HandoffAcceptanceError("Lease refresh must renew the exact claim recorded in this local task.")
     if any(old_handoff.get(key) != new_metadata[key] for key in stable_fields):
@@ -333,9 +370,13 @@ def accept_handoff(
         raise HandoffAcceptanceError("Handoff task ID is invalid.")
 
     issue_data = api_get(repository, "/issues/" + str(issue_number), token)
+    repository_metadata = api_get(repository, "", token)
+    project_schema, project_manifests = load_project_configuration(Path(__file__).resolve().parents[2])
     lease_record, lock_commit = _read_current_lease(repository, task_id, token)
     task = validate_handoff_for_acceptance(
-        manifest, issue_data, lease_record, lock_commit, repository=repository
+        manifest, issue_data, lease_record, lock_commit, repository=repository,
+        repository_metadata=repository_metadata, project_schema=project_schema,
+        project_manifests=project_manifests,
     )
 
     root = orchestrator.repository_root()
@@ -412,6 +453,11 @@ def accept_handoff(
     record["assigned_agent"] = task["assigned_agent"]
     record["source"] = "github-issue"
     record["github_handoff"] = _handoff_metadata(manifest)
+    if manifest["handoff_schema"] == 3:
+        record["github_project_binding"] = {
+            **manifest["project_binding"],
+            "base_sha": manifest["lease"]["base_sha"],
+        }
     orchestrator.save_record(record, record_path)
     orchestrator.command_build_envelope(Namespace(task_id=task_id))
     output = record_path.parent / "agent_input.json"

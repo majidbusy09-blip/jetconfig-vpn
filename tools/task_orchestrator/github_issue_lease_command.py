@@ -14,7 +14,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from .github_issue_intake import TASK_LABEL
+from .github_issue_intake import TASK_LABEL, load_project_configuration, validate_task_project_binding
 from .github_lease_git import LeaseGitError, claim_or_renew, release
 from .github_task_protocol import GitHubTaskError, validate_issue_body
 
@@ -106,6 +106,9 @@ def build_issue_lease_request(event: Any) -> dict[str, Any]:
         raise IssueLeaseCommandError("Issue URL is invalid.")
     try:
         task = validate_issue_body(issue.get("body"), repository_metadata=repository, allow_legacy_jet_vpn=True)
+        if task["schema_version"] == 2:
+            schema, manifests = load_project_configuration(Path(__file__).resolve().parents[2])
+            validate_task_project_binding(task, repository, schema=schema, project_manifests=manifests)
     except GitHubTaskError as exc:
         raise IssueLeaseCommandError("Issue task payload is invalid.") from exc
     command = parse_lease_comment(comment.get("body"))

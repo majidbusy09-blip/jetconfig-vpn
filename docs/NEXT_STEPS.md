@@ -285,3 +285,12 @@ The current task lease is time-limited. Renew it before expiry; do not run two a
 ### Additional Phase 2B control-plane check
 
 - Verify PR authorization envelope v2 is mandatory for v2 tasks and binds the current Issue-body SHA-256, project-binding tuple, and lease-pinned base SHA. Verify legacy v1 tasks require the v1 PR envelope. Test downgrade, body-hash drift, project-binding drift, and base-SHA drift. Keep the agent context/input envelope unchanged.
+
+
+## Multi-project next steps after Phase 2B merge — 2026-11-25
+
+1. Complete Phase 2C: select project memory documents from the trusted manifest for v2 tasks; bind project identity, manifest digest, memory-manifest version/path set, and pinned base SHA to context packages and agent envelopes. Keep the six-document JET VPN v1 path explicit and tested.
+2. Complete Phase 2D: namespace lease refs/branches, workspaces, context packages, source indexes, caches, artifacts, and audit records by validated project identity; add cross-project collision/isolation tests.
+3. Phase 2E: implement read-only dry-run onboarding and durable registry persistence/activation gates. Do not activate any project before its memory, toolchain, source index, verification profiles, and isolation checks are ready.
+4. Onboard حسابگر من only after Phase 2C/2D prerequisites: add its central manifest in registered state, define isolated project memory, verify Dart/Flutter analysis and test runners, and produce a read-only readiness report. Its current GitHub identity is repository ID `1423683236`, `majidbusy09-blip/hesabgar_man`, default branch `main`.
+5. Do not modify the حسابگر من repository or activate it as part of Phase 2C. Keep its onboarding as a separately reviewed task.

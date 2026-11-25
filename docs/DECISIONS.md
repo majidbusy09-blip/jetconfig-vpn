@@ -302,3 +302,10 @@ The JET VPN manifest remains lifecycle `registered`. This phase does not activat
 ### D-025 clarification — separate PR authorization envelope v2
 
 The PR authorization envelope is a distinct control-plane record, not the agent context/input envelope. V2 tasks must use PR envelope v2 with the exact current Issue-body SHA-256, validated project binding, and lease-pinned base SHA. Legacy v1 tasks must use PR envelope v1. The guard rejects version downgrade and any digest/binding/base mismatch. The agent context/input envelope remains unchanged in Phase 2B.
+
+
+## D-026 — Manifest-selected project context (2026-11-25)
+
+**Status:** Implemented on Phase 2C branch; awaiting exact-head verification and review.
+
+For v2 project-aware tasks, the trusted checked-in project manifest is the only source of the required project-memory document set. The context package and agent envelope must carry the same validated project binding, manifest digest, memory-manifest version, exact ordered required-document list, manifest-defined `max_total_bytes`, and pinned base SHA. The verifier rejects drift between the persisted task record, context package, and envelope. Legacy v1 remains an explicit compatibility path for the original JET VPN repository and its exact six-document set only. No task text or repository display name may select a project or memory manifest.

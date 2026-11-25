@@ -265,3 +265,12 @@ PR #49 merged `sandbox_acceptance.py`, a strict verifier for independently signe
 - The checked-in schema is a deliberately constrained JSON Schema 2020-12 subset. The implementation must reject remote references and unknown schema keywords; do not describe a partial implementation as a full standards-compliant validator.
 - Do not register «حسابگر من» or any other repository until the owner supplies its exact repository URL and live immutable repository identity is independently checked.
 - Project manifests are declarative data, never executable instructions. Global safety policy remains stronger than project-specific configuration.
+
+
+## Authoritative multi-project snapshot — 2026-11-25
+
+- Current verified `main` includes Phase 2A PR #99 (merge base for Phase 2B: `9b54a7158a1fbba7405f04ad503bcb8126c457bc`) and Phase 2B PR #101, squash-merged as `a0046fd5d17c32293bef3f904adc2bda89cd48c5`.
+- Phase 2B adds explicit v2 project identity to task intake and persisted handoffs, JET VPN-only v1 compatibility, base/head repository identity checks, and a separate PR authorization envelope v2. Final PR #101 head `028e5aea501abde1ceb2ff3d84d91aae9423d162` passed 426 orchestrator tests and all four required exact-head workflows.
+- Phase 2C is tracked by Issue #102 on branch `agent/project-memory-manifest-context-20261125`; it is implementing manifest-selected project context and identity-bound context packages/envelopes. Keep legacy v1 limited to the fixed JET VPN six-document context.
+- حسابگر من repository was supplied as `majidbusy09-blip/hesabgar_man`; GitHub repository ID `1423683236`, default branch `main`, primary language Dart. It has been inspected read-only only; no manifest registration, target-repository write, activation, or app-source change has occurred.
+- No paid model API, provider spend, credentials, release/deployment, production changes, or untrusted-code execution is authorized.

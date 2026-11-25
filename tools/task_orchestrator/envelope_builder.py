@@ -12,8 +12,9 @@ try:
 except ImportError:
     from agent_contract import ContractValidationError, validate_envelope, _path_matches
 
-PACKAGE_FIELDS = {"schema_version", "task_id", "source_revision", "project_context",
-                  "source_context", "total_bytes", "context_sha256"}
+PACKAGE_FIELDS_V1 = {"schema_version", "task_id", "source_revision", "project_context",
+                     "source_context", "total_bytes", "context_sha256"}
+PACKAGE_FIELDS_V2 = PACKAGE_FIELDS_V1 | {"project_binding", "memory_manifest"}
 MAX_PACKAGE_BYTES = 512_000
 MAX_CONTEXT_FILES = 100
 REQUIRED_PROJECT_CONTEXT = [
@@ -66,10 +67,13 @@ def _capability(description: Any) -> str:
     return "investigation"
 
 
-def _verify_package(package: Any, task_id: str, base_sha: str) -> dict:
-    if not isinstance(package, dict) or set(package) != PACKAGE_FIELDS:
+def _verify_package(package: Any, task_id: str, base_sha: str, *, required_context: list[str],
+                    project_binding: dict | None, memory_manifest: dict | None) -> dict:
+    expected_fields = PACKAGE_FIELDS_V2 if project_binding is not None else PACKAGE_FIELDS_V1
+    expected_version = 2 if project_binding is not None else 1
+    if not isinstance(package, dict) or set(package) != expected_fields:
         raise EnvelopeBuildError("Context package has missing or unexpected fields.")
-    if package.get("schema_version") != 1 or package.get("task_id") != task_id:
+    if package.get("schema_version") != expected_version or package.get("task_id") != task_id:
         raise EnvelopeBuildError("Context package schema or task ID does not match the task record.")
     if package.get("source_revision") != base_sha:
         raise EnvelopeBuildError("Context package source revision does not match the pinned task base SHA.")
@@ -84,8 +88,18 @@ def _verify_package(package: Any, task_id: str, base_sha: str) -> dict:
         raise EnvelopeBuildError("Context package document collections must be lists.")
     if len(docs) + len(sources) > MAX_CONTEXT_FILES:
         raise EnvelopeBuildError("Context package exceeds the maximum document count.")
-    if [item.get("path") for item in docs if isinstance(item, dict)] != REQUIRED_PROJECT_CONTEXT:
-        raise EnvelopeBuildError("Project context must contain exactly the six required project-memory documents in canonical order.")
+    document_paths = [item.get("path") for item in docs if isinstance(item, dict)]
+    if project_binding is None:
+        if required_context != REQUIRED_PROJECT_CONTEXT or document_paths != REQUIRED_PROJECT_CONTEXT:
+            raise EnvelopeBuildError("Legacy v1 context must contain the exact six JET VPN compatibility documents.")
+    else:
+        if package.get("project_binding") != project_binding or not isinstance(memory_manifest, dict):
+            raise EnvelopeBuildError("Context package project identity differs from the persisted task binding.")
+        expected_memory = {"version": memory_manifest.get("version"),
+                           "required_documents": list(required_context),
+                           "max_total_bytes": memory_manifest.get("max_total_bytes")}
+        if package.get("memory_manifest") != expected_memory or document_paths != list(required_context):
+            raise EnvelopeBuildError("Context package documents differ from the trusted project memory manifest.")
     total = 0
     seen = set()
     for collection in (docs, sources):
@@ -122,9 +136,28 @@ def build_agent_envelope(record: dict, *, repository_name: str | None = None) ->
         raise EnvelopeBuildError("Task record has no valid pinned base SHA.")
     if not isinstance(branch, str) or not branch or branch in {"main", "master"}:
         raise EnvelopeBuildError("Task branch is missing or protected.")
-    package = _verify_package(record.get("context_package"), task_id, base_sha)
-    if record.get("required_context") != REQUIRED_PROJECT_CONTEXT:
-        raise EnvelopeBuildError("Task required-context manifest differs from the orchestrator's fixed project-memory set.")
+    project_binding = record.get("github_project_binding")
+    memory_manifest = record.get("project_memory_manifest")
+    required_context = record.get("required_context")
+    if not isinstance(required_context, list) or not required_context or not all(isinstance(x, str) for x in required_context):
+        raise EnvelopeBuildError("Task required-context manifest is missing or malformed.")
+    if (project_binding is None) != (memory_manifest is None):
+        raise EnvelopeBuildError("Project identity and project memory manifest must be persisted together.")
+    if project_binding is None and required_context != REQUIRED_PROJECT_CONTEXT:
+        raise EnvelopeBuildError("Legacy v1 tasks must use the exact six-document JET VPN compatibility manifest.")
+    if project_binding is not None:
+        if not isinstance(project_binding, dict) or project_binding.get("base_sha") != base_sha:
+            raise EnvelopeBuildError("Task project identity is missing or differs from the pinned base SHA.")
+        if not isinstance(memory_manifest, dict) or set(memory_manifest) != {"version", "required_documents", "max_total_bytes"}:
+            raise EnvelopeBuildError("Task project memory manifest is missing or malformed.")
+        if (memory_manifest.get("required_documents") != required_context
+                or isinstance(memory_manifest.get("max_total_bytes"), bool)
+                or not isinstance(memory_manifest.get("max_total_bytes"), int)
+                or memory_manifest["max_total_bytes"] < 1024):
+            raise EnvelopeBuildError("Task required-context paths or byte limit differ from the persisted project memory manifest.")
+    package = _verify_package(record.get("context_package"), task_id, base_sha,
+                              required_context=required_context, project_binding=project_binding,
+                              memory_manifest=memory_manifest)
     expected_sources = record.get("context_paths")
     if not isinstance(expected_sources, list) or not all(isinstance(path, str) for path in expected_sources):
         raise EnvelopeBuildError("Task explicit source-context manifest is missing or malformed.")
@@ -204,6 +237,13 @@ def build_agent_envelope(record: dict, *, repository_name: str | None = None) ->
         },
         "verification_profiles": list(profiles),
     }
+    if project_binding is not None:
+        envelope["project_binding"] = dict(project_binding)
+        envelope["memory_manifest"] = {
+            "version": memory_manifest["version"],
+            "required_documents": list(required_context),
+            "max_total_bytes": memory_manifest["max_total_bytes"],
+        }
     try:
         validate_envelope(envelope)
     except ContractValidationError as exc:

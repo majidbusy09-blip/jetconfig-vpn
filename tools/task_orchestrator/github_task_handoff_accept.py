@@ -335,6 +335,22 @@ def _refresh_existing_task(
         }
         if record.get("github_project_binding") != expected_binding:
             raise HandoffAcceptanceError("Project identity changed; explicit project migration is required.")
+        try:
+            schema, manifests = load_project_configuration(root)
+        except IntakeError as exc:
+            raise HandoffAcceptanceError("Trusted project memory manifest is unavailable.") from exc
+        matches = [item for item in manifests if item.get("project_id") == expected_binding["project_id"]]
+        if len(matches) != 1 or not isinstance(matches[0].get("memory"), dict):
+            raise HandoffAcceptanceError("Trusted project memory manifest is missing or ambiguous.")
+        memory = matches[0]["memory"]
+        expected_memory = {
+            "version": memory.get("manifest_version"),
+            "required_documents": memory.get("required_documents"),
+            "max_total_bytes": memory.get("max_total_bytes"),
+        }
+        if (record.get("project_memory_manifest") != expected_memory
+                or record.get("required_context") != expected_memory["required_documents"]):
+            raise HandoffAcceptanceError("Project memory manifest changed; explicit task migration is required.")
     elif record.get("github_project_binding") is not None:
         raise HandoffAcceptanceError("A project-aware task cannot be refreshed through a legacy handoff.")
     if new_metadata["operation"] != "renew" or old_handoff.get("claim_id") != new_metadata["previous_claim_id"]:
@@ -391,6 +407,29 @@ def accept_handoff(
     if _repository_name(origin) != repository:
         raise HandoffAcceptanceError("Local Git origin does not match the handoff repository.")
     base_sha = manifest["lease"]["base_sha"]
+    project_binding = None
+    project_memory_manifest = None
+    required_context = list(orchestrator.REQUIRED_CONTEXT)
+    if manifest["handoff_schema"] == 3:
+        matches = [item for item in (project_manifests or [])
+                   if item.get("project_id") == manifest["project_binding"].get("project_id")]
+        if len(matches) != 1 or not isinstance(matches[0].get("memory"), dict):
+            raise HandoffAcceptanceError("Trusted project memory manifest is missing or ambiguous.")
+        memory = matches[0]["memory"]
+        memory_version = memory.get("manifest_version")
+        memory_paths = memory.get("required_documents")
+        memory_max_bytes = memory.get("max_total_bytes")
+        if (isinstance(memory_version, bool) or not isinstance(memory_version, int)
+                or memory_version < 1 or not isinstance(memory_paths, list) or not memory_paths
+                or not all(isinstance(item, str) and item for item in memory_paths)
+                or len(memory_paths) != len(set(memory_paths))
+                or isinstance(memory_max_bytes, bool) or not isinstance(memory_max_bytes, int)
+                or memory_max_bytes < 1024):
+            raise HandoffAcceptanceError("Trusted project memory manifest is malformed.")
+        required_context = list(memory_paths)
+        project_memory_manifest = {"version": memory_version, "required_documents": list(memory_paths),
+                                   "max_total_bytes": memory_max_bytes}
+        project_binding = {**manifest["project_binding"], "base_sha": base_sha}
     current_branch = orchestrator.run_git(root, "branch", "--show-current")
     if create_branch:
         if refresh_existing:
@@ -433,10 +472,13 @@ def accept_handoff(
             root=root,
             task_id=task_id,
             source_revision=base_sha,
-            required_paths=list(orchestrator.REQUIRED_CONTEXT),
+            required_paths=required_context,
             source_paths=[],
             allowed_patterns=task["allow"],
             excluded_patterns=task["exclude"],
+            project_binding=project_binding,
+            memory_manifest_version=(project_memory_manifest or {}).get("version"),
+            memory_manifest_max_total_bytes=(project_memory_manifest or {}).get("max_total_bytes"),
         )
     except orchestrator.ContextBuildError as exc:
         raise HandoffAcceptanceError("Required project context is unavailable at the pinned base.") from exc
@@ -453,6 +495,12 @@ def accept_handoff(
         context=[],
     )
     orchestrator.command_init(init_args)
+    record, record_path = orchestrator.load_record(root, task_id)
+    if project_binding is not None:
+        record["required_context"] = required_context
+        record["github_project_binding"] = project_binding
+        record["project_memory_manifest"] = project_memory_manifest
+        orchestrator.save_record(record, record_path)
     orchestrator.command_prepare(Namespace(task_id=task_id))
     record, record_path = orchestrator.load_record(root, task_id)
     record["assigned_agent"] = task["assigned_agent"]

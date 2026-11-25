@@ -173,24 +173,26 @@ def _candidate_task_paths(root: Path, task_id: str) -> list[Path]:
     if legacy.is_file():
         candidates.append(legacy)
     try:
-        for project_entry in os.scandir(tasks_root):
-            if project_entry.is_symlink():
-                raise TaskError("Project task namespace contains a symlink; refusing ambiguous lookup.")
-            if not project_entry.is_dir(follow_symlinks=False):
-                continue
-            for repository_entry in os.scandir(project_entry.path):
-                if repository_entry.is_symlink():
-                    raise TaskError("Repository task namespace contains a symlink; refusing ambiguous lookup.")
-                if not repository_entry.is_dir(follow_symlinks=False):
+        with os.scandir(tasks_root) as project_entries:
+            for project_entry in project_entries:
+                if project_entry.is_symlink():
+                    raise TaskError("Project task namespace contains a symlink; refusing ambiguous lookup.")
+                if not project_entry.is_dir(follow_symlinks=False):
                     continue
-                task_dir = Path(repository_entry.path) / task_id
-                if task_dir.is_symlink():
-                    raise TaskError("Namespaced task directory is a symlink; refusing traversal.")
-                candidate = task_dir / "task.json"
-                if candidate.is_symlink():
-                    raise TaskError("Namespaced task record is a symlink; refusing traversal.")
-                if candidate.is_file():
-                    candidates.append(candidate)
+                with os.scandir(project_entry.path) as repository_entries:
+                    for repository_entry in repository_entries:
+                        if repository_entry.is_symlink():
+                            raise TaskError("Repository task namespace contains a symlink; refusing ambiguous lookup.")
+                        if not repository_entry.is_dir(follow_symlinks=False):
+                            continue
+                        task_dir = Path(repository_entry.path) / task_id
+                        if task_dir.is_symlink():
+                            raise TaskError("Namespaced task directory is a symlink; refusing traversal.")
+                        candidate = task_dir / "task.json"
+                        if candidate.is_symlink():
+                            raise TaskError("Namespaced task record is a symlink; refusing traversal.")
+                        if candidate.is_file():
+                            candidates.append(candidate)
     except OSError as exc:
         raise TaskError("Unable to enumerate project-scoped task records safely.") from exc
     return sorted(candidates)

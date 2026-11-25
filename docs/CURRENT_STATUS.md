@@ -308,3 +308,14 @@ Phase 2C is merged. Phase 2D-1 is active on branch `agent/project-scoped-lease-w
 ## Phase 2D-1 update — PR guard included
 
 The project-scoped lease resolver is now also wired into the trusted PR guard and patch-review authorization. V2 PR validation reads the project-specific lock ref and lease record and rejects a lease record whose full project binding differs from the current trusted Issue binding. Legacy v1 PR validation continues to read the original lock branch and file. Exact-head CI is pending on the latest branch revision.
+
+
+## Current multi-project status — 2026-11-25
+
+- PR #103 merged: manifest-selected project memory and v2 context/envelope binding.
+- PR #107 merged: project-scoped lease refs/records and workspace IDs. Main SHA after merge: `dcf754ac5b22691687ebe0d9ec0f88623e4265b5`.
+- PR #109 is Draft/open for Issue #106 (Phase 2D-2A). It introduces project-scoped local task records, context/handoff/agent-input metadata paths, project-aware metadata filtering/fingerprinting, ambiguity rejection, and project-specific local task branches. Legacy v1 JET VPN paths are preserved.
+- The latest reviewed PR head is `7b2dedc8e5c97d626fa7957708d7bd38ea9ac728`; exact-head CI is being rerun after final path-binding validation changes. Do not claim PR #109 complete until all required workflows pass on this exact head.
+- Issue #108 (Phase 2D-2B) remains queued until #106 is reviewed and merged.
+- حسابگر من repository ID `1423683236` remains unregistered/inactive; no target-repository writes have been made.
+- The workflow artifact-upload wildcard remains a known issue because `.github/workflows/**` is protected from this task; a separate reviewed task is required.

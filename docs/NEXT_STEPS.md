@@ -304,3 +304,13 @@ The current task lease is time-limited. Renew it before expiry; do not run two a
 
 
 Phase 2D-1 must also verify that the trusted PR guard and patch-review gate use the shared project namespace resolver. A v2 PR must fail closed on cross-project lease substitution, repository rename drift, manifest digest drift, or stale pinned base. V1 PR guard behavior must remain unchanged.
+
+
+## Multi-project roadmap — updated 2026-11-25
+
+1. Finish exact-head CI and review for PR #109 / Issue #106 (Phase 2D-2A); preserve the explicit v1 JET VPN paths and keep the protected workflow file untouched.
+2. Create a separate reviewed workflow-policy task to replace the broad agent-input artifact glob with a single validated exact path; do not weaken the protected-path rule.
+3. After #106 merges, implement Issue #108 (Phase 2D-2B): namespace patch/result artifacts, semantic indexes, caches, audit outputs, and workflow artifact names by validated project identity, manifest digest, and pinned source revision as applicable.
+4. Run cross-project collision/substitution/stale-cache tests and a full isolation audit.
+5. Only after 2D-2B is reviewed and merged, begin Issue #105 onboarding for حسابگر من: project-specific memory, manifest, Flutter/Dart verification profiles, safe source-index dry-run, and inactive registration first.
+6. Activate حسابگر من only after all readiness and isolation gates pass. Keep user-run Android device tests as a manual acceptance step.

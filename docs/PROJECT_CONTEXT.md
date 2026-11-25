@@ -244,3 +244,10 @@ Phase 2C is merged. Issue #104 implements project-scoped lease refs/records and 
 
 
 Phase 2D-1 now includes the trusted PR guard and patch-review authorization in the shared project lease namespace. These consumers must not fall back to the legacy lease file for v2 tasks; they validate the full project identity tuple and pinned base. Issue #106 remains queued for local task-record and artifact path namespacing.
+
+
+## Multi-project status update — 2026-11-25
+
+Phase 2C PR #103 and Phase 2D-1 PR #107 are merged. Phase 2D-2A is in Draft PR #109 (Issue #106): project-aware local task record paths, context/handoff/agent-input artifacts, metadata filtering/fingerprinting, unambiguous task lookup, and project-scoped local task branches. V1 JET VPN paths remain unchanged.
+
+The current GitHub Actions workflow still uploads agent-input files through a broad wildcard. Its workflow file is protected by the task protocol and was not changed in Issue #106. Exact artifact-upload hardening must be completed through a separate reviewed workflow-policy task. حسابگر من remains unmodified, unregistered, and inactive.

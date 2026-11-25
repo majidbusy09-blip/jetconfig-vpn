@@ -93,3 +93,17 @@ The trusted-main Issue command workflow passed a full live claim/renew/release c
 ## Agent PR submission guard
 
 Agent implementation PRs include the v1 PR envelope marker, task Issue number, owner label, and current claim ID. The trusted-main pull_request_target guard uses read-only GitHub permissions to verify the open task Issue, assignment, active/unexpired lease, pinned base SHA, and changed paths. It skips ordinary PRs and never checks out or executes PR code. It is a validation check only; it does not approve or merge PRs.
+
+
+## Project-scoped lease schema v2
+
+Project-aware v2 tasks use the shared pure namespace helper in `tools/task_orchestrator/project_namespace.py`.
+
+- Lock ref: `agent-locks/projects/<project_id>/<repository_id>/<task_id>`.
+- Lease record: `.agent-locks/projects/<project_id>/<repository_id>/<task_id>.json`.
+- Lease record schema version: `2`, with the complete validated project identity tuple (`project_id`, immutable numeric `repository_id`, canonical `repository_full_name`, `default_branch`, `manifest_schema_version`, and `manifest_sha256`) in addition to task/owner/claim/status/timestamps/base SHA.
+- The namespace key uses `project_id` + `repository_id`; a repository rename keeps the same namespace but changes the full binding, so an existing lease cannot be silently reused. A manifest digest change behaves the same way.
+- Claim, renew, release, handoff generation, handoff acceptance, the PR guard, and patch-review authorization all resolve the same branch/path and compare the same full binding. A v2 task never falls back to the v1 lock path.
+- V2 workspace IDs include project_id, repository_id, manifest digest, task ID, and pinned base SHA. Legacy workspace IDs retain the original derivation.
+
+Legacy schema v1 remains byte-for-byte compatible: lock branch `agent-locks/<task_id>` and record `.agent-locks/lease.json`. V1 intake remains restricted to the original JET VPN repository. No automatic migration or namespace rebinding is performed.

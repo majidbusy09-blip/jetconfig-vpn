@@ -234,3 +234,8 @@ When identity, permission, branch, manifest, lease, memory, or verification stat
 - The supported adapter/profile catalogue and its versioning policy.
 
 These decisions must be recorded in the control-plane decision log before implementation. This document is a proposed design, not evidence that any of these mechanisms are already implemented.
+
+
+## Phase 2D-1 — lease and workspace namespace contract
+
+V2 project tasks derive lock refs and lease-record paths from validated `project_id` and immutable numeric `repository_id`. Lease records carry the complete project identity tuple and pinned base SHA. Handoff creation/acceptance, PR validation, and patch-review authorization must all use the same namespace helper and reject project-binding drift. Workspace identifiers additionally include the manifest digest, task ID, and base SHA. Legacy v1 JET VPN lease refs and paths remain unchanged. Local task records, context packages, patch artifacts, caches, source indexes, and audit paths are deferred to Phase 2D-2.

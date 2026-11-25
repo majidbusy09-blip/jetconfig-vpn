@@ -20,7 +20,7 @@ Map<String, Object?> manifest() => {
     };
 
 void main() {
-  const revision = 'a' * 40;
+  const revision = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
 
   test('binds output namespace to project, repository, manifest, and source', () {
     final identity = ProjectArtifactIdentity.fromManifest(

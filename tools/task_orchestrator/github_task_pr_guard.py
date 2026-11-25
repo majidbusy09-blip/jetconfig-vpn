@@ -7,7 +7,8 @@ from .agent_contract import ContractValidationError, _path, _path_matches
 from .github_issue_intake import (
     TASK_LABEL, IntakeError, load_project_configuration, validate_task_project_binding,
 )
-from .github_lease import LeaseError, validate_lease
+from .github_lease import LeaseError, lock_branch, validate_lease
+from .project_namespace import ProjectNamespaceError, lease_record_path
 from .github_task_protocol import GitHubTaskError, validate_issue_body
 
 PR_MARKERS = {1: "<!-- jet-agent-pr:v1 -->", 2: "<!-- jet-agent-pr:v2 -->"}
@@ -100,8 +101,12 @@ def api_get(repository, path, token):
         raise GuardError("GitHub API returned invalid JSON.") from exc
 
 
-def read_lease(repository, task_id, token):
-    branch = "agent-locks/" + task_id
+def read_lease(repository, task_id, token, project_binding=None):
+    try:
+        branch = lock_branch(task_id, project_binding)
+        path = lease_record_path(task_id, project_binding)
+    except (LeaseError, ProjectNamespaceError) as exc:
+        raise GuardError("Task project namespace is invalid.") from exc
     ref = api_get(repository, "/git/ref/heads/" + urllib.parse.quote(branch, safe="/-"), token)
     try:
         lock_sha = ref["object"]["sha"]
@@ -111,12 +116,14 @@ def read_lease(repository, task_id, token):
     if lock_type != "commit" or not isinstance(lock_sha, str) or not SHA_RE.fullmatch(lock_sha):
         raise GuardError("Task lock ref must point to a full commit SHA.")
     query = urllib.parse.urlencode({"ref": lock_sha})
-    item = api_get(repository, "/contents/.agent-locks/lease.json?" + query, token)
+    item = api_get(repository, "/contents/" + urllib.parse.quote(path, safe="/.") + "?" + query, token)
     if not isinstance(item, dict) or item.get("encoding") != "base64" or not isinstance(item.get("content"), str):
         raise GuardError("Lease content response is malformed.")
     try:
-        record = json.loads(base64.b64decode("".join(item["content"].split()), validate=True).decode("utf-8"))
-        return validate_lease(record)
+        record = validate_lease(json.loads(base64.b64decode("".join(item["content"].split()), validate=True).decode("utf-8")))
+        if record.get("project_binding") != project_binding:
+            raise GuardError("Lease project identity differs from the validated task binding.")
+        return record
     except (ValueError, UnicodeDecodeError, json.JSONDecodeError, LeaseError) as exc:
         raise GuardError("Lease record is invalid.") from exc
 
@@ -234,10 +241,12 @@ def validate_agent_pr(event, *, token, repository, now=None):
     if task["assigned_agent"] not in {"any", envelope["owner"]}:
         raise GuardError("PR owner does not match task assignment.")
 
-    lease = read_lease(repository, task["task_id"], token)
+    lease = read_lease(repository, task["task_id"], token, project_binding)
     if task["schema_version"] == 2 and envelope["base_sha"] != lease["base_sha"]:
         raise GuardError("PR authorization envelope differs from the lease-pinned base SHA.")
-    if lease["task_id"] != task["task_id"] or lease["owner"] != envelope["owner"] or lease["claim_id"] != envelope["claim_id"] or lease["status"] != "active":
+    if (lease["task_id"] != task["task_id"] or lease["owner"] != envelope["owner"]
+            or lease["claim_id"] != envelope["claim_id"] or lease["status"] != "active"
+            or lease.get("project_binding") != project_binding):
         raise GuardError("PR does not match the active task lease.")
     moment = datetime.fromisoformat((now or datetime.now(timezone.utc).isoformat()).replace("Z", "+00:00"))
     expires = datetime.fromisoformat(lease["expires_at"].replace("Z", "+00:00"))

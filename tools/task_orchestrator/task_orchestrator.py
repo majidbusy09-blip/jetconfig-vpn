@@ -797,7 +797,6 @@ def command_impact(args: argparse.Namespace) -> None:
         target = report_directory / "impact_report.json"
     else:
         target = task_record_path.parent / "impact_report.json"
-        target.parent.mkdir(parents=True, exist_ok=True)
     report_path = target.relative_to(root).as_posix()
     encoded = (json.dumps(result, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
     try:

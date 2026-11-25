@@ -108,6 +108,26 @@ class GitHubTaskProtocolTests(unittest.TestCase):
                     bad, repository_metadata=JET_REPOSITORY, allow_legacy_jet_vpn=True
                 )
 
+    def test_exact_project_memory_workflow_exception_requires_dedicated_task_id(self):
+        allowed = dict(V1_PAYLOAD)
+        allowed["task_id"] = "project-memory-artifact-workflow-v1"
+        allowed["allow"] = [".github/workflows/project-memory-audit.yml"]
+        result = validate_task_payload(
+            allowed, repository_metadata=JET_REPOSITORY, allow_legacy_jet_vpn=True
+        )
+        self.assertEqual(result["allow"], [".github/workflows/project-memory-audit.yml"])
+
+        for task_id, path in (
+            ("another-task", ".github/workflows/project-memory-audit.yml"),
+            ("project-memory-artifact-workflow-v1", ".github/workflows/agent-lease-commands.yml"),
+            ("project-memory-artifact-workflow-v1", ".github/workflows/build.yml"),
+        ):
+            bad = dict(V1_PAYLOAD, task_id=task_id, allow=[path])
+            with self.subTest(task_id=task_id, path=path), self.assertRaises(GitHubTaskError):
+                validate_task_payload(
+                    bad, repository_metadata=JET_REPOSITORY, allow_legacy_jet_vpn=True
+                )
+
     def test_rejects_unknown_agent_capability_and_profile(self):
         for key, value in (
             ("assigned_agent", "unknown-agent"), ("capability", "deploy"),

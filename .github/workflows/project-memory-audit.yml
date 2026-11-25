@@ -46,6 +46,15 @@ jobs:
         with:
           fetch-depth: 1
 
+      - name: Resolve project-scoped artifact names
+        id: artifact_names
+        env:
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_REPOSITORY_ID: ${{ github.repository_id }}
+          GITHUB_REPOSITORY_DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          GITHUB_SHA: ${{ github.sha }}
+        run: python -m tools.task_orchestrator.workflow_artifact_names --output "$GITHUB_OUTPUT"
+
       - name: Set up Flutter and Dart
         uses: subosito/flutter-action@v2
         with:
@@ -154,10 +163,10 @@ jobs:
           PY
 
       - name: Upload semantic AST index
-        if: always()
+        if: always() && steps.artifact_names.outcome == 'success'
         uses: actions/upload-artifact@v4
         with:
-          name: jet-vpn-semantic-ast-index
+          name: ${{ steps.artifact_names.outputs.semantic_ast }}
           path: |
             docs/generated/jet_vpn_semantic_index.json
             docs/generated/jet_vpn_resolved_index.json
@@ -176,7 +185,7 @@ jobs:
       - name: Upload machine-readable code index
         uses: actions/upload-artifact@v4
         with:
-          name: jet-vpn-code-index
+          name: ${{ steps.artifact_names.outputs.code_index }}
           path: docs/generated/jet_vpn_code_index.json
           if-no-files-found: error
           retention-days: 30

@@ -81,8 +81,10 @@ def resolve_artifact_names(
         repository = manifest.get("repository")
         if not isinstance(repository, dict):
             raise WorkflowArtifactNameError("A trusted manifest has malformed repository metadata.")
+        manifest_full_name = repository.get("full_name")
         if (repository.get("repository_id") == repository_id_text
-                or repository.get("full_name", "").casefold() == full_name.casefold()):
+                or (isinstance(manifest_full_name, str)
+                    and manifest_full_name.casefold() == full_name.casefold())):
             candidates.append(manifest)
 
     if not candidates:

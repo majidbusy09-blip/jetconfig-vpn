@@ -302,3 +302,12 @@ The shared project namespace resolver must be used by every lease consumer, incl
 ### Scandir resource ownership
 
 Directory enumeration in task namespace scans must use context-managed `os.scandir` iterators. This guarantees handles close even when fail-closed validation raises while scanning a symlinked entry.
+
+
+## حسابگر من onboarding — current state (2026-11-25)
+
+- Candidate project: `hesabgar-man`; verified target repository `majidbusy09-blip/hesabgar_man`, immutable repository ID `1423683236`.
+- Target PR #2 is merged as `177eb1a1f0ae8ae5a77a2c1c136804dff042d5db`; Flutter 3.27.4 / Dart 3.6.2 CI passed static analysis and 74 tests.
+- Preserve target app version `1.0.9+10`; do not change app source, signing, or release workflow as part of onboarding.
+- Keep manifest lifecycle `registered`; no activation until all readiness and isolation gates pass.
+- Keep `source_index.strategy=none` until a project-neutral Dart indexing adapter is implemented and verified.

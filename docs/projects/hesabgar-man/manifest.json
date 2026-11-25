@@ -1,0 +1,90 @@
+{
+  "schema_version": 1,
+  "project_id": "hesabgar-man",
+  "display_name": "حسابگر من",
+  "repository": {
+    "provider": "github",
+    "repository_id": "1423683236",
+    "full_name": "majidbusy09-blip/hesabgar_man",
+    "url": "https://github.com/majidbusy09-blip/hesabgar_man",
+    "default_branch": "main"
+  },
+  "lifecycle": "registered",
+  "project_type": "flutter_android",
+  "languages": [
+    {
+      "name": "Dart",
+      "primary": true,
+      "version": "3.6.2 (bundled with pinned Flutter 3.27.4)"
+    },
+    {
+      "name": "YAML",
+      "primary": false
+    }
+  ],
+  "toolchains": [
+    {
+      "id": "flutter",
+      "required": true,
+      "version": "3.27.4",
+      "version_source": ".github/workflows/project-validation.yml"
+    },
+    {
+      "id": "dart",
+      "required": true,
+      "version": "3.6.2",
+      "version_source": "Bundled with Flutter 3.27.4; confirm from exact CI log"
+    }
+  ],
+  "memory": {
+    "manifest_version": 1,
+    "required_documents": [
+      "AGENTS.md",
+      "docs/PROJECT_CONTEXT.md",
+      "docs/CURRENT_STATUS.md",
+      "docs/NEXT_STEPS.md",
+      "docs/DEVELOPMENT_LOG.md"
+    ],
+    "optional_documents": [
+      "docs/DECISIONS.md"
+    ],
+    "max_total_bytes": 512000,
+    "survival_check": "tracked-regular-file-at-exact-head"
+  },
+  "source_index": {
+    "strategy": "none",
+    "input_paths": [
+      "lib"
+    ],
+    "generated_artifacts": []
+  },
+  "verification": {
+    "required_profiles": [
+      "flutter-analysis",
+      "flutter-tests"
+    ],
+    "supported_profiles": [
+      "flutter-analysis",
+      "flutter-tests"
+    ],
+    "capabilities": [
+      "unit_tests",
+      "static_analysis"
+    ]
+  },
+  "protected_paths": [
+    "android/key.properties",
+    "android/app/key.properties",
+    ".github/workflows/build.yml",
+    "secrets"
+  ],
+  "operational_constraints": {
+    "maximum_task_risk": "medium",
+    "external_network": "read_only_allowlist",
+    "release_requires_human_approval": true,
+    "deploy_requires_human_approval": true,
+    "untrusted_code_execution": false,
+    "paid_model_api": false,
+    "credentials_in_manifest": false
+  }
+}

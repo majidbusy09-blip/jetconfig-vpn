@@ -98,13 +98,18 @@ def _write_new_json(path_text: str, value: dict[str, Any]) -> None:
     parent_fd = None
     descriptor = None
     leaf = None
+    created = False
     try:
         parent_fd, leaf = _open_parent_directory(Path(path_text))
-        payload = (json.dumps(value, ensure_ascii=False, sort_keys=True, indent=2) + "\n").encode("utf-8")
+        try:
+            payload = (json.dumps(value, ensure_ascii=False, sort_keys=True, indent=2) + "\n").encode("utf-8")
+        except UnicodeEncodeError as exc:
+            raise LocalDispatchRunnerError("Audit output contains invalid Unicode.") from exc
         descriptor = os.open(
             leaf, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
             0o600, dir_fd=parent_fd,
         )
+        created = True
         view = memoryview(payload)
         while view:
             written = os.write(descriptor, view)
@@ -118,7 +123,7 @@ def _write_new_json(path_text: str, value: dict[str, Any]) -> None:
     except Exception:
         if descriptor is not None:
             os.close(descriptor)
-        if parent_fd is not None and leaf is not None:
+        if created and parent_fd is not None and leaf is not None:
             try:
                 os.unlink(leaf, dir_fd=parent_fd)
             except OSError:

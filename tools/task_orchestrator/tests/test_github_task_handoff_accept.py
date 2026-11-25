@@ -285,8 +285,16 @@ class HandoffAcceptanceTests(unittest.TestCase):
                     )
             finally:
                 os.chdir(previous)
-            record = json.loads((root / ".agent" / "tasks" / TASK_ID / "task.json").read_text(encoding="utf-8"))
             expected = dict(handoff["project_binding"], base_sha=base_sha)
+            task_directory = (
+                root / ".agent" / "tasks" / expected["project_id"]
+                / expected["repository_id"] / TASK_ID
+            )
+            record = json.loads((task_directory / "task.json").read_text(encoding="utf-8"))
+            self.assertEqual(
+                git("branch", "--show-current"),
+                "agent/projects/" + expected["project_id"] + "/" + expected["repository_id"] + "/" + TASK_ID,
+            )
             self.assertEqual(record["github_project_binding"], expected)
             required = ACTIVE_MANIFEST["memory"]["required_documents"]
             self.assertEqual(record["required_context"], required)

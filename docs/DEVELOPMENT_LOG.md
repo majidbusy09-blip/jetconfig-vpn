@@ -615,3 +615,15 @@ Append-only record of meaningful project work. Each entry should include branch/
 - Extended the separate PR authorization envelope with schema v2. It binds the exact Issue-body SHA-256, validated project-binding tuple, and lease-pinned base SHA. V2 tasks require PR envelope v2; legacy v1 tasks require PR envelope v1.
 - The agent context/input envelope contract remains unchanged. This is a PR control-plane envelope, not a context/envelope migration.
 - Added tests for v2 PR authorization, base/head identity mismatch, PR envelope downgrade, project binding mismatch, and pinned base mismatch. Fresh exact-head CI is required.
+
+
+## 2026-11-25 — Phase 2B exact-head verification completed
+
+On implementation head `33357ea746d3e2a5147416a8da9385ee1002b340` (base `9b54a7158a1fbba7405f04ad503bcb8126c457bc`), all four required workflows passed:
+
+- Task Orchestrator Tests: 426 tests — run `45534458358`.
+- Non-production PR Validation — run `45534458288`.
+- Agent PR Lease and Scope Guard — run `45534455835`.
+- Project Memory Audit — run `45534458336`.
+
+PR #101 remains Draft and unmerged for human review. No review submissions or review threads were present at verification time. Latest active lease claim: `202611250555cafe`; expiry `2026-11-25T04:34:16Z`.

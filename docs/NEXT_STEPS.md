@@ -274,8 +274,8 @@ Do not activate Python profiles until their fixed runners exist. Do not run Flut
 1. Finish the v2 project-binding contract and ensure every consequential path validates it against the trusted manifest and live repository metadata: issue intake, lease request, handoff construction/acceptance, Issue revalidation, PR base/head guard, and patch-review authorization.
 2. Keep v1 compatibility bounded to the exact JET VPN repository identity; add negative tests proving v1 cannot be accepted for another repository and v2 cannot silently fall back to v1.
 3. Ensure schema-v3 handoffs persist the project identity tuple and pinned `base_sha` in local task records. A repository rename or manifest digest change must fail closed and require explicit migration.
-4. Run all exact-head CI on PR #101: orchestrator suite, non-production PR validation, project-memory audit, and lease/scope guard. Fix failures and repeat on the final head.
-5. Review the complete diff and tests. Keep PR #101 Draft until checks are green and the user has separately approved any merge decision.
+4. Exact-head CI has passed on implementation head `33357ea746d3e2a5147416a8da9385ee1002b340`: 426 orchestrator tests, non-production PR validation, project-memory audit, and lease/scope guard. Re-run the checks after this status-only documentation update.
+5. Review the complete diff and tests. Checks are green; keep PR #101 Draft until human review is complete and the user separately approves any merge decision.
 6. After Phase 2B is reviewed and merged, proceed to Phase 2C (project-specific memory/context selection) and then Phase 2D (lease/workspace/cache/artifact namespaces). Registry persistence and activation remain later, separately gated phases.
 7. Do not activate the JET VPN manifest or register «حسابگر من» in this phase. Obtain and verify the exact حسابگر من repository URL before any onboarding task.
 

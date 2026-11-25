@@ -269,7 +269,7 @@ This section supersedes the earlier PR #53 baseline above.
 - PR #101 is Draft/open/unmerged: `https://github.com/majidbusy09-blip/jetconfig-vpn/pull/101`; branch `agent/project-identity-intake-v2-20261125`.
 - Implemented on the branch: v2 task payload identity schema; explicit v1-only JET VPN compatibility identity; checked-in JET VPN manifest with lifecycle `registered`; manifest/live-repository validation in intake and lease/handoff paths; handoff schema v3; local task-record persistence of project identity plus pinned base SHA; base/head repository identity checks in PR guard; issue revalidation and patch-review gate identity checks.
 - Scope intentionally excludes registry persistence, activation, context/envelope changes, lease namespace changes, workspace/cache/artifact namespacing, application source, external repositories, and production execution.
-- First CI pass on an earlier PR #101 head found unconverted legacy consumers in patch review and test fixture mismatches. The PR guard passed. The affected patch-review gate/command and tests were updated; fresh exact-head checks are required. Do not treat the earlier failed runs as passing.
+- First CI pass on an earlier PR #101 head found unconverted legacy consumers in patch review and test fixture mismatches. The PR guard passed. The affected patch-review gate/command and tests were updated. The final exact-head run on implementation commit `33357ea746d3e2a5147416a8da9385ee1002b340` subsequently passed all four required workflows; see the verification record below.
 - The current JET VPN manifest remains `registered`; no project is activated. «حسابگر من» remains unregistered pending its exact GitHub repository URL.
 - No merge, release, deployment, paid API, new provider spend, credentials, source transfer, or untrusted-code execution has been performed for Phase 2B.
 
@@ -277,3 +277,15 @@ This section supersedes the earlier PR #53 baseline above.
 ### PR identity downgrade guard — Phase 2B extension
 
 A review of the first v2 PR guard test exposed a downgrade gap: a project-bound v2 Issue could otherwise be edited to a legacy v1 body while an existing PR envelope and active lease remained. PR #101 now adds a separate PR authorization envelope v2 binding the exact Issue-body SHA-256, project identity tuple, and lease-pinned base SHA. V2 tasks require this envelope; legacy v1 tasks require PR envelope v1. The agent context/input envelope remains unchanged. Exact-head CI must be re-run after this addition.
+
+
+### Exact-head verification record — 2026-11-25
+
+Implementation head: `33357ea746d3e2a5147416a8da9385ee1002b340` (base `9b54a7158a1fbba7405f04ad503bcb8126c457bc`).
+
+- Task Orchestrator Tests: **426 tests passed** — run `45534458358`.
+- Non-production PR Validation: success — run `45534458288`.
+- Agent PR Lease and Scope Guard: success — run `45534455835`.
+- Project Memory Audit: success — run `45534458336`.
+
+PR #101 remains Draft/open/unmerged and has no review submissions or review threads. GitHub reports it mergeable, but it is deliberately awaiting human review and separate merge approval. Latest verified lease claim is `202611250555cafe`, pinned to the main base SHA above, expiring at `2026-11-25T04:34:16Z`.

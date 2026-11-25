@@ -9,6 +9,7 @@ from tools.task_orchestrator.envelope_builder import (
     EnvelopeBuildError, build_agent_envelope,
 )
 from tools.task_orchestrator.agent_contract import validate_envelope
+from tools.task_orchestrator.project_namespace import workspace_id
 from tools.task_orchestrator.readonly_adapter import FixtureReadOnlyProvider, ReadOnlyAdapterError, run_readonly
 
 
@@ -199,6 +200,9 @@ class EnvelopeBuilderTests(unittest.TestCase):
             unsigned, ensure_ascii=False, sort_keys=True, separators=(",", ":")
         ).encode()).hexdigest()
         envelope = build_agent_envelope(record)
+        namespace_binding = {key: value for key, value in binding.items() if key != "base_sha"}
+        self.assertEqual(envelope["repository"]["workspace_id"],
+                         workspace_id("sample-task", record["repository"]["base_sha"], namespace_binding))
         self.assertEqual(envelope["project_binding"], binding)
         self.assertEqual(envelope["memory_manifest"]["required_documents"], required)
         self.assertEqual([item["path"] for item in envelope["project_context"]], required)

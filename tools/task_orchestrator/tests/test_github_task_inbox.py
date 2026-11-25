@@ -9,15 +9,7 @@ from tools.task_orchestrator.project_registry import manifest_digest
 
 ROOT = Path(__file__).resolve().parents[3]
 SCHEMA = json.loads((ROOT / "docs/PROJECT_MANIFEST_SCHEMA.json").read_text(encoding="utf-8"))
-MANIFEST = copy.deepcopy(SCHEMA["examples"][0])
-MANIFEST["project_id"] = "hesabgar-man"
-MANIFEST["repository"] = {
-    "provider": "github", "repository_id": "1423683236",
-    "full_name": "majidbusy09-blip/hesabgar_man",
-    "url": "https://github.com/majidbusy09-blip/hesabgar_man",
-    "default_branch": "main",
-}
-MANIFEST["lifecycle"] = "registered"
+MANIFEST = json.loads((ROOT / "docs/projects/hesabgar-man/manifest.json").read_text(encoding="utf-8"))
 REPOSITORY = {
     "id": 1423683236, "full_name": "majidbusy09-blip/hesabgar_man",
     "html_url": "https://github.com/majidbusy09-blip/hesabgar_man",
@@ -110,6 +102,16 @@ class GitHubTaskInboxTests(unittest.TestCase):
             bad["execution"]["lease_claimed"] = True
             with self.assertRaises(InboxError):
                 self.ingest(root, bad)
+
+    def test_rejects_duplicate_task_id_under_a_second_issue_number(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            self.ingest(root)
+            duplicate = artifact()
+            duplicate["issue_number"] = 18
+            duplicate["issue_url"] = "https://github.com/majidbusy09-blip/hesabgar_man/issues/18"
+            with self.assertRaises(InboxError):
+                self.ingest(root, duplicate)
 
     def test_rejects_active_status_claim_for_registered_project(self):
         with tempfile.TemporaryDirectory() as temp:

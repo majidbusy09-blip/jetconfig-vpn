@@ -24,8 +24,8 @@ void main() {
 // مشخصات نسخه (نمایش داخل اپ) — با هر ریلیز با pubspec هماهنگ کن
 // مثال: pubspec 2.2.8+222 → همین دو مقدار را هم‌خوان نگه دار
 // در کامنت از شکل appVersion = '...' استفاده نکن (ورک‌فلو گیت‌هاب آن را اشتباه می‌خواند)
-const String appVersion = 'v2.4.5';
-const int appVersionCode = 284;
+const String appVersion = 'v2.4.6';
+const int appVersionCode = 285;
 /// کانال بسته‌بندی: با --dart-define=APK_CHANNEL=arm64|universal|arm32 در بیلد ست می‌شود
 const String apkChannel = String.fromEnvironment('APK_CHANNEL', defaultValue: 'arm64');
 const String appUpdateMetaUrl = 'https://majid6064.ir/app_version.json';
@@ -2080,7 +2080,16 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     final rem = remRaw is num ? remRaw.toDouble() : double.tryParse('$remRaw');
     if (total != null && total > 0) {
       final left = rem ?? 0.0;
-      if (left <= 0 || (left / total) <= 0.20) return true;
+      if (left <= 0) return true;
+      final sw = userData!['should_warn_volume'];
+      if (sw == true || sw == 1 || sw == '1') return true;
+      if (sw == false || sw == 0 || sw == '0') {
+        // API: هنوز حجم کافی است
+      } else if (total > 15.0) {
+        if (left <= 5.0) return true;
+      } else if ((left / total) <= 0.20) {
+        return true;
+      }
     }
 
     final expire = userData!['expire_days'];
@@ -2178,15 +2187,20 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     final planVol = planRaw is num ? planRaw.toDouble() : double.tryParse('$planRaw');
     final left = rem ?? 0.0;
     if (left > 0) {
-      // مبنای ۸۰٪ مصرف: حجم پلن/سفارش جاری، نه جمع تمدیدهای قبلی روی پنل
-      double? basis = total;
-      if (planVol != null && planVol > 0) {
-        if (total == null || total <= 0 || total > planVol * 1.15) {
-          basis = planVol;
+      // هیبرید: سقف بزرگ → آستانه مطلق گیگ | سقف کوچک یا بستهٔ آخر → درصد
+      // should_warn_volume از API اگر آمده اولویت دارد
+      final sw = d['should_warn_volume'];
+      if (sw == true || sw == 1 || sw == '1') return true;
+      if (sw == false || sw == 0 || sw == '0') {
+        // API صراحتاً گفته اخطار نده (مگر زمان)
+      } else if (total != null && total > 15.0) {
+        if (left <= 5.0) return true;
+      } else {
+        double? basis = planVol;
+        if (basis == null || basis <= 0) basis = total;
+        if (basis != null && basis > 0 && (left / basis) <= 0.20) {
+          return true;
         }
-      }
-      if (basis != null && basis > 0 && (left / basis) <= 0.20) {
-        return true;
       }
     }
 
@@ -5815,10 +5829,20 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     final data = userData;
     final totalRaw = data?['total_gb'];
     final remainingRaw = data?['remaining_gb'];
+    final planRaw = data?['plan_volume_gb'] ?? data?['last_renew_gb'];
     final total = totalRaw is num ? totalRaw.toDouble() : double.tryParse('$totalRaw');
     final remaining = remainingRaw is num ? remainingRaw.toDouble() : double.tryParse('$remainingRaw');
+    final planVol = planRaw is num ? planRaw.toDouble() : double.tryParse('$planRaw');
     final canShowProgress = _hasActiveSubscription() && total != null && total > 0 && remaining != null;
-    final progress = canShowProgress ? (remaining! / total!).clamp(0.0, 1.0) : 0.0;
+    // نوار پیشرفت: ترجیح با حجم آخرین تمدید تا بعد از استک شدن سقف، ۹۰٪ دروغین نشان ندهد
+    double progress = 0.0;
+    if (canShowProgress) {
+      if (planVol != null && planVol > 0 && (total! > planVol * 1.05)) {
+        progress = (remaining! / planVol).clamp(0.0, 1.0);
+      } else {
+        progress = (remaining! / total!).clamp(0.0, 1.0);
+      }
+    }
 
     Widget detail(String label, String value, IconData icon, Color color) {
       return Expanded(

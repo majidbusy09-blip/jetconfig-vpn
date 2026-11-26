@@ -576,7 +576,7 @@ def write_agent_input_github_output(output_path: Path, relative_path: str) -> No
     """Safely expose exactly one validated path as a GitHub Actions step output."""
     parts = relative_path.split("/") if isinstance(relative_path, str) else []
     if (not parts or relative_path.startswith("/") or "\\" in relative_path
-            or "\\n" in relative_path or "\\r" in relative_path
+            or "\n" in relative_path or "\r" in relative_path
             or parts[:2] != [".agent", "tasks"] or parts[-1] != "agent_input.json"
             or any(part in {"", ".", ".."} for part in parts)):
         raise HandoffAcceptanceError("Agent input GitHub output path is malformed.")
@@ -590,7 +590,7 @@ def write_agent_input_github_output(output_path: Path, relative_path: str) -> No
         with os.fdopen(descriptor, "a", encoding="utf-8") as handle:
             if not stat.S_ISREG(os.fstat(handle.fileno()).st_mode):
                 raise HandoffAcceptanceError("GITHUB_OUTPUT is not a regular file.")
-            handle.write("agent_input_path=" + relative_path + "\\n")
+            handle.write("agent_input_path=" + relative_path + "\n")
     except HandoffAcceptanceError:
         raise
     except OSError as exc:

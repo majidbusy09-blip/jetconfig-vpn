@@ -725,3 +725,13 @@ PR #101 remains Draft and unmerged for human review. No review submissions or re
 - Verified post-merge Project Memory Audit run `45589911286`; both v2 artifacts were uploaded with the exact main source SHA and trusted JET VPN manifest digest. Artifact IDs: `15010357716` and `15009809182`.
 - Released the workflow integration lease and closed Issues #114 and #117. The protected agent-lease workflow was not modified.
 - Reconfirmed حسابگر من `pubspec.yaml` is unchanged between the CI lockfile artifact head and current target main. The lockfile remains untracked on target main, and target-specific source-index smoke testing is still pending.
+
+
+## 2026-11-26 — Hesabgar live readiness reconciliation
+
+- Merged central PR #147 as `edc483089d6f124ae68ae7ac33a9a25f6c258f0d` after exact-head Task Orchestrator, Project Memory Audit, Non-production PR Validation, and Lease/Scope Guard checks all passed.
+- Released-lease claim recovery was validated without weakening active/expired lease pinning or cross-project identity checks. A fresh Issue #105 lease was claimed and verified against the new main SHA.
+- The lease workflow created both the handoff and local agent-input artifacts. Its logs confirm no model invocation, source upload, or implementation execution occurred.
+- Reconciled Hesabgar's live target main SHA to `11d44f24ad0cf2ba5ab9a278adeb532a35c677a6`. Five required memory documents (42,397 bytes total), optional decisions document, and tracked `pubspec.lock` (23,577 bytes) are present.
+- Target Project Validation run `45748004622` passed on the exact main SHA with Flutter 3.27.4, Dart 3.6.2, static analysis, and 74 tests. The run also generated project-bound semantic artifacts and passed the Task Intelligence smoke test.
+- Updated the live onboarding fixture to exact target blob SHAs/sizes and current CI evidence. The report remains `NEEDS_REVIEW` because runtime index provisioning/retrieval and manual Android device acceptance are not proven. Lifecycle remains `registered`, source-index strategy remains `none`, and no target application source was modified.

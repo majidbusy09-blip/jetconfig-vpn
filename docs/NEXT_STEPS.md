@@ -368,3 +368,12 @@ Phase 2D-1 must also verify that the trusted PR guard and patch-review gate use 
 2. Run the generic Dart source-index adapter against a checkout of `majidbusy09-blip/hesabgar_man` pinned to its current main SHA and matching manifest/repository identity. Keep source indexing disabled until the result is independently checked.
 3. Refresh the read-only readiness report. Do not activate `hesabgar-man` until lockfile review, target source-index smoke test, and namespace isolation review all pass.
 4. Keep all project lifecycle changes, release, signing, deployment, and untrusted execution behind their separate approval gates.
+
+
+## Hesabgar onboarding — current priority (2026-11-26)
+
+1. Implement trusted source-index provisioning/retrieval at the real central checkout/handoff boundary. Bind repository ID, project ID, manifest digest, pinned base SHA, tracked-file fingerprints, index schema, and artifact digest; reject missing, stale, malformed, or cross-project artifacts.
+2. Add end-to-end tests proving the runtime consumes the exact provisioned index and isolates at least two repositories/projects. Keep Hesabgar `source_index.strategy=none` until this is merged and reviewed.
+3. Preserve Hesabgar lifecycle as `registered`; the current read-only report is `NEEDS_REVIEW`, not activation approval.
+4. Obtain owner-side Android device acceptance separately. CI analysis/tests/builds do not establish device-level acceptance.
+5. Treat provider/model invocation and any untrusted-code execution as separate trust-boundary work; do not add paid API spend, credentials, release, or deployment to this onboarding task.

@@ -377,3 +377,12 @@ The project/repository task namespace scan now owns both `os.scandir` iterators 
 - Main-branch Project Memory Audit run `45589911286` passed. It resolved the trusted JET VPN manifest and generated v2 artifact names bound to repository ID `1349356614`, manifest SHA-256 `6fadf7b2cfe00303787285ab6b38db4de513642d3b9bf5f8d13c35403754aedc`, and source revision `a79d556643ce4aad1dfa0ababb225258be4ac4c1`.
 - Main-branch artifact IDs: semantic AST `15010357716`; code index `15009809182`.
 - The lease-command workflow and all build/release/deploy workflows remain unchanged.
+
+
+## Hesabgar live onboarding reconciliation — 2026-11-26
+
+- Central PR #147 fixed released-lease re-pinning under strict fail-closed rules and was squash-merged as `edc483089d6f124ae68ae7ac33a9a25f6c258f0d`. All four exact-head checks passed.
+- Issue #105 now has a fresh verified lease pinned to that main SHA: claim `edc483089d6f124a`, lock commit `69e517244c2f4c6edf81d27efb907f21f0917912`. The handoff and local agent-input artifacts were prepared successfully; the workflow did not invoke a model or upload source.
+- Live Hesabgar main is `11d44f24ad0cf2ba5ab9a278adeb532a35c677a6`, repository ID `1423683236`. All five required memory documents and `pubspec.lock` are tracked on that exact revision.
+- Target validation run `45748004622` passed with Flutter 3.27.4 / Dart 3.6.2, static analysis, and 74 tests. Project-bound source-index generation and Task Intelligence smoke tests passed inside CI.
+- Current readiness is `NEEDS_REVIEW`, with no hard blockers and one material runtime gate: central handoff still does not automatically provision/retrieve the exact project/revision-bound source index. Keep Hesabgar lifecycle `registered`, `source_index.strategy=none`, app version `1.0.9+10`; no app source was changed.

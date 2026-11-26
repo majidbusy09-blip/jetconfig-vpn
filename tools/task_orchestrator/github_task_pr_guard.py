@@ -143,7 +143,7 @@ def changed_files(repository, number, token):
     raise GuardError("Changed-file pagination exceeded the guard limit.")
 
 
-def validate_paths(files, allow, exclude):
+def validate_paths(files, allow, exclude, *, task_id=None):
     if not isinstance(files, list) or not files:
         raise GuardError("Agent PR must contain at least one changed file.")
     if len(files) > 100:
@@ -162,7 +162,7 @@ def validate_paths(files, allow, exclude):
             candidates.append(old)
         for raw in candidates:
             try:
-                path = _path(raw, "changed path")
+                path = _path(raw, "changed path", task_id=task_id)
             except ContractValidationError as exc:
                 raise GuardError(str(exc)) from exc
             if any(_path_matches(path, pattern) for pattern in exclude):
@@ -257,7 +257,7 @@ def validate_agent_pr(event, *, token, repository, now=None):
     if merge_base != lease["base_sha"]:
         raise GuardError("PR branch is not based on the pinned task SHA.")
     files = changed_files(repository, number, token)
-    paths = validate_paths(files, task["allow"], task["exclude"])
+    paths = validate_paths(files, task["allow"], task["exclude"], task_id=task["task_id"])
     result = {"status": "validated-agent-pr", "pr_number": number,
               "task_issue": envelope["task_issue"], "task_id": task["task_id"],
               "owner": lease["owner"], "claim_id": lease["claim_id"],

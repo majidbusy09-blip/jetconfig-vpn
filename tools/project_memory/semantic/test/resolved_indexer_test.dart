@@ -211,10 +211,10 @@ void invoke(dynamic callback) {
   });
 
   test('records all source roots for manifest-selected multi-root Dart input', () async {
-    await Directory('\${temp.path}/lib').create(recursive: true);
-    await Directory('\${temp.path}/packages/shared/lib').create(recursive: true);
-    final app = File('\${temp.path}/lib/main.dart');
-    final shared = File('\${temp.path}/packages/shared/lib/shared.dart');
+    await Directory('${temp.path}/lib').create(recursive: true);
+    await Directory('${temp.path}/packages/shared/lib').create(recursive: true);
+    final app = File('${temp.path}/lib/main.dart');
+    final shared = File('${temp.path}/packages/shared/lib/shared.dart');
     await app.writeAsString('void main() {}');
     await shared.writeAsString('class Shared {}');
     final index = await buildResolvedIndex(

@@ -254,3 +254,12 @@ The current GitHub Actions workflow still uploads agent-input files through a br
 
 
 Task namespace scans use context-managed `os.scandir` iterators. This is required because fail-closed symlink checks can raise during iteration; context managers guarantee directory handles are closed on that path.
+
+
+## Source Index Provenance — candidate status (2026-11-26)
+
+The Source Index Provenance candidate is being developed on `fix/source-index-provenance-20261126`, based on the then-current main SHA `6e1c1d93ff26206a3a68cf4a3b6b158a809e143f`. In project mode, the project-memory audit workflow resolves the trusted repository manifest and passes it with the exact workflow source revision to both the resolved-index and critical-path generators. Their output paths and project artifact names share the project ID, immutable repository ID, canonical manifest digest, and revision. Legacy output is preserved without fabricated project identity.
+
+The context selector checks each artifact's JSON provenance independently against the task binding and pinned base SHA, checks that both artifacts agree, then retains the existing tracked-source Git blob and scope checks. Legacy tasks cannot consume project-bound artifacts. Context suggestions use schema v2 and record the verified pair's hashes/binding; acceptance rechecks that provenance against the task/base and stores it in the audit record. An artifact's name alone is not proof of content provenance.
+
+This does not implement artifact retrieval or handoff automation. Issue #110's exact project-scoped agent-input contract must be reviewed and accepted before any handoff integration; Issue #152 separately tracks the read-only source-index artifact provider. Keep Hesabgar lifecycle `registered` and `source_index.strategy=none` until those gates and end-to-end retrieval freshness/isolation checks pass. PRs #151 and #154 remain independent and unchanged. Local Python verification passed 543 orchestrator tests; Flutter/Dart and YAML parsing require CI because those tools are unavailable in this sandbox.

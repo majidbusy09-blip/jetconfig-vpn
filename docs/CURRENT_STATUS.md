@@ -386,3 +386,14 @@ The project/repository task namespace scan now owns both `os.scandir` iterators 
 - Live Hesabgar main is `11d44f24ad0cf2ba5ab9a278adeb532a35c677a6`, repository ID `1423683236`. All five required memory documents and `pubspec.lock` are tracked on that exact revision.
 - Target validation run `45748004622` passed with Flutter 3.27.4 / Dart 3.6.2, static analysis, and 74 tests. Project-bound source-index generation and Task Intelligence smoke tests passed inside CI.
 - Current readiness is `NEEDS_REVIEW`, with no hard blockers and one material runtime gate: central handoff still does not automatically provision/retrieve the exact project/revision-bound source index. Keep Hesabgar lifecycle `registered`, `source_index.strategy=none`, app version `1.0.9+10`; no app source was changed.
+
+
+## Current Source Index Provenance candidate — 2026-11-26
+
+- Verified starting `main` and live `origin/main` SHA: `6e1c1d93ff26206a3a68cf4a3b6b158a809e143f`. Candidate branch: `fix/source-index-provenance-20261126` (local changes are not yet committed at this checkpoint).
+- The candidate wires both semantic generators to the trusted project manifest and exact workflow source SHA; project outputs and artifact identity share project/repository/manifest/revision bindings. Legacy output remains explicitly unbound.
+- Context selection independently validates both artifact bindings/revisions against the task project identity and pinned `base_sha`; it retains Git blob fingerprint, tracked Dart path, and allowed/excluded scope checks. Legacy tasks reject project-bound files. Suggestion acceptance requires schema v2 and matching provenance, then stores it in the context-selection audit.
+- `docs/PROJECT_MEMORY_AUTOMATION.md` documents the real workflow and consumer path and states that artifact naming alone is not provenance proof. Automated artifact retrieval/handoff integration is intentionally not included.
+- Local verification passed: 543/543 tests in `tools/task_orchestrator/tests`; 60/60 targeted tests; Python compileall; `git diff --check`; Bash syntax checks for 13 workflow run blocks. Flutter/Dart and a YAML parser are unavailable locally; exact-head CI remains required for Dart generation and workflow validation.
+- Issues #110 and #152 remain the relevant separate gates for exact agent-input handoff artifact behavior and the read-only source-index artifact provider. Hesabgar remains `registered`, with `source_index.strategy=none`; no application source, project activation, target repository, PR #151, or PR #154 was changed.
+- No commit/push/PR or exact-head CI result is recorded in this checkpoint; update this section after the final PR head checks.

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import copy
 import importlib.util
 import json
 import os
@@ -32,6 +33,17 @@ def git(root: Path, *args: str) -> str:
     if result.returncode:
         raise AssertionError(result.stderr)
     return result.stdout.strip()
+
+
+def legacy_artifact_provenance(base_sha: str) -> dict[str, object]:
+    return {
+        "mode": "legacy_blob_only",
+        "project_binding": None,
+        "artifact_source_revision": None,
+        "verified_against_base_sha": base_sha,
+        "resolved_index_sha256": "a" * 64,
+        "critical_paths_sha256": "b" * 64,
+    }
 
 
 class OrchestratorIntegrationTests(unittest.TestCase):
@@ -79,6 +91,51 @@ class OrchestratorIntegrationTests(unittest.TestCase):
             args.extend(["--check", check])
         self.cli(*args)
 
+    def test_suggestion_provenance_validator_accepts_legacy_and_project_records(self) -> None:
+        base = "a" * 40
+        suggestion = {
+            "schema_version": 2,
+            "task_id": "provenance-task",
+            "source_revision": base,
+            "suggestions": [],
+            "artifact_provenance": legacy_artifact_provenance(base),
+        }
+        legacy_task = {"task_id": "provenance-task"}
+        accepted = orchestrator.validate_context_suggestion_provenance(
+            suggestion, legacy_task, base,
+        )
+        self.assertEqual(accepted["mode"], "legacy_blob_only")
+        self.assertIsNone(accepted["artifact_source_revision"])
+
+        binding = {
+            "project_id": "test-project",
+            "repository_id": "123456789",
+            "repository_full_name": "owner/test-repository",
+            "default_branch": "main",
+            "manifest_schema_version": 1,
+            "manifest_sha256": "f" * 64,
+            "base_sha": base,
+        }
+        project_task = {"task_id": "provenance-task", "github_project_binding": binding}
+        project_provenance = {
+            "mode": "project_bound",
+            "project_binding": binding,
+            "artifact_source_revision": base,
+            "verified_against_base_sha": base,
+            "resolved_index_sha256": "c" * 64,
+            "critical_paths_sha256": "d" * 64,
+        }
+        project_suggestion = dict(suggestion, artifact_provenance=project_provenance)
+        accepted = orchestrator.validate_context_suggestion_provenance(
+            project_suggestion, project_task, base,
+        )
+        self.assertEqual(accepted, project_provenance)
+
+        changed = copy.deepcopy(project_suggestion)
+        changed["artifact_provenance"]["project_binding"]["manifest_sha256"] = "e" * 64
+        with self.assertRaises(orchestrator.TaskError):
+            orchestrator.validate_context_suggestion_provenance(changed, project_task, base)
+
     def prepared_task(self) -> None:
         self.init_task()
         self.cli("prepare", "--task-id", self.task_id)
@@ -100,8 +157,9 @@ class OrchestratorIntegrationTests(unittest.TestCase):
         blob = git(self.root, "rev-parse", f"{base}:lib/feature.dart")
         suggestions = self.record.parent / "context_suggestions_fixture.json"
         suggestions.write_text(json.dumps({
-            "schema_version": 1, "task_id": self.task_id,
+            "schema_version": 2, "task_id": self.task_id,
             "source_revision": base,
+            "artifact_provenance": legacy_artifact_provenance(base),
             "suggestions": [{"path": "lib/feature.dart", "git_blob_sha": blob}],
         }), encoding="utf-8")
         relative_suggestions = suggestions.relative_to(self.root).as_posix()
@@ -114,6 +172,8 @@ class OrchestratorIntegrationTests(unittest.TestCase):
         self.assertEqual(updated["context_package"]["source_context"][0]["path"], "lib/feature.dart")
         self.assertEqual(updated["scope"]["allowed"], ["lib/**"])
         self.assertEqual(updated["context_selection"]["accepted_paths"], ["lib/feature.dart"])
+        self.assertEqual(updated["context_selection"]["artifact_provenance"],
+                         legacy_artifact_provenance(base))
 
     def test_accept_context_rejects_paths_not_in_suggestion_artifact(self) -> None:
         source = self.root / "lib/feature.dart"
@@ -130,8 +190,9 @@ class OrchestratorIntegrationTests(unittest.TestCase):
         record = json.loads(self.record.read_text(encoding="utf-8"))
         suggestions = self.record.parent / "context_suggestions_fixture.json"
         suggestions.write_text(json.dumps({
-            "schema_version": 1, "task_id": self.task_id,
+            "schema_version": 2, "task_id": self.task_id,
             "source_revision": record["repository"]["base_sha"],
+            "artifact_provenance": legacy_artifact_provenance(record["repository"]["base_sha"]),
             "suggestions": [{"path": "lib/feature.dart", "git_blob_sha":
                 git(self.root, "rev-parse", f"{record['repository']['base_sha']}:lib/feature.dart")}],
         }), encoding="utf-8")
@@ -158,8 +219,9 @@ class OrchestratorIntegrationTests(unittest.TestCase):
         record = json.loads(self.record.read_text(encoding="utf-8"))
         suggestions = self.record.parent / "context_suggestions_fixture.json"
         suggestions.write_text(json.dumps({
-            "schema_version": 1, "task_id": self.task_id,
+            "schema_version": 2, "task_id": self.task_id,
             "source_revision": record["repository"]["base_sha"],
+            "artifact_provenance": legacy_artifact_provenance(record["repository"]["base_sha"]),
             "suggestions": [{"path": "lib/feature.dart", "git_blob_sha": "0" * 40}],
         }), encoding="utf-8")
         self.cli(

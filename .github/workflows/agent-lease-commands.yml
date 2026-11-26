@@ -83,6 +83,7 @@ jobs:
           python -m tools.task_orchestrator.github_task_handoff_accept
           --handoff-file "$RUNNER_TEMP/task-handoff.json"
           --create-branch
+          --github-output "$GITHUB_OUTPUT"
 
       - name: Upload prepared local agent input
         id: upload_agent_input
@@ -93,7 +94,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: jet-agent-input-${{ github.event.issue.number }}-${{ github.run_id }}
-          path: .agent/tasks/*/agent_input.json
+          path: ${{ steps.accept_handoff.outputs.agent_input_path }}
           include-hidden-files: true
           if-no-files-found: error
           retention-days: 14

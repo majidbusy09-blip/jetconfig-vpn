@@ -31,6 +31,10 @@ PROFILES = {"python-tooling-tests", "flutter-tests", "flutter-analysis", "lexica
 MAX_BODY, MAX_GOAL, MAX_ITEMS = 32_000, 8_000, 50
 WORKFLOW_POLICY_TASK_ID = "project-memory-artifact-workflow-v1"
 WORKFLOW_POLICY_PATH = ".github/workflows/project-memory-audit.yml"
+WORKFLOW_POLICY_EXCEPTIONS = {
+    WORKFLOW_POLICY_TASK_ID: WORKFLOW_POLICY_PATH,
+    "agent-input-upload-exact-path-v1": ".github/workflows/agent-lease-commands.yml",
+}
 PROTECTED_PARTS = {
     ".git", ".agent", ".secrets", "secrets", "credentials",
     "keystore", "signing", "release-assets",
@@ -80,9 +84,7 @@ def _paths(value: Any, name: str, *, required: bool, task_id: str) -> list[str]:
             raise GitHubTaskError(f"{name} contains an unsafe path segment.")
         if any(part.lower() in PROTECTED_PARTS for part in parts):
             raise GitHubTaskError(f"{name} targets a protected path")
-        if path.startswith(".github/workflows/") and not (
-            path == WORKFLOW_POLICY_PATH and task_id == WORKFLOW_POLICY_TASK_ID
-        ):
+        if path.startswith(".github/workflows/") and WORKFLOW_POLICY_EXCEPTIONS.get(task_id) != path:
             raise GitHubTaskError(f"{name} targets a protected workflow path")
         if path in result:
             raise GitHubTaskError(f"{name} contains duplicate entries.")

@@ -103,7 +103,7 @@ jobs:
           set -euo pipefail
           args=(--write)
           if [[ "$IDENTITY_MODE" == "v2" ]]; then
-            args+=(--repository-root=../../../
+            args+=(--repository-root="$GITHUB_WORKSPACE"
                   --project-manifest="$PROJECT_MANIFEST"
                   --source-revision="$SOURCE_REVISION")
           fi
@@ -119,7 +119,7 @@ jobs:
           set -euo pipefail
           args=(--write)
           if [[ "$IDENTITY_MODE" == "v2" ]]; then
-            args+=(--repository-root=../../../
+            args+=(--repository-root="$GITHUB_WORKSPACE"
                   --project-manifest="../../../$PROJECT_MANIFEST"
                   --source-revision="$SOURCE_REVISION"
                   --critical-paths-manifest=docs/critical_paths.json)
@@ -142,10 +142,10 @@ jobs:
           resolver_args=(--write)
           critical_args=(--write)
           if [[ "$IDENTITY_MODE" == "v2" ]]; then
-            resolver_args+=(--repository-root=../../../
+            resolver_args+=(--repository-root="$GITHUB_WORKSPACE"
                             --project-manifest="$PROJECT_MANIFEST"
                             --source-revision="$SOURCE_REVISION")
-            critical_args+=(--repository-root=../../../
+            critical_args+=(--repository-root="$GITHUB_WORKSPACE"
                             --project-manifest="../../../$PROJECT_MANIFEST"
                             --source-revision="$SOURCE_REVISION"
                             --critical-paths-manifest=docs/critical_paths.json)

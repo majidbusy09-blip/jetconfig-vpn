@@ -390,10 +390,10 @@ The project/repository task namespace scan now owns both `os.scandir` iterators 
 
 ## Current Source Index Provenance candidate — 2026-11-26
 
-- Verified starting `main` and live `origin/main` SHA: `6e1c1d93ff26206a3a68cf4a3b6b158a809e143f`. Candidate branch: `fix/source-index-provenance-20261126` (local changes are not yet committed at this checkpoint).
+- Verified starting `main` and live `origin/main` SHA: `6e1c1d93ff26206a3a68cf4a3b6b158a809e143f`. Candidate branch: `fix/source-index-provenance-20261126`; implementation checkpoint commit: `81d4fabd3d085fa62191ec2d0b60300a5904ee3b`.
 - The candidate wires both semantic generators to the trusted project manifest and exact workflow source SHA; project outputs and artifact identity share project/repository/manifest/revision bindings. Legacy output remains explicitly unbound.
 - Context selection independently validates both artifact bindings/revisions against the task project identity and pinned `base_sha`; it retains Git blob fingerprint, tracked Dart path, and allowed/excluded scope checks. Legacy tasks reject project-bound files. Suggestion acceptance requires schema v2 and matching provenance, then stores it in the context-selection audit.
 - `docs/PROJECT_MEMORY_AUTOMATION.md` documents the real workflow and consumer path and states that artifact naming alone is not provenance proof. Automated artifact retrieval/handoff integration is intentionally not included.
 - Local verification passed: 543/543 tests in `tools/task_orchestrator/tests`; 60/60 targeted tests; Python compileall; `git diff --check`; Bash syntax checks for 13 workflow run blocks. Flutter/Dart and a YAML parser are unavailable locally; exact-head CI remains required for Dart generation and workflow validation.
 - Issues #110 and #152 remain the relevant separate gates for exact agent-input handoff artifact behavior and the read-only source-index artifact provider. Hesabgar remains `registered`, with `source_index.strategy=none`; no application source, project activation, target repository, PR #151, or PR #154 was changed.
-- No commit/push/PR or exact-head CI result is recorded in this checkpoint; update this section after the final PR head checks.
+- This snapshot records local implementation and tests only; push, PR creation, and exact-head CI remain pending. Do not merge without separate approval.

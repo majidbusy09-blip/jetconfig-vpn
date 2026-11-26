@@ -227,7 +227,7 @@ void invoke(dynamic callback) {
       configuredInputPaths: ['lib', 'packages/shared/lib'],
     );
     final source = index['source'] as Map<String, Object?>;
-    expect(source['roots'], ['lib', 'packages']);
+    expect(source['roots'], ['lib', 'packages/shared/lib']);
     expect(source['input_paths'], ['lib', 'packages/shared/lib']);
     expect(source['file_count'], 2);
   });

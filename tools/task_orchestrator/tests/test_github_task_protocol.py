@@ -117,10 +117,21 @@ class GitHubTaskProtocolTests(unittest.TestCase):
         )
         self.assertEqual(result["allow"], [".github/workflows/project-memory-audit.yml"])
 
+        second_allowed = dict(V1_PAYLOAD)
+        second_allowed["task_id"] = "agent-input-upload-exact-path-v1"
+        second_allowed["allow"] = [".github/workflows/agent-lease-commands.yml"]
+        second_result = validate_task_payload(
+            second_allowed, repository_metadata=JET_REPOSITORY, allow_legacy_jet_vpn=True
+        )
+        self.assertEqual(second_result["allow"], [".github/workflows/agent-lease-commands.yml"])
+
         for task_id, path in (
             ("another-task", ".github/workflows/project-memory-audit.yml"),
             ("project-memory-artifact-workflow-v1", ".github/workflows/agent-lease-commands.yml"),
             ("project-memory-artifact-workflow-v1", ".github/workflows/build.yml"),
+            ("agent-input-upload-exact-path-v1", ".github/workflows/project-memory-audit.yml"),
+            ("agent-input-upload-exact-path-v1", ".github/workflows/build.yml"),
+            ("another-task", ".github/workflows/agent-lease-commands.yml"),
         ):
             bad = dict(V1_PAYLOAD, task_id=task_id, allow=[path])
             with self.subTest(task_id=task_id, path=path), self.assertRaises(GitHubTaskError):

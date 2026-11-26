@@ -400,3 +400,46 @@ The older dry-run snapshots in Sections 7–8 are historical records and must no
 - Central PR #134 merged as `cd6c0f2f70927f67d11bdf00c3a84fcf187d4bab` and removes `opened` from the target intake event set. A newly labeled Issue is admitted once through `labeled`; `edited` remains for task-body changes. This prevents duplicate runs when an Issue is created already carrying `agent-task`.
 - Target PR #18 made the same trigger correction and added the intake workflow to project-validation path filters. Target main is now `530daceeaea180c9d2e4a3d333e3981a3dddbaad`; post-merge validation run `45678762925` succeeded. The build run `45678762986` is still running at the time of this record.
 - Read-only intake is now verified live. Remaining gates are reusable cross-repository lease/handoff, trusted target workspace preparation, automatic source-index provisioning/retrieval with exact revision freshness, full runtime isolation, and manual Android device acceptance. Keep lifecycle `registered` and source-index strategy `none`.
+
+ 
+## Live readiness report — 2026-11-26
+
+**Assessment mode:** read-only dry run. This report is pinned to the exact target default-branch commit and the central manifest used for this assessment. It does not activate the project or authorize application implementation.
+
+### Verified repository and manifest identity
+
+- Target: `majidbusy09-blip/hesabgar_man`; immutable GitHub repository ID: `1423683236`; default branch: `main`.
+- Target source revision: `11d44f24ad0cf2ba5ab9a278adeb532a35c677a6`.
+- Central manifest: `docs/projects/hesabgar-man/manifest.json`; canonical SHA-256: `2b1dd1e9507d61c7dfdda7fd7d95d3ddbb39979d36d36aa3daa88d8a4dd17ece`.
+- Manifest schema and live repository binding are covered by the central project-registry validator and its adversarial tests. Lifecycle remains `registered`.
+
+### Evidence inventory
+
+- Required project-memory documents: **5 of 5** present as tracked regular files at the exact target SHA. Combined size: **42,397 bytes**, below the manifest limit of 512,000 bytes. Optional `docs/DECISIONS.md` is also present.
+- Dependency reproducibility: tracked `pubspec.lock` exists (23,577 bytes).
+- Toolchain: Flutter **3.27.4**, Dart **3.6.2**, observed in target Project Validation run `45748004622`.
+- Verification: that exact-SHA run completed successfully; static analysis and **74 tests** passed. One non-blocking analyzer warning remains at `lib/checks.dart:1400` (`unnecessary_non_null_assertion`).
+- The same run generated the project-bound resolved source index and critical-path report, checked source/repository/project bindings and tracked-file fingerprints, and smoke-tested Task Intelligence against the generated Hesabgar artifacts.
+
+### Readiness result
+
+**`NEEDS_REVIEW` — no hard blockers; one material runtime gate remains.** The CI evidence proves that indexing can be generated and consumed inside that validation workflow. It does not prove that the central handoff/runtime automatically provisions or retrieves the matching immutable index before a task consumes it. Therefore the manifest intentionally retains `source_index.strategy=none`; do not change it to `dart_analyzer` yet.
+
+- Required memory: verified.
+- Repository identity and manifest: verified.
+- Flutter/Dart toolchains and fixed verification profiles: verified.
+- Dependency lockfile: verified present.
+- Runtime source-index provisioning/freshness: **not yet verified**.
+- Manual Android device acceptance: **not yet performed**.
+- `implementation_eligible`: **false**; `writes_performed`: **false**.
+
+### Next gates
+
+1. Implement and test trusted source-index provisioning/retrieval at the actual immutable checkout/handoff boundary. Reject missing, stale, wrong-repository, wrong-project, wrong-manifest, and wrong-source-revision artifacts; prove two-project isolation.
+2. Keep `source_index.strategy=none` and lifecycle `registered` until the runtime gate and independent review pass.
+3. Obtain owner-side Android device acceptance separately. Do not infer device acceptance from CI or APK/AAB build success.
+4. Keep model-provider execution, untrusted-code execution, production credentials, releases, and deployment outside this onboarding task and behind their own approvals.
+
+### Execution handoff boundary
+
+The verified lease workflow successfully claimed this task and prepared a local agent-input envelope, but its log explicitly confirms that no model was invoked, no source was uploaded, and no implementation code was executed by that workflow. This is a successful handoff preparation, not autonomous implementation evidence.

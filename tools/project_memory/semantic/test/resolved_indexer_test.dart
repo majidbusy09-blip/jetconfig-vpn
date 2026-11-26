@@ -210,4 +210,26 @@ void invoke(dynamic callback) {
     );
   });
 
+  test('records all source roots for manifest-selected multi-root Dart input', () async {
+    await Directory('\${temp.path}/lib').create(recursive: true);
+    await Directory('\${temp.path}/packages/shared/lib').create(recursive: true);
+    final app = File('\${temp.path}/lib/main.dart');
+    final shared = File('\${temp.path}/packages/shared/lib/shared.dart');
+    await app.writeAsString('void main() {}');
+    await shared.writeAsString('class Shared {}');
+    final index = await buildResolvedIndex(
+      sourcePaths: [app.path, shared.path],
+      repositoryRoot: temp.path,
+      sourceGitBlobShas: {
+        'lib/main.dart': 'app-blob',
+        'packages/shared/lib/shared.dart': 'shared-blob',
+      },
+      configuredInputPaths: ['lib', 'packages/shared/lib'],
+    );
+    final source = index['source'] as Map<String, Object?>;
+    expect(source['roots'], ['lib', 'packages']);
+    expect(source['input_paths'], ['lib', 'packages/shared/lib']);
+    expect(source['file_count'], 2);
+  });
+
 }

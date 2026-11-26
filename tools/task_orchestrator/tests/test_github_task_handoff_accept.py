@@ -13,9 +13,10 @@ from unittest.mock import patch
 from tools.task_orchestrator.github_lease import make_lease, lock_branch
 from tools.task_orchestrator.github_task_handoff import build_task_handoff
 from tools.task_orchestrator.project_registry import manifest_digest
+from tools.task_orchestrator import task_orchestrator as orchestrator
 from tools.task_orchestrator.github_task_handoff_accept import (
     HandoffAcceptanceError, validate_handoff_for_acceptance, _read_json,
-    accept_handoff,
+    accept_handoff, validate_agent_input_path, write_agent_input_github_output,
     _read_current_lease,
 )
 
@@ -552,6 +553,74 @@ class HandoffAcceptanceTests(unittest.TestCase):
         self.assertIn("agent-locks/projects/" + ACTIVE_MANIFEST["project_id"],
                       api.call_args_list[0].args[1])
         self.assertIn(lease_record_path(TASK_ID, binding), api.call_args_list[1].args[1])
+
+    def test_agent_input_path_is_exact_and_project_scoped(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder).resolve()
+            legacy_record = orchestrator.task_path(root, TASK_ID)
+            legacy_record.parent.mkdir(parents=True)
+            legacy_output = legacy_record.parent / "agent_input.json"
+            legacy_output.write_text("{}", encoding="utf-8")
+            self.assertEqual(
+                validate_agent_input_path(root, legacy_output, TASK_ID, None),
+                ".agent/tasks/" + TASK_ID + "/agent_input.json",
+            )
+
+            binding = {
+                "project_id": ACTIVE_MANIFEST["project_id"],
+                "repository_id": ACTIVE_MANIFEST["repository"]["repository_id"],
+                "repository_full_name": ACTIVE_MANIFEST["repository"]["full_name"],
+                "default_branch": ACTIVE_MANIFEST["repository"]["default_branch"],
+                "manifest_schema_version": ACTIVE_MANIFEST["schema_version"],
+                "manifest_sha256": manifest_digest(ACTIVE_MANIFEST),
+                "base_sha": BASE,
+            }
+            scoped_record = orchestrator.task_path(root, TASK_ID, binding)
+            scoped_record.parent.mkdir(parents=True)
+            scoped_output = scoped_record.parent / "agent_input.json"
+            scoped_output.write_text("{}", encoding="utf-8")
+            relative = validate_agent_input_path(root, scoped_output, TASK_ID, binding)
+            self.assertEqual(relative.split("/")[-3:], [binding["repository_id"], TASK_ID, "agent_input.json"])
+
+            other_binding = dict(binding, project_id="another-project")
+            other_record = orchestrator.task_path(root, TASK_ID, other_binding)
+            other_record.parent.mkdir(parents=True)
+            other_output = other_record.parent / "agent_input.json"
+            other_output.write_text("{}", encoding="utf-8")
+            with self.assertRaisesRegex(HandoffAcceptanceError, "exact accepted task namespace"):
+                validate_agent_input_path(root, other_output, TASK_ID, binding)
+
+            with self.assertRaisesRegex(HandoffAcceptanceError, "exact accepted task namespace"):
+                validate_agent_input_path(root, legacy_output, "different-task", None)
+
+    def test_agent_input_path_rejects_symlink_and_non_regular_target(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder).resolve()
+            record = orchestrator.task_path(root, TASK_ID)
+            record.parent.mkdir(parents=True)
+            target = record.parent / "agent_input.json"
+            outside = root / "outside.json"
+            outside.write_text("{}", encoding="utf-8")
+            target.symlink_to(outside)
+            with self.assertRaisesRegex(HandoffAcceptanceError, "symlink"):
+                validate_agent_input_path(root, target, TASK_ID, None)
+
+            target.unlink()
+            target.mkdir()
+            with self.assertRaisesRegex(HandoffAcceptanceError, "regular file"):
+                validate_agent_input_path(root, target, TASK_ID, None)
+
+    def test_github_output_contains_only_validated_agent_input_path(self):
+        with tempfile.TemporaryDirectory() as folder:
+            output = Path(folder) / "github-output"
+            output.write_text("", encoding="utf-8")
+            relative = ".agent/tasks/" + TASK_ID + "/agent_input.json"
+            write_agent_input_github_output(output, relative)
+            self.assertEqual(output.read_text(encoding="utf-8"), "agent_input_path=" + relative + "\n")
+            for invalid in ("../agent_input.json", "/tmp/agent_input.json", ".agent/tasks/x/input.json",
+                            ".agent/tasks/x/agent_input.json\nEVIL=value"):
+                with self.subTest(path=invalid), self.assertRaises(HandoffAcceptanceError):
+                    write_agent_input_github_output(output, invalid)
 
 
 if __name__ == "__main__":

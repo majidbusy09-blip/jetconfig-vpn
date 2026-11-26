@@ -104,7 +104,7 @@ jobs:
           args=(--write)
           if [[ "$IDENTITY_MODE" == "v2" ]]; then
             args+=(--repository-root=../../../
-                  --project-manifest="../../../$PROJECT_MANIFEST"
+                  --project-manifest="$PROJECT_MANIFEST"
                   --source-revision="$SOURCE_REVISION")
           fi
           dart run bin/resolve.dart "${args[@]}"
@@ -122,7 +122,7 @@ jobs:
             args+=(--repository-root=../../../
                   --project-manifest="../../../$PROJECT_MANIFEST"
                   --source-revision="$SOURCE_REVISION"
-                  --critical-paths-manifest=../../../docs/critical_paths.json)
+                  --critical-paths-manifest=docs/critical_paths.json)
           fi
           dart run bin/critical_paths.dart "${args[@]}"
 
@@ -143,12 +143,12 @@ jobs:
           critical_args=(--write)
           if [[ "$IDENTITY_MODE" == "v2" ]]; then
             resolver_args+=(--repository-root=../../../
-                            --project-manifest="../../../$PROJECT_MANIFEST"
+                            --project-manifest="$PROJECT_MANIFEST"
                             --source-revision="$SOURCE_REVISION")
             critical_args+=(--repository-root=../../../
                             --project-manifest="../../../$PROJECT_MANIFEST"
                             --source-revision="$SOURCE_REVISION"
-                            --critical-paths-manifest=../../../docs/critical_paths.json)
+                            --critical-paths-manifest=docs/critical_paths.json)
           fi
           dart run bin/index.dart --write
           dart run bin/resolve.dart "${resolver_args[@]}"

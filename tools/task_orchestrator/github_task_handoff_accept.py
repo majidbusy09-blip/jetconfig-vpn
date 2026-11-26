@@ -551,7 +551,7 @@ def validate_agent_input_path(
         relative = candidate.relative_to(root_abs)
     except ValueError as exc:
         raise HandoffAcceptanceError("Agent input path escapes the repository root.") from exc
-    if (relative.is_absolute() or "\\\\" in relative.as_posix()
+    if (relative.is_absolute() or "\\" in relative.as_posix()
             or relative.parts[:2] != (".agent", "tasks")
             or relative.name != "agent_input.json"
             or any(part in {"", ".", ".."} for part in relative.parts)):
@@ -575,7 +575,7 @@ def validate_agent_input_path(
 def write_agent_input_github_output(output_path: Path, relative_path: str) -> None:
     """Safely expose exactly one validated path as a GitHub Actions step output."""
     parts = relative_path.split("/") if isinstance(relative_path, str) else []
-    if (not parts or relative_path.startswith("/") or "\\\\" in relative_path
+    if (not parts or relative_path.startswith("/") or "\\" in relative_path
             or "\\n" in relative_path or "\\r" in relative_path
             or parts[:2] != [".agent", "tasks"] or parts[-1] != "agent_input.json"
             or any(part in {"", ".", ".."} for part in parts)):

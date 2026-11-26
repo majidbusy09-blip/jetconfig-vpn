@@ -29,6 +29,10 @@ MAX_FILES = 100
 MAX_PATCH_BYTES = 2_000_000
 WORKFLOW_POLICY_TASK_ID = "project-memory-artifact-workflow-v1"
 WORKFLOW_POLICY_PATH = ".github/workflows/project-memory-audit.yml"
+WORKFLOW_POLICY_EXCEPTIONS = {
+    WORKFLOW_POLICY_TASK_ID: WORKFLOW_POLICY_PATH,
+    "agent-input-upload-exact-path-v1": ".github/workflows/agent-lease-commands.yml",
+}
 MAX_WALL_SECONDS = 7_200
 MAX_TOKENS = 500_000
 MAX_TOOL_CALLS = 2_000
@@ -137,7 +141,7 @@ def _git_sha(value: Any, name: str) -> str:
     return value
 
 
-def _path(value: Any, name: str, *, pattern: bool = False) -> str:
+def _path(value: Any, name: str, *, pattern: bool = False, task_id: str | None = None) -> str:
     raw = _text(value, name, 512)
     if raw.startswith("/") or "\\" in raw or re.match(r"^[A-Za-z]:", raw):
         _fail(f"{name} must be a repository-relative POSIX path")
@@ -153,16 +157,18 @@ def _path(value: Any, name: str, *, pattern: bool = False) -> str:
         _fail(f"{name} targets a protected path")
     normalized = PurePosixPath(raw).as_posix()
     if normalized in PROTECTED_EXACT or (
-        normalized.startswith(".github/workflows/") and normalized != WORKFLOW_POLICY_PATH
+        normalized.startswith(".github/workflows/")
+        and WORKFLOW_POLICY_EXCEPTIONS.get(task_id) != normalized
     ):
         _fail(f"{name} targets a protected path")
     return normalized
 
 
-def _path_list(value: Any, name: str, *, patterns: bool = False, maximum: int = MAX_ITEMS) -> list[str]:
+def _path_list(value: Any, name: str, *, patterns: bool = False, maximum: int = MAX_ITEMS,
+               task_id: str | None = None) -> list[str]:
     if not isinstance(value, list) or not value or len(value) > maximum:
         _fail(f"{name} must be a non-empty list with at most {maximum} entries")
-    items = [_path(item, f"{name}[]", pattern=patterns) for item in value]
+    items = [_path(item, f"{name}[]", pattern=patterns, task_id=task_id) for item in value]
     if len(set(items)) != len(items):
         _fail(f"{name} must not contain duplicates")
     return items
@@ -257,9 +263,12 @@ def validate_envelope(data: Any) -> dict:
 
     scope = _object(obj["scope"], "scope",
                     {"allowed_paths", "excluded_paths", "scope_reason"})
-    allowed_paths = _path_list(scope["allowed_paths"], "scope.allowed_paths", patterns=True)
-    if WORKFLOW_POLICY_PATH in allowed_paths and obj["task_id"] != WORKFLOW_POLICY_TASK_ID:
-        _fail("The project-memory audit workflow path is reserved for its exact authorized task ID")
+    allowed_paths = _path_list(
+        scope["allowed_paths"], "scope.allowed_paths", patterns=True, task_id=obj["task_id"]
+    )
+    for path in allowed_paths:
+        if path.startswith(".github/workflows/") and WORKFLOW_POLICY_EXCEPTIONS.get(obj["task_id"]) != path:
+            _fail("Protected workflow paths are reserved for their exact authorized task IDs")
     if not isinstance(scope["excluded_paths"], list) or len(scope["excluded_paths"]) > MAX_ITEMS:
         _fail("scope.excluded_paths must be a list")
     for item in scope["excluded_paths"]:
@@ -356,7 +365,7 @@ def validate_result(data: Any, envelope: dict) -> dict:
     paths = obj["changed_paths"]
     if not isinstance(paths, list) or len(paths) > envelope["budgets"]["max_changed_files"]:
         _fail("changed_paths exceeds the declared file budget")
-    normalized = [_path(path, "changed_paths[]") for path in paths]
+    normalized = [_path(path, "changed_paths[]", task_id=envelope["task_id"]) for path in paths]
     if len(set(normalized)) != len(normalized):
         _fail("changed_paths contains duplicates")
     scope = envelope["scope"]

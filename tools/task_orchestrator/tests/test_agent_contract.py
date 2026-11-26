@@ -208,6 +208,28 @@ class AgentContractTests(unittest.TestCase):
             with self.subTest(path=path), self.assertRaises(ContractValidationError):
                 validate_envelope(bad)
 
+    def test_agent_lease_workflow_exception_is_bound_to_exact_task_id_and_path(self):
+        env = envelope()
+        env["task_id"] = "agent-input-upload-exact-path-v1"
+        env["scope"]["allowed_paths"] = [".github/workflows/agent-lease-commands.yml"]
+        self.assertIs(validate_envelope(env), env)
+
+        result = result_for(env)
+        result["changed_paths"] = [".github/workflows/agent-lease-commands.yml"]
+        self.assertEqual(validate_result(result, env)["changed_paths"],
+                           [".github/workflows/agent-lease-commands.yml"])
+
+        for task_id, path in (
+            ("other-task", ".github/workflows/agent-lease-commands.yml"),
+            ("agent-input-upload-exact-path-v1", ".github/workflows/project-memory-audit.yml"),
+            ("agent-input-upload-exact-path-v1", ".github/workflows/build.yml"),
+        ):
+            bad = envelope()
+            bad["task_id"] = task_id
+            bad["scope"]["allowed_paths"] = [path]
+            with self.subTest(task_id=task_id, path=path), self.assertRaises(ContractValidationError):
+                validate_envelope(bad)
+
     def test_reject_protected_paths_and_excluded_scope(self):
         for path in (".github/workflows/build.yml", ".env", "android/app/key.properties",
                      "lib/generated/output.dart", "secrets/token.txt"):

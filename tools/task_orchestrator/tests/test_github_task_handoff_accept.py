@@ -616,9 +616,9 @@ class HandoffAcceptanceTests(unittest.TestCase):
             output.write_text("", encoding="utf-8")
             relative = ".agent/tasks/" + TASK_ID + "/agent_input.json"
             write_agent_input_github_output(output, relative)
-            self.assertEqual(output.read_text(encoding="utf-8"), "agent_input_path=" + relative + "\\n")
+            self.assertEqual(output.read_text(encoding="utf-8"), "agent_input_path=" + relative + "\n")
             for invalid in ("../agent_input.json", "/tmp/agent_input.json", ".agent/tasks/x/input.json",
-                            ".agent/tasks/x/agent_input.json\\nEVIL=value"):
+                            ".agent/tasks/x/agent_input.json\nEVIL=value"):
                 with self.subTest(path=invalid), self.assertRaises(HandoffAcceptanceError):
                     write_agent_input_github_output(output, invalid)
 

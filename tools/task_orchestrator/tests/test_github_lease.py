@@ -91,6 +91,45 @@ class GitHubLeaseTests(unittest.TestCase):
             transition_plan(lease(minutes=1), other_base, observed_ref_sha=BASE,
                             now="2026-11-23T12:00:00Z")
 
+    def test_released_lease_allows_fresh_claim_on_new_base_sha(self):
+        released = dict(lease(minutes=1), status="released")
+        new_base = "b" * 40
+        proposed = make_lease(
+            task_id="sample-task", owner="chatgpt", claim_id="c" * 16,
+            base_sha=new_base, now="2026-11-23T12:00:00Z", duration_minutes=60,
+        )
+        plan = transition_plan(
+            released, proposed, observed_ref_sha="d" * 40,
+            now="2026-11-23T12:00:00Z",
+        )
+        self.assertEqual(plan["operation"], "compare-and-swap")
+        self.assertEqual(plan["record"]["base_sha"], new_base)
+        self.assertEqual(plan["expected_sha"], "d" * 40)
+
+    def test_released_lease_still_cannot_cross_project_boundary(self):
+        binding_a = {
+            "project_id": "sample-flutter-app", "repository_id": "123456789",
+            "repository_full_name": "owner/one", "default_branch": "main",
+            "manifest_schema_version": 1, "manifest_sha256": "a" * 64,
+        }
+        binding_b = {
+            "project_id": "second-flutter-app", "repository_id": "987654321",
+            "repository_full_name": "owner/two", "default_branch": "main",
+            "manifest_schema_version": 1, "manifest_sha256": "b" * 64,
+        }
+        released = dict(make_lease(
+            task_id="sample-task", owner="chatgpt", claim_id="a" * 16,
+            base_sha=BASE, now=NOW, project_binding=binding_a,
+        ), status="released")
+        proposed = make_lease(
+            task_id="sample-task", owner="grok", claim_id="b" * 16,
+            base_sha="b" * 40, now="2026-11-23T12:00:00Z",
+            project_binding=binding_b,
+        )
+        with self.assertRaisesRegex(LeaseError, "Project identity mismatch"):
+            transition_plan(released, proposed, observed_ref_sha="d" * 40,
+                            now="2026-11-23T12:00:00Z")
+
     def test_v2_project_lease_uses_namespace_and_rejects_cross_project_reuse(self):
         from tools.task_orchestrator.project_namespace import lease_record_path
         binding_a = {

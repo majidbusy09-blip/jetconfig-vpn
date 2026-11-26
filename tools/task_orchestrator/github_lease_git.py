@@ -197,7 +197,7 @@ def claim_or_renew(*, operation: str, task_id: str, owner: str, claim_id: str,
             raise LeaseGitError("Existing lease is bound to a different task or project.")
         if operation == "renew" and base_sha is None:
             base_sha = current["base_sha"]
-        if current["base_sha"] != base_sha:
+        if current["base_sha"] != base_sha and current["status"] != "released":
             raise LeaseGitError("Existing lease is bound to a different pinned base commit.")
         proposed = make_lease(task_id=task_id, owner=owner, claim_id=claim_id,
                               base_sha=base_sha, now=now, duration_minutes=duration_minutes, project_binding=project_binding)

@@ -186,12 +186,12 @@ class ProjectOnboardingTests(unittest.TestCase):
             memory_inventory=inventory,
             toolchain_evidence={
                 "flutter": {"verified": True, "version": "3.27.4", "source": "run 45748004622"},
-                "dart": {"verified": True, "version": "3.6.2", "source": "run 45562750263"},
+                "dart": {"verified": True, "version": "3.6.2", "source": "run 45748004622"},
             },
             runner_results={"flutter-analysis": "success", "flutter-tests": "success"},
-            source_index_assessment={"status": "adapter_required"},
-            target_memory_pr_merged=False,
-            dependency_lockfile_present=False,
+            source_index_assessment={"status": "ci_verified_runtime_pending", "reason": "CI generated project-bound artifacts and exercised Task Intelligence against the real Hesabgar checkout; central handoff runtime still does not provision or retrieve the matching index automatically."},
+            target_memory_pr_merged=True,
+            dependency_lockfile_present=True,
         )
         self.assertEqual(report["overall_readiness"], "NEEDS_REVIEW")
         self.assertEqual(report["blockers"], [])

@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:jet_vpn_semantic_memory/project_namespace.dart';
 import 'package:jet_vpn_semantic_memory/resolved_indexer.dart';
+import 'package:jet_vpn_semantic_memory/source_path_config.dart';
 
 Map<String, String> _parseOptions(List<String> args) {
   final result = <String, String>{};
@@ -41,23 +42,35 @@ Future<String> _git(Directory root, List<String> arguments) async {
   return (result.stdout as String).trim();
 }
 
-Future<ProjectArtifactIdentity?> _loadIdentity(
+Future<Map<String, Object?>?> _loadProjectManifest(
   Map<String, String> options,
   Directory root,
 ) async {
   final manifestPath = options['project-manifest'];
   if (manifestPath == null) return null;
-  final revision = options['source-revision'];
-  if (revision == null) throw const FormatException('Project indexing requires --source-revision.');
   final suppliedManifest = File(manifestPath);
   final manifestFile = suppliedManifest.isAbsolute
       ? suppliedManifest
-      : File('${root.path}/$manifestPath');
+      : File('\${root.path}/$manifestPath');
   if (await FileSystemEntity.type(manifestFile.path, followLinks: false) !=
       FileSystemEntityType.file) {
     throw StateError('Project manifest must be a regular non-symlink file.');
   }
-  final manifest = jsonDecode(await manifestFile.readAsString()) as Map<String, Object?>;
+  final decoded = jsonDecode(await manifestFile.readAsString());
+  if (decoded is! Map<String, Object?>) {
+    throw const FormatException('Project manifest must be a JSON object.');
+  }
+  return decoded;
+}
+
+Future<ProjectArtifactIdentity?> _loadIdentity(
+  Map<String, String> options,
+  Directory root,
+  Map<String, Object?>? manifest,
+) async {
+  if (manifest == null) return null;
+  final revision = options['source-revision'];
+  if (revision == null) throw const FormatException('Project indexing requires --source-revision.');
   final actualHead = await _git(root, ['rev-parse', 'HEAD']);
   if (actualHead != revision) {
     throw StateError('Pinned source revision differs from the checked-out repository HEAD.');
@@ -83,11 +96,18 @@ Future<void> main(List<String> args) async {
       exitCode = 2;
       return;
     }
-    final identity = await _loadIdentity(options, root);
+    final manifest = await _loadProjectManifest(options, root);
+    final identity = await _loadIdentity(options, root, manifest);
+    final sourceIndex = manifest?['source_index'];
+    final configuredInputPaths = manifest == null
+        ? <String>['lib']
+        : validateDartInputPaths(
+            sourceIndex is Map ? sourceIndex['input_paths'] : null,
+          );
 
     final tracked = await Process.run(
       'git',
-      ['ls-files', '-z', '--', 'lib'],
+      ['ls-files', '-z', '--', ...configuredInputPaths],
       workingDirectory: root.path,
     );
     if (tracked.exitCode != 0) {
@@ -101,7 +121,7 @@ Future<void> main(List<String> args) async {
         .toList()
       ..sort();
     if (sourcePaths.isEmpty) {
-      stderr.writeln('No tracked Dart source files found under lib/.');
+      stderr.writeln('No tracked Dart source files found under configured source_index.input_paths.');
       exitCode = 2;
       return;
     }
@@ -124,6 +144,7 @@ Future<void> main(List<String> args) async {
       sourcePaths: absolutePaths,
       repositoryRoot: root.path,
       sourceGitBlobShas: blobShas,
+      configuredInputPaths: configuredInputPaths,
       projectBinding: identity?.binding,
       sourceRevision: identity?.sourceRevision,
     );
@@ -147,6 +168,7 @@ Future<void> main(List<String> args) async {
     }
     final summary = index['summary'] as Map<String, Object?>;
     final analyzer = index['analyzer'] as Map<String, Object?>;
+    stdout.writeln('Input paths: ${configuredInputPaths.join(', ')}.');
     stdout.writeln('Files: ${summary['source_file_count']}; declarations: ${summary['declaration_count']}; call sites: ${summary['call_site_count']}.');
     stdout.writeln('Resolved: ${summary['resolved_element_calls']}; unresolved: ${summary['unresolved_element_calls']}; internal edges: ${summary['internal_call_edges']}.');
     stdout.writeln('Analyzer diagnostics: ${analyzer['diagnostic_count']} (errors: ${analyzer['error_count']}).');

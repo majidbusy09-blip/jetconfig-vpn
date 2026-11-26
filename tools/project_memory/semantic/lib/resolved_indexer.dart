@@ -11,6 +11,7 @@ Future<Map<String, Object?>> buildResolvedIndex({
   required List<String> sourcePaths,
   required String repositoryRoot,
   required Map<String, String> sourceGitBlobShas,
+  List<String>? configuredInputPaths,
   Map<String, Object?>? projectBinding,
   String? sourceRevision,
 }) async {
@@ -86,6 +87,11 @@ Future<Map<String, Object?>> buildResolvedIndex({
       });
     }
 
+    final sourceRoots = normalizedPaths
+        .map((path) => _relativePath(absoluteRoot, path).split('/').first)
+        .toSet()
+        .toList()
+      ..sort();
     final resolvedCalls = calls.where((call) => call['target_element_id'] != null).length;
     final callerEdges = calls.where((call) =>
         call['caller_element_id'] != null && call['target_element_id'] != null).toList();
@@ -96,7 +102,13 @@ Future<Map<String, Object?>> buildResolvedIndex({
       if (sourceRevision != null) 'source_revision': sourceRevision,
       'generator': 'tools/project_memory/semantic/resolved_indexer.dart',
       'analysis_mode': 'dart_analyzer_resolved_elements_multi_file',
-      'source': {'root': 'lib/', 'file_count': files.length, 'files': files},
+      'source': {
+        'root': sourceRoots.length == 1 ? '${sourceRoots.single}/' : null,
+        'roots': sourceRoots,
+        if (configuredInputPaths != null) 'input_paths': configuredInputPaths,
+        'file_count': files.length,
+        'files': files,
+      },
       'analyzer': {
         'package': 'analyzer',
         'version': '6.11.0',
@@ -120,7 +132,7 @@ Future<Map<String, Object?>> buildResolvedIndex({
             call['target_element_id'] != null && call['target_is_in_repository'] == false).length,
       },
       'limitations': [
-        'All tracked Dart files supplied by the caller are analyzed; the current repository may still contain only lib/main.dart.',
+        'All tracked Dart files selected by the configured input paths are analyzed; unselected paths are outside this adapter scope.',
         'Edges represent statically resolved analyzer Elements, not runtime execution or reachability.',
         'Dynamic dispatch is represented by the statically selected target; runtime overrides may differ.',
         'Calls through dynamic values, unresolved imports, reflection, generated code, and native boundaries may remain unresolved.',

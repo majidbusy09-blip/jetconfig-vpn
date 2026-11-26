@@ -121,7 +121,10 @@ def transition_plan(current: dict[str, Any] | None, proposed: dict[str, Any],
         raise LeaseError("Task ID mismatch.")
     if not _same_project(prior, next_record):
         raise LeaseError("Project identity mismatch; cross-project lease reuse is forbidden.")
-    if prior["base_sha"] != next_record["base_sha"]:
+    # A released lease is historical metadata, not an active pin. Permit a
+    # fresh claim to pin the current checkout, but never rebase an active
+    # (including expired-but-not-released) lease.
+    if prior["base_sha"] != next_record["base_sha"] and prior["status"] != "released":
         raise LeaseError("Task base SHA mismatch.")
     if observed_ref_sha is None or not GIT_SHA_RE.fullmatch(observed_ref_sha):
         raise LeaseError("A full observed lock-ref SHA is required for compare-and-swap.")

@@ -158,6 +158,21 @@ class TaskPRGuardTests(unittest.TestCase):
             with self.subTest(filename=filename), self.assertRaises(GuardError):
                 validate_paths([{"filename": filename}], allow, exclude)
 
+        workflow_path = ".github/workflows/agent-lease-commands.yml"
+        self.assertEqual(
+            validate_paths([{"filename": workflow_path, "status": "modified"}],
+                           [workflow_path], [], task_id="agent-input-upload-exact-path-v1"),
+            [workflow_path],
+        )
+        for task_id, path in (
+            (None, workflow_path),
+            ("another-task", workflow_path),
+            ("agent-input-upload-exact-path-v1", ".github/workflows/project-memory-audit.yml"),
+            ("agent-input-upload-exact-path-v1", ".github/workflows/build.yml"),
+        ):
+            with self.subTest(task_id=task_id, path=path), self.assertRaises(GuardError):
+                validate_paths([{"filename": path, "status": "modified"}], [path], [], task_id=task_id)
+
     def test_live_metadata_validation_accepts_matching_active_lease_and_scope(self):
         with patch("tools.task_orchestrator.github_task_pr_guard.api_get",
                    side_effect=api_responses()):

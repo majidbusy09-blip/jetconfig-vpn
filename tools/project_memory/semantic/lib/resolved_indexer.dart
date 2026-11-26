@@ -87,8 +87,12 @@ Future<Map<String, Object?>> buildResolvedIndex({
       });
     }
 
-    final sourceRoots = normalizedPaths
-        .map((path) => _relativePath(absoluteRoot, path).split('/').first)
+    final sourceRoots = (configuredInputPaths ??
+        normalizedPaths.map((path) {
+          final relative = _relativePath(absoluteRoot, path);
+          final separator = relative.lastIndexOf('/');
+          return separator < 0 ? '.' : relative.substring(0, separator);
+        }).toSet().toList())
         .toSet()
         .toList()
       ..sort();

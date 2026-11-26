@@ -98,7 +98,7 @@ class ProjectOnboardingTests(unittest.TestCase):
     def test_pending_ci_and_unmerged_target_pr_require_review(self):
         report = self.report(
             runner_results={"flutter-analysis": "pending", "flutter-tests": "success"},
-            target_memory_pr_merged=True,
+            target_memory_pr_merged=False,
         )
         self.assertEqual(report["overall_readiness"], "NEEDS_REVIEW")
         self.assertTrue(any("successful run" in item for item in report["human_decisions"]))
@@ -106,8 +106,8 @@ class ProjectOnboardingTests(unittest.TestCase):
 
     def test_unlocked_dependencies_and_project_specific_index_adapter_require_review(self):
         report = self.report(
-            dependency_lockfile_present=True,
-            source_index_assessment={"status": "ci_verified_runtime_pending", "reason": "CI generated project-bound artifacts and exercised Task Intelligence against the real Hesabgar checkout; central handoff runtime still does not provision or retrieve the matching index automatically."},
+            dependency_lockfile_present=False,
+            source_index_assessment={"status": "adapter_required"},
         )
         self.assertEqual(report["overall_readiness"], "NEEDS_REVIEW")
         self.assertTrue(any("pubspec.lock" in item for item in report["human_decisions"]))

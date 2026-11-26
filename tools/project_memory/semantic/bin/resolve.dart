@@ -51,7 +51,7 @@ Future<Map<String, Object?>?> _loadProjectManifest(
   final suppliedManifest = File(manifestPath);
   final manifestFile = suppliedManifest.isAbsolute
       ? suppliedManifest
-      : File('\${root.path}/$manifestPath');
+      : File('${root.path}/$manifestPath');
   if (await FileSystemEntity.type(manifestFile.path, followLinks: false) !=
       FileSystemEntityType.file) {
     throw StateError('Project manifest must be a regular non-symlink file.');

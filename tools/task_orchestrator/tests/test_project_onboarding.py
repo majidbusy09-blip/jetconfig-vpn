@@ -98,7 +98,7 @@ class ProjectOnboardingTests(unittest.TestCase):
     def test_pending_ci_and_unmerged_target_pr_require_review(self):
         report = self.report(
             runner_results={"flutter-analysis": "pending", "flutter-tests": "success"},
-            target_memory_pr_merged=False,
+            target_memory_pr_merged=True,
         )
         self.assertEqual(report["overall_readiness"], "NEEDS_REVIEW")
         self.assertTrue(any("successful run" in item for item in report["human_decisions"]))
@@ -106,8 +106,8 @@ class ProjectOnboardingTests(unittest.TestCase):
 
     def test_unlocked_dependencies_and_project_specific_index_adapter_require_review(self):
         report = self.report(
-            dependency_lockfile_present=False,
-            source_index_assessment={"status": "adapter_required"},
+            dependency_lockfile_present=True,
+            source_index_assessment={"status": "ci_verified_runtime_pending", "reason": "CI generated project-bound artifacts and exercised Task Intelligence against the real Hesabgar checkout; central handoff runtime still does not provision or retrieve the matching index automatically."},
         )
         self.assertEqual(report["overall_readiness"], "NEEDS_REVIEW")
         self.assertTrue(any("pubspec.lock" in item for item in report["human_decisions"]))
@@ -159,16 +159,16 @@ class ProjectOnboardingTests(unittest.TestCase):
 
 
     def test_live_hesabgar_candidate_report_is_needs_review_not_active(self):
-        target_sha = "177eb1a1f0ae8ae5a77a2c1c136804dff042d5db"
+        target_sha = "11d44f24ad0cf2ba5ab9a278adeb532a35c677a6"
         existing_jet = json.loads(
             (ROOT / "docs/projects/jet-vpn-android/manifest.json").read_text(encoding="utf-8")
         )
         evidence = {
             "AGENTS.md": ("9295b5b5680ff2bd55ee9ab35c0a7d190798aa7e", 2523),
-            "docs/PROJECT_CONTEXT.md": ("018781c137816c1610b69aa44a76dbadf12fe7da", 2901),
-            "docs/CURRENT_STATUS.md": ("e4d66480e0660c59c67c1258834c1eb36dc15005", 1748),
-            "docs/NEXT_STEPS.md": ("315e99144cd64e6cbef6d83d848da82c638a3211", 1898),
-            "docs/DEVELOPMENT_LOG.md": ("a8313a17d24879e561f07263354482ee2f9d691c", 877),
+            "docs/PROJECT_CONTEXT.md": ("8fa68fdff757fd736bbc75cd966af04a39d1fcb6", 4595),
+            "docs/CURRENT_STATUS.md": ("e7dfb62b5f434acf1c4b046e0a3a5841ee296f1f", 14195),
+            "docs/NEXT_STEPS.md": ("27afa7f5e80dcba439d60728ff7be7a462561088", 3573),
+            "docs/DEVELOPMENT_LOG.md": ("323c9f81431440f1d3cc5ee7af7bf1edb940c56a", 17511),
         }
         inventory = {
             path: {
@@ -185,7 +185,7 @@ class ProjectOnboardingTests(unittest.TestCase):
             existing_manifests=[existing_jet],
             memory_inventory=inventory,
             toolchain_evidence={
-                "flutter": {"verified": True, "version": "3.27.4", "source": "run 45562750263"},
+                "flutter": {"verified": True, "version": "3.27.4", "source": "run 45748004622"},
                 "dart": {"verified": True, "version": "3.6.2", "source": "run 45562750263"},
             },
             runner_results={"flutter-analysis": "success", "flutter-tests": "success"},
@@ -195,8 +195,11 @@ class ProjectOnboardingTests(unittest.TestCase):
         )
         self.assertEqual(report["overall_readiness"], "NEEDS_REVIEW")
         self.assertEqual(report["blockers"], [])
-        self.assertEqual(report["discovery"]["memory"]["total_bytes"], 9947)
+        self.assertEqual(report["discovery"]["memory"]["total_bytes"], 42397)
         self.assertEqual(len(report["discovery"]["memory"]["required_documents_found"]), 5)
+        self.assertEqual(report["discovery"]["memory"]["missing_documents"], [])
+        self.assertEqual(report["discovery"]["source_index"]["status"], "ci_verified_runtime_pending")
+        self.assertTrue(any("orchestrator still requires verified artifact provisioning at runtime" in item for item in report["human_decisions"]))
         self.assertTrue(report["repository"]["identity_verified"])
         self.assertFalse(report["implementation_eligible"])
         self.assertEqual(report["manifest_validation"]["lifecycle"], "registered")

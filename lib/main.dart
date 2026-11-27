@@ -4632,6 +4632,79 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     }
   }
 
+  /// نمایش گزارش امن حجم اشتراک؛ فقط فیلدهای تشخیصی مجاز وارد خروجی می‌شوند.
+  Future<void> _showVolumeDiagnostics() async {
+    final source = userData;
+    if (source == null) {
+      _showToast('ابتدا اطلاعات اشتراک را بروزرسانی کن', isError: true);
+      return;
+    }
+
+    const allowedFields = <String>[
+      'total_gb',
+      'remaining_gb',
+      'plan_volume_gb',
+      'display_total_gb',
+      'volume_cycle_gb',
+      'cycle_known',
+      'cycle_source',
+      'used_cycle_percent',
+    ];
+    final report = <String, dynamic>{
+      'diagnostic_version': 1,
+      'app_version': appVersion,
+      'captured_at_utc': DateTime.now().toUtc().toIso8601String(),
+    };
+    for (final key in allowedFields) {
+      if (source.containsKey(key)) report[key] = source[key];
+    }
+
+    final jsonText = const JsonEncoder.withIndent('  ').convert(report);
+    if (!mounted) return;
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => Directionality(
+        textDirection: TextDirection.rtl,
+        child: AlertDialog(
+          backgroundColor: const Color(0xFF131B2E),
+          title: const Text(
+            'گزارش عیب‌یابی حجم',
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+          ),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: SingleChildScrollView(
+              child: SelectableText(
+                jsonText,
+                textDirection: TextDirection.ltr,
+                style: const TextStyle(
+                  color: Colors.white70,
+                  fontSize: 11,
+                  fontFamily: 'monospace',
+                ),
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('بستن'),
+            ),
+            ElevatedButton.icon(
+              icon: const Icon(Icons.copy_rounded, size: 17),
+              label: const Text('کپی JSON'),
+              onPressed: () async {
+                await Clipboard.setData(ClipboardData(text: jsonText));
+                if (ctx.mounted) Navigator.pop(ctx);
+                _showToast('گزارش امن کپی شد؛ آن را برای پشتیبانی بفرست');
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Future<void> _fetchUserData(
     String username,
     String password, {
@@ -8288,6 +8361,24 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
                           _showSelectedAppsSheet();
                         },
                       ),
+                      if (savedUser != null && userData != null)
+                        ListTile(
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+                          leading: const Icon(Icons.data_object_rounded, color: Color(0xFFFFB74D)),
+                          title: const Text(
+                            'گزارش عیب‌یابی حجم',
+                            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13.5),
+                          ),
+                          subtitle: const Text(
+                            'نمایش و کپی JSON پاک‌سازی‌شده برای بررسی مشکل حجم',
+                            style: TextStyle(color: Colors.white54, fontSize: 11),
+                          ),
+                          trailing: const Icon(Icons.chevron_left, color: Colors.white38),
+                          onTap: () {
+                            Navigator.pop(ctx);
+                            _showVolumeDiagnostics();
+                          },
+                        ),
                       ListTile(
                         contentPadding: const EdgeInsets.symmetric(horizontal: 8),
                         leading: const Icon(Icons.people_alt_rounded, color: Color(0xFF00E5FF)),

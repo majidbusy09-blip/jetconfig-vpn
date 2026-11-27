@@ -15,8 +15,16 @@ from typing import Any
 
 try:
     from .project_namespace import ProjectNamespaceError, validate_project_binding
+    from .project_registry import (
+        ProjectRegistryError, loads_unique_json, manifest_digest,
+        validate_manifest_schema,
+    )
 except ImportError:
     from project_namespace import ProjectNamespaceError, validate_project_binding
+    from project_registry import (
+        ProjectRegistryError, loads_unique_json, manifest_digest,
+        validate_manifest_schema,
+    )
 
 MAX_ARTIFACT_BYTES = 25_000_000
 MAX_INDEXED_FILES = 5_000
@@ -129,8 +137,46 @@ def _validate_artifact_binding(value: Any, expected: dict[str, Any], label: str)
     return value
 
 
+def _git_file_at_revision(root: Path, revision: str, relative_path: str, label: str) -> bytes:
+    result = subprocess.run(
+        ["git", "show", revision + ":" + relative_path],
+        cwd=root, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+        check=False, shell=False,
+    )
+    if result.returncode or len(result.stdout) > 1_000_000:
+        raise ContextSelectionError(f"Trusted {label} is unavailable or exceeds the size limit at the pinned revision.")
+    return result.stdout
+
+
+def _verify_pinned_project_manifest(
+    root: Path, base_sha: str, binding: dict[str, Any],
+) -> str:
+    manifest_path = "docs/projects/" + binding["project_id"] + "/manifest.json"
+    try:
+        manifest_raw = _git_file_at_revision(root, base_sha, manifest_path, "project manifest")
+        schema_raw = _git_file_at_revision(root, base_sha, "docs/PROJECT_MANIFEST_SCHEMA.json", "project manifest schema")
+        manifest = loads_unique_json(manifest_raw.decode("utf-8"))
+        schema = loads_unique_json(schema_raw.decode("utf-8"))
+        validate_manifest_schema(manifest, schema)
+        digest = manifest_digest(manifest)
+    except (UnicodeDecodeError, ProjectRegistryError, KeyError, TypeError) as exc:
+        raise ContextSelectionError("Trusted project manifest failed pinned-revision validation.") from exc
+    repository = manifest.get("repository") if isinstance(manifest, dict) else None
+    if (
+        manifest.get("project_id") != binding["project_id"]
+        or manifest.get("schema_version") != binding["manifest_schema_version"]
+        or not isinstance(repository, dict)
+        or repository.get("repository_id") != binding["repository_id"]
+        or repository.get("full_name") != binding["repository_full_name"]
+        or repository.get("default_branch") != binding["default_branch"]
+        or digest != binding["manifest_sha256"]
+    ):
+        raise ContextSelectionError("Pinned project manifest identity or canonical digest differs from the task binding.")
+    return digest
+
+
 def _verified_artifact_provenance(
-    task_record: dict[str, Any], base_sha: str,
+    root: Path, task_record: dict[str, Any], base_sha: str,
     index: dict[str, Any], report: dict[str, Any],
     index_raw: bytes, report_raw: bytes,
 ) -> dict[str, Any]:
@@ -156,6 +202,9 @@ def _verified_artifact_provenance(
     expected = dict(task_binding)
     try:
         validate_project_binding({key: expected[key] for key in PROJECT_BINDING_FIELDS})
+        _verify_pinned_project_manifest(
+            root, base_sha, {key: expected[key] for key in PROJECT_BINDING_FIELDS},
+        )
     except (ProjectNamespaceError, KeyError) as exc:
         raise ContextSelectionError("Task project binding is malformed.") from exc
     if "base_sha" in expected and expected["base_sha"] != base_sha:
@@ -208,7 +257,7 @@ def select_context(*, root: Path, task_record: dict[str, Any], query: str,
     index, index_raw = _read_json(resolved_index_path, "Resolved semantic index")
     report, report_raw = _read_json(critical_paths_path, "Critical-path report")
     artifact_provenance = _verified_artifact_provenance(
-        task_record, base_sha, index, report, index_raw, report_raw,
+        root, task_record, base_sha, index, report, index_raw, report_raw,
     )
     if index.get("schema_version") != 2 or index.get("analysis_mode") != "dart_analyzer_resolved_elements_multi_file":
         raise ContextSelectionError("Unsupported or non-resolved semantic-index schema.")

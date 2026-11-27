@@ -2563,10 +2563,8 @@ $usedBytes = (float)($user['used_traffic'] ?? 0);
 $totalGB = $totalBytes > 0 ? round($totalBytes / (1024 * 1024 * 1024), 2) : 0;
 $usedGB = round($usedBytes / (1024 * 1024 * 1024), 2);
 $remainingGB = $totalBytes > 0 ? max(0, round($totalGB - $usedGB, 2)) : 0;
-// بعد از تمدید انباشتی: مبنای نمایش/هشدار اپ = سقف و باقیماندهٔ زنده پنل
-if ($totalGB > 0) {
-    $apiPlanVolumeGb = $totalGB;
-}
+// totalGB سقف انباشتی پنل است و نباید جای حجم آخرین سفارش/چرخه را بگیرد.
+// apiPlanVolumeGb فقط از سفارش/پرداخت معتبر مقدار می‌گیرد.
 
 $status = $user['status'] ?? 'active';
 // بعضی فورک‌ها/نسخه‌ها فیلد انقضا را با نام‌های مختلف می‌فرستند

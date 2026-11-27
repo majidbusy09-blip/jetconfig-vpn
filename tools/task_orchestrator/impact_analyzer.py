@@ -87,7 +87,7 @@ def analyze_impact(*, root: Path, task_record: dict[str, Any],
         raise ImpactAnalysisError("Unsupported critical-path report schema.")
     try:
         artifact_provenance = _verified_artifact_provenance(
-            task_record, base_sha, index, report, index_raw, report_raw,
+            root, task_record, base_sha, index, report, index_raw, report_raw,
         )
     except ContextSelectionError as exc:
         raise ImpactAnalysisError(str(exc)) from exc

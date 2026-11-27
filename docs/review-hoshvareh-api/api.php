@@ -2970,18 +2970,24 @@ echo json_encode([
     'remaining_gb'  => $remainingGB,
     'plan_volume_gb'=> isset($apiPlanVolumeGb) ? round((float)$apiPlanVolumeGb, 3) : 0,
     'last_renew_gb' => isset($apiPlanVolumeGb) ? round((float)$apiPlanVolumeGb, 3) : 0,
-    'volume_cycle_gb' => (function () use (&$apiVolumeCycleGb, &$apiPlanVolumeGb, $remainingGB) {
+    'volume_cycle_gb' => (function () use (&$apiVolumeCycleGb, &$apiPlanVolumeGb, $remainingGB, $db, $ordFlag) {
+        $cycle = 0.0;
         if (isset($apiVolumeCycleGb) && (float)$apiVolumeCycleGb > 0) {
-            return round((float)$apiVolumeCycleGb, 3);
-        }
-        // fallback اکانت قدیمی: حجم آخرین بسته (بهتر از سقف انباشتی پنل)
-        if (isset($apiPlanVolumeGb) && (float)$apiPlanVolumeGb > 0) {
+            $cycle = (float)$apiVolumeCycleGb;
+        } elseif (isset($apiPlanVolumeGb) && (float)$apiPlanVolumeGb > 0) {
             $lr = (float)$apiPlanVolumeGb;
             $rem = (float)$remainingGB;
-            // اگر مانده بیشتر از بسته آخر است (مانده قبلی داشته)، مخرج را حداقل مانده کن تا >100٪ نشود
-            return round(max($lr, $rem > 0 ? $rem : $lr), 3);
+            $cycle = max($lr, ($rem > 0 ? $rem : $lr));
+            // بک‌فیل ستون برای تمدیدهای قبلی که volume_cycle ذخیره نشده
+            try {
+                if (is_array($ordFlag) && !empty($ordFlag['id'])) {
+                    try { $db->exec('ALTER TABLE orders ADD COLUMN volume_cycle_gb DOUBLE NULL DEFAULT NULL'); } catch (Throwable $e) {}
+                    $db->prepare('UPDATE orders SET volume_cycle_gb = ? WHERE id = ? AND (volume_cycle_gb IS NULL OR volume_cycle_gb <= 0)')
+                       ->execute([round($cycle, 3), (int)$ordFlag['id']]);
+                }
+            } catch (Throwable $e) {}
         }
-        return 0;
+        return $cycle > 0 ? round($cycle, 3) : 0;
     })(),
     'should_warn_volume' => !empty($apiShouldWarnVol),
     'expire_days'   => $expireDays,

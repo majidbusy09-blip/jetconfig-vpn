@@ -133,6 +133,9 @@ class VerifiedImpactAnalyzerTests(unittest.TestCase):
         self.write_artifacts()
         result = self.analyze(["lib/vpn.dart"])
         self.assertEqual(result["source_revision"], self.base)
+        self.assertEqual(result["artifact_provenance"]["mode"], "project_bound")
+        self.assertEqual(result["artifact_provenance"]["verified_against_base_sha"], self.base)
+        self.assertEqual(result["artifact_provenance"]["artifact_source_revision"], self.base)
 
         self.report["source_revision"] = "f" * 40
         self.write_artifacts()
@@ -150,6 +153,45 @@ class VerifiedImpactAnalyzerTests(unittest.TestCase):
         self.index["source_revision"] = self.base
         self.report["project_binding"] = {"project_id": "fixture-app"}
         self.report["source_revision"] = self.base
+        self.write_artifacts()
+        with self.assertRaises(ImpactAnalysisError):
+            self.analyze(["lib/vpn.dart"])
+
+
+    def test_project_binding_schema_and_task_base_contradictions_fail_closed(self):
+        binding = {
+            "project_id": "fixture-app",
+            "repository_id": "123456",
+            "repository_full_name": "owner/fixture-app",
+            "default_branch": "main",
+            "manifest_schema_version": 1,
+            "manifest_sha256": "a" * 64,
+            "base_sha": self.base,
+        }
+        self.task["github_project_binding"] = dict(binding)
+        self.index["project_binding"] = dict(binding)
+        self.report["project_binding"] = dict(binding)
+        self.index["source_revision"] = self.base
+        self.report["source_revision"] = self.base
+
+        mutations = (
+            {"repository_id": "not-an-id"},
+            {"manifest_schema_version": True},
+            {"manifest_schema_version": 1.0},
+            {"unexpected": "field"},
+        )
+        for mutation in mutations:
+            with self.subTest(mutation=mutation):
+                self.task["github_project_binding"] = dict(binding)
+                self.index["project_binding"] = dict(binding, **mutation)
+                self.report["project_binding"] = dict(binding)
+                self.write_artifacts()
+                with self.assertRaises(ImpactAnalysisError):
+                    self.analyze(["lib/vpn.dart"])
+
+        self.task["github_project_binding"] = dict(binding, base_sha="f" * 40)
+        self.index["project_binding"] = dict(binding)
+        self.report["project_binding"] = dict(binding)
         self.write_artifacts()
         with self.assertRaises(ImpactAnalysisError):
             self.analyze(["lib/vpn.dart"])

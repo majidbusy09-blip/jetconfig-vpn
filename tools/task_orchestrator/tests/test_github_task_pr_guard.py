@@ -146,9 +146,9 @@ class TaskPRGuardTests(unittest.TestCase):
     def test_non_agent_pr_rejects_protected_workflow_changes(self):
         ordinary = event("ordinary PR body")
         api = api_responses(files=[{"filename": ".github/workflows/release.yml", "status": "modified"}])
-        with patch("tools.task_orchestrator.github_task_pr_guard.api_get", side_effect=api), \\
-             self.assertRaises(GuardError):
-            validate_agent_pr(ordinary, token="read-token", repository=REPOSITORY)
+        with patch("tools.task_orchestrator.github_task_pr_guard.api_get", side_effect=api):
+            with self.assertRaises(GuardError):
+                validate_agent_pr(ordinary, token="read-token", repository=REPOSITORY)
 
     def test_non_agent_pr_rejects_rename_into_or_out_of_protected_paths(self):
         cases = (

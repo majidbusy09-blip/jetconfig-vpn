@@ -184,6 +184,7 @@ PROTECTED_ORDINARY_PR_EXACT = {
     "docs/CODEOWNERS",
     "gradlew",
     "gradlew.bat",
+    "analysis_options.yaml",
     "build.gradle",
     "build.gradle.kts",
     "settings.gradle",
@@ -196,6 +197,10 @@ PROTECTED_ORDINARY_PR_EXACT = {
     "android/settings.gradle",
     "android/settings.gradle.kts",
     "android/gradle.properties",
+    "android/gradlew",
+    "android/gradlew.bat",
+    "android/gradle/wrapper/gradle-wrapper.properties",
+    "android/app/proguard-rules.pro",
     "android/app/build.gradle",
     "android/app/build.gradle.kts",
 }

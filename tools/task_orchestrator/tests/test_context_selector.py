@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import copy
 import hashlib
 import json
 import subprocess
 import tempfile
+import shutil
 import unittest
 from pathlib import Path
 
@@ -32,6 +34,24 @@ class ContextSelectorTests(unittest.TestCase):
         self.payment = self.root / "lib/payment_flow.dart"
         self.connection.write_text("void connectVpn() {}\n", encoding="utf-8")
         self.payment.write_text("void createInvoice() {}\n", encoding="utf-8")
+        repository_root = Path(__file__).resolve().parents[3]
+        (self.root / "docs/projects/test-project").mkdir(parents=True)
+        (self.root / "docs").mkdir(exist_ok=True)
+        shutil.copyfile(
+            repository_root / "docs/PROJECT_MANIFEST_SCHEMA.json",
+            self.root / "docs/PROJECT_MANIFEST_SCHEMA.json",
+        )
+        manifest = json.loads(
+            (repository_root / "docs/projects/jet-vpn-android/manifest.json").read_text(encoding="utf-8")
+        )
+        manifest["project_id"] = "test-project"
+        manifest["repository"]["repository_id"] = "123456789"
+        manifest["repository"]["full_name"] = "owner/test-repository"
+        manifest["repository"]["url"] = "https://github.com/owner/test-repository"
+        manifest["repository"]["default_branch"] = "main"
+        (self.root / "docs/projects/test-project/manifest.json").write_text(
+            json.dumps(manifest, ensure_ascii=False), encoding="utf-8"
+        )
         git(self.root, "add", ".")
         git(self.root, "commit", "-m", "semantic fixture")
         self.base = git(self.root, "rev-parse", "HEAD")
@@ -86,6 +106,17 @@ class ContextSelectorTests(unittest.TestCase):
             "repository": {"base_sha": self.base},
             "scope": {"allowed": ["lib/**"], "excluded": ["lib/generated/**"]},
         }
+        self.project_binding = {
+            "project_id": "test-project",
+            "repository_id": "123456789",
+            "repository_full_name": "owner/test-repository",
+            "default_branch": "main",
+            "manifest_schema_version": 1,
+            "manifest_sha256": hashlib.sha256(json.dumps(
+                manifest, ensure_ascii=False, sort_keys=True,
+                separators=(",", ":"), allow_nan=False,
+            ).encode("utf-8")).hexdigest(),
+        }
 
     def tearDown(self):
         self.temp.cleanup()
@@ -100,14 +131,97 @@ class ContextSelectorTests(unittest.TestCase):
             resolved_index_path=self.index_path, critical_paths_path=self.paths_path,
         )
 
+    def bind_project_artifacts(self):
+        binding = dict(self.project_binding, base_sha=self.base)
+        self.record["github_project_binding"] = dict(self.project_binding)
+        self.index["project_binding"] = dict(binding)
+        self.index["source_revision"] = self.base
+        self.report["project_binding"] = dict(binding)
+        self.report["source_revision"] = self.base
+        self.write_artifacts()
+
     def test_deterministic_ranking_uses_resolved_symbols_and_critical_paths(self):
         first = self.select()
         second = self.select()
         self.assertEqual(first, second)
+        self.assertEqual(first["artifact_provenance"]["mode"], "legacy_blob_only")
         self.assertEqual(first["matched_critical_path_ids"], ["vpn_connection_recovery"])
         self.assertEqual(first["suggestions"][0]["path"], "lib/vpn_connection.dart")
         self.assertIn("critical_path:vpn_connection_recovery",
                       first["suggestions"][0]["reasons"])
+
+    def test_valid_project_bound_artifacts_preserve_verified_provenance_and_scope(self):
+        self.bind_project_artifacts()
+        result = self.select()
+        self.assertEqual(result["artifact_provenance"]["mode"], "project_bound")
+        self.assertEqual(result["artifact_provenance"]["project_binding"]["project_id"], "test-project")
+        self.assertEqual(result["artifact_provenance"]["artifact_source_revision"], self.base)
+        self.assertEqual(result["artifact_provenance"]["verified_against_base_sha"], self.base)
+        self.assertEqual(result["suggestions"][0]["path"], "lib/vpn_connection.dart")
+
+    def test_artifact_project_binding_mismatches_fail_closed(self):
+        mutations = (
+            ("project_id", "other-project"),
+            ("repository_id", "987654321"),
+            ("repository_full_name", "other/test-repository"),
+            ("manifest_sha256", "e" * 64),
+        )
+        for artifact_name in ("index", "report"):
+            for field, value in mutations:
+                with self.subTest(artifact=artifact_name, field=field):
+                    self.bind_project_artifacts()
+                    artifact = self.index if artifact_name == "index" else self.report
+                    artifact["project_binding"][field] = value
+                    self.write_artifacts()
+                    with self.assertRaises(ContextSelectionError):
+                        self.select()
+
+    def test_project_artifact_source_revision_must_equal_task_base_sha(self):
+        for artifact_name in ("index", "report"):
+            with self.subTest(artifact=artifact_name):
+                self.bind_project_artifacts()
+                artifact = self.index if artifact_name == "index" else self.report
+                artifact["source_revision"] = "b" * 40
+                self.write_artifacts()
+                with self.assertRaises(ContextSelectionError):
+                    self.select()
+
+    def test_resolved_index_and_report_must_have_identical_project_binding(self):
+        self.bind_project_artifacts()
+        self.report["project_binding"]["repository_id"] = "987654321"
+        self.write_artifacts()
+        with self.assertRaises(ContextSelectionError):
+            self.select()
+
+    def test_legacy_task_rejects_project_bound_artifacts(self):
+        self.bind_project_artifacts()
+        self.record.pop("github_project_binding")
+        with self.assertRaisesRegex(ContextSelectionError, "legacy task"):
+            self.select()
+
+    def test_project_manifest_digest_is_recomputed_from_the_pinned_git_revision(self):
+        self.bind_project_artifacts()
+        forged = dict(self.project_binding, manifest_sha256="e" * 64)
+        self.record["github_project_binding"] = dict(forged)
+        self.index["project_binding"] = dict(forged, base_sha=self.base)
+        self.report["project_binding"] = dict(forged, base_sha=self.base)
+        self.write_artifacts()
+        with self.assertRaisesRegex(ContextSelectionError, "canonical digest"):
+            self.select()
+
+    def test_project_bound_artifacts_do_not_override_explicit_scope(self):
+        self.bind_project_artifacts()
+        self.record["scope"]["allowed"] = ["lib/payment_flow.dart"]
+        result = self.select("VPN reconnect")
+        self.assertEqual([item["path"] for item in result["suggestions"]], [])
+
+    def test_project_bound_artifact_with_changed_source_blob_is_rejected(self):
+        self.bind_project_artifacts()
+        self.index["source"]["files"][0]["git_blob_sha"] = "0" * 40
+        self.report["source_files"] = copy.deepcopy(self.index["source"]["files"])
+        self.write_artifacts()
+        with self.assertRaisesRegex(ContextSelectionError, "stale"):
+            self.select()
 
     def test_scope_is_never_expanded_by_relevance(self):
         self.record["scope"]["allowed"] = ["lib/payment_flow.dart"]

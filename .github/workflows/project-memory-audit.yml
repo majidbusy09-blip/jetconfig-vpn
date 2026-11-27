@@ -95,44 +95,100 @@ jobs:
 
       - name: Generate analyzer-resolved index
         working-directory: tools/project_memory/semantic
-        run: dart run bin/resolve.dart --write
+        env:
+          IDENTITY_MODE: ${{ steps.artifact_names.outputs.identity_mode }}
+          PROJECT_MANIFEST: ${{ steps.artifact_names.outputs.project_manifest }}
+          SOURCE_REVISION: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          args=(--write)
+          if [[ "$IDENTITY_MODE" == "v2" ]]; then
+            args+=(--repository-root="$GITHUB_WORKSPACE"
+                  --project-manifest="$PROJECT_MANIFEST"
+                  --source-revision="$SOURCE_REVISION")
+          fi
+          dart run bin/resolve.dart "${args[@]}"
 
       - name: Generate critical-path reachability report
         working-directory: tools/project_memory/semantic
-        run: dart run bin/critical_paths.dart --write
+        env:
+          IDENTITY_MODE: ${{ steps.artifact_names.outputs.identity_mode }}
+          PROJECT_MANIFEST: ${{ steps.artifact_names.outputs.project_manifest }}
+          SOURCE_REVISION: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          args=(--write)
+          if [[ "$IDENTITY_MODE" == "v2" ]]; then
+            args+=(--repository-root="$GITHUB_WORKSPACE"
+                  --project-manifest="../../../$PROJECT_MANIFEST"
+                  --source-revision="$SOURCE_REVISION"
+                  --critical-paths-manifest=docs/critical_paths.json)
+          fi
+          dart run bin/critical_paths.dart "${args[@]}"
 
       - name: Verify deterministic semantic AST generation
         working-directory: tools/project_memory/semantic
+        env:
+          IDENTITY_MODE: ${{ steps.artifact_names.outputs.identity_mode }}
+          PROJECT_MANIFEST: ${{ steps.artifact_names.outputs.project_manifest }}
+          SOURCE_REVISION: ${{ github.sha }}
+          RESOLVED_INDEX: ${{ steps.artifact_names.outputs.resolved_index }}
+          CRITICAL_PATHS: ${{ steps.artifact_names.outputs.critical_paths }}
         run: |
+          set -euo pipefail
           cp ../../../docs/generated/jet_vpn_semantic_index.json "$RUNNER_TEMP/semantic-index-first.json"
-          cp ../../../docs/generated/jet_vpn_resolved_index.json "$RUNNER_TEMP/resolved-index-first.json"
-          cp ../../../docs/generated/jet_vpn_critical_paths.json "$RUNNER_TEMP/critical-paths-first.json"
+          cp "../../../$RESOLVED_INDEX" "$RUNNER_TEMP/resolved-index-first.json"
+          cp "../../../$CRITICAL_PATHS" "$RUNNER_TEMP/critical-paths-first.json"
+          resolver_args=(--write)
+          critical_args=(--write)
+          if [[ "$IDENTITY_MODE" == "v2" ]]; then
+            resolver_args+=(--repository-root="$GITHUB_WORKSPACE"
+                            --project-manifest="$PROJECT_MANIFEST"
+                            --source-revision="$SOURCE_REVISION")
+            critical_args+=(--repository-root="$GITHUB_WORKSPACE"
+                            --project-manifest="../../../$PROJECT_MANIFEST"
+                            --source-revision="$SOURCE_REVISION"
+                            --critical-paths-manifest=docs/critical_paths.json)
+          fi
           dart run bin/index.dart --write
-          dart run bin/resolve.dart --write
-          dart run bin/critical_paths.dart --write
+          dart run bin/resolve.dart "${resolver_args[@]}"
+          dart run bin/critical_paths.dart "${critical_args[@]}"
           cmp "$RUNNER_TEMP/semantic-index-first.json" ../../../docs/generated/jet_vpn_semantic_index.json
-          cmp "$RUNNER_TEMP/resolved-index-first.json" ../../../docs/generated/jet_vpn_resolved_index.json
-          cmp "$RUNNER_TEMP/critical-paths-first.json" ../../../docs/generated/jet_vpn_critical_paths.json
+          cmp "$RUNNER_TEMP/resolved-index-first.json" "../../../$RESOLVED_INDEX"
+          cmp "$RUNNER_TEMP/critical-paths-first.json" "../../../$CRITICAL_PATHS"
 
       - name: Smoke-test task intelligence against the real generated source index
         if: ${{ hashFiles('tools/task_orchestrator/context_selector.py', 'tools/task_orchestrator/impact_analyzer.py') != '' }}
+        env:
+          IDENTITY_MODE: ${{ steps.artifact_names.outputs.identity_mode }}
+          PROJECT_MANIFEST: ${{ steps.artifact_names.outputs.project_manifest }}
+          RESOLVED_INDEX: ${{ steps.artifact_names.outputs.resolved_index }}
+          CRITICAL_PATHS: ${{ steps.artifact_names.outputs.critical_paths }}
+          SOURCE_REVISION: ${{ github.sha }}
+          GITHUB_REPOSITORY_ID: ${{ github.repository_id }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_REPOSITORY_DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
         run: |
           set -euo pipefail
           python - <<'PY'
           import json
+          import os
           import subprocess
           from pathlib import Path
 
           from tools.task_orchestrator.context_selector import select_context
           from tools.task_orchestrator.impact_analyzer import analyze_impact
+          from tools.task_orchestrator.project_registry import manifest_digest
 
           root = Path.cwd()
           revision = subprocess.run(
               ["git", "rev-parse", "HEAD"], cwd=root, check=True,
               text=True, capture_output=True,
           ).stdout.strip()
-          resolved = root / "docs/generated/jet_vpn_resolved_index.json"
-          critical = root / "docs/generated/jet_vpn_critical_paths.json"
+          if revision != os.environ["SOURCE_REVISION"]:
+              raise SystemExit("Smoke-test checkout differs from the event source revision.")
+          resolved = root / os.environ["RESOLVED_INDEX"]
+          critical = root / os.environ["CRITICAL_PATHS"]
           index = json.loads(resolved.read_text(encoding="utf-8"))
           files = index.get("source", {}).get("files", [])
           if not files:
@@ -145,6 +201,19 @@ jobs:
               "repository": {"base_sha": revision},
               "scope": {"allowed": ["lib/**"], "excluded": ["lib/generated/**"]},
           }
+          if os.environ["IDENTITY_MODE"] == "v2":
+              manifest_path = root / os.environ["PROJECT_MANIFEST"]
+              manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+              repository = manifest["repository"]
+              task["github_project_binding"] = {
+                  "project_id": manifest["project_id"],
+                  "repository_id": repository["repository_id"],
+                  "repository_full_name": repository["full_name"],
+                  "default_branch": repository["default_branch"],
+                  "manifest_schema_version": manifest["schema_version"],
+                  "manifest_sha256": manifest_digest(manifest),
+                  "base_sha": revision,
+              }
           selection = select_context(
               root=root, task_record=task, query="VPN connection routing",
               resolved_index_path=resolved, critical_paths_path=critical, limit=5,
@@ -162,8 +231,8 @@ jobs:
           print(f"Impact analyzer verified: {changed_path}.")
           PY
 
-      - name: Upload semantic AST index
-        if: always() && steps.artifact_names.outcome == 'success'
+      - name: Upload legacy semantic indexes
+        if: always() && steps.artifact_names.outcome == 'success' && steps.artifact_names.outputs.identity_mode == 'v1'
         uses: actions/upload-artifact@v4
         with:
           name: ${{ steps.artifact_names.outputs.semantic_ast }}
@@ -176,6 +245,17 @@ jobs:
           if-no-files-found: warn
           retention-days: 30
 
+      - name: Upload project-bound resolved index and critical-path report
+        if: always() && steps.artifact_names.outcome == 'success' && steps.artifact_names.outputs.identity_mode == 'v2'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.artifact_names.outputs.semantic_ast }}
+          path: |
+            ${{ steps.artifact_names.outputs.resolved_index }}
+            ${{ steps.artifact_names.outputs.critical_paths }}
+          if-no-files-found: error
+          retention-days: 30
+
       - name: Verify lexical code index
         run: |
           set -euo pipefail
@@ -183,6 +263,7 @@ jobs:
           cat project-memory-audit.txt >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload machine-readable code index
+        if: steps.artifact_names.outcome == 'success'
         uses: actions/upload-artifact@v4
         with:
           name: ${{ steps.artifact_names.outputs.code_index }}

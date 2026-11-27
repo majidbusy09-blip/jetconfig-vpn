@@ -13,6 +13,19 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
+try:
+    from .project_namespace import ProjectNamespaceError, validate_project_binding
+    from .project_registry import (
+        ProjectRegistryError, loads_unique_json, manifest_digest,
+        validate_manifest_schema,
+    )
+except ImportError:
+    from project_namespace import ProjectNamespaceError, validate_project_binding
+    from project_registry import (
+        ProjectRegistryError, loads_unique_json, manifest_digest,
+        validate_manifest_schema,
+    )
+
 MAX_ARTIFACT_BYTES = 25_000_000
 MAX_INDEXED_FILES = 5_000
 MAX_CRITICAL_PATHS = 1_000
@@ -25,6 +38,10 @@ STOP_WORDS = {
     "یک", "لطفا", "لطفاً", "کن", "کنید", "شود", "شده",
 }
 REVISION_RE = re.compile(r"^(?:[0-9a-f]{40}|[0-9a-f]{64})$")
+PROJECT_BINDING_FIELDS = frozenset({
+    "project_id", "repository_id", "repository_full_name", "default_branch",
+    "manifest_schema_version", "manifest_sha256",
+})
 
 
 class ContextSelectionError(ValueError):
@@ -105,6 +122,114 @@ def _matches(path: str, patterns: list[str]) -> bool:
     return any(fnmatch.fnmatchcase(path, pattern) for pattern in patterns)
 
 
+def _validate_artifact_binding(value: Any, expected: dict[str, Any], label: str) -> dict[str, Any]:
+    if not isinstance(value, dict) or set(value) != PROJECT_BINDING_FIELDS | {"base_sha"}:
+        raise ContextSelectionError(f"{label} project binding is missing fields or contains unexpected fields.")
+    if (not isinstance(value.get("base_sha"), str)
+            or not REVISION_RE.fullmatch(value["base_sha"])):
+        raise ContextSelectionError(f"{label} project binding is malformed.")
+    try:
+        validate_project_binding({key: value[key] for key in PROJECT_BINDING_FIELDS})
+    except (ProjectNamespaceError, KeyError) as exc:
+        raise ContextSelectionError(f"{label} project binding is malformed.") from exc
+    if value != expected:
+        raise ContextSelectionError(f"{label} project binding differs from the task project or pinned source.")
+    return value
+
+
+def _git_file_at_revision(root: Path, revision: str, relative_path: str, label: str) -> bytes:
+    result = subprocess.run(
+        ["git", "show", revision + ":" + relative_path],
+        cwd=root, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+        check=False, shell=False,
+    )
+    if result.returncode or len(result.stdout) > 1_000_000:
+        raise ContextSelectionError(f"Trusted {label} is unavailable or exceeds the size limit at the pinned revision.")
+    return result.stdout
+
+
+def _verify_pinned_project_manifest(
+    root: Path, base_sha: str, binding: dict[str, Any],
+) -> str:
+    manifest_path = "docs/projects/" + binding["project_id"] + "/manifest.json"
+    try:
+        manifest_raw = _git_file_at_revision(root, base_sha, manifest_path, "project manifest")
+        schema_raw = _git_file_at_revision(root, base_sha, "docs/PROJECT_MANIFEST_SCHEMA.json", "project manifest schema")
+        manifest = loads_unique_json(manifest_raw.decode("utf-8"))
+        schema = loads_unique_json(schema_raw.decode("utf-8"))
+        validate_manifest_schema(manifest, schema)
+        digest = manifest_digest(manifest)
+    except (UnicodeDecodeError, ProjectRegistryError, KeyError, TypeError) as exc:
+        raise ContextSelectionError("Trusted project manifest failed pinned-revision validation.") from exc
+    repository = manifest.get("repository") if isinstance(manifest, dict) else None
+    if (
+        manifest.get("project_id") != binding["project_id"]
+        or manifest.get("schema_version") != binding["manifest_schema_version"]
+        or not isinstance(repository, dict)
+        or repository.get("repository_id") != binding["repository_id"]
+        or repository.get("full_name") != binding["repository_full_name"]
+        or repository.get("default_branch") != binding["default_branch"]
+        or digest != binding["manifest_sha256"]
+    ):
+        raise ContextSelectionError("Pinned project manifest identity or canonical digest differs from the task binding.")
+    return digest
+
+
+def _verified_artifact_provenance(
+    root: Path, task_record: dict[str, Any], base_sha: str,
+    index: dict[str, Any], report: dict[str, Any],
+    index_raw: bytes, report_raw: bytes,
+) -> dict[str, Any]:
+    task_binding = task_record.get("github_project_binding")
+    artifacts = (("Resolved semantic index", index), ("Critical-path report", report))
+    if task_binding is None:
+        if any("project_binding" in artifact or "source_revision" in artifact
+               for _, artifact in artifacts):
+            raise ContextSelectionError("A legacy task cannot consume project-scoped semantic artifacts.")
+        return {
+            "mode": "legacy_blob_only",
+            "project_binding": None,
+            "artifact_source_revision": None,
+            "verified_against_base_sha": base_sha,
+            "resolved_index_sha256": hashlib.sha256(index_raw).hexdigest(),
+            "critical_paths_sha256": hashlib.sha256(report_raw).hexdigest(),
+        }
+
+    if not isinstance(task_binding, dict):
+        raise ContextSelectionError("Task project binding is malformed.")
+    if frozenset(task_binding) not in {PROJECT_BINDING_FIELDS, PROJECT_BINDING_FIELDS | {"base_sha"}}:
+        raise ContextSelectionError("Task project binding is missing fields or contains unexpected fields.")
+    expected = dict(task_binding)
+    try:
+        validate_project_binding({key: expected[key] for key in PROJECT_BINDING_FIELDS})
+        _verify_pinned_project_manifest(
+            root, base_sha, {key: expected[key] for key in PROJECT_BINDING_FIELDS},
+        )
+    except (ProjectNamespaceError, KeyError) as exc:
+        raise ContextSelectionError("Task project binding is malformed.") from exc
+    if "base_sha" in expected and expected["base_sha"] != base_sha:
+        raise ContextSelectionError("Task project binding differs from its pinned base SHA.")
+    expected["base_sha"] = base_sha
+
+    verified = []
+    for label, artifact in artifacts:
+        binding = _validate_artifact_binding(artifact.get("project_binding"), expected, label)
+        revision = artifact.get("source_revision")
+        if not isinstance(revision, str) or not REVISION_RE.fullmatch(revision) or revision != base_sha:
+            raise ContextSelectionError(f"{label} source revision differs from the task's pinned base SHA.")
+        verified.append((binding, revision))
+    if verified[0] != verified[1]:
+        raise ContextSelectionError("Resolved index and critical-path report project provenance differs.")
+    return {
+        "mode": "project_bound",
+        "project_binding": verified[0][0],
+        "artifact_source_revision": verified[0][1],
+        "verified_against_base_sha": base_sha,
+        "resolved_index_sha256": hashlib.sha256(index_raw).hexdigest(),
+        "critical_paths_sha256": hashlib.sha256(report_raw).hexdigest(),
+    }
+
+
 def select_context(*, root: Path, task_record: dict[str, Any], query: str,
                    resolved_index_path: Path, critical_paths_path: Path,
                    limit: int = 12) -> dict[str, Any]:
@@ -131,6 +256,9 @@ def select_context(*, root: Path, task_record: dict[str, Any], query: str,
 
     index, index_raw = _read_json(resolved_index_path, "Resolved semantic index")
     report, report_raw = _read_json(critical_paths_path, "Critical-path report")
+    artifact_provenance = _verified_artifact_provenance(
+        root, task_record, base_sha, index, report, index_raw, report_raw,
+    )
     if index.get("schema_version") != 2 or index.get("analysis_mode") != "dart_analyzer_resolved_elements_multi_file":
         raise ContextSelectionError("Unsupported or non-resolved semantic-index schema.")
     if report.get("schema_version") != 1 or report.get("analysis_mode") != "static_reachability_from_curated_entrypoints":
@@ -256,9 +384,10 @@ def select_context(*, root: Path, task_record: dict[str, Any], query: str,
     ranked.sort(key=lambda item: (-item["score"], item["path"]))
     selected = ranked[:limit]
     return {
-        "schema_version": 1,
+        "schema_version": 2,
         "task_id": task_id,
         "source_revision": base_sha,
+        "artifact_provenance": artifact_provenance,
         "query_sha256": hashlib.sha256(query.encode("utf-8")).hexdigest(),
         "resolved_index_sha256": hashlib.sha256(index_raw).hexdigest(),
         "critical_paths_sha256": hashlib.sha256(report_raw).hexdigest(),

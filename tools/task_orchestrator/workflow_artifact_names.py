@@ -15,16 +15,27 @@ from pathlib import Path
 from typing import Any
 
 try:
-    from .github_issue_intake import AVAILABLE_PROFILES, IntakeError, load_project_configuration
+    from .github_issue_intake import (
+        AVAILABLE_PROFILES, IntakeError, load_project_configuration,
+    )
     from .project_artifact_namespace import (
         ProjectArtifactNamespaceError,
+        index_output_paths,
         workflow_artifact_name,
     )
-    from .project_registry import ProjectRegistryError, validate_project_manifest
+    from .project_registry import (
+        ProjectRegistryError, loads_unique_json, validate_project_manifest,
+    )
 except ImportError:
-    from github_issue_intake import AVAILABLE_PROFILES, IntakeError, load_project_configuration
-    from project_artifact_namespace import ProjectArtifactNamespaceError, workflow_artifact_name
-    from project_registry import ProjectRegistryError, validate_project_manifest
+    from github_issue_intake import (
+        AVAILABLE_PROFILES, IntakeError, load_project_configuration,
+    )
+    from project_artifact_namespace import (
+        ProjectArtifactNamespaceError, index_output_paths, workflow_artifact_name,
+    )
+    from project_registry import (
+        ProjectRegistryError, loads_unique_json, validate_project_manifest,
+    )
 
 LEGACY_SEMANTIC_AST_NAME = "jet-vpn-semantic-ast-index"
 LEGACY_CODE_INDEX_NAME = "jet-vpn-code-index"
@@ -88,10 +99,14 @@ def resolve_artifact_names(
             candidates.append(manifest)
 
     if not candidates:
+        paths = index_output_paths()
         return {
             "semantic_ast": LEGACY_SEMANTIC_AST_NAME,
             "code_index": LEGACY_CODE_INDEX_NAME,
             "identity_mode": "v1",
+            "project_manifest": "",
+            "resolved_index": paths["resolved"],
+            "critical_paths": paths["critical_paths"],
         }
     if len(candidates) != 1:
         raise WorkflowArtifactNameError("More than one trusted manifest matches this repository identity.")
@@ -115,6 +130,28 @@ def resolve_artifact_names(
             "manifest_schema_version": manifest["schema_version"],
             "manifest_sha256": validated["manifest_sha256"],
         }
+        trusted_root = Path(root).resolve(strict=True)
+        manifest_parts = ("docs", "projects", validated["project_id"], "manifest.json")
+        project_manifest = trusted_root.joinpath(*manifest_parts)
+        cursor = trusted_root
+        unsafe_component = False
+        for part in manifest_parts:
+            cursor = cursor / part
+            if cursor.is_symlink():
+                unsafe_component = True
+                break
+        if unsafe_component or not project_manifest.is_file():
+            raise WorkflowArtifactNameError("Matching trusted manifest has no safe project-id path.")
+        try:
+            manifest_at_path = loads_unique_json(project_manifest.read_text(encoding="utf-8"))
+        except (OSError, UnicodeError, ProjectRegistryError) as exc:
+            raise WorkflowArtifactNameError("Matching trusted manifest path is unreadable.") from exc
+        if manifest_at_path != manifest:
+            raise WorkflowArtifactNameError("Project-id manifest path differs from the validated manifest.")
+        paths = index_output_paths(
+            project_binding=binding,
+            source_revision=checked_out_revision,
+        )
         semantic_name = workflow_artifact_name(
             "jet-vpn-semantic-ast-index",
             project_binding=binding,
@@ -132,19 +169,63 @@ def resolve_artifact_names(
         "semantic_ast": semantic_name,
         "code_index": code_name,
         "identity_mode": "v2",
+        "project_manifest": project_manifest.relative_to(trusted_root).as_posix(),
+        "resolved_index": paths["resolved"],
+        "critical_paths": paths["critical_paths"],
     }
 
 
 def write_github_output(output_path: str | os.PathLike[str], names: dict[str, str]) -> None:
     """Append a fixed set of validated single-line outputs to the runner file."""
-    expected = {"semantic_ast", "code_index", "identity_mode"}
+    expected = {
+        "semantic_ast", "code_index", "identity_mode", "project_manifest",
+        "resolved_index", "critical_paths",
+    }
     if not isinstance(names, dict) or set(names) != expected:
         raise WorkflowArtifactNameError("Artifact output fields are malformed.")
+    string_fields = expected - {"identity_mode"}
     if (names["identity_mode"] not in {"v1", "v2"}
-            or not all(isinstance(names[key], str) and names[key]
+            or not all(isinstance(names[key], str)
                        and "\n" not in names[key] and "\r" not in names[key]
-                       for key in ("semantic_ast", "code_index"))):
+                       for key in string_fields)
+            or not all(names[key] for key in string_fields - {"project_manifest"})
+            or (names["identity_mode"] == "v1" and names["project_manifest"])
+            or (names["identity_mode"] == "v2" and not names["project_manifest"])):
         raise WorkflowArtifactNameError("Artifact output values are unsafe.")
+    if names["identity_mode"] == "v1":
+        if (names["semantic_ast"] != LEGACY_SEMANTIC_AST_NAME
+                or names["code_index"] != LEGACY_CODE_INDEX_NAME
+                or names["resolved_index"] != "docs/generated/jet_vpn_resolved_index.json"
+                or names["critical_paths"] != "docs/generated/jet_vpn_critical_paths.json"):
+            raise WorkflowArtifactNameError("Legacy artifact output must use the exact compatibility names and paths.")
+    else:
+        manifest_match = re.fullmatch(
+            r"docs/projects/([a-z][a-z0-9-]*[a-z0-9])/manifest\.json",
+            names["project_manifest"],
+        )
+        resolved_match = re.fullmatch(
+            r"docs/generated/projects/([a-z][a-z0-9-]*[a-z0-9])/([0-9]{1,20})/"
+            r"([0-9a-f]{64})/((?:[0-9a-f]{40}|[0-9a-f]{64}))/indexes/resolved_index\.json",
+            names["resolved_index"],
+        )
+        critical_match = re.fullmatch(
+            r"docs/generated/projects/([a-z][a-z0-9-]*[a-z0-9])/([0-9]{1,20})/"
+            r"([0-9a-f]{64})/((?:[0-9a-f]{40}|[0-9a-f]{64}))/indexes/critical_paths\.json",
+            names["critical_paths"],
+        )
+        if (manifest_match is None or resolved_match is None or critical_match is None
+                or resolved_match.groups() != critical_match.groups()
+                or manifest_match.group(1) != resolved_match.group(1)):
+            raise WorkflowArtifactNameError("Project artifact paths do not share one valid identity namespace.")
+        suffix = "-".join(resolved_match.groups())
+        expected_semantic = re.fullmatch(
+            r"jet-vpn-semantic-ast-index-" + re.escape(suffix), names["semantic_ast"],
+        )
+        expected_code = re.fullmatch(
+            r"jet-vpn-code-index-" + re.escape(suffix), names["code_index"],
+        )
+        if expected_semantic is None or expected_code is None:
+            raise WorkflowArtifactNameError("Project artifact names differ from their content paths.")
     path = Path(output_path)
     try:
         if path.is_symlink() or not path.is_file():
@@ -155,6 +236,9 @@ def write_github_output(output_path: str | os.PathLike[str], names: dict[str, st
                 "semantic_ast=" + names["semantic_ast"] + "\n"
                 + "code_index=" + names["code_index"] + "\n"
                 + "identity_mode=" + names["identity_mode"] + "\n"
+                + "project_manifest=" + names["project_manifest"] + "\n"
+                + "resolved_index=" + names["resolved_index"] + "\n"
+                + "critical_paths=" + names["critical_paths"] + "\n"
             )
     except WorkflowArtifactNameError:
         raise

@@ -735,3 +735,27 @@ PR #101 remains Draft and unmerged for human review. No review submissions or re
 - Reconciled Hesabgar's live target main SHA to `11d44f24ad0cf2ba5ab9a278adeb532a35c677a6`. Five required memory documents (42,397 bytes total), optional decisions document, and tracked `pubspec.lock` (23,577 bytes) are present.
 - Target Project Validation run `45748004622` passed on the exact main SHA with Flutter 3.27.4, Dart 3.6.2, static analysis, and 74 tests. The run also generated project-bound semantic artifacts and passed the Task Intelligence smoke test.
 - Updated the live onboarding fixture to exact target blob SHAs/sizes and current CI evidence. The report remains `NEEDS_REVIEW` because runtime index provisioning/retrieval and manual Android device acceptance are not proven. Lifecycle remains `registered`, source-index strategy remains `none`, and no target application source was modified.
+
+
+## 2026-11-26 — Source Index Provenance implementation (local verification)
+
+- Started isolated branch `fix/source-index-provenance-20261126` from verified `main` SHA `6e1c1d93ff26206a3a68cf4a3b6b158a809e143f`; live `origin/main` still matched that SHA at the time of verification.
+- Wired `.github/workflows/project-memory-audit.yml` to resolve a checked-in manifest against immutable GitHub repository identity, validate the canonical manifest path/content, and pass that manifest plus exact `github.sha` to both semantic generators. Project-mode deterministic regeneration and uploads consume the same namespaced resolved-index/critical-path pair. Legacy mode preserves the existing fixed output paths and artifact names without adding project claims.
+- Hardened `workflow_artifact_names.py` output validation, `context_selector.py` per-artifact provenance and binding checks, and `task_orchestrator.py` suggestion-acceptance/audit provenance. Added acceptance coverage for project/repository/manifest mismatches in each artifact, source-revision drift, artifact binding disagreement, legacy downgrade attempts, changed Git blob fingerprints, valid selection, and scope preservation.
+- Updated `docs/PROJECT_MEMORY_AUTOMATION.md` with the actual production → validation → selection → acceptance path and the warning that an artifact name is not provenance proof. No retrieval was connected to the live handoff; its integration remains gated on the exact Issue #110 artifact contract and the separately scoped read-only provider work in Issue #152.
+- Local checks passed: targeted suite `python3 -m unittest tools.task_orchestrator.tests.test_workflow_artifact_names tools.task_orchestrator.tests.test_context_selector tools.task_orchestrator.tests.test_task_orchestrator` (**60 tests**); complete suite `python3 -m unittest discover -s tools/task_orchestrator/tests -p 'test_*.py'` (**543 tests**); `python3 -m compileall -q tools/task_orchestrator`; `git diff --check`; and `bash -n` over all 13 inline/command workflow `run` blocks.
+- The local Python environment initially lacked the already pinned `cryptography==50.0.2`; installed the exact versions from `tools/task_orchestrator/requirements-sandbox-crypto.txt` and reran the full suite successfully. No Flutter/Dart executable or YAML parser is installed locally. The workflow's Dart behavior and full YAML/action semantics therefore require exact-head CI; line-extracted Bash syntax is not a substitute for YAML validation.
+- Implementation commit: `81d4fabd3d085fa62191ec2d0b60300a5904ee3b` on `fix/source-index-provenance-20261126`; push, PR, and exact-head CI are pending at this log checkpoint. No application source, account repository, PR #151, or PR #154 was modified. No model, paid API, retrieval, handoff, release, deployment, or untrusted project-code execution was used.
+
+
+## 2026-11-27 — Source Index provenance parity hardening
+
+- **Branch:** `fix/source-index-provenance-20261126`.
+- **Base:** `main` `6e1c1d93ff26206a3a68cf4a3b6b158a809e143f`.
+- **Code commits:** `120323cda42e0c2a87d158e2f717644023c630fe` and `8a247e84811b644905c07fb287d795299340e42e`.
+- Unified Context Selector and Impact Analyzer semantic-artifact provenance validation through the same fail-closed helper. Impact Analyzer now includes the verified artifact provenance record in its output.
+- Added Impact Analyzer regression tests for malformed repository identity, Boolean/floating manifest schema versions, unexpected binding fields, and task binding/base-SHA contradiction.
+- Exact-head GitHub Actions run for `8a247e84811b644905c07fb287d795299340e42e`: Task Orchestrator Tests **success**; Non-production PR Validation **success**; Project Memory Audit **success** (run IDs `45932857117`, `45932856966`, `45932856929` respectively).
+- These are pull-request event checks. Their artifacts are not approved as trusted source-context inputs for a future handoff provider; producer provenance must be established from eligible default-branch workflow-run metadata.
+- Remaining merge gates: explicit, migration-safe task identity mode/legacy semantics; canonical manifest digest verification at the trusted consumer boundary or an explicitly enforced trusted-resolver contract; independent review. PR remains Draft and unmerged.
+- No JET VPN application source or `hesabgar_man` source was changed. No source-index retrieval, model invocation, sandbox execution, patch application, release, or deployment occurred.

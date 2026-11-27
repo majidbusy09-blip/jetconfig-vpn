@@ -377,3 +377,12 @@ Phase 2D-1 must also verify that the trusted PR guard and patch-review gate use 
 3. Preserve Hesabgar lifecycle as `registered`; the current read-only report is `NEEDS_REVIEW`, not activation approval.
 4. Obtain owner-side Android device acceptance separately. CI analysis/tests/builds do not establish device-level acceptance.
 5. Treat provider/model invocation and any untrusted-code execution as separate trust-boundary work; do not add paid API spend, credentials, release, or deployment to this onboarding task.
+
+
+## Current next steps — Source Index Provenance and retrieval gates (2026-11-26)
+
+1. Complete exact-head review/CI for the independent Source Index Provenance PR; do not merge without separate approval. PRs #151 and #154 remain separate, Draft/open, and untouched by this work.
+2. Keep Issue #110's exact project-scoped `agent_input_path` contract and its staged PR dependency/review gates intact. Do not connect source-index retrieval to handoff until the exact approved #110 input shape, path, and binding are verified on the final accepted revision.
+3. Implement/review the read-only source-index artifact provider under Issue #152 as a separate phase: select only successful default-branch runs for exact source SHA/workflow/repository identity; enforce ZIP/member/path/size bounds; validate both JSON bindings and every indexed Git blob; write only validated indexes to the derived project namespace.
+4. Only after #110's handoff contract and #152's provider are independently verified, plan a separate end-to-end retrieval integration with fail-closed stale/cross-project behavior. Keep Hesabgar `source_index.strategy=none` and lifecycle `registered` until then.
+5. No live model, paid API, private-source transfer, target-repository write, project activation, release, deployment, or untrusted-code execution is authorized by these steps.

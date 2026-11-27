@@ -4,7 +4,10 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from tools.task_orchestrator.project_artifact_namespace import workflow_artifact_name
+from tools.task_orchestrator.project_artifact_namespace import (
+    index_output_paths,
+    workflow_artifact_name,
+)
 from tools.task_orchestrator.workflow_artifact_names import (
     LEGACY_CODE_INDEX_NAME,
     LEGACY_SEMANTIC_AST_NAME,
@@ -65,6 +68,9 @@ class WorkflowArtifactNameTests(unittest.TestCase):
             "semantic_ast": LEGACY_SEMANTIC_AST_NAME,
             "code_index": LEGACY_CODE_INDEX_NAME,
             "identity_mode": "v1",
+            "project_manifest": "",
+            "resolved_index": "docs/generated/jet_vpn_resolved_index.json",
+            "critical_paths": "docs/generated/jet_vpn_critical_paths.json",
         })
 
     def test_matching_manifest_generates_deterministic_project_and_source_bound_names(self):
@@ -96,6 +102,21 @@ class WorkflowArtifactNameTests(unittest.TestCase):
         ))
         self.assertIn(str(METADATA["id"]), first["semantic_ast"])
         self.assertIn(REVISION, first["code_index"])
+        self.assertEqual(first["project_manifest"],
+                         "docs/projects/jet-project/manifest.json")
+        expected_paths = index_output_paths(
+            project_binding=binding, source_revision=REVISION,
+        )
+        self.assertEqual(first["resolved_index"], expected_paths["resolved"])
+        self.assertEqual(first["critical_paths"], expected_paths["critical_paths"])
+        output = self.root / "github_output"
+        output.write_text("", encoding="utf-8")
+        write_github_output(output, first)
+        self.assertIn("resolved_index=" + expected_paths["resolved"], output.read_text())
+        self.assertIn("critical_paths=" + expected_paths["critical_paths"], output.read_text())
+        forged_prefix = dict(first, semantic_ast="untrusted-" + first["semantic_ast"])
+        with self.assertRaises(WorkflowArtifactNameError):
+            write_github_output(output, forged_prefix)
 
     def test_invalid_matching_manifest_fails_closed_instead_of_using_v1_names(self):
         manifest = self.write_manifest()
@@ -130,6 +151,18 @@ class WorkflowArtifactNameTests(unittest.TestCase):
         with self.assertRaises(WorkflowArtifactNameError):
             self.resolve()
 
+    def test_manifest_with_duplicate_json_keys_fails_closed(self):
+        manifest = self.write_manifest()
+        path = self.root / "docs" / "projects" / "jet-project" / "manifest.json"
+        rendered = json.dumps(manifest).replace(
+            '"project_id": "jet-project"',
+            '"project_id": "jet-project", "project_id": "jet-project"',
+            1,
+        )
+        path.write_text(rendered, encoding="utf-8")
+        with self.assertRaises(WorkflowArtifactNameError):
+            self.resolve()
+
     def test_source_revision_drift_fails_closed(self):
         self.write_manifest()
         with self.assertRaises(WorkflowArtifactNameError):
@@ -149,10 +182,15 @@ class WorkflowArtifactNameTests(unittest.TestCase):
         output.write_text("", encoding="utf-8")
         write_github_output(output, names)
         self.assertIn("semantic_ast=" + LEGACY_SEMANTIC_AST_NAME, output.read_text())
+        self.assertIn("resolved_index=docs/generated/jet_vpn_resolved_index.json",
+                      output.read_text())
 
         unsafe = dict(names, code_index="safe\n::warning::injected")
         with self.assertRaises(WorkflowArtifactNameError):
             write_github_output(output, unsafe)
+        unsafe_path = dict(names, resolved_index="../outside.json")
+        with self.assertRaises(WorkflowArtifactNameError):
+            write_github_output(output, unsafe_path)
 
         target = self.root / "target"
         target.write_text("", encoding="utf-8")

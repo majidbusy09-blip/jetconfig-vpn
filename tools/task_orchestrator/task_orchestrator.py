@@ -74,17 +74,23 @@ try:
     from .project_namespace import (
         ProjectNamespaceError, local_task_branch, task_record_directory,
         task_record_path as project_task_record_path,
+        PROJECT_BINDING_FIELDS,
+        validate_project_binding,
     )
 except ImportError:
     try:
         from tools.task_orchestrator.project_namespace import (
             ProjectNamespaceError, local_task_branch, task_record_directory,
             task_record_path as project_task_record_path,
+            PROJECT_BINDING_FIELDS,
+            validate_project_binding,
         )
     except ImportError:
         from project_namespace import (
             ProjectNamespaceError, local_task_branch, task_record_directory,
             task_record_path as project_task_record_path,
+            PROJECT_BINDING_FIELDS,
+            validate_project_binding,
         )
 
 try:
@@ -161,6 +167,49 @@ def now_iso() -> str:
 
 def sha256_bytes(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
+
+
+def validate_context_suggestion_provenance(
+    suggestion_record: dict[str, Any], task_record: dict[str, Any], base_sha: str,
+) -> dict[str, Any]:
+    """Verify that an accepted suggestion records the same artifact provenance as its task."""
+    if (not isinstance(suggestion_record, dict)
+            or suggestion_record.get("schema_version") != 2
+            or suggestion_record.get("task_id") != task_record.get("task_id")
+            or suggestion_record.get("source_revision") != base_sha
+            or not isinstance(suggestion_record.get("suggestions"), list)):
+        raise TaskError("Suggestions artifact does not match this task and pinned base.")
+    provenance = suggestion_record.get("artifact_provenance")
+    project_binding = task_record.get("github_project_binding")
+    expected_mode = "project_bound" if project_binding is not None else "legacy_blob_only"
+    if (not isinstance(provenance, dict)
+            or provenance.get("mode") != expected_mode
+            or provenance.get("verified_against_base_sha") != base_sha
+            or any(not isinstance(provenance.get(field), str)
+                   or not re.fullmatch(r"[0-9a-f]{64}", provenance[field])
+                   for field in ("resolved_index_sha256", "critical_paths_sha256"))):
+        raise TaskError("Suggestions artifact has missing or malformed verified provenance.")
+    if project_binding is None:
+        if (provenance.get("project_binding") is not None
+                or provenance.get("artifact_source_revision") is not None):
+            raise TaskError("Legacy task provenance must not claim a project binding or source revision.")
+    else:
+        if not isinstance(project_binding, dict):
+            raise TaskError("Task project binding is malformed.")
+        expected_binding = dict(project_binding)
+        try:
+            validate_project_binding({
+                key: expected_binding[key] for key in PROJECT_BINDING_FIELDS
+            })
+        except (ProjectNamespaceError, KeyError) as exc:
+            raise TaskError("Task project binding is malformed.") from exc
+        if "base_sha" in expected_binding and expected_binding["base_sha"] != base_sha:
+            raise TaskError("Task project binding differs from its pinned base SHA.")
+        expected_binding["base_sha"] = base_sha
+        if (provenance.get("project_binding") != expected_binding
+                or provenance.get("artifact_source_revision") != base_sha):
+            raise TaskError("Suggestions artifact provenance differs from the task project or pinned source.")
+    return provenance
 
 
 
@@ -655,12 +704,7 @@ def command_accept_context(args: argparse.Namespace) -> None:
         suggestion_record = json.loads(raw.decode("utf-8"), object_pairs_hook=unique_object)
     except (SafeLocalFileError, ValueError, UnicodeDecodeError, json.JSONDecodeError) as exc:
         raise TaskError("Suggestions artifact is unreadable, unsafe, or invalid UTF-8 JSON.") from exc
-    if (not isinstance(suggestion_record, dict)
-            or suggestion_record.get("schema_version") != 1
-            or suggestion_record.get("task_id") != args.task_id
-            or suggestion_record.get("source_revision") != base_sha
-            or not isinstance(suggestion_record.get("suggestions"), list)):
-        raise TaskError("Suggestions artifact does not match this task and pinned base.")
+    provenance = validate_context_suggestion_provenance(suggestion_record, record, base_sha)
     suggestion_map = {}
     for item in suggestion_record["suggestions"]:
         relative = item.get("path") if isinstance(item, dict) else None
@@ -716,6 +760,7 @@ def command_accept_context(args: argparse.Namespace) -> None:
     record["context_selection"] = {
         "suggestions_sha256": sha256_bytes(raw),
         "accepted_paths": selected,
+        "artifact_provenance": provenance,
         "accepted_at": now_iso(),
         "note": "Explicitly selected suggestions; task scope was not changed.",
     }

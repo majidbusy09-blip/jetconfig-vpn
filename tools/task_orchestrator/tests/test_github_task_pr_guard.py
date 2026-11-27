@@ -135,6 +135,43 @@ class TaskPRGuardTests(unittest.TestCase):
         self.assertEqual(parsed["task_issue"], 42)
         self.assertEqual(parse_pr_envelope("ordinary PR body"), None)
 
+    def test_non_agent_pr_allows_ordinary_documentation_changes(self):
+        ordinary = event("ordinary PR body")
+        api = api_responses(files=[{"filename": "docs/guide.md", "status": "modified"}])
+        with patch("tools.task_orchestrator.github_task_pr_guard.api_get", side_effect=api):
+            result = validate_agent_pr(ordinary, token="read-token", repository=REPOSITORY)
+        self.assertEqual(result["status"], "not-agent-pr")
+        self.assertEqual(result["changed_paths"], ["docs/guide.md"])
+
+    def test_non_agent_pr_rejects_protected_workflow_changes(self):
+        ordinary = event("ordinary PR body")
+        api = api_responses(files=[{"filename": ".github/workflows/release.yml", "status": "modified"}])
+        with patch("tools.task_orchestrator.github_task_pr_guard.api_get", side_effect=api):
+            with self.assertRaises(GuardError):
+                validate_agent_pr(ordinary, token="read-token", repository=REPOSITORY)
+
+    def test_non_agent_pr_rejects_rename_into_or_out_of_protected_paths(self):
+        cases = (
+            {"filename": "docs/release.yml", "previous_filename": ".github/workflows/release.yml", "status": "renamed"},
+            {"filename": ".github/workflows/release.yml", "previous_filename": "docs/release.yml", "status": "renamed"},
+            {"filename": "tools/task_orchestrator/dispatcher.py", "status": "modified"},
+        )
+        for item in cases:
+            with self.subTest(item=item), patch(
+                "tools.task_orchestrator.github_task_pr_guard.api_get",
+                side_effect=api_responses(files=[item]),
+            ), self.assertRaises(GuardError):
+                validate_agent_pr(event("ordinary PR body"), token="read-token", repository=REPOSITORY)
+
+    def test_non_agent_pr_fails_closed_on_malformed_changed_file(self):
+        for files in ([{"status": "modified"}], [{"filename": "../escape", "status": "modified"}],
+                      [{"filename": "docs/a.md", "status": "copied"}]):
+            with self.subTest(files=files), patch(
+                "tools.task_orchestrator.github_task_pr_guard.api_get",
+                side_effect=api_responses(files=files),
+            ), self.assertRaises(GuardError):
+                validate_agent_pr(event("ordinary PR body"), token="read-token", repository=REPOSITORY)
+
     def test_rejects_duplicate_or_extra_envelope_fields(self):
         ticks = chr(96) * 3
         duplicate = "<!-- jet-agent-pr:v1 -->\n" + ticks + 'json\n{"schema_version":1,"task_issue":42,"owner":"chatgpt","claim_id":"' + CLAIM + '","claim_id":"' + CLAIM + '"}\n' + ticks

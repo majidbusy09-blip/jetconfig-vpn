@@ -24,8 +24,8 @@ void main() {
 // مشخصات نسخه (نمایش داخل اپ) — با هر ریلیز با pubspec هماهنگ کن
 // مثال: pubspec 2.2.8+222 → همین دو مقدار را هم‌خوان نگه دار
 // در کامنت از شکل appVersion = '...' استفاده نکن (ورک‌فلو گیت‌هاب آن را اشتباه می‌خواند)
-const String appVersion = 'v2.4.6';
-const int appVersionCode = 285;
+const String appVersion = 'v2.4.7';
+const int appVersionCode = 286;
 /// کانال بسته‌بندی: با --dart-define=APK_CHANNEL=arm64|universal|arm32 در بیلد ست می‌شود
 const String apkChannel = String.fromEnvironment('APK_CHANNEL', defaultValue: 'arm64');
 const String appUpdateMetaUrl = 'https://majid6064.ir/app_version.json';
@@ -2354,6 +2354,17 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
 
   String _getDisplayTotal() {
     if (userData == null) return 'نامحدود';
+    // اولویت: ظرفیت دوره بعد از آخرین تمدید (مانده قبلی + بسته جدید)
+    final cycleRaw = userData!['volume_cycle_gb'];
+    final cycle = cycleRaw is num
+        ? cycleRaw.toDouble()
+        : double.tryParse('$cycleRaw');
+    if (cycle != null && cycle > 0) {
+      final c = cycle == cycle.roundToDouble()
+          ? cycle.toInt().toString()
+          : cycle.toStringAsFixed(1);
+      return '$c GB';
+    }
     final total = userData!['total_gb'];
     if (total == null || total == 0 || total == 0.0 || total == '0') {
       return 'نامحدود';
@@ -5829,19 +5840,20 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     final data = userData;
     final totalRaw = data?['total_gb'];
     final remainingRaw = data?['remaining_gb'];
+    final cycleRaw = data?['volume_cycle_gb'];
     final planRaw = data?['plan_volume_gb'] ?? data?['last_renew_gb'];
     final total = totalRaw is num ? totalRaw.toDouble() : double.tryParse('$totalRaw');
     final remaining = remainingRaw is num ? remainingRaw.toDouble() : double.tryParse('$remainingRaw');
+    final cycleVol = cycleRaw is num ? cycleRaw.toDouble() : double.tryParse('$cycleRaw');
     final planVol = planRaw is num ? planRaw.toDouble() : double.tryParse('$planRaw');
-    final canShowProgress = _hasActiveSubscription() && total != null && total > 0 && remaining != null;
-    // نوار پیشرفت: ترجیح با حجم آخرین تمدید تا بعد از استک شدن سقف، ۹۰٪ دروغین نشان ندهد
+    // مخرج نوار: volume_cycle_gb (مانده قبل تمدید + بسته) وگرنه total پنل
+    final denom = (cycleVol != null && cycleVol > 0)
+        ? cycleVol
+        : ((total != null && total > 0) ? total : null);
+    final canShowProgress = _hasActiveSubscription() && denom != null && remaining != null;
     double progress = 0.0;
     if (canShowProgress) {
-      if (planVol != null && planVol > 0 && (total! > planVol * 1.05)) {
-        progress = (remaining! / planVol).clamp(0.0, 1.0);
-      } else {
-        progress = (remaining! / total!).clamp(0.0, 1.0);
-      }
+      progress = (remaining! / denom!).clamp(0.0, 1.0);
     }
 
     Widget detail(String label, String value, IconData icon, Color color) {

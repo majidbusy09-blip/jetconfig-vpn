@@ -24,8 +24,8 @@ void main() {
 // مشخصات نسخه (نمایش داخل اپ) — با هر ریلیز با pubspec هماهنگ کن
 // مثال: pubspec 2.2.8+222 → همین دو مقدار را هم‌خوان نگه دار
 // در کامنت از شکل appVersion = '...' استفاده نکن (ورک‌فلو گیت‌هاب آن را اشتباه می‌خواند)
-const String appVersion = 'v2.4.9';
-const int appVersionCode = 288;
+const String appVersion = 'v2.5.0';
+const int appVersionCode = 289;
 /// کانال بسته‌بندی: با --dart-define=APK_CHANNEL=arm64|universal|arm32 در بیلد ست می‌شود
 const String apkChannel = String.fromEnvironment('APK_CHANNEL', defaultValue: 'arm64');
 const String appUpdateMetaUrl = 'https://majid6064.ir/app_version.json';
@@ -2360,17 +2360,27 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
       if (v == null || v <= 0) return null;
       return v;
     }
-    // منبع حقیقت سرور: display_total_gb / volume_cycle_gb (نه سقف انباشتی پنل)
+    // فقط چرخه معتبر سرور — هرگز total_gb انباشتی پنل
+    final cycleKnown = userData!['cycle_known'] == true ||
+        userData!['cycle_known'] == 1 ||
+        userData!['cycle_known'] == '1';
     double? shown = pick(userData!['display_total_gb']) ??
-        pick(userData!['volume_cycle_gb']) ??
-        pick(userData!['plan_volume_gb']) ??
-        pick(userData!['last_renew_gb']);
-    final rem = pick(userData!['remaining_gb']);
-    if (shown != null && rem != null && rem > shown) {
-      shown = rem;
+        pick(userData!['volume_cycle_gb']);
+    if (shown == null && cycleKnown) {
+      shown = pick(userData!['plan_volume_gb']) ?? pick(userData!['last_renew_gb']);
     }
-    shown ??= pick(userData!['total_gb']);
-    if (shown == null) return 'نامحدود';
+    // استنتاج امن سمت کلاینت فقط وقتی سرور cycle_known نفرستاده ولی last_renew و remaining سازگارند
+    if (shown == null) {
+      final plan = pick(userData!['plan_volume_gb']) ?? pick(userData!['last_renew_gb']);
+      final rem = pick(userData!['remaining_gb']);
+      if (plan != null && rem != null && rem <= plan * 1.02) {
+        shown = plan;
+      }
+    }
+    if (shown == null) {
+      // نامشخص: عدد سقف پنل نشان داده نشود
+      return '—';
+    }
     final c = shown == shown.roundToDouble()
         ? shown.toInt().toString()
         : shown.toStringAsFixed(1);
@@ -5843,13 +5853,14 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     final t = ui;
     final jet = isJetTheme;
     final data = userData;
-    final totalRaw = data?['total_gb'];
     final remainingRaw = data?['remaining_gb'];
     final displayRaw = data?['display_total_gb'];
     final cycleRaw = data?['volume_cycle_gb'];
     final planRaw = data?['plan_volume_gb'] ?? data?['last_renew_gb'];
     final usedPctRaw = data?['used_cycle_percent'];
-    final total = totalRaw is num ? totalRaw.toDouble() : double.tryParse('$totalRaw');
+    final cycleKnownFlag = data?['cycle_known'] == true ||
+        data?['cycle_known'] == 1 ||
+        data?['cycle_known'] == '1';
     final remaining = remainingRaw is num ? remainingRaw.toDouble() : double.tryParse('$remainingRaw');
     final displayVol = displayRaw is num ? displayRaw.toDouble() : double.tryParse('$displayRaw');
     final cycleVol = cycleRaw is num ? cycleRaw.toDouble() : double.tryParse('$cycleRaw');
@@ -5857,23 +5868,21 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     final usedPctServer = usedPctRaw is num
         ? usedPctRaw.toDouble()
         : double.tryParse('$usedPctRaw');
-    // مخرج: display_total (سرور) → cycle → بسته آخر → total پنل
-    double? denom = (displayVol != null && displayVol > 0)
-        ? displayVol
-        : ((cycleVol != null && cycleVol > 0)
-            ? cycleVol
-            : ((planVol != null && planVol > 0)
-                ? planVol
-                : ((total != null && total > 0) ? total : null)));
-    if (denom != null && remaining != null && remaining > denom) {
-      denom = remaining;
+    // هرگز total_gb انباشتی پنل را مخرج درصد نکن
+    double? denom;
+    if (displayVol != null && displayVol > 0) {
+      denom = displayVol;
+    } else if (cycleVol != null && cycleVol > 0) {
+      denom = cycleVol;
+    } else if (planVol != null && planVol > 0 && remaining != null && remaining <= planVol * 1.02) {
+      denom = planVol; // استنتاج امن
     }
+    final hasServerPct = cycleKnownFlag && usedPctServer != null;
     final canShowProgress = _hasActiveSubscription() &&
-        ((usedPctServer != null) || (denom != null && remaining != null));
-    // progress = نسبت «مانده» (پر بودن نوار معکوس در UI با 1-progress)
+        (hasServerPct || (denom != null && remaining != null && denom > 0));
     double progress = 0.0;
-    if (usedPctServer != null && usedPctServer >= 0) {
-      progress = (1.0 - (usedPctServer / 100.0)).clamp(0.0, 1.0);
+    if (hasServerPct) {
+      progress = (1.0 - (usedPctServer! / 100.0)).clamp(0.0, 1.0);
     } else if (denom != null && remaining != null && denom > 0) {
       progress = (remaining / denom).clamp(0.0, 1.0);
     }

@@ -2549,14 +2549,9 @@ try {
 } catch (Throwable $e) {
     $apiCanClaimTest = false;
 }
-// حجم پلن سفارش جاری (برای هشدار مصرف بعد از تمدید)
-try {
-    $stOv = $db->prepare("SELECT volume_gb FROM orders WHERE config_username = ? OR user_id = ? ORDER BY id DESC LIMIT 1");
-    $stOv->execute([$username, isset($ownerUserId) ? (int)$ownerUserId : 0]);
-    $apiPlanVolumeGb = (float)$stOv->fetchColumn();
-} catch (Throwable $e) {
-    $apiPlanVolumeGb = 0.0;
-}
+// مقدار پلن جاری باید از آخرین پرداخت تأییدشده یا last_renew_gb معتبر بیاید.
+// orders.volume_gb ممکن است سقف تجمعی پنل باشد؛ هرگز آن را پلن آخر فرض نکن.
+$apiPlanVolumeGb = 0.0;
 
 $totalBytes = (float)($user['data_limit'] ?? 0);
 $usedBytes = (float)($user['used_traffic'] ?? 0);
@@ -2911,9 +2906,7 @@ try {
                     }
                 }
             } catch (Throwable $e) {}
-            if ($apiPlanVolumeGb <= 0 && isset($ordFlag['volume_gb']) && (float)$ordFlag['volume_gb'] > 0) {
-                $apiPlanVolumeGb = (float)$ordFlag['volume_gb'];
-            }
+            // بدون پرداخت تأییدشده/شناسه پلن معتبر، حجم پلن را حدس نزن.
         }
     }
     // اگر از سفارش معلوم نشد ولی حجم خیلی کم + on_hold یک‌روزه است، تست حساب کن
@@ -2989,18 +2982,11 @@ try {
 
     $remNow = isset($remainingGB) ? (float)$remainingGB : 0.0;
 
-    // 3) فقط یک استنتاج امن و محدود — بدون نوشتن در DB:
-    // اگر snapshot نداریم ولی last_renew داریم و مانده ≤ بستهٔ آخر (+۲٪ تلورانس)،
-    // تقریباً مطمئنیم مانده قبلی صفر بوده و چرخه = بستهٔ آخر (سناریوی ۵۰ تمام + خرید ۱۰).
-    // اگر مانده > بستهٔ آخر، چرخه را حدس نمی‌زنیم (مثال ۲۸ با مانده ۲۵ و خرید ۱۰).
-    if (!$apiCycleKnown && $apiPlanVolumeGb > 0) {
-        $tol = max(0.05, $apiPlanVolumeGb * 0.02);
-        if ($remNow <= ($apiPlanVolumeGb + $tol)) {
-            $apiVolumeCycleGb = $apiPlanVolumeGb;
-            $apiCycleKnown = true;
-            $apiCycleSource = 'inferred_last_renew_safe';
-        }
-        // else: unknown — نمایش فقط remaining، بدون درصد جعلی از total پنل
+    // 3) بدون snapshot معتبر، صرفاً از روی remaining و حجم آخرین سفارش چرخه را حدس نمی‌زنیم.
+    // مقایسه remaining با حجم بسته برای اثبات صفر بودن مانده قبلی کافی نیست.
+    // در این وضعیت اپ فقط remaining را نشان می‌دهد و درصد/نوار را پنهان می‌کند.
+    if (!$apiCycleKnown) {
+        $apiCycleSource = 'unknown_no_verified_cycle_snapshot';
     }
 
     // 4) نمایش

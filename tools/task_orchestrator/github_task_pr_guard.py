@@ -331,7 +331,11 @@ def write_summary(result):
     if not target:
         return
     if result["status"] == "not-agent-pr":
-        text = "## Agent PR guard\n\nSkipped: this is not an agent task PR.\n"
+        lines = ["## Agent PR guard", "", "Validated ordinary PR changed paths; no protected automation paths found.", "",
+                 "- PR: #" + str(result["pr_number"]),
+                 "- Changed files: " + str(result["file_count"]), "", "### Accepted paths"]
+        lines.extend("- " + path for path in result["changed_paths"])
+        text = "\n".join(lines) + "\n"
     else:
         lines = ["## Agent PR guard", "", "Validated task lease and PR scope.", "",
                  "- PR: #" + str(result["pr_number"]),
@@ -355,7 +359,8 @@ def main(argv=None):
         write_summary(result)
     except (OSError, UnicodeError, json.JSONDecodeError, GuardError) as exc:
         parser.error(str(exc))
-    print("Skipped non-agent PR." if result["status"] == "not-agent-pr" else
+    print(("Validated ordinary PR #" + str(result["pr_number"]) +
+           " (no protected automation paths).") if result["status"] == "not-agent-pr" else
           "Validated agent PR #" + str(result["pr_number"]) + ".")
     return 0
 

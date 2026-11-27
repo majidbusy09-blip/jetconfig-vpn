@@ -623,5 +623,61 @@ class HandoffAcceptanceTests(unittest.TestCase):
                     write_agent_input_github_output(output, invalid)
 
 
+    def test_agent_input_path_rejects_missing_target_and_symlink_parent(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder).resolve()
+            record = orchestrator.task_path(root, TASK_ID)
+            record.parent.mkdir(parents=True)
+            missing = record.parent / "agent_input.json"
+            with self.assertRaisesRegex(HandoffAcceptanceError, "missing"):
+                validate_agent_input_path(root, missing, TASK_ID, None)
+
+            real_parent = root / "real-parent"
+            real_parent.mkdir()
+            linked_parent = root / ".agent" / "tasks" / TASK_ID
+            linked_parent.parent.mkdir(parents=True)
+            linked_parent.symlink_to(real_parent, target_is_directory=True)
+            linked_target = linked_parent / "agent_input.json"
+            (real_parent / "agent_input.json").write_text("{}", encoding="utf-8")
+            with self.assertRaisesRegex(HandoffAcceptanceError, "symlink"):
+                validate_agent_input_path(root, linked_target, TASK_ID, None)
+
+    def test_agent_input_path_ignores_decoy_files_and_returns_only_exact_candidate(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder).resolve()
+            record = orchestrator.task_path(root, TASK_ID)
+            record.parent.mkdir(parents=True)
+            exact = record.parent / "agent_input.json"
+            exact.write_text('{"task":"exact"}', encoding="utf-8")
+
+            decoy_task = root / ".agent" / "tasks" / "decoy-task"
+            decoy_task.mkdir(parents=True)
+            (decoy_task / "agent_input.json").write_text('{"task":"decoy"}', encoding="utf-8")
+
+            self.assertEqual(
+                validate_agent_input_path(root, exact, TASK_ID, None),
+                ".agent/tasks/" + TASK_ID + "/agent_input.json",
+            )
+
+    def test_github_output_rejects_symlink_and_non_regular_output_targets(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            real_output = root / "real-output"
+            real_output.write_text("", encoding="utf-8")
+            symlink_output = root / "symlink-output"
+            symlink_output.symlink_to(real_output)
+            with self.assertRaisesRegex(HandoffAcceptanceError, "regular file"):
+                write_agent_input_github_output(
+                    symlink_output, ".agent/tasks/" + TASK_ID + "/agent_input.json"
+                )
+
+            directory_output = root / "directory-output"
+            directory_output.mkdir()
+            with self.assertRaisesRegex(HandoffAcceptanceError, "regular file"):
+                write_agent_input_github_output(
+                    directory_output, ".agent/tasks/" + TASK_ID + "/agent_input.json"
+                )
+
+
 if __name__ == "__main__":
     unittest.main()

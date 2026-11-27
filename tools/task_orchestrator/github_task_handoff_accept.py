@@ -530,6 +530,72 @@ def accept_handoff(
     return output
 
 
+
+def validate_agent_input_path(
+    root: Path,
+    output: Path,
+    task_id: str,
+    project_binding: dict[str, Any] | None,
+) -> str:
+    """Return the one regular, non-symlink input path for this exact task namespace."""
+    try:
+        root_abs = Path(root).resolve(strict=True)
+        record_path = orchestrator.task_path(root_abs, task_id, project_binding)
+    except (OSError, orchestrator.TaskError) as exc:
+        raise HandoffAcceptanceError("Expected task namespace is missing or unsafe.") from exc
+    expected = Path(os.path.abspath(record_path.parent / "agent_input.json"))
+    candidate = Path(os.path.abspath(output))
+    if candidate != expected:
+        raise HandoffAcceptanceError("Agent input path differs from the exact accepted task namespace.")
+    try:
+        relative = candidate.relative_to(root_abs)
+    except ValueError as exc:
+        raise HandoffAcceptanceError("Agent input path escapes the repository root.") from exc
+    if (relative.is_absolute() or "\\" in relative.as_posix()
+            or relative.parts[:2] != (".agent", "tasks")
+            or relative.name != "agent_input.json"
+            or any(part in {"", ".", ".."} for part in relative.parts)):
+        raise HandoffAcceptanceError("Agent input path is not a safe project task path.")
+    cursor = root_abs
+    for index, part in enumerate(relative.parts):
+        cursor = cursor / part
+        try:
+            mode = os.lstat(cursor).st_mode
+        except OSError as exc:
+            raise HandoffAcceptanceError("Expected agent input path is missing.") from exc
+        if stat.S_ISLNK(mode):
+            raise HandoffAcceptanceError("Agent input path contains a symlink.")
+        if index < len(relative.parts) - 1 and not stat.S_ISDIR(mode):
+            raise HandoffAcceptanceError("Agent input parent path is not a directory.")
+        if index == len(relative.parts) - 1 and not stat.S_ISREG(mode):
+            raise HandoffAcceptanceError("Agent input target is not a regular file.")
+    return relative.as_posix()
+
+
+def write_agent_input_github_output(output_path: Path, relative_path: str) -> None:
+    """Safely expose exactly one validated path as a GitHub Actions step output."""
+    parts = relative_path.split("/") if isinstance(relative_path, str) else []
+    if (not parts or relative_path.startswith("/") or "\\" in relative_path
+            or "\n" in relative_path or "\r" in relative_path
+            or parts[:2] != [".agent", "tasks"] or parts[-1] != "agent_input.json"
+            or any(part in {"", ".", ".."} for part in parts)):
+        raise HandoffAcceptanceError("Agent input GitHub output path is malformed.")
+    target = Path(output_path)
+    if target.is_symlink() or not target.is_file():
+        raise HandoffAcceptanceError("GITHUB_OUTPUT must be an existing regular file.")
+    try:
+        descriptor = os.open(
+            target, os.O_WRONLY | os.O_APPEND | getattr(os, "O_NOFOLLOW", 0)
+        )
+        with os.fdopen(descriptor, "a", encoding="utf-8") as handle:
+            if not stat.S_ISREG(os.fstat(handle.fileno()).st_mode):
+                raise HandoffAcceptanceError("GITHUB_OUTPUT is not a regular file.")
+            handle.write("agent_input_path=" + relative_path + "\n")
+    except HandoffAcceptanceError:
+        raise
+    except OSError as exc:
+        raise HandoffAcceptanceError("Could not safely write the agent input step output.") from exc
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--handoff-file", required=True)
@@ -537,6 +603,8 @@ def main(argv: list[str] | None = None) -> int:
                         help="Refresh only the lease metadata of an already prepared task after renewal.")
     parser.add_argument("--create-branch", action="store_true",
                         help="Create agent/<task-id> locally from the exact pinned base SHA when on the default branch.")
+    parser.add_argument("--github-output", default=os.environ.get("GITHUB_OUTPUT"),
+                        help="Existing GitHub Actions output file for the validated exact agent-input path.")
     args = parser.parse_args(argv)
     token = os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN") or ""
     repository = os.environ.get("GITHUB_REPOSITORY", "")
@@ -548,6 +616,22 @@ def main(argv: list[str] | None = None) -> int:
             refresh_existing=args.refresh_existing,
             create_branch=args.create_branch,
         )
+        if args.github_output:
+            handoff = _read_json(Path(args.handoff_file))
+            task = handoff.get("task") if isinstance(handoff, dict) else None
+            task_id = task.get("task_id") if isinstance(task, dict) else None
+            if not isinstance(task_id, str):
+                raise HandoffAcceptanceError("Accepted handoff has no valid task ID for path output.")
+            binding = None
+            if handoff.get("handoff_schema") == 3:
+                project = handoff.get("project_binding")
+                lease = handoff.get("lease")
+                if not isinstance(project, dict) or not isinstance(lease, dict):
+                    raise HandoffAcceptanceError("Accepted project handoff has no complete immutable binding.")
+                binding = {**project, "base_sha": lease.get("base_sha")}
+            root = orchestrator.repository_root()
+            relative_path = validate_agent_input_path(root, output, task_id, binding)
+            write_agent_input_github_output(Path(args.github_output), relative_path)
     except (
         OSError, HandoffAcceptanceError, GuardError, LeaseError,
         GitHubTaskError, orchestrator.TaskError, EnvelopeBuildError,

@@ -9073,3 +9073,5 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     );
   }
 }
+
+// CI-only marker: build the isolated JET VPN validation APK; no runtime behavior change.

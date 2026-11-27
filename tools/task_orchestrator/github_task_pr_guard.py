@@ -175,6 +175,42 @@ def validate_paths(files, allow, exclude):
     return paths
 
 
+# Ordinary PRs are intentionally limited to application/documentation content.
+# These roots contain CI policy, executable CI/release helpers, or project-memory
+# producers/consumers. Changes there must use the task-scoped agent path.
+PROTECTED_ORDINARY_PR_ROOTS = (".github", "tools", "scripts")
+PROTECTED_ORDINARY_PR_EXACT = {
+    "CODEOWNERS",
+    "docs/CODEOWNERS",
+    "gradlew",
+    "gradlew.bat",
+    "build.gradle",
+    "build.gradle.kts",
+    "settings.gradle",
+    "settings.gradle.kts",
+    "gradle.properties",
+    "pubspec.yaml",
+    "pubspec.lock",
+    "android/build.gradle",
+    "android/build.gradle.kts",
+    "android/settings.gradle",
+    "android/settings.gradle.kts",
+    "android/gradle.properties",
+    "android/app/build.gradle",
+    "android/app/build.gradle.kts",
+}
+
+
+def is_protected_ordinary_pr_path(path):
+    """Return true for policy, CI, release, and build-control paths."""
+    if not isinstance(path, str) or not path:
+        return True
+    if path in PROTECTED_ORDINARY_PR_EXACT:
+        return True
+    return any(path == root or path.startswith(root + "/")
+               for root in PROTECTED_ORDINARY_PR_ROOTS)
+
+
 def validate_non_agent_pr(event, *, token, repository):
     """Allow ordinary PRs only when they do not touch protected automation paths."""
     if not isinstance(event, dict) or event.get("action") not in {"opened", "synchronize", "reopened", "ready_for_review"}:
@@ -207,8 +243,6 @@ def validate_non_agent_pr(event, *, token, repository):
     if not isinstance(files, list) or not files or len(files) > 1000:
         raise GuardError("Ordinary PR changed-file response is empty or exceeds the guard limit.")
     accepted = []
-    protected_prefixes = (".github/workflows/", ".github/actions/", "tools/task_orchestrator/")
-    protected_exact = {".github/CODEOWNERS", "CODEOWNERS"}
     for item in files:
         if not isinstance(item, dict) or item.get("status") not in {"added", "modified", "removed", "renamed"}:
             raise GuardError("Ordinary PR changed-file entry is malformed or unsupported.")
@@ -226,8 +260,8 @@ def validate_non_agent_pr(event, *, token, repository):
                 path = _path(raw, "changed path")
             except ContractValidationError as exc:
                 raise GuardError(str(exc)) from exc
-            if path in protected_exact or path.startswith(protected_prefixes):
-                raise GuardError("Ordinary PR cannot modify protected automation path: " + path)
+            if is_protected_ordinary_pr_path(path):
+                raise GuardError("Ordinary PR cannot modify protected automation/build path: " + path)
             accepted.append(path)
     return {"status": "not-agent-pr", "message": "Ordinary PR changed paths contain no protected automation files.",
             "pr_number": number, "changed_paths": accepted, "file_count": len(accepted)}

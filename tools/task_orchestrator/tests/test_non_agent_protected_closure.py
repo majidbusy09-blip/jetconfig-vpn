@@ -81,6 +81,10 @@ class NonAgentProtectedClosureTests(unittest.TestCase):
         for filename in (
             "android/app/build.gradle",
             "android/settings.gradle",
+            "android/gradlew",
+            "android/gradle/wrapper/gradle-wrapper.properties",
+            "android/app/proguard-rules.pro",
+            "analysis_options.yaml",
             "gradlew",
             "pubspec.yaml",
             "pubspec.lock",

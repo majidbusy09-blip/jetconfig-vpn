@@ -5,6 +5,7 @@ import hashlib
 import json
 import subprocess
 import tempfile
+import shutil
 import unittest
 from pathlib import Path
 
@@ -33,6 +34,24 @@ class ContextSelectorTests(unittest.TestCase):
         self.payment = self.root / "lib/payment_flow.dart"
         self.connection.write_text("void connectVpn() {}\n", encoding="utf-8")
         self.payment.write_text("void createInvoice() {}\n", encoding="utf-8")
+        repository_root = Path(__file__).resolve().parents[3]
+        (self.root / "docs/projects/test-project").mkdir(parents=True)
+        (self.root / "docs").mkdir(exist_ok=True)
+        shutil.copyfile(
+            repository_root / "docs/PROJECT_MANIFEST_SCHEMA.json",
+            self.root / "docs/PROJECT_MANIFEST_SCHEMA.json",
+        )
+        manifest = json.loads(
+            (repository_root / "docs/projects/jet-vpn-android/manifest.json").read_text(encoding="utf-8")
+        )
+        manifest["project_id"] = "test-project"
+        manifest["repository"]["repository_id"] = "123456789"
+        manifest["repository"]["full_name"] = "owner/test-repository"
+        manifest["repository"]["url"] = "https://github.com/owner/test-repository"
+        manifest["repository"]["default_branch"] = "main"
+        (self.root / "docs/projects/test-project/manifest.json").write_text(
+            json.dumps(manifest, ensure_ascii=False), encoding="utf-8"
+        )
         git(self.root, "add", ".")
         git(self.root, "commit", "-m", "semantic fixture")
         self.base = git(self.root, "rev-parse", "HEAD")
@@ -93,7 +112,10 @@ class ContextSelectorTests(unittest.TestCase):
             "repository_full_name": "owner/test-repository",
             "default_branch": "main",
             "manifest_schema_version": 1,
-            "manifest_sha256": "f" * 64,
+            "manifest_sha256": hashlib.sha256(json.dumps(
+                manifest, ensure_ascii=False, sort_keys=True,
+                separators=(",", ":"), allow_nan=False,
+            ).encode("utf-8")).hexdigest(),
         }
 
     def tearDown(self):
@@ -175,6 +197,16 @@ class ContextSelectorTests(unittest.TestCase):
         self.bind_project_artifacts()
         self.record.pop("github_project_binding")
         with self.assertRaisesRegex(ContextSelectionError, "legacy task"):
+            self.select()
+
+    def test_project_manifest_digest_is_recomputed_from_the_pinned_git_revision(self):
+        self.bind_project_artifacts()
+        forged = dict(self.project_binding, manifest_sha256="e" * 64)
+        self.record["github_project_binding"] = dict(forged)
+        self.index["project_binding"] = dict(forged, base_sha=self.base)
+        self.report["project_binding"] = dict(forged, base_sha=self.base)
+        self.write_artifacts()
+        with self.assertRaisesRegex(ContextSelectionError, "canonical digest"):
             self.select()
 
     def test_project_bound_artifacts_do_not_override_explicit_scope(self):

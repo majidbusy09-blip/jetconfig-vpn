@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import hashlib
 import json
+import shutil
 import subprocess
 import tempfile
 import unittest
@@ -28,6 +30,22 @@ class VerifiedImpactAnalyzerTests(unittest.TestCase):
         (self.root / "lib").mkdir()
         (self.root / "lib/vpn.dart").write_text("void connectVpn() {}\n", encoding="utf-8")
         (self.root / "lib/payment.dart").write_text("void createPayment() {}\n", encoding="utf-8")
+        repository_root = Path(__file__).resolve().parents[3]
+        (self.root / "docs/projects/fixture-app").mkdir(parents=True)
+        (self.root / "docs").mkdir(exist_ok=True)
+        shutil.copyfile(repository_root / "docs/PROJECT_MANIFEST_SCHEMA.json",
+                        self.root / "docs/PROJECT_MANIFEST_SCHEMA.json")
+        self.manifest = json.loads(
+            (repository_root / "docs/projects/jet-vpn-android/manifest.json").read_text(encoding="utf-8")
+        )
+        self.manifest["project_id"] = "fixture-app"
+        self.manifest["repository"]["repository_id"] = "123456"
+        self.manifest["repository"]["full_name"] = "owner/fixture-app"
+        self.manifest["repository"]["url"] = "https://github.com/owner/fixture-app"
+        self.manifest["repository"]["default_branch"] = "main"
+        (self.root / "docs/projects/fixture-app/manifest.json").write_text(
+            json.dumps(self.manifest, ensure_ascii=False), encoding="utf-8"
+        )
         git(self.root, "add", ".")
         git(self.root, "commit", "-m", "impact fixture")
         self.base = git(self.root, "rev-parse", "HEAD")
@@ -122,7 +140,10 @@ class VerifiedImpactAnalyzerTests(unittest.TestCase):
             "repository_full_name": "owner/fixture-app",
             "default_branch": "main",
             "manifest_schema_version": 1,
-            "manifest_sha256": "a" * 64,
+            "manifest_sha256": hashlib.sha256(json.dumps(
+                self.manifest, ensure_ascii=False, sort_keys=True,
+                separators=(",", ":"), allow_nan=False,
+            ).encode("utf-8")).hexdigest(),
             "base_sha": self.base,
         }
         self.task["github_project_binding"] = binding
@@ -148,6 +169,25 @@ class VerifiedImpactAnalyzerTests(unittest.TestCase):
         with self.assertRaises(ImpactAnalysisError):
             self.analyze(["lib/vpn.dart"])
 
+    def test_project_manifest_digest_is_recomputed_at_pinned_revision(self):
+        binding = {
+            "project_id": "fixture-app",
+            "repository_id": "123456",
+            "repository_full_name": "owner/fixture-app",
+            "default_branch": "main",
+            "manifest_schema_version": 1,
+            "manifest_sha256": "0" * 64,
+            "base_sha": self.base,
+        }
+        self.task["github_project_binding"] = dict(binding)
+        self.index["project_binding"] = dict(binding)
+        self.report["project_binding"] = dict(binding)
+        self.index["source_revision"] = self.base
+        self.report["source_revision"] = self.base
+        self.write_artifacts()
+        with self.assertRaisesRegex(ImpactAnalysisError, "canonical digest"):
+            self.analyze(["lib/vpn.dart"])
+
     def test_legacy_task_cannot_consume_v2_artifacts(self):
         self.index["project_binding"] = {"project_id": "fixture-app"}
         self.index["source_revision"] = self.base
@@ -165,7 +205,10 @@ class VerifiedImpactAnalyzerTests(unittest.TestCase):
             "repository_full_name": "owner/fixture-app",
             "default_branch": "main",
             "manifest_schema_version": 1,
-            "manifest_sha256": "a" * 64,
+            "manifest_sha256": hashlib.sha256(json.dumps(
+                self.manifest, ensure_ascii=False, sort_keys=True,
+                separators=(",", ":"), allow_nan=False,
+            ).encode("utf-8")).hexdigest(),
             "base_sha": self.base,
         }
         self.task["github_project_binding"] = dict(binding)

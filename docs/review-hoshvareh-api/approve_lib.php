@@ -1054,14 +1054,80 @@ function wa_renew_panel_user(string $username, float $volumeGb, int $days, array
 
 function wa_approve_payment(PDO $db, int $paymentId): array
 {
-    $st = $db->prepare("SELECT * FROM payments WHERE id = ? LIMIT 1");
-    $st->execute([$paymentId]);
-    $pay = $st->fetch(PDO::FETCH_ASSOC);
-    if (!$pay) {
-        return ['ok' => false, 'error' => 'فیش یافت نشد.'];
-    }
-    if (($pay['status'] ?? '') !== 'pending') {
-        return ['ok' => false, 'error' => 'این فیش دیگر در انتظار نیست.'];
+    // قفل اتمیک: فقط یک worker می‌تواند pending را بردارد (جلوگیری از تمدید دوبل)
+    $startedTx = false;
+    try {
+        if (!$db->inTransaction()) {
+            $db->beginTransaction();
+            $startedTx = true;
+        }
+        try {
+            $st = $db->prepare("SELECT * FROM payments WHERE id = ? AND status = 'pending' FOR UPDATE");
+            $st->execute([$paymentId]);
+        } catch (Throwable $eForUpdate) {
+            // بعضی engineها FOR UPDATE روی غیر InnoDB خطا می‌دهند
+            $st = $db->prepare("SELECT * FROM payments WHERE id = ? LIMIT 1");
+            $st->execute([$paymentId]);
+        }
+        $pay = $st->fetch(PDO::FETCH_ASSOC);
+        if (!$pay) {
+            if ($startedTx && $db->inTransaction()) { $db->rollBack(); }
+            // شاید قبلاً approved شده
+            $st2 = $db->prepare("SELECT id, status FROM payments WHERE id = ? LIMIT 1");
+            $st2->execute([$paymentId]);
+            $ex = $st2->fetch(PDO::FETCH_ASSOC);
+            if ($ex && ($ex['status'] ?? '') === 'approved') {
+                return ['ok' => true, 'msg' => 'قبلاً تأیید شده بود (idempotent).', 'duplicate' => true];
+            }
+            return ['ok' => false, 'error' => 'فیش یافت نشد.'];
+        }
+        if (($pay['status'] ?? '') !== 'pending') {
+            if ($startedTx && $db->inTransaction()) { $db->rollBack(); }
+            if (($pay['status'] ?? '') === 'approved') {
+                return ['ok' => true, 'msg' => 'قبلاً تأیید شده بود (idempotent).', 'duplicate' => true];
+            }
+            return ['ok' => false, 'error' => 'این فیش دیگر در انتظار نیست.'];
+        }
+        // علامت‌گذاری موقت تا worker دوم همان pending را نبیند
+        $lock = $db->prepare("UPDATE payments SET status = 'processing' WHERE id = ? AND status = 'pending'");
+        try {
+            $lock->execute([$paymentId]);
+        } catch (Throwable $eLock) {
+            // ستون/وضعیت processing ممکن است constraint داشته باشد — فقط با FOR UPDATE ادامه بده
+        }
+        if ($lock->rowCount() === 0) {
+            // وضعیت processing پشتیبانی نشد یا ردیف گرفته شد
+            try {
+                $chk = $db->prepare("SELECT status FROM payments WHERE id = ? LIMIT 1");
+                $chk->execute([$paymentId]);
+                $stNow = (string)($chk->fetchColumn() ?: '');
+                if ($stNow === 'approved') {
+                    if ($startedTx && $db->inTransaction()) { $db->rollBack(); }
+                    return ['ok' => true, 'msg' => 'قبلاً تأیید شده بود (idempotent).', 'duplicate' => true];
+                }
+            } catch (Throwable $eChk) {}
+        }
+        if ($startedTx && $db->inTransaction()) {
+            $db->commit();
+            $startedTx = false;
+        }
+    } catch (Throwable $eTx) {
+        if ($startedTx && $db->inTransaction()) {
+            try { $db->rollBack(); } catch (Throwable $eR) {}
+        }
+        // fallback بدون قفل
+        $st = $db->prepare("SELECT * FROM payments WHERE id = ? LIMIT 1");
+        $st->execute([$paymentId]);
+        $pay = $st->fetch(PDO::FETCH_ASSOC);
+        if (!$pay) {
+            return ['ok' => false, 'error' => 'فیش یافت نشد.'];
+        }
+        if (($pay['status'] ?? '') === 'approved') {
+            return ['ok' => true, 'msg' => 'قبلاً تأیید شده بود (idempotent).', 'duplicate' => true];
+        }
+        if (($pay['status'] ?? '') !== 'pending' && ($pay['status'] ?? '') !== 'processing') {
+            return ['ok' => false, 'error' => 'این فیش دیگر در انتظار نیست.'];
+        }
     }
 
     $action = (string)($pay['action_type'] ?? '');
@@ -1199,7 +1265,7 @@ function wa_approve_payment(PDO $db, int $paymentId): array
                     ->execute([$newVol, $daysStore, $targetUser]);
             }
         }
-        $db->prepare("UPDATE payments SET status = 'approved' WHERE id = ?")->execute([$paymentId]);
+        $db->prepare("UPDATE payments SET status = 'approved' WHERE id = ? AND status IN ('pending','processing')")->execute([$paymentId]);
         $acc = dirname(WEBADMIN_ROOT) . '/accounting.php';
         if (is_readable($acc)) {
             require_once $acc;
@@ -1241,7 +1307,7 @@ function wa_approve_payment(PDO $db, int $paymentId): array
             if ($subUrl !== '') {
                 $dupMsg .= "🔗 لینک:\n<code>{$subUrl}</code>";
             }
-            $db->prepare("UPDATE payments SET status = 'approved' WHERE id = ?")->execute([$paymentId]);
+            $db->prepare("UPDATE payments SET status = 'approved' WHERE id = ? AND status IN ('pending','processing')")->execute([$paymentId]);
             webadmin_tg('sendMessage', [
                 'chat_id' => $uid,
                 'text' => $dupMsg,
@@ -1288,7 +1354,7 @@ function wa_approve_payment(PDO $db, int $paymentId): array
         try {
             $db->prepare('UPDATE payments SET target_username = ? WHERE id = ?')->execute([$targetUser, $paymentId]);
         } catch (Throwable $e) {}
-        $db->prepare("UPDATE payments SET status = 'approved' WHERE id = ?")->execute([$paymentId]);
+        $db->prepare("UPDATE payments SET status = 'approved' WHERE id = ? AND status IN ('pending','processing')")->execute([$paymentId]);
         try {
             $db->prepare('UPDATE users SET has_bought = 1 WHERE user_id = ?')->execute([$uid]);
         } catch (Throwable $e) {}
@@ -1358,7 +1424,7 @@ function wa_approve_payment(PDO $db, int $paymentId): array
         }
     } catch (Throwable $e) {}
 
-    $db->prepare("UPDATE payments SET status = 'approved' WHERE id = ?")->execute([$paymentId]);
+    $db->prepare("UPDATE payments SET status = 'approved' WHERE id = ? AND status IN ('pending','processing')")->execute([$paymentId]);
 
     $acc = dirname(WEBADMIN_ROOT) . '/accounting.php';
     if (is_readable($acc)) {
@@ -1432,7 +1498,7 @@ function wa_retry_stuck_payment(PDO $db, int $paymentId): array
     $res = wa_approve_payment($db, $paymentId);
     if (empty($res['ok'])) {
         // برگرداندن به approved تا حسابداری قبلی حفظ شود ولی بدون سفارش
-        $db->prepare("UPDATE payments SET status = 'approved' WHERE id = ?")->execute([$paymentId]);
+        $db->prepare("UPDATE payments SET status = 'approved' WHERE id = ? AND status IN ('pending','processing')")->execute([$paymentId]);
         return $res;
     }
     return $res;

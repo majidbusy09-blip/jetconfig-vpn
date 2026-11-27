@@ -13,9 +13,9 @@ from pathlib import Path
 from typing import Any
 
 try:
-    from .context_selector import ContextSelectionError, REVISION_RE, _git_blob_sha, _read_json, _safe_index_path
+    from .context_selector import (ContextSelectionError, REVISION_RE, _git_blob_sha, _read_json, _safe_index_path, _verified_artifact_provenance)
 except ImportError:
-    from context_selector import ContextSelectionError, REVISION_RE, _git_blob_sha, _read_json, _safe_index_path
+    from context_selector import (ContextSelectionError, REVISION_RE, _git_blob_sha, _read_json, _safe_index_path, _verified_artifact_provenance)
 
 MAX_CHANGED_PATHS = 500
 MAX_GRAPH_ENTRIES = 250_000
@@ -85,19 +85,12 @@ def analyze_impact(*, root: Path, task_record: dict[str, Any],
     if (report.get("schema_version") != 1
             or report.get("analysis_mode") != "static_reachability_from_curated_entrypoints"):
         raise ImpactAnalysisError("Unsupported critical-path report schema.")
-    project_binding = task_record.get("github_project_binding")
-    if project_binding is not None:
-        if not isinstance(project_binding, dict):
-            raise ImpactAnalysisError("Task project binding is malformed.")
-        expected_binding = dict(project_binding)
-        expected_binding["base_sha"] = base_sha
-        if (index.get("project_binding") != expected_binding
-                or report.get("project_binding") != expected_binding
-                or index.get("source_revision") != base_sha
-                or report.get("source_revision") != base_sha):
-            raise ImpactAnalysisError("Semantic artifacts belong to a different project, manifest, or pinned source revision.")
-    elif any(key in value for value in (index, report) for key in ("project_binding", "source_revision")):
-        raise ImpactAnalysisError("A legacy task cannot consume project-scoped semantic artifacts.")
+    try:
+        artifact_provenance = _verified_artifact_provenance(
+            task_record, base_sha, index, report, index_raw, report_raw,
+        )
+    except ContextSelectionError as exc:
+        raise ImpactAnalysisError(str(exc)) from exc
     source = index.get("source")
     files = source.get("files") if isinstance(source, dict) else None
     if (not isinstance(files, list) or not files or len(files) > 5_000
@@ -227,6 +220,7 @@ def analyze_impact(*, root: Path, task_record: dict[str, Any],
         "call_sites_in_changed_files": sorted(related_calls, key=lambda x: (x["source_path"], str(x.get("target_name") or ""))),
         "call_sites_targeting_changed_declarations": sorted(incoming_calls, key=lambda x: (x["source_path"], str(x.get("target_name") or ""))),
         "recommended_verification_profiles": sorted(profiles), "risk_flags": sorted(set(risk_flags)),
+        "artifact_provenance": artifact_provenance,
         "semantic_index_sha256": hashlib.sha256(index_raw).hexdigest(),
         "critical_paths_sha256": hashlib.sha256(report_raw).hexdigest(),
         "analysis_method": "pinned_git_blob_verified_resolved_declarations_and_curated_static_reachability",

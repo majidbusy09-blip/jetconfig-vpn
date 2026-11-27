@@ -2353,34 +2353,23 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
 
 
   String _getDisplayTotal() {
-    if (userData == null) return 'نامحدود';
+    if (userData == null) return '—';
+    final cycleKnown = userData!['cycle_known'] == true ||
+        userData!['cycle_known'] == 1 ||
+        userData!['cycle_known'] == '1';
+    if (!cycleKnown) return '—';
+
     double? pick(dynamic raw) {
       if (raw == null) return null;
       final v = raw is num ? raw.toDouble() : double.tryParse('$raw');
       if (v == null || v <= 0) return null;
       return v;
     }
-    // فقط چرخه معتبر سرور — هرگز total_gb انباشتی پنل
-    final cycleKnown = userData!['cycle_known'] == true ||
-        userData!['cycle_known'] == 1 ||
-        userData!['cycle_known'] == '1';
-    double? shown = pick(userData!['display_total_gb']) ??
+
+    // فقط مقدار صریح چرخه از API معتبر است؛ plan/last_renew و total پنل جایگزین نیستند.
+    final shown = pick(userData!['display_total_gb']) ??
         pick(userData!['volume_cycle_gb']);
-    if (shown == null && cycleKnown) {
-      shown = pick(userData!['plan_volume_gb']) ?? pick(userData!['last_renew_gb']);
-    }
-    // استنتاج امن سمت کلاینت فقط وقتی سرور cycle_known نفرستاده ولی last_renew و remaining سازگارند
-    if (shown == null) {
-      final plan = pick(userData!['plan_volume_gb']) ?? pick(userData!['last_renew_gb']);
-      final rem = pick(userData!['remaining_gb']);
-      if (plan != null && rem != null && rem <= plan * 1.02) {
-        shown = plan;
-      }
-    }
-    if (shown == null) {
-      // نامشخص: عدد سقف پنل نشان داده نشود
-      return '—';
-    }
+    if (shown == null) return '—';
     final c = shown == shown.roundToDouble()
         ? shown.toInt().toString()
         : shown.toStringAsFixed(1);
@@ -5853,39 +5842,23 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     final t = ui;
     final jet = isJetTheme;
     final data = userData;
-    final remainingRaw = data?['remaining_gb'];
-    final displayRaw = data?['display_total_gb'];
-    final cycleRaw = data?['volume_cycle_gb'];
-    final planRaw = data?['plan_volume_gb'] ?? data?['last_renew_gb'];
     final usedPctRaw = data?['used_cycle_percent'];
     final cycleKnownFlag = data?['cycle_known'] == true ||
         data?['cycle_known'] == 1 ||
         data?['cycle_known'] == '1';
-    final remaining = remainingRaw is num ? remainingRaw.toDouble() : double.tryParse('$remainingRaw');
-    final displayVol = displayRaw is num ? displayRaw.toDouble() : double.tryParse('$displayRaw');
-    final cycleVol = cycleRaw is num ? cycleRaw.toDouble() : double.tryParse('$cycleRaw');
-    final planVol = planRaw is num ? planRaw.toDouble() : double.tryParse('$planRaw');
     final usedPctServer = usedPctRaw is num
         ? usedPctRaw.toDouble()
         : double.tryParse('$usedPctRaw');
-    // هرگز total_gb انباشتی پنل را مخرج درصد نکن
-    double? denom;
-    if (displayVol != null && displayVol > 0) {
-      denom = displayVol;
-    } else if (cycleVol != null && cycleVol > 0) {
-      denom = cycleVol;
-    } else if (planVol != null && planVol > 0 && remaining != null && remaining <= planVol * 1.02) {
-      denom = planVol; // استنتاج امن
-    }
-    final hasServerPct = cycleKnownFlag && usedPctServer != null;
-    final canShowProgress = _hasActiveSubscription() &&
-        (hasServerPct || (denom != null && remaining != null && denom > 0));
-    double progress = 0.0;
-    if (hasServerPct) {
-      progress = (1.0 - (usedPctServer! / 100.0)).clamp(0.0, 1.0);
-    } else if (denom != null && remaining != null && denom > 0) {
-      progress = (remaining / denom).clamp(0.0, 1.0);
-    }
+
+    // درصد و نوار فقط با چرخه‌ای که API صریحاً معتبر اعلام کرده نمایش داده می‌شوند.
+    final hasServerPct = cycleKnownFlag &&
+        usedPctServer != null &&
+        usedPctServer >= 0 &&
+        usedPctServer <= 100;
+    final canShowProgress = _hasActiveSubscription() && hasServerPct;
+    final progress = hasServerPct
+        ? (1.0 - (usedPctServer! / 100.0)).clamp(0.0, 1.0)
+        : 0.0;
 
     Widget detail(String label, String value, IconData icon, Color color) {
       return Expanded(
@@ -5951,6 +5924,14 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
               detail('اعتبار', _getDisplayExpire(), Icons.schedule_rounded, Colors.amberAccent),
             ],
           ),
+          if (_hasActiveSubscription() && !cycleKnownFlag) ...[
+            const SizedBox(height: 6),
+            Text(
+              'اطلاعات چرخه حجم کامل نیست؛ برای دریافت اطلاعات تازه، بروزرسانی اشتراک را بزنید.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: t.muted, fontSize: 9.5),
+            ),
+          ],
           if (canShowProgress) ...[
             const SizedBox(height: 9),
             Row(

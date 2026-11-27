@@ -175,13 +175,71 @@ def validate_paths(files, allow, exclude):
     return paths
 
 
+def validate_non_agent_pr(event, *, token, repository):
+    """Allow ordinary PRs only when they do not touch protected automation paths."""
+    if not isinstance(event, dict) or event.get("action") not in {"opened", "synchronize", "reopened", "ready_for_review"}:
+        raise GuardError("Pull request event is malformed or unsupported.")
+    pr = event.get("pull_request")
+    if not isinstance(pr, dict) or pr.get("state") != "open":
+        raise GuardError("Pull request event is missing an open PR.")
+    base = pr.get("base")
+    if not isinstance(base, dict) or base.get("ref") != "main":
+        raise GuardError("Pull request must target main.")
+    if not REPO_RE.fullmatch(repository):
+        raise GuardError("GITHUB_REPOSITORY is invalid.")
+    event_repository = event.get("repository")
+    if not isinstance(event_repository, dict) or event_repository.get("full_name") != repository:
+        raise GuardError("Event repository mismatch.")
+    live_repository = api_get(repository, "", token)
+    for key in ("id", "full_name", "html_url", "default_branch"):
+        if event_repository.get(key) != live_repository.get(key):
+            raise GuardError("Event repository identity differs from live GitHub metadata.")
+    base_repo = base.get("repo")
+    if not isinstance(base_repo, dict):
+        raise GuardError("PR base repository metadata is missing.")
+    for key in ("id", "full_name", "html_url", "default_branch"):
+        if base_repo.get(key) != live_repository.get(key):
+            raise GuardError("PR base repository identity mismatch: " + key + ".")
+    number = pr.get("number")
+    if isinstance(number, bool) or not isinstance(number, int) or number < 1:
+        raise GuardError("PR number is invalid.")
+    files = changed_files(repository, number, token)
+    if not isinstance(files, list) or not files or len(files) > 1000:
+        raise GuardError("Ordinary PR changed-file response is empty or exceeds the guard limit.")
+    accepted = []
+    protected_prefixes = (".github/workflows/", ".github/actions/", "tools/task_orchestrator/")
+    protected_exact = {".github/CODEOWNERS", "CODEOWNERS"}
+    for item in files:
+        if not isinstance(item, dict) or item.get("status") not in {"added", "modified", "removed", "renamed"}:
+            raise GuardError("Ordinary PR changed-file entry is malformed or unsupported.")
+        filename = item.get("filename")
+        if not isinstance(filename, str):
+            raise GuardError("Ordinary PR changed-file path is missing.")
+        candidates = [filename]
+        if item["status"] == "renamed":
+            previous = item.get("previous_filename")
+            if not isinstance(previous, str):
+                raise GuardError("Renamed ordinary PR file is missing its previous path.")
+            candidates.append(previous)
+        for raw in candidates:
+            try:
+                path = _path(raw, "changed path")
+            except ContractValidationError as exc:
+                raise GuardError(str(exc)) from exc
+            if path in protected_exact or path.startswith(protected_prefixes):
+                raise GuardError("Ordinary PR cannot modify protected automation path: " + path)
+            accepted.append(path)
+    return {"status": "not-agent-pr", "message": "Ordinary PR changed paths contain no protected automation files.",
+            "pr_number": number, "changed_paths": accepted, "file_count": len(accepted)}
+
+
 def validate_agent_pr(event, *, token, repository, now=None):
     if not isinstance(event, dict) or event.get("action") not in {"opened", "synchronize", "reopened", "ready_for_review"} or not isinstance(event.get("pull_request"), dict):
         raise GuardError("Pull request event is malformed or unsupported.")
     pr = event["pull_request"]
     envelope = parse_pr_envelope(pr.get("body"))
     if envelope is None:
-        return {"status": "not-agent-pr", "message": "No agent PR envelope."}
+        return validate_non_agent_pr(event, token=token, repository=repository)
     if not REPO_RE.fullmatch(repository):
         raise GuardError("GITHUB_REPOSITORY is invalid.")
     if not isinstance(event.get("repository"), dict) or event["repository"].get("full_name") != repository:

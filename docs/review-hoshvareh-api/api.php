@@ -2938,6 +2938,85 @@ try {
     $apiCanClaimTest = false;
 }
 
+
+// ——— حجم دوره نمایش (Source of Truth برای اپ) ———
+// volume_cycle_gb = مانده واقعی قبل از تمدید + حجم بسته خریداری‌شده
+// total_gb پنل = سقف انباشتی lifetime (برای فنی/ادمین؛ مبنای درصد کاربر نیست)
+try {
+    if (!isset($apiVolumeCycleGb)) $apiVolumeCycleGb = 0.0;
+    if (!isset($apiPlanVolumeGb)) $apiPlanVolumeGb = 0.0;
+    // 1) از سفارش
+    if ($apiVolumeCycleGb <= 0 && isset($ordFlag) && is_array($ordFlag)) {
+        if (isset($ordFlag['volume_cycle_gb']) && (float)$ordFlag['volume_cycle_gb'] > 0) {
+            $apiVolumeCycleGb = (float)$ordFlag['volume_cycle_gb'];
+        }
+        if ($apiPlanVolumeGb <= 0 && isset($ordFlag['last_renew_gb']) && (float)$ordFlag['last_renew_gb'] > 0) {
+            $apiPlanVolumeGb = (float)$ordFlag['last_renew_gb'];
+        }
+    }
+    // 2) از آخرین پرداخت approved همین کانفیگ
+    if ($apiPlanVolumeGb <= 0 && isset($db) && isset($username)) {
+        try {
+            $stPk2 = $db->prepare("SELECT p.plan_key FROM payments p WHERE p.status='approved' AND p.action_type IN ('renew','new') AND (p.target_username = ? OR p.target_username = ?) ORDER BY p.id DESC LIMIT 1");
+            $stPk2->execute([(string)$username, (string)($ordFlag['config_username'] ?? $username)]);
+            $pk2 = (string)($stPk2->fetchColumn() ?: '');
+            if ($pk2 !== '') {
+                try {
+                    $stPl2 = $db->prepare('SELECT COALESCE(vol, volume_gb, 0) AS v FROM bot_plans WHERE plan_key = ? LIMIT 1');
+                    $stPl2->execute([$pk2]);
+                    $v2 = (float)($stPl2->fetchColumn() ?: 0);
+                    if ($v2 > 0) $apiPlanVolumeGb = $v2;
+                } catch (Throwable $ePl) {
+                    try {
+                        $stPl2 = $db->prepare('SELECT volume_gb FROM bot_plans WHERE plan_key = ? LIMIT 1');
+                        $stPl2->execute([$pk2]);
+                        $v2 = (float)($stPl2->fetchColumn() ?: 0);
+                        if ($v2 > 0) $apiPlanVolumeGb = $v2;
+                    } catch (Throwable $ePl2) {}
+                }
+            }
+        } catch (Throwable $ePay) {}
+    }
+    // 3) استنتاج چرخه وقتی snapshot نداریم
+    $remNow = isset($remainingGB) ? (float)$remainingGB : 0.0;
+    if ($apiVolumeCycleGb <= 0 && $apiPlanVolumeGb > 0) {
+        // اگر مانده ≤ بسته آخر → چرخه = بسته آخر (سناریوی مصرف کامل قبلی + تمدید)
+        // اگر مانده > بسته آخر → چرخه = مانده (هنوز از مانده+بسته کم مصرف شده یا تازه تمدید)
+        $apiVolumeCycleGb = ($remNow > $apiPlanVolumeGb) ? $remNow : $apiPlanVolumeGb;
+    }
+    // 4) بک‌فیل دیتابیس
+    if ($apiVolumeCycleGb > 0 && isset($db) && isset($ordFlag) && is_array($ordFlag) && !empty($ordFlag['id'])) {
+        try {
+            try { $db->exec('ALTER TABLE orders ADD COLUMN volume_cycle_gb DOUBLE NULL DEFAULT NULL'); } catch (Throwable $e) {}
+            try { $db->exec('ALTER TABLE orders ADD COLUMN last_renew_gb DOUBLE NULL DEFAULT NULL'); } catch (Throwable $e) {}
+            $db->prepare('UPDATE orders SET volume_cycle_gb = ? WHERE id = ? AND (volume_cycle_gb IS NULL OR volume_cycle_gb <= 0)')
+               ->execute([round($apiVolumeCycleGb, 3), (int)$ordFlag['id']]);
+            if ($apiPlanVolumeGb > 0) {
+                $db->prepare('UPDATE orders SET last_renew_gb = ? WHERE id = ? AND (last_renew_gb IS NULL OR last_renew_gb <= 0)')
+                   ->execute([round($apiPlanVolumeGb, 3), (int)$ordFlag['id']]);
+            }
+        } catch (Throwable $eBf) {}
+    }
+} catch (Throwable $eCyc) {}
+
+// درصد مصرف چرخه (محاسبه سرور — اپ نباید حدس بزند)
+$apiUsedCyclePct = 0;
+$apiDisplayTotalGb = 0.0;
+try {
+    $cyc = isset($apiVolumeCycleGb) ? (float)$apiVolumeCycleGb : 0.0;
+    $rem = isset($remainingGB) ? (float)$remainingGB : 0.0;
+    if ($cyc > 0) {
+        $apiDisplayTotalGb = $cyc;
+        $usedC = max(0.0, $cyc - max(0.0, $rem));
+        $apiUsedCyclePct = (int)round(min(100.0, max(0.0, ($usedC / $cyc) * 100.0)));
+    } elseif (isset($totalGB) && (float)$totalGB > 0) {
+        $apiDisplayTotalGb = (float)$totalGB;
+        $usedC = max(0.0, (float)$totalGB - max(0.0, $rem));
+        $apiUsedCyclePct = (int)round(min(100.0, max(0.0, ($usedC / (float)$totalGB) * 100.0)));
+    }
+} catch (Throwable $ePct) {}
+
+
 // اخطار حجم برای اپ: هیبرید (سقف کوچک٪ / سقف بزرگ مطلق)
 $apiShouldWarnVol = false;
 try {
@@ -2970,25 +3049,9 @@ echo json_encode([
     'remaining_gb'  => $remainingGB,
     'plan_volume_gb'=> isset($apiPlanVolumeGb) ? round((float)$apiPlanVolumeGb, 3) : 0,
     'last_renew_gb' => isset($apiPlanVolumeGb) ? round((float)$apiPlanVolumeGb, 3) : 0,
-    'volume_cycle_gb' => (function () use (&$apiVolumeCycleGb, &$apiPlanVolumeGb, $remainingGB, $db, $ordFlag) {
-        $cycle = 0.0;
-        if (isset($apiVolumeCycleGb) && (float)$apiVolumeCycleGb > 0) {
-            $cycle = (float)$apiVolumeCycleGb;
-        } elseif (isset($apiPlanVolumeGb) && (float)$apiPlanVolumeGb > 0) {
-            $lr = (float)$apiPlanVolumeGb;
-            $rem = (float)$remainingGB;
-            $cycle = max($lr, ($rem > 0 ? $rem : $lr));
-            // بک‌فیل ستون برای تمدیدهای قبلی که volume_cycle ذخیره نشده
-            try {
-                if (is_array($ordFlag) && !empty($ordFlag['id'])) {
-                    try { $db->exec('ALTER TABLE orders ADD COLUMN volume_cycle_gb DOUBLE NULL DEFAULT NULL'); } catch (Throwable $e) {}
-                    $db->prepare('UPDATE orders SET volume_cycle_gb = ? WHERE id = ? AND (volume_cycle_gb IS NULL OR volume_cycle_gb <= 0)')
-                       ->execute([round($cycle, 3), (int)$ordFlag['id']]);
-                }
-            } catch (Throwable $e) {}
-        }
-        return $cycle > 0 ? round($cycle, 3) : 0;
-    })(),
+    'volume_cycle_gb' => isset($apiVolumeCycleGb) && (float)$apiVolumeCycleGb > 0 ? round((float)$apiVolumeCycleGb, 3) : 0,
+    'display_total_gb' => isset($apiDisplayTotalGb) && (float)$apiDisplayTotalGb > 0 ? round((float)$apiDisplayTotalGb, 3) : (isset($totalGB) ? round((float)$totalGB, 3) : 0),
+    'used_cycle_percent' => isset($apiUsedCyclePct) ? (int)$apiUsedCyclePct : 0,
     'should_warn_volume' => !empty($apiShouldWarnVol),
     'expire_days'   => $expireDays,
     'expire_ts'     => $expireTimestamp ?: 0,

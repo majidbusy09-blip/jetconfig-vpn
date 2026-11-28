@@ -2939,18 +2939,39 @@ function jet_sync_order_after_renew(PDO $db, string $configUsername, $ren, int $
         $remainingBeforeGb = max(0.0, (float)$ren['remaining_before_gb']);
     }
     $cycleGb = ($add > 0) ? round($remainingBeforeGb + $add, 3) : 0.0;
+    $orderId = 0;
     try {
-        if ($add > 0 && $cycleGb > 0) {
-            $db->prepare("UPDATE orders SET volume_gb = ?, days = ?, last_renew_gb = ?, volume_cycle_gb = ?, warned_volume = 0, warned_expire = 0 WHERE config_username = ?")
-                ->execute([$newVol, $daysStore, $add, $cycleGb, $configUsername]);
-        } elseif ($add > 0) {
-            $db->prepare("UPDATE orders SET volume_gb = ?, days = ?, last_renew_gb = ?, warned_volume = 0, warned_expire = 0 WHERE config_username = ?")
-                ->execute([$newVol, $daysStore, $add, $configUsername]);
+        $stOid = $db->prepare('SELECT id FROM orders WHERE config_username = ? ORDER BY id DESC LIMIT 1');
+        $stOid->execute([$configUsername]);
+        $orderId = (int)($stOid->fetchColumn() ?: 0);
+    } catch (Throwable $eOid) {}
+    try {
+        if ($orderId > 0) {
+            if ($add > 0 && $cycleGb > 0) {
+                $db->prepare("UPDATE orders SET volume_gb = ?, days = ?, last_renew_gb = ?, volume_cycle_gb = ?, warned_volume = 0, warned_expire = 0 WHERE id = ?")
+                    ->execute([$newVol, $daysStore, $add, $cycleGb, $orderId]);
+            } elseif ($add > 0) {
+                $db->prepare("UPDATE orders SET volume_gb = ?, days = ?, last_renew_gb = ?, warned_volume = 0, warned_expire = 0 WHERE id = ?")
+                    ->execute([$newVol, $daysStore, $add, $orderId]);
+                error_log('[jet_sync] cycle snapshot skipped (no cycleGb) order_id=' . $orderId);
+            } else {
+                $db->prepare("UPDATE orders SET volume_gb = ?, days = ?, warned_volume = 0, warned_expire = 0 WHERE id = ?")
+                    ->execute([$newVol, $daysStore, $orderId]);
+            }
         } else {
-            $db->prepare("UPDATE orders SET volume_gb = ?, days = ?, warned_volume = 0, warned_expire = 0 WHERE config_username = ?")
-                ->execute([$newVol, $daysStore, $configUsername]);
+            if ($add > 0 && $cycleGb > 0) {
+                $db->prepare("UPDATE orders SET volume_gb = ?, days = ?, last_renew_gb = ?, volume_cycle_gb = ?, warned_volume = 0, warned_expire = 0 WHERE config_username = ?")
+                    ->execute([$newVol, $daysStore, $add, $cycleGb, $configUsername]);
+            } elseif ($add > 0) {
+                $db->prepare("UPDATE orders SET volume_gb = ?, days = ?, last_renew_gb = ?, warned_volume = 0, warned_expire = 0 WHERE config_username = ?")
+                    ->execute([$newVol, $daysStore, $add, $configUsername]);
+            } else {
+                $db->prepare("UPDATE orders SET volume_gb = ?, days = ?, warned_volume = 0, warned_expire = 0 WHERE config_username = ?")
+                    ->execute([$newVol, $daysStore, $configUsername]);
+            }
         }
     } catch (Throwable $e) {
+        error_log('[jet_sync] orders update failed order_id=' . $orderId . ' err=' . $e->getMessage());
         try {
             if ($add > 0) {
                 $db->prepare("UPDATE orders SET volume_gb = ?, days = ?, last_renew_gb = ?, warned_volume = 0, warned_expire = 0 WHERE config_username = ?")

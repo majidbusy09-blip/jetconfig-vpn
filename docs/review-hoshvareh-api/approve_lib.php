@@ -1241,20 +1241,49 @@ function wa_approve_payment(PDO $db, int $paymentId): array
         try {
             try { $db->exec('ALTER TABLE orders ADD COLUMN last_renew_gb DOUBLE NULL DEFAULT NULL'); } catch (Throwable $eCol) {}
             try { $db->exec('ALTER TABLE orders ADD COLUMN volume_cycle_gb DOUBLE NULL DEFAULT NULL'); } catch (Throwable $eCol2) {}
+            // چرخه = مانده واقعی قبل از تمدید + حجم همین بسته (نه سقف پنل)
             $cycleGb = null;
             if (is_array($ren) && isset($ren['volume_cycle_gb']) && (float)$ren['volume_cycle_gb'] > 0) {
-                $cycleGb = (float)$ren['volume_cycle_gb'];
-            } elseif (is_array($ren) && isset($ren['remaining_before_gb'])) {
+                $cycleGb = round((float)$ren['volume_cycle_gb'], 3);
+            } elseif (is_array($ren) && array_key_exists('remaining_before_gb', $ren)) {
                 $cycleGb = round(max(0.0, (float)$ren['remaining_before_gb']) + (float)$vol, 3);
             } else {
+                // بدون مانده قبل: فقط حجم بسته (فرض مصرف کامل قبلی نامعتبر اعلام نمی‌شود در API مگر snapshot باشد)
                 $cycleGb = round((float)$vol, 3);
             }
+            // به‌روزرسانی فقط آخرین سفارش همین کانفیگ (با id) تا چند سفارش قاطی نشوند
+            $orderId = 0;
             try {
-                $db->prepare('UPDATE orders SET volume_gb = ?, days = ?, last_renew_gb = ?, volume_cycle_gb = ?, warned_volume = 0, warned_expire = 0 WHERE config_username = ?')
-                    ->execute([$newVol, $daysStore, (float)$vol, $cycleGb, $targetUser]);
-            } catch (Throwable $eCycle) {
-                $db->prepare('UPDATE orders SET volume_gb = ?, days = ?, last_renew_gb = ?, warned_volume = 0, warned_expire = 0 WHERE config_username = ?')
-                    ->execute([$newVol, $daysStore, (float)$vol, $targetUser]);
+                $stOid = $db->prepare('SELECT id FROM orders WHERE config_username = ? ORDER BY id DESC LIMIT 1');
+                $stOid->execute([$targetUser]);
+                $orderId = (int)($stOid->fetchColumn() ?: 0);
+            } catch (Throwable $eOid) {}
+            $snapOk = false;
+            if ($orderId > 0) {
+                try {
+                    $db->prepare('UPDATE orders SET volume_gb = ?, days = ?, last_renew_gb = ?, volume_cycle_gb = ?, warned_volume = 0, warned_expire = 0 WHERE id = ?')
+                        ->execute([$newVol, $daysStore, (float)$vol, $cycleGb, $orderId]);
+                    $snapOk = true;
+                } catch (Throwable $eCycle) {
+                    try {
+                        $db->prepare('UPDATE orders SET volume_gb = ?, days = ?, last_renew_gb = ?, warned_volume = 0, warned_expire = 0 WHERE id = ?')
+                            ->execute([$newVol, $daysStore, (float)$vol, $orderId]);
+                    } catch (Throwable $e2) {}
+                    error_log('[wa_approve] volume_cycle snapshot failed order_id=' . $orderId . ' op=renew');
+                }
+            } else {
+                try {
+                    $db->prepare('UPDATE orders SET volume_gb = ?, days = ?, last_renew_gb = ?, volume_cycle_gb = ?, warned_volume = 0, warned_expire = 0 WHERE config_username = ?')
+                        ->execute([$newVol, $daysStore, (float)$vol, $cycleGb, $targetUser]);
+                    $snapOk = true;
+                } catch (Throwable $eCycle) {
+                    $db->prepare('UPDATE orders SET volume_gb = ?, days = ?, last_renew_gb = ?, warned_volume = 0, warned_expire = 0 WHERE config_username = ?')
+                        ->execute([$newVol, $daysStore, (float)$vol, $targetUser]);
+                    error_log('[wa_approve] volume_cycle snapshot failed user=' . substr((string)$targetUser, 0, 24) . ' op=renew');
+                }
+            }
+            if (!$snapOk) {
+                error_log('[wa_approve] cycle snapshot not stored op=renew order_id=' . $orderId);
             }
         } catch (Throwable $e) {
             try {
@@ -1264,6 +1293,7 @@ function wa_approve_payment(PDO $db, int $paymentId): array
                 $db->prepare('UPDATE orders SET volume_gb = ?, days = ? WHERE config_username = ?')
                     ->execute([$newVol, $daysStore, $targetUser]);
             }
+            error_log('[wa_approve] orders update fallback op=renew err=' . $e->getMessage());
         }
         $db->prepare("UPDATE payments SET status = 'approved' WHERE id = ? AND status IN ('pending','processing')")->execute([$paymentId]);
         $acc = dirname(WEBADMIN_ROOT) . '/accounting.php';

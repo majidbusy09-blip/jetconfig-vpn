@@ -2913,9 +2913,7 @@ try {
                     }
                 }
             } catch (Throwable $e) {}
-            if ($apiPlanVolumeGb <= 0 && isset($ordFlag['volume_gb']) && (float)$ordFlag['volume_gb'] > 0) {
-                $apiPlanVolumeGb = (float)$ordFlag['volume_gb'];
-            }
+            // orders.volume_gb تجمعی است — هرگز به‌عنوان حجم پلن/چرخه استفاده نشود
         }
     }
     // اگر از سفارش معلوم نشد ولی حجم خیلی کم + on_hold یک‌روزه است، تست حساب کن
@@ -2940,29 +2938,42 @@ try {
 
 
 // ——— حجم دوره نمایش (Source of Truth برای اپ) ———
-// volume_cycle_gb فقط وقتی در تمدید/خرید به‌صورت اتمیک ذخیره شده معتبر است.
-// سقف انباشتی پنل (total_gb) هرگز جایگزین چرخه نمی‌شود.
-// مقدار حدسی در دیتابیس نوشته نمی‌شود.
+// فقط snapshot ذخیره‌شده در orders.volume_cycle_gb معتبر است.
+// هیچ استنتاجی (remaining<=plan و ...) انجام نمی‌شود.
+// orders.volume_gb و total_gb پنل = سقف انباشتی lifetime — مبنای نمایش کاربر نیستند.
 $apiCycleKnown = false;
 $apiVolumeCycleGb = 0.0;
 $apiPlanVolumeGb = isset($apiPlanVolumeGb) ? (float)$apiPlanVolumeGb : 0.0;
 $apiDisplayTotalGb = 0.0;
 $apiUsedCyclePct = 0;
-$apiCycleSource = 'none';
+$apiCycleSource = 'unknown_no_verified_cycle_snapshot';
 
 try {
-    // 1) snapshot قطعی از سفارش
+    // last_renew فقط از ستون اختصاصی یا plan_key پرداخت — نه volume_gb سفارش
     if (isset($ordFlag) && is_array($ordFlag)) {
-        if (isset($ordFlag['volume_cycle_gb']) && (float)$ordFlag['volume_cycle_gb'] > 0) {
-            $apiVolumeCycleGb = (float)$ordFlag['volume_cycle_gb'];
-            $apiCycleKnown = true;
-            $apiCycleSource = 'order.volume_cycle_gb';
-        }
-        if ($apiPlanVolumeGb <= 0 && isset($ordFlag['last_renew_gb']) && (float)$ordFlag['last_renew_gb'] > 0) {
+        if (isset($ordFlag['last_renew_gb']) && (float)$ordFlag['last_renew_gb'] > 0) {
             $apiPlanVolumeGb = (float)$ordFlag['last_renew_gb'];
         }
+        // snapshot قطعی
+        if (isset($ordFlag['volume_cycle_gb']) && (float)$ordFlag['volume_cycle_gb'] > 0) {
+            $snap = (float)$ordFlag['volume_cycle_gb'];
+            // رد snapshot آلوده: اگر با volume_gb تجمعی یکی است و last_renew کوچک‌تر و معتبر داریم
+            // (نشانهٔ ذخیرهٔ اشتباه سقف پنل به‌جای چرخه)
+            $cum = isset($ordFlag['volume_gb']) ? (float)$ordFlag['volume_gb'] : 0.0;
+            $lr = $apiPlanVolumeGb;
+            $polluted = false;
+            if ($lr > 0 && $cum > 0 && abs($snap - $cum) < 0.05 && $snap > ($lr * 1.5)) {
+                $polluted = true;
+                $apiCycleSource = 'rejected_polluted_snapshot_equals_cumulative';
+            }
+            if (!$polluted) {
+                $apiVolumeCycleGb = $snap;
+                $apiCycleKnown = true;
+                $apiCycleSource = 'order.volume_cycle_gb';
+            }
+        }
     }
-    // 2) last_renew از سفارش یا از آخرین پرداخت (فقط اندازه بسته؛ نه چرخه کامل)
+    // تکمیل last_renew از آخرین پرداخت در صورت نبود
     if ($apiPlanVolumeGb <= 0 && isset($db) && isset($username)) {
         try {
             $cfgName = (string)(isset($ordFlag['config_username']) ? $ordFlag['config_username'] : $username);
@@ -2989,46 +3000,34 @@ try {
         } catch (Throwable $ePay) {}
     }
 
+    // نمایش: فقط با snapshot معتبر
     $remNow = isset($remainingGB) ? (float)$remainingGB : 0.0;
-
-    // 3) فقط یک استنتاج امن و محدود — بدون نوشتن در DB:
-    // اگر snapshot نداریم ولی last_renew داریم و مانده ≤ بستهٔ آخر (+۲٪ تلورانس)،
-    // تقریباً مطمئنیم مانده قبلی صفر بوده و چرخه = بستهٔ آخر (سناریوی ۵۰ تمام + خرید ۱۰).
-    // اگر مانده > بستهٔ آخر، چرخه را حدس نمی‌زنیم (مثال ۲۸ با مانده ۲۵ و خرید ۱۰).
-    if (!$apiCycleKnown && $apiPlanVolumeGb > 0) {
-        $tol = max(0.05, $apiPlanVolumeGb * 0.02);
-        if ($remNow <= ($apiPlanVolumeGb + $tol)) {
-            $apiVolumeCycleGb = $apiPlanVolumeGb;
-            $apiCycleKnown = true;
-            $apiCycleSource = 'inferred_last_renew_safe';
-        }
-        // else: unknown — نمایش فقط remaining، بدون درصد جعلی از total پنل
-    }
-
-    // 4) نمایش
     if ($apiCycleKnown && $apiVolumeCycleGb > 0) {
         $apiDisplayTotalGb = $apiVolumeCycleGb;
-        $usedC = max(0.0, $apiVolumeCycleGb - max(0.0, $remNow));
-        // اگر به هر دلیل remaining > cycle (نادر)، درصد را ۰ نشان بده نه منفی
         if ($remNow > $apiVolumeCycleGb) {
             $apiUsedCyclePct = 0;
         } else {
+            $usedC = max(0.0, $apiVolumeCycleGb - max(0.0, $remNow));
             $apiUsedCyclePct = (int)round(min(100.0, max(0.0, ($usedC / $apiVolumeCycleGb) * 100.0)));
         }
     } else {
-        // نامشخص: total پنل را به اپ به عنوان چرخه نده
-        $apiDisplayTotalGb = 0;
+        $apiCycleKnown = false;
+        $apiVolumeCycleGb = 0.0;
+        $apiDisplayTotalGb = 0.0;
         $apiUsedCyclePct = 0;
-        $apiCycleSource = $apiCycleSource === 'none' ? 'unknown' : $apiCycleSource;
+        if ($apiCycleSource === 'none' || $apiCycleSource === '') {
+            $apiCycleSource = 'unknown_no_verified_cycle_snapshot';
+        }
     }
 } catch (Throwable $eCyc) {
     $apiCycleKnown = false;
-    $apiDisplayTotalGb = 0;
+    $apiVolumeCycleGb = 0.0;
+    $apiDisplayTotalGb = 0.0;
     $apiUsedCyclePct = 0;
     $apiCycleSource = 'error';
 }
 
-// اخطار حجم برای اپ: بر اساس چرخه معتبر؛ وگرنه آستانه مطلق روی remaining
+// اخطار حجم: فقط با چرخه معتبر؛ وگرنه آستانه مطلق مانده
 $apiShouldWarnVol = false;
 try {
     $remW = isset($remainingGB) ? (float)$remainingGB : -1.0;
@@ -3041,7 +3040,6 @@ try {
                 $apiShouldWarnVol = ($remW <= 5.0);
             }
         } else {
-            // بدون چرخه معتبر: فقط آستانه مطلق مانده (نه درصد از سقف انباشتی)
             $apiShouldWarnVol = ($remW > 0 && $remW <= 5.0);
         }
     }

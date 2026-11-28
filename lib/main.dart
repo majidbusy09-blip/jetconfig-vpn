@@ -24,8 +24,8 @@ void main() {
 // مشخصات نسخه (نمایش داخل اپ) — با هر ریلیز با pubspec هماهنگ کن
 // مثال: pubspec 2.2.8+222 → همین دو مقدار را هم‌خوان نگه دار
 // در کامنت از شکل appVersion = '...' استفاده نکن (ورک‌فلو گیت‌هاب آن را اشتباه می‌خواند)
-const String appVersion = 'v2.5.0';
-const int appVersionCode = 289;
+const String appVersion = 'v2.5.1';
+const int appVersionCode = 290;
 /// کانال بسته‌بندی: با --dart-define=APK_CHANNEL=arm64|universal|arm32 در بیلد ست می‌شود
 const String apkChannel = String.fromEnvironment('APK_CHANNEL', defaultValue: 'arm64');
 const String appUpdateMetaUrl = 'https://majid6064.ir/app_version.json';
@@ -2353,23 +2353,25 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
 
 
   String _getDisplayTotal() {
-    if (userData == null) return '—';
-    final cycleKnown = userData!['cycle_known'] == true ||
-        userData!['cycle_known'] == 1 ||
-        userData!['cycle_known'] == '1';
-    if (!cycleKnown) return '—';
-
+    if (userData == null) return 'نامحدود';
     double? pick(dynamic raw) {
       if (raw == null) return null;
       final v = raw is num ? raw.toDouble() : double.tryParse('$raw');
       if (v == null || v <= 0) return null;
       return v;
     }
-
-    // فقط مقدار صریح چرخه از API معتبر است؛ plan/last_renew و total پنل جایگزین نیستند.
+    // فقط وقتی سرور cycle_known=true و display/cycle داده — هیچ حدس کلاینتی
+    final cycleKnown = userData!['cycle_known'] == true ||
+        userData!['cycle_known'] == 1 ||
+        userData!['cycle_known'] == '1';
+    if (!cycleKnown) {
+      return '—';
+    }
     final shown = pick(userData!['display_total_gb']) ??
         pick(userData!['volume_cycle_gb']);
-    if (shown == null) return '—';
+    if (shown == null) {
+      return '—';
+    }
     final c = shown == shown.roundToDouble()
         ? shown.toInt().toString()
         : shown.toStringAsFixed(1);
@@ -4632,79 +4634,6 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     }
   }
 
-  /// نمایش گزارش امن حجم اشتراک؛ فقط فیلدهای تشخیصی مجاز وارد خروجی می‌شوند.
-  Future<void> _showVolumeDiagnostics() async {
-    final source = userData;
-    if (source == null) {
-      _showToast('ابتدا اطلاعات اشتراک را بروزرسانی کن', isError: true);
-      return;
-    }
-
-    const allowedFields = <String>[
-      'total_gb',
-      'remaining_gb',
-      'plan_volume_gb',
-      'display_total_gb',
-      'volume_cycle_gb',
-      'cycle_known',
-      'cycle_source',
-      'used_cycle_percent',
-    ];
-    final report = <String, dynamic>{
-      'diagnostic_version': 1,
-      'app_version': appVersion,
-      'captured_at_utc': DateTime.now().toUtc().toIso8601String(),
-    };
-    for (final key in allowedFields) {
-      if (source.containsKey(key)) report[key] = source[key];
-    }
-
-    final jsonText = const JsonEncoder.withIndent('  ').convert(report);
-    if (!mounted) return;
-    await showDialog<void>(
-      context: context,
-      builder: (ctx) => Directionality(
-        textDirection: TextDirection.rtl,
-        child: AlertDialog(
-          backgroundColor: const Color(0xFF131B2E),
-          title: const Text(
-            'گزارش عیب‌یابی حجم',
-            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-          ),
-          content: SizedBox(
-            width: double.maxFinite,
-            child: SingleChildScrollView(
-              child: SelectableText(
-                jsonText,
-                textDirection: TextDirection.ltr,
-                style: const TextStyle(
-                  color: Colors.white70,
-                  fontSize: 11,
-                  fontFamily: 'monospace',
-                ),
-              ),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('بستن'),
-            ),
-            ElevatedButton.icon(
-              icon: const Icon(Icons.copy_rounded, size: 17),
-              label: const Text('کپی JSON'),
-              onPressed: () async {
-                await Clipboard.setData(ClipboardData(text: jsonText));
-                if (ctx.mounted) Navigator.pop(ctx);
-                _showToast('گزارش امن کپی شد؛ آن را برای پشتیبانی بفرست');
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   Future<void> _fetchUserData(
     String username,
     String password, {
@@ -5915,23 +5844,39 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     final t = ui;
     final jet = isJetTheme;
     final data = userData;
+    final remainingRaw = data?['remaining_gb'];
+    final displayRaw = data?['display_total_gb'];
+    final cycleRaw = data?['volume_cycle_gb'];
+    final planRaw = data?['plan_volume_gb'] ?? data?['last_renew_gb'];
     final usedPctRaw = data?['used_cycle_percent'];
     final cycleKnownFlag = data?['cycle_known'] == true ||
         data?['cycle_known'] == 1 ||
         data?['cycle_known'] == '1';
+    final remaining = remainingRaw is num ? remainingRaw.toDouble() : double.tryParse('$remainingRaw');
+    final displayVol = displayRaw is num ? displayRaw.toDouble() : double.tryParse('$displayRaw');
+    final cycleVol = cycleRaw is num ? cycleRaw.toDouble() : double.tryParse('$cycleRaw');
+    final planVol = planRaw is num ? planRaw.toDouble() : double.tryParse('$planRaw');
     final usedPctServer = usedPctRaw is num
         ? usedPctRaw.toDouble()
         : double.tryParse('$usedPctRaw');
-
-    // درصد و نوار فقط با چرخه‌ای که API صریحاً معتبر اعلام کرده نمایش داده می‌شوند.
-    final hasServerPct = cycleKnownFlag &&
-        usedPctServer != null &&
-        usedPctServer >= 0 &&
-        usedPctServer <= 100;
-    final canShowProgress = _hasActiveSubscription() && hasServerPct;
-    final progress = hasServerPct
-        ? (1.0 - (usedPctServer! / 100.0)).clamp(0.0, 1.0)
-        : 0.0;
+    // فقط با تأیید صریح سرور (cycle_known) — بدون حدس کلاینت و بدون total پنل
+    double? denom;
+    if (cycleKnownFlag) {
+      if (displayVol != null && displayVol > 0) {
+        denom = displayVol;
+      } else if (cycleVol != null && cycleVol > 0) {
+        denom = cycleVol;
+      }
+    }
+    final hasServerPct = cycleKnownFlag && usedPctServer != null;
+    final canShowProgress = _hasActiveSubscription() &&
+        (hasServerPct || (denom != null && remaining != null && denom > 0));
+    double progress = 0.0;
+    if (hasServerPct) {
+      progress = (1.0 - (usedPctServer! / 100.0)).clamp(0.0, 1.0);
+    } else if (denom != null && remaining != null && denom > 0) {
+      progress = (remaining / denom).clamp(0.0, 1.0);
+    }
 
     Widget detail(String label, String value, IconData icon, Color color) {
       return Expanded(
@@ -5997,14 +5942,6 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
               detail('اعتبار', _getDisplayExpire(), Icons.schedule_rounded, Colors.amberAccent),
             ],
           ),
-          if (_hasActiveSubscription() && !cycleKnownFlag) ...[
-            const SizedBox(height: 6),
-            Text(
-              'اطلاعات چرخه حجم کامل نیست؛ برای دریافت اطلاعات تازه، بروزرسانی اشتراک را بزنید.',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: t.muted, fontSize: 9.5),
-            ),
-          ],
           if (canShowProgress) ...[
             const SizedBox(height: 9),
             Row(
@@ -8361,24 +8298,6 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
                           _showSelectedAppsSheet();
                         },
                       ),
-                      if (savedUser != null && userData != null)
-                        ListTile(
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 8),
-                          leading: const Icon(Icons.data_object_rounded, color: Color(0xFFFFB74D)),
-                          title: const Text(
-                            'گزارش عیب‌یابی حجم',
-                            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13.5),
-                          ),
-                          subtitle: const Text(
-                            'نمایش و کپی JSON پاک‌سازی‌شده برای بررسی مشکل حجم',
-                            style: TextStyle(color: Colors.white54, fontSize: 11),
-                          ),
-                          trailing: const Icon(Icons.chevron_left, color: Colors.white38),
-                          onTap: () {
-                            Navigator.pop(ctx);
-                            _showVolumeDiagnostics();
-                          },
-                        ),
                       ListTile(
                         contentPadding: const EdgeInsets.symmetric(horizontal: 8),
                         leading: const Icon(Icons.people_alt_rounded, color: Color(0xFF00E5FF)),
@@ -9145,5 +9064,3 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     );
   }
 }
-
-// CI-only marker: build the isolated JET VPN validation APK; no runtime behavior change.

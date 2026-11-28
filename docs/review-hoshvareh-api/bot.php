@@ -2912,11 +2912,23 @@ function jet_ensure_volume_cycle_col(PDO $db): void {
  * @return float حجم کل ذخیره‌شده
  */
 function jet_sync_order_after_renew(PDO $db, string $configUsername, $ren, int $planDays, float $fallbackVol = 0.0, float $addedVol = 0.0): float {
+    // فقط پس از موفقیت قطعی تمدید پنل Snapshot ثبت شود — در شکست، سفارش دست‌نخورده بماند
+    if ($ren === false || $ren === null) {
+        return 0.0;
+    }
+    if (!is_array($ren)) {
+        return 0.0;
+    }
+    // renewPasargadUser همیشه آرایه با کلید ok برمی‌گرداند (به‌جز false برای نبود توکن)
+    if (array_key_exists('ok', $ren) && empty($ren['ok'])) {
+        return 0.0;
+    }
     jet_ensure_last_renew_col($db);
     $newVol = 0.0;
-    if (is_array($ren) && isset($ren['volume_gb'])) {
+    if (isset($ren['volume_gb']) && (float)$ren['volume_gb'] > 0) {
         $newVol = (float)$ren['volume_gb'];
     } elseif ($fallbackVol > 0) {
+        // fallback فقط وقتی پاسخ موفق بوده ولی volume_gb خالی است (نادر)
         $newVol = $fallbackVol;
     }
     $exp = is_array($ren) && !empty($ren['expire']) ? (int)$ren['expire'] : 0;

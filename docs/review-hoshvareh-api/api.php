@@ -2549,24 +2549,14 @@ try {
 } catch (Throwable $e) {
     $apiCanClaimTest = false;
 }
-// حجم پلن سفارش جاری (برای هشدار مصرف بعد از تمدید)
-try {
-    $stOv = $db->prepare("SELECT volume_gb FROM orders WHERE config_username = ? OR user_id = ? ORDER BY id DESC LIMIT 1");
-    $stOv->execute([$username, isset($ownerUserId) ? (int)$ownerUserId : 0]);
-    $apiPlanVolumeGb = (float)$stOv->fetchColumn();
-} catch (Throwable $e) {
-    $apiPlanVolumeGb = 0.0;
-}
+// apiPlanVolumeGb فقط از last_renew_gb / سابقه پرداخت همین سرویس — نه volume_gb تجمعی و نه total پنل
+$apiPlanVolumeGb = 0.0;
 
 $totalBytes = (float)($user['data_limit'] ?? 0);
 $usedBytes = (float)($user['used_traffic'] ?? 0);
 $totalGB = $totalBytes > 0 ? round($totalBytes / (1024 * 1024 * 1024), 2) : 0;
 $usedGB = round($usedBytes / (1024 * 1024 * 1024), 2);
 $remainingGB = $totalBytes > 0 ? max(0, round($totalGB - $usedGB, 2)) : 0;
-// بعد از تمدید انباشتی: مبنای نمایش/هشدار اپ = سقف و باقیماندهٔ زنده پنل
-if ($totalGB > 0) {
-    $apiPlanVolumeGb = $totalGB;
-}
 
 $status = $user['status'] ?? 'active';
 // بعضی فورک‌ها/نسخه‌ها فیلد انقضا را با نام‌های مختلف می‌فرستند
@@ -2865,18 +2855,15 @@ try {
         $pkf = strtolower((string)($ordFlag['plan_key'] ?? ''));
         $cnf = strtolower((string)($ordFlag['config_username'] ?? ''));
         $apiIsTestSvc = (strpos($pkf, 'test') !== false || $pkf === 'test_free' || strpos($cnf, 'test_') === 0);
-        // حجم بستهٔ آخر (نه سقف انباشتی) برای درصد مصرف و اخطار اپ
-        if (isset($ordFlag['volume_cycle_gb']) && (float)$ordFlag['volume_cycle_gb'] > 0) {
-            $apiVolumeCycleGb = (float)$ordFlag['volume_cycle_gb'];
-        }
+        // last_renew برای اعتبارسنجی snapshot در بلوک بعدی — volume_cycle اینجا پذیرفته نمی‌شود
         if (isset($ordFlag['last_renew_gb']) && (float)$ordFlag['last_renew_gb'] > 0) {
             $apiPlanVolumeGb = (float)$ordFlag['last_renew_gb'];
         } else {
             // بک‌فیل از آخرین پرداخت تمدید/خرید این نام‌کاربری
             try {
-                $stPk = $db->prepare("SELECT plan_key FROM payments WHERE status = 'approved' AND action_type IN ('renew','new') AND (target_username = ? OR ((target_username IS NULL OR target_username = '') AND user_id = ?)) ORDER BY id DESC LIMIT 1");
-                $uidO = (int)($ordFlag['user_id'] ?? 0);
-                $stPk->execute([(string)($ordFlag['config_username'] ?? $username), $uidO]);
+                // فقط target_username دقیق همین سرویس — نه user_id کلی (ریسک قاطی شدن سرویس‌ها)
+                $stPk = $db->prepare("SELECT plan_key FROM payments WHERE status = 'approved' AND action_type IN ('renew','new') AND target_username = ? ORDER BY id DESC LIMIT 1");
+                $stPk->execute([(string)($ordFlag['config_username'] ?? $username)]);
                 $pkLast = (string)($stPk->fetchColumn() ?: '');
                 if ($pkLast !== '' && function_exists('getPlanByKey')) {
                     $pl = getPlanByKey($db, $pkLast);
@@ -2938,9 +2925,8 @@ try {
 
 
 // ——— حجم دوره نمایش (Source of Truth برای اپ) ———
-// فقط snapshot ذخیره‌شده در orders.volume_cycle_gb معتبر است.
-// هیچ استنتاجی (remaining<=plan و ...) انجام نمی‌شود.
-// orders.volume_gb و total_gb پنل = سقف انباشتی lifetime — مبنای نمایش کاربر نیستند.
+// Snapshot فقط با منشأ قابل‌تأیید (last_renew_gb یا سابقه پرداخت همین config_username) معتبر است.
+// total_gb / volume_gb پنل و سفارش = سقف انباشتی — مبنای درصد کاربر نیستند.
 $apiCycleKnown = false;
 $apiVolumeCycleGb = 0.0;
 $apiPlanVolumeGb = isset($apiPlanVolumeGb) ? (float)$apiPlanVolumeGb : 0.0;
@@ -2949,36 +2935,22 @@ $apiUsedCyclePct = 0;
 $apiCycleSource = 'unknown_no_verified_cycle_snapshot';
 
 try {
-    // last_renew فقط از ستون اختصاصی یا plan_key پرداخت — نه volume_gb سفارش
+    $cfgExact = '';
     if (isset($ordFlag) && is_array($ordFlag)) {
+        $cfgExact = (string)($ordFlag['config_username'] ?? '');
         if (isset($ordFlag['last_renew_gb']) && (float)$ordFlag['last_renew_gb'] > 0) {
             $apiPlanVolumeGb = (float)$ordFlag['last_renew_gb'];
         }
-        // snapshot قطعی
-        if (isset($ordFlag['volume_cycle_gb']) && (float)$ordFlag['volume_cycle_gb'] > 0) {
-            $snap = (float)$ordFlag['volume_cycle_gb'];
-            // رد snapshot آلوده: اگر با volume_gb تجمعی یکی است و last_renew کوچک‌تر و معتبر داریم
-            // (نشانهٔ ذخیرهٔ اشتباه سقف پنل به‌جای چرخه)
-            $cum = isset($ordFlag['volume_gb']) ? (float)$ordFlag['volume_gb'] : 0.0;
-            $lr = $apiPlanVolumeGb;
-            $polluted = false;
-            if ($lr > 0 && $cum > 0 && abs($snap - $cum) < 0.05 && $snap > ($lr * 1.5)) {
-                $polluted = true;
-                $apiCycleSource = 'rejected_polluted_snapshot_equals_cumulative';
-            }
-            if (!$polluted) {
-                $apiVolumeCycleGb = $snap;
-                $apiCycleKnown = true;
-                $apiCycleSource = 'order.volume_cycle_gb';
-            }
-        }
     }
-    // تکمیل last_renew از آخرین پرداخت در صورت نبود
-    if ($apiPlanVolumeGb <= 0 && isset($db) && isset($username)) {
+    if ($cfgExact === '' && isset($username)) {
+        $cfgExact = (string)$username;
+    }
+
+    // بازیابی last_renew فقط از پرداخت‌های همین نام‌کاربری سرویس (نه user_id کلی)
+    if ($apiPlanVolumeGb <= 0 && isset($db) && $cfgExact !== '') {
         try {
-            $cfgName = (string)(isset($ordFlag['config_username']) ? $ordFlag['config_username'] : $username);
-            $stPk2 = $db->prepare("SELECT p.plan_key FROM payments p WHERE p.status='approved' AND p.action_type IN ('renew','new') AND (p.target_username = ? OR p.target_username = ?) ORDER BY p.id DESC LIMIT 1");
-            $stPk2->execute([(string)$username, $cfgName]);
+            $stPk2 = $db->prepare("SELECT p.plan_key FROM payments p WHERE p.status='approved' AND p.action_type IN ('renew','new') AND p.target_username = ? ORDER BY p.id DESC LIMIT 1");
+            $stPk2->execute([$cfgExact]);
             $pk2 = (string)($stPk2->fetchColumn() ?: '');
             if ($pk2 !== '') {
                 $v2 = 0.0;
@@ -3000,7 +2972,32 @@ try {
         } catch (Throwable $ePay) {}
     }
 
-    // نمایش: فقط با snapshot معتبر
+    $lrVerified = ($apiPlanVolumeGb > 0);
+
+    // پذیرش snapshot فقط اگر منشأ قابل تأیید باشد
+    if (isset($ordFlag) && is_array($ordFlag) && isset($ordFlag['volume_cycle_gb']) && (float)$ordFlag['volume_cycle_gb'] > 0) {
+        $snap = (float)$ordFlag['volume_cycle_gb'];
+        if (!$lrVerified) {
+            // بدون last_renew / سابقه پرداخت همین سرویس → snapshot قدیمی غیرقابل‌اثبات
+            $apiCycleSource = 'unknown_no_verified_cycle_snapshot';
+            $apiCycleKnown = false;
+            $apiVolumeCycleGb = 0.0;
+        } else {
+            $cum = isset($ordFlag['volume_gb']) ? (float)$ordFlag['volume_gb'] : 0.0;
+            $lr = $apiPlanVolumeGb;
+            $polluted = ($lr > 0 && $cum > 0 && abs($snap - $cum) < 0.05 && $snap > ($lr * 1.5));
+            if ($polluted) {
+                $apiCycleSource = 'rejected_polluted_snapshot_equals_cumulative';
+                $apiCycleKnown = false;
+                $apiVolumeCycleGb = 0.0;
+            } else {
+                $apiVolumeCycleGb = $snap;
+                $apiCycleKnown = true;
+                $apiCycleSource = 'order.volume_cycle_gb';
+            }
+        }
+    }
+
     $remNow = isset($remainingGB) ? (float)$remainingGB : 0.0;
     if ($apiCycleKnown && $apiVolumeCycleGb > 0) {
         $apiDisplayTotalGb = $apiVolumeCycleGb;

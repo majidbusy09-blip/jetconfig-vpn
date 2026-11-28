@@ -2911,16 +2911,13 @@ function jet_ensure_volume_cycle_col(PDO $db): void {
  * @param float $addedVol حجم همین تمدید (پلن خریداری‌شده) برای last_renew_gb
  * @return float حجم کل ذخیره‌شده
  */
-function jet_sync_order_after_renew(PDO $db, string $configUsername, $ren, int $planDays, float $fallbackVol = 0.0, float $addedVol = 0.0): float {
-    // فقط پس از موفقیت قطعی تمدید پنل Snapshot ثبت شود — در شکست، سفارش دست‌نخورده بماند
-    if ($ren === false || $ren === null) {
+function jet_sync_order_after_renew(PDO $db, string $configUsername, $ren, int $planDays, float $fallbackVol = 0.0, float $addedVol = 0.0, $panelId = null): float {
+    // موفقیت فقط با ok صریح true — نبودن کلید ok = شکست
+    if ($ren === false || $ren === null || !is_array($ren)) {
         return 0.0;
     }
-    if (!is_array($ren)) {
-        return 0.0;
-    }
-    // renewPasargadUser همیشه آرایه با کلید ok برمی‌گرداند (به‌جز false برای نبود توکن)
-    if (array_key_exists('ok', $ren) && empty($ren['ok'])) {
+    $okVal = $ren['ok'] ?? null;
+    if ($okVal !== true && $okVal !== 1 && $okVal !== '1') {
         return 0.0;
     }
     jet_ensure_last_renew_col($db);
@@ -2928,10 +2925,9 @@ function jet_sync_order_after_renew(PDO $db, string $configUsername, $ren, int $
     if (isset($ren['volume_gb']) && (float)$ren['volume_gb'] > 0) {
         $newVol = (float)$ren['volume_gb'];
     } elseif ($fallbackVol > 0) {
-        // fallback فقط وقتی پاسخ موفق بوده ولی volume_gb خالی است (نادر)
         $newVol = $fallbackVol;
     }
-    $exp = is_array($ren) && !empty($ren['expire']) ? (int)$ren['expire'] : 0;
+    $exp = !empty($ren['expire']) ? (int)$ren['expire'] : 0;
     if ($planDays <= 0) {
         $daysStore = 0;
     } elseif ($exp > time()) {
@@ -2943,60 +2939,92 @@ function jet_sync_order_after_renew(PDO $db, string $configUsername, $ren, int $
         return $newVol;
     }
     $add = $addedVol > 0 ? $addedVol : 0.0;
-    // ظرفیت دوره نمایش = مانده واقعی قبل از تمدید + حجم بسته تمدید
     $remainingBeforeGb = 0.0;
-    if (is_array($ren) && isset($ren['remaining_bytes'])) {
+    if (isset($ren['remaining_bytes'])) {
         $remainingBeforeGb = max(0.0, (float)$ren['remaining_bytes'] / (1024 * 1024 * 1024));
-    } elseif (is_array($ren) && isset($ren['remaining_before_gb'])) {
+    } elseif (isset($ren['remaining_before_gb'])) {
         $remainingBeforeGb = max(0.0, (float)$ren['remaining_before_gb']);
     }
     $cycleGb = ($add > 0) ? round($remainingBeforeGb + $add, 3) : 0.0;
     $orderId = 0;
+    $pid = ($panelId !== null && $panelId !== '') ? (int)$panelId : 0;
     try {
-        $stOid = $db->prepare('SELECT id FROM orders WHERE config_username = ? ORDER BY id DESC LIMIT 1');
-        $stOid->execute([$configUsername]);
-        $orderId = (int)($stOid->fetchColumn() ?: 0);
+        if ($pid > 0) {
+            $stOid = $db->prepare('SELECT id FROM orders WHERE config_username = ? AND panel_id = ? ORDER BY id DESC LIMIT 1');
+            $stOid->execute([$configUsername, $pid]);
+            $orderId = (int)($stOid->fetchColumn() ?: 0);
+        }
+        if ($orderId <= 0) {
+            $stOid = $db->prepare('SELECT id FROM orders WHERE config_username = ? ORDER BY id DESC LIMIT 1');
+            $stOid->execute([$configUsername]);
+            $orderId = (int)($stOid->fetchColumn() ?: 0);
+        }
     } catch (Throwable $eOid) {}
+
+    // last_renew و volume_cycle باید با هم سازگار باشند؛ اگر cycle ذخیره نشد، cycle قدیمی NULL شود
+    $writeById = ($orderId > 0);
     try {
-        if ($orderId > 0) {
-            if ($add > 0 && $cycleGb > 0) {
+        if ($add > 0 && $cycleGb > 0) {
+            if ($writeById) {
                 $db->prepare("UPDATE orders SET volume_gb = ?, days = ?, last_renew_gb = ?, volume_cycle_gb = ?, warned_volume = 0, warned_expire = 0 WHERE id = ?")
                     ->execute([$newVol, $daysStore, $add, $cycleGb, $orderId]);
-            } elseif ($add > 0) {
-                $db->prepare("UPDATE orders SET volume_gb = ?, days = ?, last_renew_gb = ?, warned_volume = 0, warned_expire = 0 WHERE id = ?")
-                    ->execute([$newVol, $daysStore, $add, $orderId]);
-                error_log('[jet_sync] cycle snapshot skipped (no cycleGb) order_id=' . $orderId);
             } else {
-                $db->prepare("UPDATE orders SET volume_gb = ?, days = ?, warned_volume = 0, warned_expire = 0 WHERE id = ?")
-                    ->execute([$newVol, $daysStore, $orderId]);
-            }
-        } else {
-            if ($add > 0 && $cycleGb > 0) {
                 $db->prepare("UPDATE orders SET volume_gb = ?, days = ?, last_renew_gb = ?, volume_cycle_gb = ?, warned_volume = 0, warned_expire = 0 WHERE config_username = ?")
                     ->execute([$newVol, $daysStore, $add, $cycleGb, $configUsername]);
-            } elseif ($add > 0) {
-                $db->prepare("UPDATE orders SET volume_gb = ?, days = ?, last_renew_gb = ?, warned_volume = 0, warned_expire = 0 WHERE config_username = ?")
+            }
+        } elseif ($add > 0) {
+            // تمدید موفق ولی cycle محاسبه نشد → last_renew به‌روز، cycle قبلی باطل
+            if ($writeById) {
+                $db->prepare("UPDATE orders SET volume_gb = ?, days = ?, last_renew_gb = ?, volume_cycle_gb = NULL, warned_volume = 0, warned_expire = 0 WHERE id = ?")
+                    ->execute([$newVol, $daysStore, $add, $orderId]);
+            } else {
+                $db->prepare("UPDATE orders SET volume_gb = ?, days = ?, last_renew_gb = ?, volume_cycle_gb = NULL, warned_volume = 0, warned_expire = 0 WHERE config_username = ?")
                     ->execute([$newVol, $daysStore, $add, $configUsername]);
+            }
+            error_log('[jet_sync] cycle cleared (no cycleGb) order_id=' . $orderId);
+        } else {
+            if ($writeById) {
+                $db->prepare("UPDATE orders SET volume_gb = ?, days = ?, warned_volume = 0, warned_expire = 0 WHERE id = ?")
+                    ->execute([$newVol, $daysStore, $orderId]);
             } else {
                 $db->prepare("UPDATE orders SET volume_gb = ?, days = ?, warned_volume = 0, warned_expire = 0 WHERE config_username = ?")
                     ->execute([$newVol, $daysStore, $configUsername]);
             }
         }
     } catch (Throwable $e) {
-        error_log('[jet_sync] orders update failed order_id=' . $orderId . ' err=' . $e->getMessage());
+        error_log('[jet_sync] atomic cycle write failed order_id=' . $orderId . ' err=' . $e->getMessage());
+        // مسیر جایگزین: حجم/روز را نگه دار؛ last_renew در صورت امکان؛ cycle حتماً NULL تا API snapshot کهنه را نشان ندهد
         try {
             if ($add > 0) {
-                $db->prepare("UPDATE orders SET volume_gb = ?, days = ?, last_renew_gb = ?, warned_volume = 0, warned_expire = 0 WHERE config_username = ?")
-                    ->execute([$newVol, $daysStore, $add, $configUsername]);
+                if ($writeById) {
+                    $db->prepare("UPDATE orders SET volume_gb = ?, days = ?, last_renew_gb = ?, volume_cycle_gb = NULL, warned_volume = 0, warned_expire = 0 WHERE id = ?")
+                        ->execute([$newVol, $daysStore, $add, $orderId]);
+                } else {
+                    $db->prepare("UPDATE orders SET volume_gb = ?, days = ?, last_renew_gb = ?, volume_cycle_gb = NULL, warned_volume = 0, warned_expire = 0 WHERE config_username = ?")
+                        ->execute([$newVol, $daysStore, $add, $configUsername]);
+                }
             } else {
-                $db->prepare("UPDATE orders SET volume_gb = ?, days = ?, warned_volume = 0, warned_expire = 0 WHERE config_username = ?")
-                    ->execute([$newVol, $daysStore, $configUsername]);
+                if ($writeById) {
+                    $db->prepare("UPDATE orders SET volume_gb = ?, days = ?, warned_volume = 0, warned_expire = 0 WHERE id = ?")
+                        ->execute([$newVol, $daysStore, $orderId]);
+                } else {
+                    $db->prepare("UPDATE orders SET volume_gb = ?, days = ?, warned_volume = 0, warned_expire = 0 WHERE config_username = ?")
+                        ->execute([$newVol, $daysStore, $configUsername]);
+                }
             }
         } catch (Throwable $e2) {
             try {
                 $db->prepare("UPDATE orders SET volume_gb = ?, days = ? WHERE config_username = ?")
                     ->execute([$newVol, $daysStore, $configUsername]);
             } catch (Throwable $e3) {}
+            // تلاش جدا برای باطل کردن cycle کهنه
+            try {
+                if ($writeById) {
+                    $db->prepare("UPDATE orders SET volume_cycle_gb = NULL WHERE id = ?")->execute([$orderId]);
+                } else {
+                    $db->prepare("UPDATE orders SET volume_cycle_gb = NULL WHERE config_username = ?")->execute([$configUsername]);
+                }
+            } catch (Throwable $e4) {}
         }
     }
     return $newVol;

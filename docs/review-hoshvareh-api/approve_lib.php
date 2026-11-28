@@ -1265,10 +1265,15 @@ function wa_approve_payment(PDO $db, int $paymentId): array
                         ->execute([$newVol, $daysStore, (float)$vol, $cycleGb, $orderId]);
                     $snapOk = true;
                 } catch (Throwable $eCycle) {
+                    // last_renew بدون cycle معتبر نباشد — cycle کهنه NULL
                     try {
-                        $db->prepare('UPDATE orders SET volume_gb = ?, days = ?, last_renew_gb = ?, warned_volume = 0, warned_expire = 0 WHERE id = ?')
+                        $db->prepare('UPDATE orders SET volume_gb = ?, days = ?, last_renew_gb = ?, volume_cycle_gb = NULL, warned_volume = 0, warned_expire = 0 WHERE id = ?')
                             ->execute([$newVol, $daysStore, (float)$vol, $orderId]);
-                    } catch (Throwable $e2) {}
+                    } catch (Throwable $e2) {
+                        try {
+                            $db->prepare('UPDATE orders SET volume_cycle_gb = NULL WHERE id = ?')->execute([$orderId]);
+                        } catch (Throwable $e3) {}
+                    }
                     error_log('[wa_approve] volume_cycle snapshot failed order_id=' . $orderId . ' op=renew');
                 }
             } else {
@@ -1277,8 +1282,14 @@ function wa_approve_payment(PDO $db, int $paymentId): array
                         ->execute([$newVol, $daysStore, (float)$vol, $cycleGb, $targetUser]);
                     $snapOk = true;
                 } catch (Throwable $eCycle) {
-                    $db->prepare('UPDATE orders SET volume_gb = ?, days = ?, last_renew_gb = ?, warned_volume = 0, warned_expire = 0 WHERE config_username = ?')
-                        ->execute([$newVol, $daysStore, (float)$vol, $targetUser]);
+                    try {
+                        $db->prepare('UPDATE orders SET volume_gb = ?, days = ?, last_renew_gb = ?, volume_cycle_gb = NULL, warned_volume = 0, warned_expire = 0 WHERE config_username = ?')
+                            ->execute([$newVol, $daysStore, (float)$vol, $targetUser]);
+                    } catch (Throwable $e2) {
+                        try {
+                            $db->prepare('UPDATE orders SET volume_cycle_gb = NULL WHERE config_username = ?')->execute([$targetUser]);
+                        } catch (Throwable $e3) {}
+                    }
                     error_log('[wa_approve] volume_cycle snapshot failed user=' . substr((string)$targetUser, 0, 24) . ' op=renew');
                 }
             }

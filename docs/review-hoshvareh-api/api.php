@@ -2985,8 +2985,14 @@ try {
         } else {
             $cum = isset($ordFlag['volume_gb']) ? (float)$ordFlag['volume_gb'] : 0.0;
             $lr = $apiPlanVolumeGb;
+            // cycle معتبر باید >= last_renew باشد (مانده‌قبل + بسته)
+            $inconsistent = ($lr > 0 && $snap + 0.001 < $lr);
             $polluted = ($lr > 0 && $cum > 0 && abs($snap - $cum) < 0.05 && $snap > ($lr * 1.5));
-            if ($polluted) {
+            if ($inconsistent) {
+                $apiCycleSource = 'rejected_cycle_less_than_last_renew';
+                $apiCycleKnown = false;
+                $apiVolumeCycleGb = 0.0;
+            } elseif ($polluted) {
                 $apiCycleSource = 'rejected_polluted_snapshot_equals_cumulative';
                 $apiCycleKnown = false;
                 $apiVolumeCycleGb = 0.0;

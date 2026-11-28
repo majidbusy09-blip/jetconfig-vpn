@@ -24,8 +24,8 @@ void main() {
 // مشخصات نسخه (نمایش داخل اپ) — با هر ریلیز با pubspec هماهنگ کن
 // مثال: pubspec 2.2.8+222 → همین دو مقدار را هم‌خوان نگه دار
 // در کامنت از شکل appVersion = '...' استفاده نکن (ورک‌فلو گیت‌هاب آن را اشتباه می‌خواند)
-const String appVersion = 'v2.4.5';
-const int appVersionCode = 284;
+const String appVersion = 'v2.5.1';
+const int appVersionCode = 290;
 /// کانال بسته‌بندی: با --dart-define=APK_CHANNEL=arm64|universal|arm32 در بیلد ست می‌شود
 const String apkChannel = String.fromEnvironment('APK_CHANNEL', defaultValue: 'arm64');
 const String appUpdateMetaUrl = 'https://majid6064.ir/app_version.json';
@@ -2080,7 +2080,16 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     final rem = remRaw is num ? remRaw.toDouble() : double.tryParse('$remRaw');
     if (total != null && total > 0) {
       final left = rem ?? 0.0;
-      if (left <= 0 || (left / total) <= 0.20) return true;
+      if (left <= 0) return true;
+      final sw = userData!['should_warn_volume'];
+      if (sw == true || sw == 1 || sw == '1') return true;
+      if (sw == false || sw == 0 || sw == '0') {
+        // API: هنوز حجم کافی است
+      } else if (total > 15.0) {
+        if (left <= 5.0) return true;
+      } else if ((left / total) <= 0.20) {
+        return true;
+      }
     }
 
     final expire = userData!['expire_days'];
@@ -2178,15 +2187,20 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     final planVol = planRaw is num ? planRaw.toDouble() : double.tryParse('$planRaw');
     final left = rem ?? 0.0;
     if (left > 0) {
-      // مبنای ۸۰٪ مصرف: حجم پلن/سفارش جاری، نه جمع تمدیدهای قبلی روی پنل
-      double? basis = total;
-      if (planVol != null && planVol > 0) {
-        if (total == null || total <= 0 || total > planVol * 1.15) {
-          basis = planVol;
+      // هیبرید: سقف بزرگ → آستانه مطلق گیگ | سقف کوچک یا بستهٔ آخر → درصد
+      // should_warn_volume از API اگر آمده اولویت دارد
+      final sw = d['should_warn_volume'];
+      if (sw == true || sw == 1 || sw == '1') return true;
+      if (sw == false || sw == 0 || sw == '0') {
+        // API صراحتاً گفته اخطار نده (مگر زمان)
+      } else if (total != null && total > 15.0) {
+        if (left <= 5.0) return true;
+      } else {
+        double? basis = planVol;
+        if (basis == null || basis <= 0) basis = total;
+        if (basis != null && basis > 0 && (left / basis) <= 0.20) {
+          return true;
         }
-      }
-      if (basis != null && basis > 0 && (left / basis) <= 0.20) {
-        return true;
       }
     }
 
@@ -2340,11 +2354,28 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
 
   String _getDisplayTotal() {
     if (userData == null) return 'نامحدود';
-    final total = userData!['total_gb'];
-    if (total == null || total == 0 || total == 0.0 || total == '0') {
-      return 'نامحدود';
+    double? pick(dynamic raw) {
+      if (raw == null) return null;
+      final v = raw is num ? raw.toDouble() : double.tryParse('$raw');
+      if (v == null || v <= 0) return null;
+      return v;
     }
-    return '$total GB';
+    // فقط وقتی سرور cycle_known=true و display/cycle داده — هیچ حدس کلاینتی
+    final cycleKnown = userData!['cycle_known'] == true ||
+        userData!['cycle_known'] == 1 ||
+        userData!['cycle_known'] == '1';
+    if (!cycleKnown) {
+      return '—';
+    }
+    final shown = pick(userData!['display_total_gb']) ??
+        pick(userData!['volume_cycle_gb']);
+    if (shown == null) {
+      return '—';
+    }
+    final c = shown == shown.roundToDouble()
+        ? shown.toInt().toString()
+        : shown.toStringAsFixed(1);
+    return '$c GB';
   }
 
   String _getDisplayExpire() {
@@ -5813,12 +5844,39 @@ class _MainVpnScreenState extends State<MainVpnScreen> with TickerProviderStateM
     final t = ui;
     final jet = isJetTheme;
     final data = userData;
-    final totalRaw = data?['total_gb'];
     final remainingRaw = data?['remaining_gb'];
-    final total = totalRaw is num ? totalRaw.toDouble() : double.tryParse('$totalRaw');
+    final displayRaw = data?['display_total_gb'];
+    final cycleRaw = data?['volume_cycle_gb'];
+    final planRaw = data?['plan_volume_gb'] ?? data?['last_renew_gb'];
+    final usedPctRaw = data?['used_cycle_percent'];
+    final cycleKnownFlag = data?['cycle_known'] == true ||
+        data?['cycle_known'] == 1 ||
+        data?['cycle_known'] == '1';
     final remaining = remainingRaw is num ? remainingRaw.toDouble() : double.tryParse('$remainingRaw');
-    final canShowProgress = _hasActiveSubscription() && total != null && total > 0 && remaining != null;
-    final progress = canShowProgress ? (remaining! / total!).clamp(0.0, 1.0) : 0.0;
+    final displayVol = displayRaw is num ? displayRaw.toDouble() : double.tryParse('$displayRaw');
+    final cycleVol = cycleRaw is num ? cycleRaw.toDouble() : double.tryParse('$cycleRaw');
+    final planVol = planRaw is num ? planRaw.toDouble() : double.tryParse('$planRaw');
+    final usedPctServer = usedPctRaw is num
+        ? usedPctRaw.toDouble()
+        : double.tryParse('$usedPctRaw');
+    // فقط با تأیید صریح سرور (cycle_known) — بدون حدس کلاینت و بدون total پنل
+    double? denom;
+    if (cycleKnownFlag) {
+      if (displayVol != null && displayVol > 0) {
+        denom = displayVol;
+      } else if (cycleVol != null && cycleVol > 0) {
+        denom = cycleVol;
+      }
+    }
+    final hasServerPct = cycleKnownFlag && usedPctServer != null;
+    final canShowProgress = _hasActiveSubscription() &&
+        (hasServerPct || (denom != null && remaining != null && denom > 0));
+    double progress = 0.0;
+    if (hasServerPct) {
+      progress = (1.0 - (usedPctServer! / 100.0)).clamp(0.0, 1.0);
+    } else if (denom != null && remaining != null && denom > 0) {
+      progress = (remaining / denom).clamp(0.0, 1.0);
+    }
 
     Widget detail(String label, String value, IconData icon, Color color) {
       return Expanded(
